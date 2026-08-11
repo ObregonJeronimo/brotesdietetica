@@ -269,22 +269,37 @@ Y si usás un dominio propio, agregalo también en `frame-src`.
 
 1. https://vercel.com → **Add New → Project** → importar
    `github.com/ObregonJeronimo/brotesdietetica`.
-2. Configuración:
+2. Configuración: **no toques nada.** `vercel.json` ya declara lo que hace falta:
+
+   ```json
+   "buildCommand": "npm run build",
+   "outputDirectory": "."
+   ```
 
 | Campo | Valor |
 |---|---|
 | **Framework Preset** | `Other` |
 | **Root Directory** | `./` |
-| **Build Command** | **vacío** (desactivá el override) |
-| **Output Directory** | **vacío** |
-| **Install Command** | **vacío** |
+| **Build Command** | **sin override** — lo define `vercel.json` |
+| **Output Directory** | **sin override** — lo define `vercel.json` |
 | **Environment Variables** | **ninguna** — ver [§10](#10-environment-variables-la-respuesta-corta) |
 | **Production Branch** | `main` |
 
-3. **Deploy.** No hay build: Vercel sirve la raíz del repo tal cual.
+3. **Deploy.**
 
-> Como no hay build en Vercel, los `.min` **tienen que estar commiteados**. Corré
-> `npm run build` antes de cada commit que toque `app.js` o los `.css`. Ver [§15](#15-build-de-los-archivos-min).
+> ⚠️ **Los dos campos de `vercel.json` son obligatorios.** Vercel detecta el script
+> `build` del `package.json`, **lo corre igual**, y después busca una carpeta de salida
+> `public/`. Como este sitio es estático y se sirve desde la raíz, esa carpeta no existe y
+> el deploy falla con:
+> ```
+> Error: No Output Directory named "public" found after the Build completed.
+> ```
+> Dejar *Build Command* vacío en la UI **no** alcanza: vacío significa "usá el default", y
+> el default es exactamente eso. Hay que declararlo explícito, y por eso está en el repo.
+
+**Ventaja de que el build corra en Vercel:** los `.min` se regeneran en cada deploy, así que
+**no pueden quedar desincronizados** de `app.js` / `styles.css` aunque te olvides de correr
+`npm run build` antes del commit. Igual conviene correrlo local para probar antes de subir.
 
 4. Anotá el host que te asignó (`brotesdietetica.vercel.app`) y **volvé al paso 4.3** a
    agregarlo en los dominios autorizados de Firebase, y al paso 8 en `DOMINIOS_PROPIOS`.
@@ -514,9 +529,16 @@ git add -A && git commit -m "cambio datos negocio" && git push
 npm run build
 ```
 
-> ⚠️ **Editar `app.js` o `styles.css` sin correr esto no tiene ningún efecto en producción.**
-> No avisa, no falla: simplemente no cambia nada. YERCO no tenía script de build (se
-> minificaba a mano); acá quedó automatizado con `terser` + `clean-css`.
+> **En producción no hace falta acordarse:** `vercel.json` tiene
+> `"buildCommand": "npm run build"`, así que Vercel regenera los `.min` en cada deploy a
+> partir de las fuentes. Nunca quedan desincronizados.
+>
+> Localmente **sí** hace falta correrlo: si editás `app.js` o `styles.css` y abrís el sitio
+> con `npm run dev`, vas a seguir viendo la versión vieja hasta que buildees. No avisa, no
+> falla: simplemente no cambia nada.
+>
+> YERCO no tenía script de build (se minificaba a mano); acá quedó automatizado con
+> `terser` + `clean-css`.
 >
 > `admin.html` es la excepción: tiene el CSS y el JS embebidos, se edita directo y no
 > necesita build.
