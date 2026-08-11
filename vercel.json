@@ -1,4 +1,24 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "//": [
+    "Sitio estatico sin framework: los archivos se sirven desde la RAIZ del repo,",
+    "no hay carpeta de salida tipo dist/ o public/.",
+    "",
+    "buildCommand   -> regenera los .min (app.min.js, styles.min.css, ...) en cada",
+    "                  deploy. Asi nunca quedan desincronizados de sus fuentes,",
+    "                  aunque te olvides de correr 'npm run build' antes del commit.",
+    "outputDirectory-> '.' = servir la raiz tal cual.",
+    "",
+    "Estos dos campos son obligatorios: si no estan, Vercel detecta el script",
+    "'build' del package.json, lo corre igual, y despues falla con",
+    "'No Output Directory named public found'.",
+    "En la UI de Vercel dejá Build Command y Output Directory SIN override:",
+    "lo que manda es este archivo."
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": ".",
+
   "rewrites": [
     {
       "source": "/__/auth/:path*",
