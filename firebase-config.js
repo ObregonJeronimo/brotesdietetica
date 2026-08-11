@@ -41,17 +41,17 @@ const DOMINIOS_PROPIOS = [
     // 'www.brotesdietetica.com.ar',
 ];
 
-const FIREBASE_PROJECT_ID = 'REEMPLAZAR-project-id';
+const FIREBASE_PROJECT_ID = 'brotesdietetica-2f78e';
 
 const firebaseConfig = {
-    apiKey: "REEMPLAZAR-api-key",
+    apiKey: "AIzaSyDJR-UH10vR39Gmu6AJxhR6egeFwzGMPSI",
     authDomain: DOMINIOS_PROPIOS.includes(location.hostname)
         ? location.hostname
         : `${FIREBASE_PROJECT_ID}.firebaseapp.com`,
     projectId: FIREBASE_PROJECT_ID,
     storageBucket: `${FIREBASE_PROJECT_ID}.firebasestorage.app`,
-    messagingSenderId: "REEMPLAZAR-sender-id",
-    appId: "REEMPLAZAR-app-id"
+    messagingSenderId: "365050888270",
+    appId: "1:365050888270:web:d48b87afb039126889c31f"
 };
 
 firebase.initializeApp(firebaseConfig);
