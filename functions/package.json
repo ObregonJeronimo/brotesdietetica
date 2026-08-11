@@ -1,0 +1,13 @@
+{
+  "name": "brotes-functions",
+  "description": "Cloud Functions para Brotes Dietetica - Telegram, cupones, rate limit y sanitizacion de pedidos",
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "firebase-functions": "^5.0.0"
+  },
+  "private": true
+}

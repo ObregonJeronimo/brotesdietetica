@@ -1,0 +1,48 @@
+{
+  "_comentario": [
+    "Indices compuestos que Firestore necesita. En YERCO estos indices existian SOLO en la",
+    "consola del proyecto viejo, sin versionar: al crear un proyecto nuevo hay que recrearlos",
+    "o varias pantallas fallan en silencio (los try/catch se comen el error).",
+    "Desplegar con: firebase deploy --only firestore:indexes",
+    "Para que sirve cada uno:",
+    "  pedidos(clienteAuthUid, creadoEn desc) -> 'Mis pedidos' del cliente y el detalle de cliente en /admin",
+    "  cuponesUsos(cuponId, uid)              -> control de un uso por cliente por cupon",
+    "  cupones(codigo, activo)                -> aplicarCupon(); sin esto falla todo canje",
+    "  resenas(clienteAuthUid, usado)         -> checkAlreadyReviewed(); sin esto /resena dice 'Link invalido' a todos"
+  ],
+  "indexes": [
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clienteAuthUid", "order": "ASCENDING" },
+        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cuponesUsos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cuponId", "order": "ASCENDING" },
+        { "fieldPath": "uid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cupones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "codigo", "order": "ASCENDING" },
+        { "fieldPath": "activo", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "resenas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clienteAuthUid", "order": "ASCENDING" },
+        { "fieldPath": "usado", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

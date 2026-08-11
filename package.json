@@ -1,0 +1,16 @@
+{
+  "name": "brotes-dietetica",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ecommerce y panel de administracion de Brotes Dietetica. Desarrollado por Deft Software Solutions.",
+  "scripts": {
+    "dev": "node dev-server.js 5173",
+    "build:js": "terser app.js -c -m -o app.min.js",
+    "build:css": "cleancss -o styles.min.css styles.css && cleancss -o toolbar.min.css toolbar.css && cleancss -o footer-dev.min.css footer-dev.css",
+    "build": "npm run build:js && npm run build:css"
+  },
+  "devDependencies": {
+    "clean-css-cli": "^5.6.3",
+    "terser": "^5.50.0"
+  }
+}

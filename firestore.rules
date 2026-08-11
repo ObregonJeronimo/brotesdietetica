@@ -1,0 +1,183 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ==========================================================================
+       ADMINS DEL PANEL
+       Para agregar/quitar un admin hay que tocar DOS lugares y volver a
+       desplegar las reglas (firebase deploy --only firestore:rules):
+         1) esta funcion isAdmin()
+         2) la constante ADMIN_EMAILS en config-negocio.js (control de la UI)
+       Esta lista es la que MANDA: sin estar aca, el panel no puede escribir
+       nada aunque la UI se muestre.
+       ========================================================================== */
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'jeroobregon03@gmail.com' ||
+        request.auth.token.email == 'thiagowendler53@gmail.com'
+      );
+    }
+
+    function isAuthUser() {
+      return request.auth != null;
+    }
+
+    function validString(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    /* ===== PRODUCTOS ===== */
+    match /productos/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    /* ===== PEDIDOS ===== */
+    match /pedidos/{doc} {
+      /* Crear: solo usuarios autenticados, validando estructura */
+      allow create: if isAuthUser()
+        && request.resource.data.keys().hasAll(['cliente','telefono','items','total','origen','estado','creadoEn'])
+        && validString(request.resource.data.cliente, 120)
+        && validString(request.resource.data.telefono, 30)
+        && request.resource.data.total is number
+        && request.resource.data.total > 0
+        && request.resource.data.total < 10000000
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 100
+        && request.resource.data.origen == 'web';
+      /* Leer: admin o el propio cliente */
+      allow read: if isAdmin()
+        || (isAuthUser() && 'clienteAuthUid' in resource.data && resource.data.clienteAuthUid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    /* ===== VENTAS ===== */
+    match /ventas/{doc} {
+      allow read, write: if isAdmin();
+    }
+    match /ventasMayoristas/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    /* ===== CLIENTES ===== */
+    match /clientes/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    /* ===== CLIENTES AUTH ===== */
+    match /clientesAuth/{uid} {
+      allow read: if isAdmin() || (isAuthUser() && request.auth.uid == uid);
+      allow create: if isAuthUser() && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['email','nombre','apellido','telefono','direcciones','creadoEn'])
+        && validString(request.resource.data.email, 200)
+        && validString(request.resource.data.nombre, 80)
+        && validString(request.resource.data.apellido, 80)
+        && validString(request.resource.data.telefono, 30)
+        && request.resource.data.direcciones is list
+        && request.resource.data.direcciones.size() <= 5;
+      allow update: if isAdmin()
+        || (isAuthUser() && request.auth.uid == uid
+          && (!('nombre' in request.resource.data) || validString(request.resource.data.nombre, 80))
+          && (!('apellido' in request.resource.data) || validString(request.resource.data.apellido, 80))
+          && (!('telefono' in request.resource.data) || validString(request.resource.data.telefono, 30))
+          && (!('direcciones' in request.resource.data) || (request.resource.data.direcciones is list && request.resource.data.direcciones.size() <= 5)));
+    }
+
+    /* ===== CUPONES ===== */
+    match /cupones/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /cuponesUsos/{doc} {
+      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow create: if validString(request.resource.data.codigo, 30)
+        && (
+          !('uid' in request.resource.data)
+          || (request.auth != null && request.resource.data.uid == request.auth.uid)
+        );
+    }
+
+    /* ===== CONFIG =====
+       OJO con el orden: la regla mas especifica (config/telegram) va PRIMERO.
+       config/telegram guarda el TOKEN del bot de Telegram. Con la regla generica
+       de abajo (`allow read: if true`) ese token queda legible por cualquiera que
+       abra la consola del navegador. Por eso se restringe a admins.
+       Esto NO rompe nada:
+         - la Cloud Function usa el Admin SDK y no pasa por estas reglas
+         - el panel /admin lo lee logueado como admin
+       Mas seguro todavia (ver SETUP.md): mover el token a Secret Manager con
+       defineSecret() y sacarlo de Firestore por completo. */
+    match /config/telegram {
+      allow read, write: if isAdmin();
+    }
+    match /config/{doc} {
+      allow read: if true;
+      allow write: if isAdmin()
+        || ((doc == 'pedidosCount' || doc == 'clientesAuthCount') && isAuthUser());
+    }
+
+    /* ===== RESEÑAS ===== */
+    match /resenas/{doc} {
+      allow read: if true;
+      /* Solo el admin puede crear tokens de reseña */
+      allow create: if isAdmin();
+      /* El cliente puede completar una reseña (update) si el token existe y no fue usado.
+         No puede alterar ventaNum ni creadoEn (preserva la integridad del token).
+
+         ENDURECIDO respecto de YERCO: ahí este update NO pedía autenticación.
+         Como `read` es público, los ids de los tokens se pueden listar, así que
+         cualquiera podía completar la reseña de otro (el login de resena.html es
+         solo del lado del cliente y se saltea desde la consola).
+         Ahora exigimos sesión y que clienteAuthUid sea el del que escribe, que es
+         exactamente lo que resena.html ya manda. */
+      allow update: if isAuthUser()
+        && request.resource.data.clienteAuthUid == request.auth.uid
+        && resource.data.usado == false
+        && request.resource.data.usado == true
+        && request.resource.data.ventaNum == resource.data.ventaNum
+        && validString(request.resource.data.nombre, 100)
+        && validString(request.resource.data.comentario, 1000)
+        && request.resource.data.estrellas is number
+        && request.resource.data.estrellas >= 1
+        && request.resource.data.estrellas <= 5;
+      allow delete: if isAdmin();
+    }
+
+    /* ===== HISTORIAL ===== */
+    match /historial/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    /* ===== SITE CONTENT =====
+       NOTA: siteContent y factura son DOCUMENTOS dentro de config/, no colecciones.
+       Su acceso está cubierto por la regla config/{doc}. Estos match no aplican
+       pero se dejan documentados por claridad. */
+    match /siteContent/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    /* ===== LISTAS PROVEEDORES ===== */
+    match /listas/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    /* ===== INSUMOS ===== */
+    match /insumos/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    /* ===== FACTURA ===== */
+    match /factura/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    /* ===== CATEGORIAS ===== */
+    match /_categorias/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

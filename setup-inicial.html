@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Brotes | Setup inicial de Firebase</title>
+<link rel="icon" type="image/svg+xml" href="img/favicon-brotes.svg">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--input:#252836;--border:#2e3140;--text:#e4e4e7;--dim:#8b8d97;--accent:#5FA87A;--gold:#EDB833;--danger:#e54545}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);padding:2rem 1rem;line-height:1.6}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:1.5rem;margin-bottom:0.25rem}
+h1 .bi{color:var(--gold)}
+.sub{color:var(--dim);font-size:0.9rem;margin-bottom:1.5rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1rem}
+.card h2{font-size:1rem;margin-bottom:0.75rem;color:var(--gold)}
+button{font-family:inherit;font-size:0.9rem;font-weight:500;border:none;border-radius:8px;padding:0.65rem 1.1rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.45rem;transition:all 0.15s}
+.btn-primary{background:var(--accent);color:#0f1117}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+ul.checks{list-style:none;font-size:0.88rem}
+ul.checks li{padding:0.35rem 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:flex-start;gap:0.6rem}
+ul.checks li:last-child{border-bottom:none}
+.tag{font-size:0.7rem;padding:0.1rem 0.45rem;border-radius:4px;font-weight:700;flex:0 0 auto;margin-top:0.15rem}
+.tag.ok{background:rgba(95,168,122,0.18);color:var(--accent)}
+.tag.new{background:rgba(237,184,51,0.18);color:var(--gold)}
+.tag.err{background:rgba(229,69,69,0.18);color:var(--danger)}
+code{background:var(--input);padding:0.1rem 0.35rem;border-radius:4px;font-size:0.82rem}
+#log{background:#0b0d12;border:1px solid var(--border);border-radius:8px;padding:0.9rem;font-family:ui-monospace,monospace;font-size:0.8rem;white-space:pre-wrap;max-height:340px;overflow:auto;display:none}
+.warn{background:rgba(237,184,51,0.1);border-left:3px solid var(--gold);padding:0.8rem 1rem;border-radius:6px;font-size:0.85rem;margin-bottom:1rem}
+.who{font-size:0.85rem;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><i class="bi bi-rocket-takeoff"></i> Setup inicial de Firebase</h1>
+  <p class="sub">Brotes Dietética — crea los documentos que el panel <code>/admin</code> necesita para arrancar.</p>
+
+  <div class="warn">
+    <strong>Esta página solo CREA lo que falta.</strong> Nunca borra ni sobreescribe nada.
+    Se puede correr varias veces sin riesgo. Cuando termines el setup, borrá este archivo
+    del repo (o dejalo: igual exige login de admin y las reglas de Firestore bloquean a cualquier otro).
+  </div>
+
+  <div class="card">
+    <h2>1. Identificate</h2>
+    <div id="authBox">
+      <button class="btn-primary" onclick="login()"><i class="bi bi-google"></i> Entrar con Google</button>
+    </div>
+    <p class="who" id="who"></p>
+  </div>
+
+  <div class="card">
+    <h2>2. Qué falta</h2>
+    <ul class="checks" id="checks"><li><span class="tag new">...</span> Iniciá sesión para revisar.</li></ul>
+    <div style="margin-top:1rem;display:flex;gap:0.6rem;flex-wrap:wrap">
+      <button class="btn-ghost" id="btnCheck" onclick="revisar()" disabled><i class="bi bi-arrow-repeat"></i> Volver a revisar</button>
+      <button class="btn-primary" id="btnSeed" onclick="sembrar()" disabled><i class="bi bi-database-add"></i> Crear lo que falta</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. Registro</h2>
+    <div id="log"></div>
+    <p class="who" id="noLog">Todavía no se ejecutó nada.</p>
+  </div>
+
+  <p class="sub" style="text-align:center"><a href="/admin" style="color:var(--accent)">Ir al panel /admin &rarr;</a></p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="config-negocio.js"></script>
+<script>
+/* ===========================================================================
+   Los documentos de abajo salen de analizar qué lee el panel al arrancar.
+   Los 3 primeros son BLOQUEANTES: sin ellos no se puede crear el primer
+   producto (el <select> de categoría se arma con las categorías de los
+   productos que YA existen, y guardar exige una lista de proveedor).
+   =========================================================================== */
+const N = (typeof NEGOCIO !== 'undefined') ? NEGOCIO : null;
+const wa = N ? N.whatsapp : '5493516872770';
+const waCorto = N ? N.telefonoDisplay.replace('+54 9 ','').replace(/ /g,'-') : '351-6872770';
+const mail = N ? N.email : 'brotesdietetica@gmail.com';
+const dir = N ? N.direccionCompleta : 'Manuel de Falla, X5021 Cordoba';
+const zona = N ? N.zonaEnvio : 'Rivera Indarte y alrededores';
+const ig = N ? N.instagram : 'brotesdietetica';
+
+const PLAN = [
+  { id:'listas',      tipo:'coleccion', path:'listas', bloqueante:true,
+    label:'Una lista de proveedor (sin esto no se puede guardar ningún producto)',
+    data:{ nombre:'PROVEEDOR PRINCIPAL' } },
+
+  { id:'categoria',   tipo:'doc', path:'_categorias/GENERAL', bloqueante:true,
+    label:'Categoría inicial <code>GENERAL</code>',
+    data:{ nombre:'GENERAL', subcategorias:[], createdAt:new Date() } },
+
+  { id:'producto',    tipo:'coleccion', path:'productos', bloqueante:true,
+    label:'Producto semilla oculto (desbloquea el selector de categorías del panel)',
+    data:null /* se arma en runtime: necesita el id de la lista */ },
+
+  { id:'siteContent', tipo:'doc', path:'config/siteContent', bloqueante:false,
+    label:'Textos e imágenes de la web (si falta, la tienda muestra los textos por defecto del panel)',
+    data:{
+      heroBadge:'100% Natural', heroTitle1:'Tu dietética', heroTitle2:'de confianza',
+      heroSubtitle:'Productos naturales y de calidad a la puerta de tu casa. Envíos en '+zona+'.',
+      stat1Num:'Natural', stat1Label:'Seleccionado', stat2Num:'24h', stat2Label:'Envío rápido',
+      nosotrosTag:'¿Quiénes somos?', nosotrosTitulo:'Una dietética distinta',
+      nosotrosTexto:'Brotes es una dietética de barrio en Córdoba, con ganas de hacer las cosas bien. Trabajamos productos de dietética priorizando la calidad, la variedad y precios justos.',
+      badge1:'Atención personalizada', badge2:'Envíos en '+zona,
+      card1t:'Selección cuidada', card1p:'Elegimos productos certificados y proveedores confiables.',
+      card2t:'Amplio catálogo',  card2p:'Productos de dietética para cada forma de alimentarse.',
+      card3t:'Precios pensados', card3p:'Buscamos el equilibrio entre calidad y accesibilidad.',
+      card4t:'Logística eficiente', card4p:'Entregas ágiles y confiables.',
+      ctaTitulo:'Mejorá tu vida con nuestros productos',
+      ctaTexto:'Comenzá hoy tu camino hacia una alimentación más saludable.',
+      footerDesc:'Tu dietética de confianza. Productos naturales y de calidad para toda la familia.',
+      instagram:'https://instagram.com/'+ig, whatsapp:wa, email:mail,
+      heroImg:'', ctaImg:'', logoIcon:'', logoText:'', logoFooter:''
+    } },
+
+  { id:'factura',     tipo:'doc', path:'config/factura', bloqueante:false,
+    label:'Datos de la factura/ticket (si falta, se imprimen los datos por defecto del panel)',
+    data:{ nombre:'BROTES DIETETICA', direccion:dir, telefono:waCorto.replace(/-/g,' '),
+      email:mail, cuit:'', pie:'Gracias por su compra!', logo:'', qr:'',
+      agradecimiento:'Gracias por elegirnos',
+      subtitulo:'En Brotes creemos que alimentarse bien no deberia ser un lujo.',
+      instagram:'@'+ig, whatsapp:waCorto, slogan:'Brotes, tu dietetica de confianza.',
+      termicaAncho:100, termicaAlto:0 } },
+
+  { id:'resenas',     tipo:'doc', path:'config/resenasConfig', bloqueante:false,
+    label:'Preguntas del formulario de reseñas',
+    data:{ pregunta1:{ texto:'Tu comentario', placeholder:'¿Qué te pareció? ¿Qué podemos mejorar?', activa:true },
+           pregunta2:{ texto:'¿Hay algo que te gustaría que sumemos al catálogo?', placeholder:'Tu respuesta...', activa:false } } },
+
+  { id:'c1', tipo:'doc', path:'config/pedidosCount',      bloqueante:false, label:'Contador de pedidos',            data:{ count:0 } },
+  { id:'c2', tipo:'doc', path:'config/clientesAuthCount', bloqueante:false, label:'Contador de clientes',           data:{ count:0 } },
+  { id:'c3', tipo:'doc', path:'config/ventasCount',       bloqueante:false, label:'Contador de ventas',             data:{ count:0 } },
+  { id:'c4', tipo:'doc', path:'config/ventasMayCount',    bloqueante:false, label:'Contador de ventas mayoristas',  data:{ count:0 } }
+];
+
+/* config/telegram NO se crea acá: lleva el token del bot, que es un secreto.
+   Se carga a mano desde la consola de Firebase. Ver SETUP.md. */
+
+let user = null;
+let estado = {};
+
+function log(msg, cls){
+  const el = document.getElementById('log');
+  el.style.display = 'block';
+  document.getElementById('noLog').style.display = 'none';
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+function esAdmin(email){
+  const lista = (N && N.ADMIN_EMAILS) ? N.ADMIN_EMAILS : [];
+  return lista.indexOf(email) !== -1;
+}
+
+async function login(){
+  const p = new firebase.auth.GoogleAuthProvider();
+  p.setCustomParameters({ prompt:'select_account' });
+  try { await firebase.auth().signInWithPopup(p); }
+  catch(e){ alert('No se pudo iniciar sesión: ' + e.code); }
+}
+
+firebase.auth().onAuthStateChanged(async u => {
+  user = u;
+  const box = document.getElementById('authBox');
+  const who = document.getElementById('who');
+  if(!u){
+    box.innerHTML = '<button class="btn-primary" onclick="login()"><i class="bi bi-google"></i> Entrar con Google</button>';
+    who.textContent = '';
+    document.getElementById('btnCheck').disabled = true;
+    document.getElementById('btnSeed').disabled = true;
+    return;
+  }
+  box.innerHTML = '<button class="btn-ghost" onclick="firebase.auth().signOut()"><i class="bi bi-box-arrow-right"></i> Salir</button>';
+  if(!esAdmin(u.email)){
+    who.innerHTML = '<span style="color:var(--danger)">' + u.email + ' no está en la lista de admins.</span> ' +
+      'Agregalo en <code>config-negocio.js</code> y en <code>firestore.rules</code>, y volvé a desplegar las reglas.';
+    return;
+  }
+  who.textContent = 'Conectado como ' + u.email + ' (admin)';
+  document.getElementById('btnCheck').disabled = false;
+  await revisar();
+});
+
+async function revisar(){
+  const ul = document.getElementById('checks');
+  ul.innerHTML = '<li><span class="tag new">...</span> Revisando Firestore...</li>';
+  estado = {};
+  let faltan = 0;
+  const filas = [];
+  for(const item of PLAN){
+    let existe = false, err = null;
+    try {
+      if(item.tipo === 'doc'){
+        const parts = item.path.split('/');
+        const snap = await db.collection(parts[0]).doc(parts[1]).get();
+        existe = snap.exists;
+      } else {
+        const snap = await db.collection(item.path).limit(1).get();
+        existe = !snap.empty;
+      }
+    } catch(e){ err = e.code || e.message; }
+    estado[item.id] = { existe, err };
+    if(!existe && !err) faltan++;
+    const tag = err ? '<span class="tag err">ERROR</span>'
+              : existe ? '<span class="tag ok">OK</span>'
+                       : '<span class="tag new">CREAR</span>';
+    const extra = err ? ' <span style="color:var(--danger)">' + err + '</span>'
+                : (!existe && item.bloqueante) ? ' <strong style="color:var(--gold)">(bloqueante)</strong>' : '';
+    filas.push('<li>' + tag + '<span><code>' + item.path + '</code> — ' + item.label + extra + '</span></li>');
+  }
+  ul.innerHTML = filas.join('');
+  document.getElementById('btnSeed').disabled = (faltan === 0);
+  document.getElementById('btnSeed').innerHTML = faltan === 0
+    ? '<i class="bi bi-check2-all"></i> Todo listo'
+    : '<i class="bi bi-database-add"></i> Crear los ' + faltan + ' que faltan';
+}
+
+async function sembrar(){
+  const btn = document.getElementById('btnSeed');
+  btn.disabled = true;
+  log('--- Setup iniciado por ' + user.email + ' ---');
+  let listaId = null;
+
+  for(const item of PLAN){
+    if(estado[item.id] && estado[item.id].existe){ log('SKIP  ' + item.path + ' (ya existe)'); continue; }
+    try {
+      if(item.id === 'listas'){
+        const ref = await db.collection('listas').add(item.data);
+        listaId = ref.id;
+        log('CREADO listas/' + ref.id + '  -> ' + item.data.nombre);
+      } else if(item.id === 'producto'){
+        if(!listaId){
+          const s = await db.collection('listas').limit(1).get();
+          listaId = s.empty ? '' : s.docs[0].id;
+        }
+        const ref = await db.collection('productos').add({
+          nombre:'Producto de ejemplo (ocultalo o borralo)', nombreMostrado:'', gramaje:'',
+          costo:0, porcentaje:0, precio:0, porcentajeMayorista:0, precioMayorista:0,
+          descuento:0, stock:0, categoria:'GENERAL', subcategoria:null,
+          descripcion:'', valoresNutricionales:'', imagenesExtra:[], imagen:null,
+          oculto:true, popular:false, lista:listaId, creadoEn:new Date()
+        });
+        log('CREADO productos/' + ref.id + '  (oculto:true, categoria GENERAL)');
+      } else if(item.tipo === 'doc'){
+        const parts = item.path.split('/');
+        await db.collection(parts[0]).doc(parts[1]).set(item.data);
+        log('CREADO ' + item.path);
+      }
+    } catch(e){
+      log('FALLO  ' + item.path + '  -> ' + (e.code || e.message));
+    }
+  }
+  log('--- Fin ---');
+  log('Pendiente a mano: config/telegram (token del bot). Ver SETUP.md.');
+  await revisar();
+}
+</script>
+</body>
+</html>

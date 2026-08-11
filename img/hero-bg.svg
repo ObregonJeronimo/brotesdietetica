@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" preserveAspectRatio="xMidYMid slice">
+  <!--
+    Fondo por defecto del hero, en la paleta del logo.
+    Es CLARO a proposito: el hero tiene texto oscuro encima, asi que el fondo
+    tiene que quedar suave. Se muestra al 35% de opacidad sobre el degrade.
+
+    Para poner una FOTO del local: NO hace falta tocar codigo.
+    Panel /admin -> Configuracion -> Imagen del hero (se guarda en Firestore).
+    Alternativa por codigo: guardar la imagen en img/ y cambiar la variable
+    CSS "hero-bg" en styles.css.
+  -->
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FDFAF1"/>
+      <stop offset="45%" stop-color="#F7EBC9"/>
+      <stop offset="100%" stop-color="#EBD69B"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.78" cy="0.18" r="0.6">
+      <stop offset="0%" stop-color="#EDB833" stop-opacity="0.45"/>
+      <stop offset="60%" stop-color="#EDB833" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#EDB833" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="shade" cx="0.08" cy="0.92" r="0.55">
+      <stop offset="0%" stop-color="#1E3E2C" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#1E3E2C" stop-opacity="0"/>
+    </radialGradient>
+
+    <path id="leaf" d="M0,0 C34,-30 92,-36 122,-18 C104,22 46,32 4,16 Z"/>
+
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.04"/></feComponentTransfer>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#base)"/>
+  <rect width="1600" height="900" fill="url(#sun)"/>
+  <rect width="1600" height="900" fill="url(#shade)"/>
+
+  <!-- Arcos suaves, guiño al aro del logo -->
+  <g fill="none" stroke="#1E3E2C" stroke-opacity="0.055" stroke-width="2">
+    <circle cx="1300" cy="170" r="270"/>
+    <circle cx="1300" cy="170" r="390"/>
+    <circle cx="1300" cy="170" r="520"/>
+    <circle cx="150" cy="820" r="220"/>
+    <circle cx="150" cy="820" r="340"/>
+  </g>
+
+  <!-- Follaje -->
+  <g fill="#1E3E2C" fill-opacity="0.085">
+    <use href="#leaf" transform="translate(110,160) rotate(-22) scale(1.5)"/>
+    <use href="#leaf" transform="translate(300,95) rotate(14) scale(1.05)"/>
+    <use href="#leaf" transform="translate(1460,650) rotate(158) scale(1.7)"/>
+    <use href="#leaf" transform="translate(1190,840) rotate(-168) scale(1.2)"/>
+    <use href="#leaf" transform="translate(690,55) rotate(-8) scale(0.85)"/>
+    <use href="#leaf" transform="translate(985,770) rotate(172) scale(1)"/>
+  </g>
+  <g fill="#C99A1F" fill-opacity="0.14">
+    <use href="#leaf" transform="translate(1530,115) rotate(146) scale(1.35)"/>
+    <use href="#leaf" transform="translate(55,570) rotate(-34) scale(1.15)"/>
+    <use href="#leaf" transform="translate(880,885) rotate(-150) scale(0.95)"/>
+  </g>
+
+  <!-- Brotes -->
+  <g fill="none" stroke="#1E3E2C" stroke-opacity="0.13" stroke-width="3" stroke-linecap="round">
+    <path d="M240,900 C232,790 244,700 236,600"/>
+    <path d="M236,700 C200,676 176,650 166,614"/>
+    <path d="M238,760 C274,738 296,712 306,678"/>
+    <path d="M1370,900 C1380,800 1370,730 1378,650"/>
+    <path d="M1378,742 C1412,720 1434,694 1444,662"/>
+  </g>
+
+  <!-- Semillas -->
+  <g fill="#1E3E2C" fill-opacity="0.11">
+    <circle cx="520" cy="240" r="5"/><circle cx="600" cy="320" r="3.5"/>
+    <circle cx="470" cy="380" r="4"/><circle cx="1090" cy="205" r="4.5"/>
+    <circle cx="1160" cy="300" r="3"/><circle cx="820" cy="480" r="3.5"/>
+    <circle cx="1310" cy="470" r="5"/><circle cx="360" cy="640" r="4"/>
+    <circle cx="700" cy="700" r="3"/><circle cx="1050" cy="600" r="3.5"/>
+  </g>
+
+  <rect width="1600" height="900" filter="url(#grain)" opacity="0.7"/>
+</svg>

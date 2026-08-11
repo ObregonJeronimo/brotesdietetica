@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 200" width="660" height="200" role="img" aria-label="Brotes Dietética">
+  <title>Brotes Dietética</title>
+  <defs>
+    <g id="gB" fill="none"><path d="M12.5,12.5 L12.5,119.5"/><path d="M12.5,12.5 L50,12.5 A26.75,26.75 0 0 1 50,66 L12.5,66"/><path d="M12.5,66 L55,66 A26.75,26.75 0 0 1 55,119.5 L12.5,119.5"/></g>
+    <g id="gR" fill="none"><path d="M12.5,12.5 L12.5,119.5"/><path d="M12.5,12.5 L50,12.5 A26.75,26.75 0 0 1 50,66 L12.5,66"/><path d="M46,64 L84,119.5"/></g>
+    <g id="gO" fill="none"><path d="M48,12.5 A35.5,53.5 0 0 1 48,119.5 A35.5,53.5 0 0 1 48,12.5"/></g>
+    <g id="gT" fill="none"><path d="M4,12.5 L92,12.5"/><path d="M48,12.5 L48,119.5"/></g>
+    <g id="gE" fill="none"><path d="M12.5,12.5 L12.5,119.5"/><path d="M12.5,12.5 L84,12.5"/><path d="M12.5,66 L74,66"/><path d="M12.5,119.5 L84,119.5"/></g>
+    <g id="gS" fill="none"><path d="M82,32 C82,18 66,12.5 47,12.5 C27,12.5 13,21 13,39 C13,57 27,64 48,66 C69,68 83,74 83,92 C83,110 69,119.5 48,119.5 C29,119.5 14,113 14,99"/></g>
+    <g id="gD" fill="none"><path d="M12.5,12.5 L12.5,119.5"/><path d="M12.5,12.5 L46,12.5 A43,53.5 0 0 1 46,119.5 L12.5,119.5"/></g>
+    <g id="gI" fill="none"><path d="M48,12.5 L48,119.5"/></g>
+    <g id="gC" fill="none"><path d="M84,34 C76,20 63,12.5 48,12.5 C28,12.5 13,35 13,66 C13,97 28,119.5 48,119.5 C63,119.5 76,112 84,98"/></g>
+    <g id="gA" fill="none"><path d="M6,119.5 L48,12.5 L90,119.5"/><path d="M24,84 L72,84"/></g>
+    <g id="gDash" fill="none"><path d="M20,66 L76,66"/></g>
+    <g id="wordBrotes" fill="none" stroke-linecap="butt" stroke-linejoin="miter">
+      <use href="#gB" x="0"/><use href="#gR" x="110"/><use href="#gO" x="220"/>
+      <use href="#gT" x="330"/><use href="#gE" x="440"/><use href="#gS" x="550"/>
+    </g>
+    <g id="wordDietetica" fill="none" stroke-linecap="butt" stroke-linejoin="miter">
+      <use href="#gDash" x="0"/><use href="#gD" x="196"/><use href="#gI" x="392"/><use href="#gE" x="588"/>
+      <use href="#gT" x="784"/><use href="#gE" x="980"/><use href="#gT" x="1176"/><use href="#gI" x="1372"/>
+      <use href="#gC" x="1568"/><use href="#gA" x="1764"/><use href="#gDash" x="1960"/>
+    </g>
+  </defs>
+
+  <g fill="none" stroke="#EDB833" stroke-width="2.2" stroke-linecap="round">
+    <path d="M459,155 C459,160 457,163 454,166"/>
+    <path d="M459,156 C462,161 465,164 469,166"/>
+    <path d="M459,157 C455,161 451,164 447,165"/>
+  </g>
+  <path d="M459,52 C456,34 456,22 459,10" fill="none" stroke="#EDB833" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M458,26 C473,7 497,2 510,7 C504,28 480,37 457,33 Z" fill="#EDB833"/>
+  <path d="M459,34 C445,19 429,13 417,16 C422,34 439,43 458,41 Z" fill="#EDB833"/>
+
+  <g transform="translate(78,52) scale(0.78)">
+    <use href="#wordBrotes" stroke="#F5EEDA" stroke-width="25"/>
+  </g>
+  <g transform="translate(170.6,171.5) scale(0.155)">
+    <use href="#wordDietetica" stroke="#EDB833" stroke-width="20"/>
+  </g>
+</svg>

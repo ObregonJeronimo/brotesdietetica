@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Tu opinión - Brotes Dietética</title>
+    <link rel="icon" href="img/favicon-brotes.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Source Sans 3',sans-serif;background:#F5EEDA;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem}
+        .card{background:#fff;border-radius:20px;box-shadow:0 8px 40px rgba(0,0,0,0.08);max-width:460px;width:100%;overflow:hidden}
+        .card-header{background:#1E3E2C;padding:2rem 1.5rem;text-align:center;color:#fff}
+        .card-header img{height:55px;margin-bottom:0.75rem;border-radius:6px}
+        .card-header h1{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;margin-bottom:0.25rem}
+        .card-header p{font-size:0.9rem;opacity:0.85}
+        .card-body{padding:2rem 1.5rem}
+        .field{margin-bottom:1.25rem}
+        .field label{display:block;font-size:0.88rem;font-weight:600;color:#333;margin-bottom:0.4rem}
+        .field input,.field textarea{width:100%;padding:0.75rem 1rem;border:2px solid #E3D9BE;border-radius:12px;font-size:1rem;font-family:inherit;transition:border-color 0.2s;outline:none;background:#FBF7EC}
+        .field input:focus,.field textarea:focus{border-color:#1E3E2C}
+        .field textarea{resize:vertical;min-height:100px}
+        .stars-label{display:block;font-size:0.88rem;font-weight:600;color:#333;text-align:center;margin-bottom:0.5rem}
+        .stars{display:flex;gap:8px;justify-content:center;margin-bottom:1.5rem}
+        .stars span{font-size:2.5rem;cursor:pointer;color:#D8CFB4;transition:color 0.15s,transform 0.15s;user-select:none;line-height:1}
+        .stars span.active{color:#EDB833;transform:scale(1.15);text-shadow:0 2px 8px rgba(230,168,23,0.3)}
+        .btn-submit{width:100%;padding:0.9rem;background:#1E3E2C;color:#fff;border:none;border-radius:14px;font-size:1.05rem;font-weight:600;cursor:pointer;transition:background 0.2s,transform 0.1s}
+        .btn-submit:hover{background:#14251A}
+        .btn-submit:active{transform:scale(0.98)}
+        .btn-submit:disabled{background:#999;cursor:not-allowed}
+        .state-view{display:none;text-align:center;padding:3rem 1.5rem}
+        .state-view .icon{font-size:4rem;margin-bottom:1rem}
+        .state-view h2{font-family:'Playfair Display',serif;font-size:1.5rem;margin-bottom:0.5rem}
+        .state-view p{color:#666;font-size:0.95rem;line-height:1.5;margin-bottom:1.5rem}
+        .btn-back{display:inline-block;padding:0.7rem 2rem;background:#1E3E2C;color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:600;cursor:pointer;text-decoration:none;transition:background 0.2s}
+        .btn-back:hover{background:#14251A;color:#fff}
+        .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#c0392b;color:#fff;padding:0.75rem 1.5rem;border-radius:10px;font-size:0.9rem;display:none;z-index:99;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+        .toast.show{display:block;animation:fadeIn 0.3s}
+        .loading-view{text-align:center;padding:4rem 1.5rem}
+        .loading-view .spinner{width:40px;height:40px;border:4px solid #E3D9BE;border-top-color:#1E3E2C;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="card-header">
+            <img src="img/logo-brotes-light.svg" alt="Brotes">
+            <h1>Tu opinión nos importa</h1>
+            <p>Contanos cómo fue tu experiencia</p>
+        </div>
+
+        <div class="loading-view" id="loadingArea">
+            <div class="spinner"></div>
+            <p style="color:#999">Cargando...</p>
+        </div>
+
+        <div class="card-body" id="formArea" style="display:none">
+            <div class="field">
+                <label>Tu nombre</label>
+                <input type="text" id="rNombre" placeholder="Ej: Maria Garcia" maxlength="60">
+            </div>
+            <label class="stars-label">¿Cómo calificarías tu experiencia?</label>
+            <div class="stars" id="starsContainer">
+                <span onclick="setStars(1)">&#9733;</span>
+                <span onclick="setStars(2)">&#9733;</span>
+                <span onclick="setStars(3)">&#9733;</span>
+                <span onclick="setStars(4)">&#9733;</span>
+                <span onclick="setStars(5)">&#9733;</span>
+            </div>
+            <div class="field" id="campo1Wrap">
+                <label id="campo1Label">Tu comentario</label>
+                <textarea id="rComentario" placeholder="¿Qué te pareció? ¿Qué podemos mejorar?" maxlength="500"></textarea>
+            </div>
+            <div class="field" id="campo2Wrap" style="display:none">
+                <label id="campo2Label">Pregunta extra</label>
+                <textarea id="rExtra" placeholder="Tu respuesta..." maxlength="300"></textarea>
+            </div>
+            <button class="btn-submit" id="submitBtn" onclick="submitReview()">Enviar opinión</button>
+        </div>
+
+        <div class="state-view" id="successArea">
+            <div class="icon">&#10003;</div>
+            <h2 style="color:#1E3E2C">¡Gracias por tu opinión!</h2>
+            <p>Tu comentario nos ayuda a mejorar cada día.</p>
+            <a href="/" class="btn-back">Volver a Brotes</a>
+        </div>
+
+        <div class="state-view" id="usedArea">
+            <div class="icon">&#128172;</div>
+            <h2 style="color:#333">Ya dejaste tu opinión</h2>
+            <p>¡Gracias por tu comentario anterior! Nos encanta saber qué pensás.</p>
+            <a href="/" class="btn-back">Volver a Brotes</a>
+        </div>
+
+        <div class="state-view" id="invalidArea">
+            <div class="icon">&#128533;</div>
+            <h2 style="color:#333">Link invalido</h2>
+            <p>Este link de reseña no es válido o ya expiró.</p>
+            <a href="/" class="btn-back">Ir a Brotes</a>
+        </div>
+
+        <!-- Estos dos bloques tienen que quedar DENTRO de .card: #needsLoginArea
+             es la primera pantalla que ve cualquier visitante (pide login con
+             Google), y fuera de la tarjeta se renderiza sin estilos. -->
+        <div class="state-view" id="needsLoginArea">
+            <div class="icon">&#128274;</div>
+            <h2 style="color:#333">Inicia sesión para continuar</h2>
+            <p>Necesitás iniciar sesión con tu cuenta de Google para dejar una reseña.</p>
+            <button class="btn-back" onclick="loginGoogle()">Iniciar sesión con Google</button>
+        </div>
+
+        <div class="state-view" id="alreadyReviewedArea">
+            <div class="icon">&#9733;</div>
+            <h2 style="color:#1E3E2C">Ya dejaste tu reseña</h2>
+            <p>Solo se permite una reseña por cuenta. ¡Gracias por tu opinión!</p>
+            <a href="/" class="btn-back">Volver a Brotes</a>
+        </div>
+    </div>
+
+<div class="toast" id="toast"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script>
+        let selectedStars=0, tokenId=null, currentUser=null;
+
+        function setStars(n){
+            selectedStars=n;
+            document.querySelectorAll('#starsContainer span').forEach((s,i)=>{
+                s.classList.toggle('active',i<n);
+            });
+        }
+
+        function showToast(msg){
+            const t=document.getElementById('toast');
+            t.textContent=msg;t.classList.add('show');
+            setTimeout(()=>t.classList.remove('show'),3000);
+        }
+
+        function showView(id){
+            ['loadingArea','formArea','successArea','usedArea','invalidArea','needsLoginArea','alreadyReviewedArea'].forEach(v=>{
+                document.getElementById(v).style.display=v===id?'block':'none';
+            });
+        }
+
+        function loginGoogle(){
+            const provider=new firebase.auth.GoogleAuthProvider();
+            const isMobile=/iPad|iPhone|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if(isMobile){
+                firebase.auth().signInWithRedirect(provider);
+            }else{
+                firebase.auth().signInWithPopup(provider).catch(e=>showToast('Error al iniciar sesión'));
+            }
+        }
+
+        async function checkAlreadyReviewed(uid){
+            /* Verifica si el usuario ya tiene una reseña completada (usado=true) */
+            const snap=await db.collection('resenas')
+                .where('clienteAuthUid','==',uid)
+                .where('usado','==',true)
+                .limit(1).get();
+            return !snap.empty;
+        }
+
+        async function init(){
+            const params=new URLSearchParams(window.location.search);
+            tokenId=params.get('id');
+            if(!tokenId){showView('invalidArea');return;}
+
+            /* En mobile, puede volver de un redirect de Google */
+            try{
+                const redirectResult=await firebase.auth().getRedirectResult();
+                if(redirectResult&&redirectResult.user) currentUser=redirectResult.user;
+            }catch(e){console.error('getRedirectResult:',e);}
+
+            /* Esperar estado de auth antes de continuar */
+            firebase.auth().onAuthStateChanged(async user=>{
+                currentUser=user;
+                if(!user){
+                    showView('needsLoginArea');
+                    return;
+                }
+                try{
+                    /* Verificar si ya dejó una reseña con esta cuenta */
+                    const yaReseño=await checkAlreadyReviewed(user.uid);
+                    if(yaReseño){showView('alreadyReviewedArea');return;}
+
+                    const [doc,cfgDoc]=await Promise.all([
+                        db.collection('resenas').doc(tokenId).get(),
+                        db.collection('config').doc('resenasConfig').get()
+                    ]);
+                    if(!doc.exists){showView('invalidArea');return;}
+                    if(doc.data().usado){showView('usedArea');return;}
+
+                    /* Pre-llenar nombre con el de la cuenta Google */
+                    const nombreInput=document.getElementById('rNombre');
+                    if(user.displayName&&!nombreInput.value)nombreInput.value=user.displayName;
+
+                    if(cfgDoc.exists){
+                        const cfg=cfgDoc.data();
+                        const p1=cfg.pregunta1||{texto:'Tu comentario',placeholder:'¿Qué te pareció? ¿Qué podemos mejorar?',activa:true};
+                        const p2=cfg.pregunta2||{activa:false};
+                        if(p1.activa!==false){
+                            document.getElementById('campo1Label').textContent=p1.texto||'Tu comentario';
+                            document.getElementById('rComentario').placeholder=p1.placeholder||'¿Qué te pareció? ¿Qué podemos mejorar?';
+                            document.getElementById('campo1Wrap').style.display='block';
+                        }else{
+                            document.getElementById('campo1Wrap').style.display='none';
+                        }
+                        if(p2.activa){
+                            document.getElementById('campo2Label').textContent=p2.texto||'Pregunta extra';
+                            document.getElementById('rExtra').placeholder=p2.placeholder||'Tu respuesta...';
+                            document.getElementById('campo2Wrap').style.display='block';
+                        }
+                    }
+                    showView('formArea');
+                }catch(e){
+                    console.error(e);
+                    showView('invalidArea');
+                }
+            });
+        }
+
+        async function submitReview(){
+            if(!currentUser){showView('needsLoginArea');return;}
+            const nombre=document.getElementById('rNombre').value.trim();
+            const comentario=document.getElementById('rComentario').value.trim();
+            if(!nombre){showToast('Escribi tu nombre');return;}
+            if(!selectedStars){showToast('Selecciona las estrellas');return;}
+            if(!comentario){showToast('Escribí un comentario');return;}
+            const btn=document.getElementById('submitBtn');
+            btn.disabled=true;btn.textContent='Enviando...';
+            try{
+                /* Doble check: verificar que no haya dejado reseña mientras tenía el form abierto */
+                const yaReseño=await checkAlreadyReviewed(currentUser.uid);
+                if(yaReseño){showView('alreadyReviewedArea');return;}
+
+                const extra=document.getElementById('rExtra').value.trim();
+                const updateData={
+                    nombre:nombre,
+                    estrellas:selectedStars,
+                    comentario:comentario,
+                    fecha:new Date(),
+                    visible:true,
+                    usado:true,
+                    clienteAuthUid:currentUser.uid,
+                    clienteEmail:currentUser.email
+                };
+                if(extra)updateData.respuestaExtra=extra;
+                await db.collection('resenas').doc(tokenId).update(updateData);
+                showView('successArea');
+            }catch(e){
+                console.error(e);
+                showToast('Error al enviar, intenta de nuevo');
+                btn.disabled=false;btn.textContent='Enviar opinión';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

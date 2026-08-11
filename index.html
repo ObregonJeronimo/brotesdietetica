@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Brotes Dietética - Productos naturales y de calidad a la puerta de tu casa. Envíos en Rivera Indarte y alrededores, Córdoba.">
+    <title>Brotes Dietética | Tu dietética de confianza</title>
+    <link rel="icon" type="image/svg+xml" href="img/favicon-brotes.svg">
+    <link rel="apple-touch-icon" href="img/favicon-brotes.svg">
+    <meta property="og:title" content="Brotes Dietética | Tu dietética de confianza">
+    <meta property="og:description" content="Productos naturales y de calidad a la puerta de tu casa. Envíos en Rivera Indarte y alrededores, Córdoba.">
+    <meta property="og:image" content="https://brotesdietetica.vercel.app/img/logo-brotes.svg">
+    <meta property="og:url" content="https://brotesdietetica.vercel.app">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://brotesdietetica.vercel.app/img/logo-brotes.svg">
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://firebasestorage.googleapis.com">
+    <link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
+    <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com">
+    <link rel="dns-prefetch" href="https://www.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="styles.min.css">
+    <link rel="stylesheet" href="toolbar.min.css">
+    <link rel="stylesheet" href="footer-dev.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg fixed-top" id="mainNavbar"><div class="container"><a class="navbar-brand" href="#inicio"><div class="logo-container"><img src="img/logo-brotes.svg" alt="Brotes Dietética" class="logo-img"><img src="img/logo-brotes-dark.svg" alt="Brotes Dietética" class="brand-text-img"></div></a><button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"><span class="navbar-toggler-icon"></span></button><div class="collapse navbar-collapse" id="navbarNav"><ul class="navbar-nav ms-auto"><li class="nav-item"><a class="nav-link" href="#inicio">Inicio</a></li><li class="nav-item"><a class="nav-link" href="#nosotros">Nosotros</a></li><li class="nav-item"><a class="nav-link" href="#productos">Productos</a></li><li class="nav-item"><a class="nav-link" href="#resenas">Opiniones</a></li><li class="nav-item"><a class="nav-link" href="#contacto-footer">Contacto</a></li></ul></div><div id="authNavBtn" style="display:flex;align-items:center;margin-right:0.5rem">
+  <button id="loginNavBtn" class="btn-auth-nav btn-login-desktop" onclick="authLogin()" style="display:flex"><i class="bi bi-google"></i> Iniciar sesión</button>
+  <button id="loginNavBtnMobile" class="btn-auth-icon-mobile" onclick="onMobilePersonaClick()" style="display:none" title="Iniciar sesión / Mi perfil"><i class="bi bi-person-circle"></i></button>
+  <div id="userNavBtn" style="display:none;position:relative">
+    <button class="btn-avatar-nav" id="avatarNavBtn" onclick="toggleUserMenu()"><span id="avatarInitials"></span></button>
+    <div class="user-dropdown" id="userDropdown">
+      <div class="user-dropdown-info"><strong id="udNombre"></strong><small id="udEmail"></small></div>
+      <a href="#" onclick="openPerfilModal();closeUserMenu()"><i class="bi bi-person"></i> Mi perfil</a>
+      <a href="#" onclick="openHistorialModal();closeUserMenu()"><i class="bi bi-clock-history"></i> Mis pedidos</a>
+      <a href="#" onclick="authLogout()"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
+    </div>
+  </div>
+</div>
+<button class="cart-btn" id="cartToggle" aria-label="Ver carrito"><i class="bi bi-cart3"></i><span class="cart-count" id="cartCount">0</span></button></div></nav>
+
+    <section id="inicio" class="hero-section"><div class="hero-overlay"></div><div class="hero-particles" id="particles"></div><div class="container hero-content"><div class="row align-items-center min-vh-100"><div class="col-lg-8 hero-text"><div class="hero-badge"><i class="bi bi-leaf"></i><span>100% Natural</span></div><h1 class="hero-title"><span class="title-line">Tu dietética</span><span class="title-highlight">de confianza</span></h1><p class="hero-subtitle">Productos naturales y de calidad a la puerta de tu casa. Envíos en <span data-negocio="zonaEnvio">Rivera Indarte y alrededores</span>.</p><div class="hero-buttons"><a href="#productos" class="btn btn-primary-custom"><i class="bi bi-basket"></i> Ver Productos</a><a href="https://wa.me/5493516872770" data-negocio-href="waLink" target="_blank" class="btn btn-outline-custom"><i class="bi bi-whatsapp"></i> WhatsApp</a></div><div class="hero-stats"><div class="stat-item"><span class="stat-number">Natural</span><span class="stat-label">Seleccionado</span></div><div class="stat-item"><span class="stat-number">24h</span><span class="stat-label">Envío rápido</span></div></div></div></div></div><a href="#productos" class="scroll-indicator" style="text-decoration:none;cursor:pointer"><span>Descubrí más</span><i class="bi bi-chevron-double-down"></i></a></section>
+
+    <section id="nosotros" class="why-us-section"><div class="container"><div class="row align-items-center"><div class="col-lg-5"><div class="why-us-content"><span class="section-tag">¿Quiénes somos?</span><h2 class="section-title">Una dietética distinta</h2><p class="why-us-text">Brotes es una dietética de barrio en Córdoba, con ganas de hacer las cosas bien. Trabajamos productos de dietética priorizando siempre la calidad, la variedad y precios justos. Creemos que alimentarse bien no debería ser un lujo.</p><div class="trust-badges"><div class="trust-badge"><i class="bi bi-award"></i><span>Atención personalizada</span></div><div class="trust-badge"><i class="bi bi-truck"></i><span>Envíos en <span data-negocio="zonaEnvio">Rivera Indarte y alrededores</span></span></div></div></div></div><div class="col-lg-7"><div class="features-grid"><div class="feature-card"><div class="feature-icon quality"><i class="bi bi-patch-check"></i></div><h4>Selección cuidada</h4><p>Elegimos productos certificados y proveedores confiables, poniendo el foco en la calidad y en lo que realmente vale la pena ofrecer.</p></div><div class="feature-card"><div class="feature-icon speed"><i class="bi bi-grid-3x3-gap"></i></div><h4>Amplio catálogo</h4><p>Productos de dietética para acompañar distintas formas de alimentarse, sin limitar opciones.</p></div><div class="feature-card"><div class="feature-icon trust"><i class="bi bi-tag"></i></div><h4>Precios pensados</h4><p>Buscamos mantener precios razonables, cuidando el equilibrio entre calidad y accesibilidad.</p></div><div class="feature-card"><div class="feature-icon natural"><i class="bi bi-box-seam"></i></div><h4>Logística eficiente</h4><p>Organizamos los pedidos de forma simple y ordenada para que las entregas sean ágiles y confiables.</p></div></div></div></div></div></section>
+
+    <section id="productos" class="products-section"><div class="container"><div class="section-header"><span class="section-tag">Nuestro catálogo</span><h2 class="section-title">Productos Naturales</h2><p class="section-subtitle">Seleccioná tus productos favoritos y agregá al carrito</p></div><div class="products-toolbar"><div class="search-products"><i class="bi bi-search"></i><input type="text" placeholder="Buscar por nombre o categoría..." oninput="onSearchInput(this.value)" id="productSearch"></div><button class="sort-btn" id="sortBtn" onclick="toggleSortPrice()" title="Orden por precio"><i class="bi bi-sort-numeric-up"></i> Menor precio</button><button class="sort-btn" id="sortAlfaBtn" onclick="toggleSortAlfa()" title="Orden alfabetico"><i class="bi bi-sort-alpha-down"></i> A-Z</button></div><div class="category-filters" id="categoryFilters"></div><div class="products-grid" id="productsGrid"></div><div id="paginationContainer"></div><div class="products-loading" id="productsLoading"><div class="spinner-border text-success" role="status"><span class="visually-hidden">Cargando...</span></div><p>Cargando productos...</p></div></div></section>
+
+
+    <section id="resenas" class="reviews-section"><div class="container"><div class="section-header"><span class="section-tag">Opiniones</span><h2 class="section-title">Lo que dicen nuestros clientes</h2></div><div class="reviews-filters" id="reviewsFilters" style="display:none;justify-content:center;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap"><button class="rv-filter-btn active" onclick="filterReviews('all')">Todas</button><button class="rv-filter-btn" onclick="filterReviews('positive')">Positivas (3-5 ★)</button><button class="rv-filter-btn" onclick="filterReviews('negative')">Negativas (1-2 ★)</button><button class="rv-filter-btn" onclick="filterReviews(5)">5 ★</button><button class="rv-filter-btn" onclick="filterReviews(4)">4 ★</button><button class="rv-filter-btn" onclick="filterReviews(3)">3 ★</button><button class="rv-filter-btn" onclick="filterReviews(2)">2 ★</button><button class="rv-filter-btn" onclick="filterReviews(1)">1 ★</button></div><div class="reviews-grid-wrap"><div class="reviews-grid" id="reviewsGrid"><div class="empty-state" style="padding:2rem;text-align:center;color:#999"><p>Cargando opiniones...</p></div></div></div><div id="reviewsPager" style="display:flex;justify-content:center;gap:8px;margin-top:1rem"></div></div></section>
+
+    <section class="cta-section"><div class="cta-background"></div><div class="container"><div class="cta-content"><h2 class="cta-title">Mejorá tu vida con nuestros productos</h2><p class="cta-text">Comenzá hoy tu camino hacia una alimentación más saludable. Tenemos todo lo que necesitás para sentirte mejor.</p><div class="cta-buttons"><button class="btn btn-cta-primary" id="goToCartBtn"><i class="bi bi-cart-check"></i> Ver mi carrito <span class="cta-cart-count" id="ctaCartCount">0</span></button><a href="https://wa.me/5493516872770?text=Hola!%20Quiero%20consultar%20sobre%20los%20productos" target="_blank" class="btn btn-cta-secondary"><i class="bi bi-whatsapp"></i> Hablar por WhatsApp</a></div></div></div></section>
+
+    <footer class="main-footer" id="contacto-footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-4 mb-4 mb-lg-0"><div class="footer-brand"><img src="img/logo-brotes-light.svg" alt="Brotes Dietética" style="height:100px;width:auto;" loading="lazy"></div><p class="footer-description">Tu dietética de confianza. Productos naturales y de calidad para toda la familia.</p><div class="social-links"><a href="https://instagram.com/brotesdietetica" data-negocio-href="instagramUrl" target="_blank" aria-label="Instagram"><i class="bi bi-instagram"></i></a><a href="https://wa.me/5493516872770" data-negocio-href="waLink" target="_blank" aria-label="WhatsApp"><i class="bi bi-whatsapp"></i></a><a href="mailto:brotesdietetica@gmail.com" data-negocio-href="mailLink" aria-label="Email"><i class="bi bi-envelope"></i></a></div></div>
+                <div class="col-lg-2 col-md-4 mb-4 mb-md-0"><h5 class="footer-title">Enlaces</h5><ul class="footer-links"><li><a href="#inicio">Inicio</a></li><li><a href="#nosotros">Nosotros</a></li><li><a href="#productos">Productos</a></li><li><a href="/politicas" target="_blank">Politicas y Privacidad</a></li><li><a href="/mayoristas">Distribuidores</a></li></ul></div>
+                <div class="col-lg-3 col-md-4 mb-4 mb-md-0">
+                    <h5 class="footer-title">Contacto</h5>
+                    <ul class="footer-contact">
+                        <li><i class="bi bi-geo-alt"></i><a href="https://www.google.com/maps/search/?api=1&query=Manuel+de+Falla%2C+X5021+C%C3%B3rdoba" data-negocio-href="mapsUrl" target="_blank" style="color:rgba(255,255,255,0.8)"><span data-negocio="direccion">Manuel de Falla</span><br><span data-negocio="ciudad">Córdoba</span>, Argentina <span data-negocio="codigoPostal">X5021</span></a></li>
+                        <li><i class="bi bi-telephone"></i><a href="tel:+5493516872770" data-negocio-href="telLink" data-negocio="telefonoDisplay">+54 9 351 687-2770</a></li>
+                        <li><i class="bi bi-envelope"></i><a href="mailto:brotesdietetica@gmail.com" data-negocio-href="mailLink" data-negocio="email">brotesdietetica@gmail.com</a></li>
+                        <li><i class="bi bi-clock"></i><span data-negocio="horario">Lun - Sáb: 9:00 - 20:00</span></li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-md-4"><h5 class="footer-title">Hacenos tu consulta</h5><p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin-bottom:1rem;">Escribinos por WhatsApp o mail y te respondemos a la brevedad.</p><a href="https://wa.me/5493516872770?text=Hola!%20Tengo%20una%20consulta" target="_blank" class="btn btn-whatsapp" style="font-size:0.85rem;padding:0.7rem 1.2rem;"><i class="bi bi-whatsapp"></i> Escribinos</a></div>
+            </div>
+            <div class="footer-bottom"><p>&copy; 2026 Brotes Dietética. Todos los derechos reservados.</p><p>Hecho con <i class="bi bi-heart-fill text-danger"></i> en Córdoba</p></div>
+            <!-- Desarrolladores. OJO: el link lleva class="wa-dev" a proposito.
+                 app.js reescribe todos los links wa.me con el numero del negocio
+                 EXCEPTO los .wa-dev, para que este siga apuntando a Deft. -->
+            <div class="footer-dev">
+              <div class="dev-card">
+                <div class="dev-card-info">
+                  <div class="dev-card-icon"><i class="bi bi-code-slash"></i></div>
+                  <div class="dev-card-text">
+                    <span class="dev-card-label">Sitio y sistema desarrollados por</span>
+                    <span class="dev-card-name" data-negocio="devNombre">Deft Software Solutions</span>
+                    <span class="dev-card-tagline">Desarrollo de software a medida: ecommerce, sistemas de gestión y automatizaciones.</span>
+                  </div>
+                </div>
+                <div class="dev-card-actions">
+                  <a class="dev-btn dev-btn-wa wa-dev" href="https://wa.me/5493512067970?text=Hola!%20Me%20gustar%C3%ADa%20hacer%20un%20sistema" data-negocio-href="waDevLink" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> Contactar a Deft</a>
+                  <a class="dev-btn dev-btn-tel" href="tel:+5493512067970"><i class="bi bi-telephone"></i> <span data-negocio="devTelefono">+54 9 351 206-7970</span></a>
+                </div>
+              </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- SECCION MAYORISTAS -->
+
+    <div class="chat-float" id="chatFloat"><button class="chat-float-btn" id="chatFloatBtn" onclick="toggleChatFloat()"><i class="bi bi-chat-dots-fill"></i></button><div class="chat-float-box" id="chatFloatBox"><div class="chat-float-header"><h4><i class="bi bi-chat-text"></i> ¿Tenés consultas?</h4><button onclick="toggleChatFloat()"><i class="bi bi-x-lg"></i></button></div><div class="chat-float-body"><p>Escribinos y te respondemos a la brevedad</p><form id="contactForm"><input type="text" id="nombre" placeholder="Tu nombre" required><input type="email" id="email" placeholder="Tu email" required><textarea id="mensaje" placeholder="Tu mensaje..." rows="3" required></textarea><button type="submit"><i class="bi bi-send"></i> Enviar por WhatsApp</button></form></div></div></div>
+
+    <div class="cart-overlay" id="cartOverlay"></div>
+    <div class="checkout-overlay" id="checkoutOverlay" onclick="closeCheckoutModal()"></div>
+    <aside class="checkout-modal" id="checkoutModal">
+        <div class="chk-header">
+            <h3><i class="bi bi-bag-check"></i> Confirmar pedido</h3>
+            <button class="chk-close" onclick="closeCheckoutModal()" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="chk-body">
+            <div class="chk-section">
+                <label class="chk-section-label">¿Cómo querés recibir tu pedido?</label>
+                <div class="chk-entrega-toggle">
+                    <button type="button" class="chk-entrega-btn active" data-tipo="envio" onclick="setCheckoutEntrega('envio')">
+                        <i class="bi bi-truck"></i> Envío a domicilio
+                    </button>
+                    <button type="button" class="chk-entrega-btn" data-tipo="retiro" onclick="setCheckoutEntrega('retiro')">
+                        <i class="bi bi-shop"></i> Retiro en local
+                    </button>
+                </div>
+                <p class="chk-retiro-info" id="chkRetiroInfo">Dirección de retiro: <strong data-negocio="direccionCompleta">Manuel de Falla, X5021 Córdoba</strong> · <a href="https://www.google.com/maps/search/?api=1&query=Manuel+de+Falla%2C+X5021+C%C3%B3rdoba" data-negocio-href="mapsUrl" target="_blank" rel="noopener" class="chk-mapa-link"><i class="bi bi-geo-alt-fill"></i> Ubicación</a></p>
+            </div>
+            <!-- Login OPCIONAL: solo un aviso para quien quiera guardar sus datos -->
+            <div id="chkLoginRequired" class="chk-section" style="display:none">
+                <div style="background:#f0f7f2;border-radius:10px;padding:0.7rem 0.9rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+                    <span style="color:#555;font-size:0.85rem"><i class="bi bi-person-circle"></i> Opcional: iniciá sesión para guardar tus datos</span>
+                    <button onclick="authLogin()" style="background:var(--color-primary);color:#fff;border:none;border-radius:8px;padding:0.45rem 0.9rem;font-size:0.82rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;white-space:nowrap"><i class="bi bi-google"></i> Ingresar</button>
+                </div>
+            </div>
+            <div id="chkDatosSection" class="chk-section">
+                <div class="chk-field">
+                    <label for="chkNombre">Nombre *</label>
+                    <input type="text" id="chkNombre" placeholder="Tu nombre" autocomplete="given-name">
+                </div>
+                <div class="chk-field">
+                    <label for="chkApellido">Apellido *</label>
+                    <input type="text" id="chkApellido" placeholder="Tu apellido" autocomplete="family-name">
+                </div>
+                <div class="chk-field">
+                    <label for="chkTelefono">Teléfono / WhatsApp *</label>
+                    <input type="tel" id="chkTelefono" placeholder="Ej: 3511234567" autocomplete="tel" inputmode="numeric">
+                </div>
+                <div class="chk-field" id="chkDireccionGroup">
+                    <label>Dirección de envío *</label>
+                    <!-- Selector cuando tiene direcciones guardadas -->
+                    <div id="chkDirGuardadasWrap" style="display:none">
+                        <select id="chkDirSelect" class="auth-input" onchange="onSelectDireccion(this.value)" style="width:100%">
+                        </select>
+                    </div>
+                    <!-- Campo cuando no tiene o elige nueva -->
+                    <div id="chkNuevaDirWrap" style="margin-top:0.4rem">
+                        <input type="text" id="chkDireccion" placeholder="Calle, número, barrio" autocomplete="street-address">
+                        <div id="chkNombreDirWrap" style="margin-top:0.4rem;display:none">
+                            <input type="text" id="chkNombreDir" class="auth-input" placeholder="Nombre de esta dirección (ej: Mi casa)" style="font-size:0.88rem">
+                            <small style="color:#888;font-size:0.75rem">Se guardará en tu perfil para próximos pedidos</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="chk-field">
+                    <label for="chkNotas">Notas (opcional)</label>
+                    <textarea id="chkNotas" rows="2" placeholder="Comentarios sobre el pedido o entrega"></textarea>
+                </div>
+            </div>
+            <div class="chk-section" id="chkCuponSection">
+                <label class="chk-section-label">¿Tenés un cupón?</label>
+                <div style="display:flex;gap:0.5rem">
+                    <input type="text" id="chkCuponInput" class="auth-input" placeholder="Ingresá tu código" style="flex:1;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+                    <button onclick="aplicarCupon()" class="chk-cupon-btn" id="chkCuponBtn">Aplicar</button>
+                </div>
+                <div id="chkCuponMsg" style="font-size:0.82rem;margin-top:0.4rem"></div>
+            </div>
+            <div class="chk-section">
+                <div id="chkResumen" class="chk-resumen"></div>
+            </div>
+            <div class="chk-info-wa">
+                <i class="bi bi-info-circle"></i>
+                Ayudanos a contactarnos contigo enviando el mensaje por WhatsApp con este botón. Así nos aseguramos de tener tu número correcto.
+            </div>
+        </div>
+        <div class="chk-footer">
+
+            <button class="chk-confirm-btn" id="chkConfirmBtn" onclick="confirmCheckout()">
+                Confirmar pedido
+            </button>
+        </div>
+    </aside>
+    <div class="product-detail-overlay" id="productDetailOverlay" onclick="closeProductDetailModal()"></div>
+    <aside class="product-detail-modal" id="productDetailModal">
+        <div class="pdm-header">
+            <button class="pdm-back" onclick="closeProductDetailModal()"><i class="bi bi-arrow-left"></i> Volver</button>
+            <button class="pdm-close" onclick="closeProductDetailModal()"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="pdm-body" id="productDetailBody"></div>
+        <div class="pdm-footer" id="productDetailFooter"></div>
+    </aside>
+    <aside class="cart-sidebar" id="cartSidebar"><div class="cart-header"><h3><i class="bi bi-cart3"></i> Tu Carrito</h3><div class="cart-header-actions"><button class="btn-clear-cart" id="clearCartBtn" onclick="clearCart()" title="Vaciar carrito"><i class="bi bi-trash3"></i> Vaciar</button><button class="cart-close" id="cartClose"><i class="bi bi-x-lg"></i></button></div></div><div class="cart-body" id="cartBody"><div class="cart-empty" id="cartEmpty"><i class="bi bi-cart-x"></i><p>Tu carrito está vacío</p><a href="#productos" class="btn btn-outline-success" id="browseProductsBtn">Ver productos</a></div></div><div class="cart-footer" id="cartFooter"><div class="shipping-progress" id="shippingProgress"><div class="shipping-msg" id="shippingMsg"></div><div class="shipping-bar"><div class="shipping-bar-fill" id="shippingBarFill"></div><div class="shipping-marker" style="left:30%">30k</div><div class="shipping-marker" style="left:100%">100k</div></div></div><div class="cart-total"><span>Total:</span><span class="total-amount" id="cartTotal">$0</span></div><button class="btn btn-whatsapp" id="checkoutBtn"><i class="bi bi-bag-check"></i> Confirmar</button></div></aside>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="config-negocio.js"></script>
+    <script src="app.min.js"></script>
+    <script>function toggleChatFloat(){document.getElementById('chatFloatBox').classList.toggle('show');document.getElementById('chatFloatBtn').classList.toggle('hide');}document.addEventListener('contextmenu',function(e){e.preventDefault();});document.addEventListener('keydown',function(e){if(e.ctrlKey&&(e.key==='s'||e.key==='S'||e.key==='u'||e.key==='U'||e.key==='p'||e.key==='P'))e.preventDefault();});</script>
+
+
+
+
+
+    <!-- MODAL COMPLETAR DATOS -->
+    <div class="modal-auth-overlay" id="modalCompletarDatos" style="display:none">
+      <div class="modal-auth-box">
+        <div class="modal-auth-header"><h3><i class="bi bi-person-check"></i> Completá tus datos</h3></div>
+        <p style="font-size:0.9rem;color:#666;margin-bottom:1.25rem">Para continuar necesitamos algunos datos de contacto.</p>
+        <div class="auth-form-group"><label>Nombre *</label><input type="text" id="cdNombre" class="auth-input" placeholder="Tu nombre"></div>
+        <div class="auth-form-group"><label>Apellido *</label><input type="text" id="cdApellido" class="auth-input" placeholder="Tu apellido"></div>
+        <div class="auth-form-group"><label>Teléfono *</label><input type="tel" id="cdTelefono" class="auth-input" placeholder="Ej: 3512345678"></div>
+        <div id="cdError" style="color:#e53e3e;font-size:0.82rem;margin-bottom:0.75rem;display:none"></div>
+        <button class="btn-auth-primary" onclick="guardarDatosCliente()"><i class="bi bi-check-lg"></i> Guardar y continuar</button>
+      </div>
+    </div>
+
+    <!-- MODAL PERFIL -->
+    <div class="modal-auth-overlay" id="modalPerfil" style="display:none">
+      <div class="modal-auth-box" style="max-width:480px">
+        <div class="modal-auth-header">
+          <h3><i class="bi bi-person-circle"></i> Mi perfil</h3>
+          <button onclick="closePerfilModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#666"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="perfil-tabs"><button class="perfil-tab active" onclick="switchPerfilTab('datos')">Mis datos</button><button class="perfil-tab" onclick="switchPerfilTab('direcciones')">Mis direcciones</button></div>
+        <!-- Tab datos -->
+        <div id="perfilTabDatos">
+          <div class="auth-form-group"><label>Nombre</label><input type="text" id="pfNombre" class="auth-input"></div>
+          <div class="auth-form-group"><label>Apellido</label><input type="text" id="pfApellido" class="auth-input"></div>
+          <div class="auth-form-group"><label>Teléfono</label><input type="tel" id="pfTelefono" class="auth-input"></div>
+          <div class="auth-form-group"><label>Email</label><input type="text" class="auth-input" id="pfEmail" readonly style="opacity:0.6"></div>
+          <button class="btn-auth-primary" onclick="guardarPerfil()"><i class="bi bi-check-lg"></i> Guardar cambios</button>
+        </div>
+        <!-- Tab direcciones -->
+        <div id="perfilTabDirecciones" style="display:none">
+          <div id="listaDirecciones" style="margin-bottom:1rem"></div>
+          <button class="btn-auth-secondary" id="btnAgregarDir" onclick="mostrarFormDir()"><i class="bi bi-plus-lg"></i> Agregar dirección</button>
+          <div id="formDireccion" style="display:none;margin-top:1rem;border-top:1px solid #eee;padding-top:1rem">
+            <div class="auth-form-group"><label>Nombre de la dirección *</label><input type="text" id="dirNombre" class="auth-input" placeholder="Ej: Mi casa, Trabajo..."></div>
+            <div class="auth-form-group"><label>Dirección completa *</label><input type="text" id="dirTexto" class="auth-input" placeholder="Calle, número, barrio..."></div>
+            <div style="display:flex;gap:0.5rem"><button class="btn-auth-primary" style="flex:1" onclick="guardarDireccion()">Guardar</button><button class="btn-auth-secondary" style="flex:1" onclick="cancelarFormDir()">Cancelar</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL HISTORIAL PEDIDOS -->
+    <div class="modal-auth-overlay" id="modalHistorial" style="display:none">
+      <div class="modal-auth-box" style="max-width:600px;max-height:85vh;overflow-y:auto">
+        <div class="modal-auth-header">
+          <h3><i class="bi bi-clock-history"></i> Mis pedidos</h3>
+          <button onclick="closeHistorialModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#666"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="hist-tabs"><button class="hist-tab active" onclick="filterHistPedidos('todos')">Todos</button><button class="hist-tab" onclick="filterHistPedidos('pendiente')">Pendientes</button><button class="hist-tab" onclick="filterHistPedidos('confirmado')">Confirmados</button><button class="hist-tab" onclick="filterHistPedidos('entregado')">Entregados</button></div>
+        <div id="listaPedidosCliente"><div style="text-align:center;padding:2rem;color:#999">Cargando...</div></div>
+      </div>
+    </div>
+
+</body>
+</html>

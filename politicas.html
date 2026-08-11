@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Brotes Dietética - Términos, Condiciones y Política de Privacidad.">
+    <title>Brotes Dietética | Políticas y Privacidad</title>
+    <link rel="icon" type="image/svg+xml" href="img/favicon-brotes.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root{--color-primary:#1E3E2C;--color-primary-dark:#14251A;--color-primary-light:#8FCBA3;--color-secondary:#EDB833;--color-cream:#F5EEDA;--color-beige:#EAE0C4;--color-text:#26261F;--color-text-light:#5C5C50;--font-display:'Playfair Display',Georgia,serif;--font-body:'Source Sans 3',-apple-system,BlinkMacSystemFont,sans-serif}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:var(--font-body);color:var(--color-text);background:var(--color-cream);line-height:1.7}
+        .policy-nav{background:var(--color-primary);padding:1rem 0;position:sticky;top:0;z-index:100}
+        .policy-nav .container{display:flex;align-items:center;justify-content:space-between}
+        .policy-nav a{color:white;text-decoration:none;display:flex;align-items:center;gap:0.5rem;font-weight:600;font-size:0.95rem;transition:opacity 0.2s}
+        .policy-nav a:hover{opacity:0.8}
+        .policy-nav img{height:40px;width:auto;border-radius:6px}
+        .policy-hero{background:linear-gradient(135deg,var(--color-primary) 0%,var(--color-primary-dark) 100%);color:white;padding:4rem 0 3rem;text-align:center}
+        .policy-hero h1{font-family:var(--font-display);font-size:2.5rem;font-weight:700;margin-bottom:0.5rem}
+        .policy-hero p{font-size:1.1rem;opacity:0.85;max-width:600px;margin:0 auto}
+        .policy-content{max-width:800px;margin:0 auto;padding:3rem 1.5rem 4rem}
+        .policy-toc{background:white;border-radius:12px;padding:1.5rem 2rem;margin-bottom:2.5rem;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+        .policy-toc h3{font-family:var(--font-display);font-size:1.1rem;margin-bottom:1rem;color:var(--color-primary)}
+        .policy-toc ul{list-style:none;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem}
+        .policy-toc a{color:var(--color-primary);text-decoration:none;font-size:0.9rem;padding:0.3rem 0;display:block;transition:color 0.2s}
+        .policy-toc a:hover{color:var(--color-primary-dark);text-decoration:underline}
+        .policy-section{background:white;border-radius:12px;padding:2rem;margin-bottom:1.5rem;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+        .policy-section h2{font-family:var(--font-display);font-size:1.4rem;color:var(--color-primary);margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:2px solid var(--color-primary-light)}
+        .policy-section h3{font-family:var(--font-display);font-size:1.1rem;color:var(--color-primary);margin:1.5rem 0 0.75rem}
+        .policy-section p{margin-bottom:0.75rem;color:var(--color-text)}
+        .policy-section ul{margin:0.5rem 0 1rem 1.5rem;color:var(--color-text)}
+        .policy-section li{margin-bottom:0.4rem}
+        .policy-section strong{color:var(--color-primary-dark)}
+        .policy-footer{background:var(--color-primary-dark);color:rgba(245,238,218,0.85);text-align:center;padding:2rem 0;font-size:0.85rem}
+        .policy-footer a{color:var(--color-secondary);text-decoration:none}
+        .policy-footer a:hover{text-decoration:underline}
+        .cat-list{columns:2;column-gap:1.5rem;list-style:none;padding:0;margin:0.75rem 0}
+        .cat-list li{padding:0.2rem 0;font-size:0.92rem}
+        .cat-list li::before{content:'•';color:var(--color-secondary);font-weight:700;margin-right:0.5rem}
+        .contact-box{background:var(--color-cream);border-radius:8px;padding:1rem 1.25rem;margin-top:1rem}
+        .contact-box p{margin-bottom:0.3rem;font-size:0.9rem}
+        .policy-section.deft{border-left:4px solid var(--color-secondary)}
+        .deft-badge{display:inline-flex;align-items:center;gap:0.4rem;background:rgba(237,184,51,0.16);color:var(--color-primary-dark);border-radius:50px;padding:0.3rem 0.8rem;font-size:0.78rem;font-weight:600;margin-bottom:0.9rem}
+        .policy-note{background:var(--color-beige);border-radius:10px;padding:1rem 1.25rem;margin-bottom:2rem;font-size:0.88rem;color:var(--color-text)}
+        @media(max-width:768px){.policy-hero h1{font-size:1.8rem}.policy-section{padding:1.25rem}.policy-toc ul{grid-template-columns:1fr}.cat-list{columns:1}.policy-content{padding:1.5rem 1rem 3rem}}
+    </style>
+</head>
+<body>
+    <nav class="policy-nav">
+        <div class="container">
+            <a href="/"><img src="img/logo-brotes.svg" alt="Brotes Dietética"> Brotes</a>
+            <a href="/"><i class="bi bi-arrow-left"></i> Volver a la tienda</a>
+        </div>
+    </nav>
+
+    <section class="policy-hero">
+        <h1>Politicas y Privacidad</h1>
+        <p>Informacion sobre nuestros terminos de uso, politicas de envio, privacidad y mas.</p>
+    </section>
+
+    <div class="policy-content">
+        <div class="policy-note">
+            <strong>Como leer este documento.</strong> Las secciones 1 a 9 y las politicas de privacidad y
+            envios corresponden a <strong>Brotes Dietetica</strong>, que es quien vende los productos y
+            responde por ellos. Las secciones marcadas con
+            <span style="white-space:nowrap"><i class="bi bi-code-slash"></i> Deft Software Solutions</span>
+            corresponden al software: la plataforma fue desarrollada, es provista y es mantenida por
+            Deft Software Solutions.
+        </div>
+
+        <div class="policy-toc">
+            <h3><i class="bi bi-list-ul"></i> Contenido</h3>
+            <ul>
+                <li><a href="#info">1. Informacion general</a></li>
+                <li><a href="#productos">2. Productos ofrecidos</a></li>
+                <li><a href="#compra">3. Proceso de compra</a></li>
+                <li><a href="#pagos">4. Medios de pago</a></li>
+                <li><a href="#envios">5. Envios</a></li>
+                <li><a href="#cambios">6. Cambios y devoluciones</a></li>
+                <li><a href="#disponibilidad">7. Disponibilidad</a></li>
+                <li><a href="#responsabilidad">8. Responsabilidad</a></li>
+                <li><a href="#imagenes">9. Imagenes de productos</a></li>
+                <li><a href="#cuentas">10. Cuentas de usuario</a></li>
+                <li><a href="#privacidad">Politica de Privacidad</a></li>
+                <li><a href="#pol-envios">Politica de Envios</a></li>
+                <li><a href="#plataforma">Terminos de la plataforma</a></li>
+                <li><a href="#marca">Propiedad intelectual</a></li>
+            </ul>
+        </div>
+
+        <div class="policy-section" id="info">
+            <h2>1. Informacion general</h2>
+            <p><strong>Brotes Dietetica</strong> es un comercio dedicado a la venta de productos naturales y de
+            alimentacion saludable, que opera de forma presencial y digital a traves de este sitio web.</p>
+            <p>Los pedidos se realizan mediante este sitio. Una vez seleccionados los productos, el usuario
+            confirma el pedido y es derivado al canal de contacto por WhatsApp para coordinar el pago y la entrega.</p>
+            <p>La plataforma web y el sistema de gestion fueron desarrollados por <strong>Deft Software Solutions</strong>
+            (ver <a href="#plataforma" style="color:var(--color-primary);font-weight:600">Terminos de la plataforma</a>).</p>
+            <div class="contact-box">
+                <p><strong>Comercio:</strong> Brotes Dietetica</p>
+                <p><strong>Email:</strong> <span data-negocio="email">brotesdietetica@gmail.com</span></p>
+                <p><strong>WhatsApp:</strong> <span data-negocio="telefonoDisplay">+54 9 351 687-2770</span></p>
+                <p><strong>Ubicacion:</strong> <span data-negocio="direccionCompleta">Manuel de Falla, X5021 Cordoba</span>, Argentina</p>
+                <p><strong>Zona de entrega:</strong> <span data-negocio="zonaEnvio">Rivera Indarte y alrededores</span></p>
+            </div>
+        </div>
+
+        <div class="policy-section" id="productos">
+            <h2>2. Productos ofrecidos</h2>
+            <p>Brotes Dietetica comercializa productos relacionados con la alimentacion natural y saludable, entre ellos:</p>
+            <ul class="cat-list">
+                <li>Aceites</li><li>Arroz</li><li>Cereales</li><li>Condimentos</li>
+                <li>Fideos y Premezclas</li><li>Frutas Desecadas</li><li>Frutas Secas</li>
+                <li>Frutas Tropicales</li><li>Harinas</li><li>Legumbres</li>
+                <li>Mix de Frutos Secos</li><li>Regionales y Otros</li><li>Reposteria</li>
+                <li>Semillas</li><li>Suplementos Naturales</li>
+                <li>Yerba Mate, Te y Cafe</li>
+            </ul>
+            <p>Todos los productos se comercializan conforme a las normativas sanitarias vigentes aplicables a
+            alimentos en Argentina, establecidas por organismos como ANMAT.</p>
+            <p>Los productos ofrecidos <strong>no constituyen medicamentos ni tratamientos medicos</strong>.</p>
+        </div>
+
+        <div class="policy-section" id="compra">
+            <h2>3. Proceso de compra</h2>
+            <p>El proceso de compra funciona de la siguiente manera:</p>
+            <ul>
+                <li>El usuario selecciona los productos desde el sitio web.</li>
+                <li>Completa sus datos de contacto y elige envio a domicilio o retiro en el local.</li>
+                <li>El sistema registra el pedido y deriva al canal de WhatsApp.</li>
+                <li>El pedido se confirma mediante conversacion directa.</li>
+                <li>Se acuerda la forma de pago y el metodo de entrega.</li>
+            </ul>
+            <p>Brotes Dietetica se reserva el derecho de confirmar o rechazar pedidos cuando exista falta de stock,
+            errores en la informacion del producto o inconvenientes operativos.</p>
+        </div>
+
+        <div class="policy-section" id="pagos">
+            <h2>4. Medios de pago</h2>
+            <p>Actualmente Brotes Dietetica acepta los siguientes metodos de pago:</p>
+            <ul>
+                <li>Efectivo</li>
+                <li>Transferencias mediante billeteras virtuales</li>
+            </ul>
+            <p>El pedido se considera confirmado una vez acreditado el pago o acordado el pago contra entrega.</p>
+            <p><strong>Importante:</strong> este sitio <strong>no procesa pagos online</strong> ni solicita datos de
+            tarjetas de credito o debito. Si alguna pagina que dice ser de Brotes Dietetica te pide esos datos,
+            no los ingreses.</p>
+            <p>En el futuro Brotes Dietetica podra incorporar nuevos medios de pago.</p>
+        </div>
+
+        <div class="policy-section" id="envios">
+            <h2>5. Envios</h2>
+            <p>Brotes Dietetica realiza envios propios dentro de la siguiente zona:</p>
+            <ul>
+                <li><span data-negocio="zonaEnvio">Rivera Indarte y alrededores</span></li>
+            </ul>
+            <p><strong>Condiciones:</strong></p>
+            <ul>
+                <li>En caso que el cliente prefiera su pedido a domicilio, el costo del envio es abonado por el cliente.</li>
+                <li>Si el cliente quiere retirar por si mismo su pedido, debera ir a:
+                    <strong data-negocio="direccionCompleta">Manuel de Falla, X5021 Cordoba</strong> (punto de retiro).</li>
+                <li>El dia y horario de entrega se coordinan previamente por WhatsApp.</li>
+            </ul>
+            <p>Brotes Dietetica se compromete a realizar las entregas en el plazo acordado con el cliente. En caso de
+            ausencia del cliente en el momento de entrega, se debera coordinar un nuevo horario.</p>
+        </div>
+
+        <div class="policy-section" id="cambios">
+            <h2>6. Cambios y devoluciones</h2>
+            <p>Debido a la naturaleza alimenticia de los productos comercializados, Brotes Dietetica aplica las
+            siguientes politicas:</p>
+            <p><strong>Se aceptan devoluciones unicamente cuando:</strong></p>
+            <ul>
+                <li>El producto llega en mal estado.</li>
+                <li>El envase o bolsa llega visiblemente daniado.</li>
+            </ul>
+            <p><strong>Condiciones:</strong></p>
+            <ul>
+                <li>El reclamo debe realizarse el mismo dia de la entrega.</li>
+                <li>No se aceptan devoluciones de productos abiertos o consumidos.</li>
+                <li>No se realizan cambios por error del cliente al seleccionar el producto.</li>
+            </ul>
+            <p>Esta politica se debe a que los proveedores no aceptan devoluciones luego de las primeras 24 horas
+            desde la recepcion de la mercaderia.</p>
+            <p>Esto no afecta los derechos que la normativa de defensa del consumidor de Argentina reconozca al
+            comprador.</p>
+        </div>
+
+        <div class="policy-section" id="disponibilidad">
+            <h2>7. Disponibilidad de productos</h2>
+            <p>Todos los productos ofrecidos estan sujetos a disponibilidad de stock.</p>
+            <p>En caso de falta de stock luego de confirmado un pedido, Brotes Dietetica ofrecera al cliente alguna
+            de las siguientes alternativas:</p>
+            <ul>
+                <li>Reemplazo por un producto similar.</li>
+                <li>Reprogramacion del pedido.</li>
+                <li>Devolucion del dinero abonado.</li>
+            </ul>
+        </div>
+
+        <div class="policy-section" id="responsabilidad">
+            <h2>8. Responsabilidad</h2>
+            <p>Brotes Dietetica no se responsabiliza por:</p>
+            <ul>
+                <li>Uso indebido de los productos.</li>
+                <li>Consumo de productos por personas con alergias alimentarias especificas.</li>
+                <li>Interpretaciones incorrectas sobre beneficios nutricionales.</li>
+            </ul>
+            <p>Se recomienda siempre verificar ingredientes y consultar con profesionales de salud en caso de dudas
+            relacionadas con el consumo de alimentos.</p>
+        </div>
+
+        <div class="policy-section" id="imagenes">
+            <h2>9. Imagenes ilustrativas de productos</h2>
+            <p>Las imagenes utilizadas en este sitio tienen caracter ilustrativo y pueden no representar exactamente
+            el producto final entregado al cliente. Los productos que aun no tienen fotografia propia se muestran con
+            una imagen generica.</p>
+            <p>El catalogo se actualiza de forma constante, por lo que con el paso del tiempo se iran incorporando
+            fotografias reales de los productos comercializados.</p>
+            <p><strong>Brotes Dietetica se compromete a que:</strong></p>
+            <ul>
+                <li>El producto entregado corresponda a la categoria y descripcion indicada.</li>
+                <li>El peso o cantidad especificada sea respetada.</li>
+                <li>La calidad del producto cumpla con los estandares ofrecidos.</li>
+            </ul>
+            <p>Si el cliente tiene dudas sobre el producto antes de realizar la compra, puede solicitar informacion
+            adicional o fotografias reales mediante el canal de contacto de WhatsApp.</p>
+        </div>
+
+        <div class="policy-section" id="cuentas">
+            <h2>10. Cuentas de usuario</h2>
+            <p>Para guardar tus datos y ver el historial de tus pedidos podes iniciar sesion con tu
+            <strong>cuenta de Google</strong>. Iniciar sesion es <strong>opcional</strong>: se puede comprar sin
+            crear ninguna cuenta.</p>
+            <p><strong>Que pasa cuando inicias sesion con Google:</strong></p>
+            <ul>
+                <li>Google nos informa unicamente tu <strong>nombre, tu email y tu foto de perfil</strong>.</li>
+                <li><strong>Nunca recibimos ni podemos ver tu contrasena de Google.</strong> La autenticacion la
+                    hace Google directamente.</li>
+                <li>Guardamos tu nombre, apellido, telefono y las direcciones que cargues, para no pedirtelos en
+                    cada pedido.</li>
+                <li>Podes editar o borrar tus direcciones en cualquier momento desde <em>Mi perfil</em>.</li>
+            </ul>
+            <p>Para solicitar la eliminacion completa de tu cuenta y tus datos, escribinos a
+            <strong data-negocio="email">brotesdietetica@gmail.com</strong>.</p>
+            <p>El usuario es responsable del uso de su cuenta. Brotes Dietetica puede suspender cuentas que hagan un
+            uso abusivo del sitio (por ejemplo, pedidos falsos de forma reiterada).</p>
+        </div>
+
+        <div class="policy-section" id="privacidad">
+            <h2>Politica de Privacidad</h2>
+            <p><strong>Responsable de los datos:</strong> Brotes Dietetica.
+            <strong>Proveedor tecnico:</strong> Deft Software Solutions, que desarrolla y mantiene la plataforma y
+            accede a los datos unicamente para tareas de soporte y mantenimiento.</p>
+            <p>Brotes Dietetica respeta la privacidad de sus clientes y se compromete a proteger los datos personales
+            recopilados.</p>
+            <p><strong>Los datos que pueden ser solicitados incluyen:</strong></p>
+            <ul>
+                <li>Nombre y apellido</li>
+                <li>Numero de telefono</li>
+                <li>Direccion de entrega</li>
+                <li>Email (si inicias sesion con Google)</li>
+            </ul>
+            <p><strong>Estos datos se utilizan exclusivamente para:</strong></p>
+            <ul>
+                <li>Procesar pedidos.</li>
+                <li>Coordinar entregas.</li>
+                <li>Comunicarse con el cliente sobre su compra.</li>
+            </ul>
+            <p><strong>Servicios de terceros que intervienen:</strong></p>
+            <ul>
+                <li><strong>Google Firebase</strong> (Google LLC): almacena la base de datos de productos y pedidos,
+                    y provee el inicio de sesion con Google.</li>
+                <li><strong>Vercel</strong> (Vercel Inc.): aloja el sitio web.</li>
+                <li><strong>WhatsApp</strong> (Meta): canal de contacto para confirmar los pedidos.</li>
+            </ul>
+            <p>Brotes Dietetica <strong>no vende ni comparte datos personales con terceros</strong> con fines
+            publicitarios.</p>
+            <p>Para solicitar la eliminacion de datos personales, el usuario puede comunicarse a:
+            <strong data-negocio="email">brotesdietetica@gmail.com</strong></p>
+            <p>La proteccion de datos personales se rige por las normativas vigentes en Argentina (Ley 25.326),
+            supervisadas por la Agencia de Acceso a la Informacion Publica.</p>
+        </div>
+
+        <div class="policy-section" id="pol-envios">
+            <h2>Politica de Envios</h2>
+            <p><strong>Zona de entrega:</strong> <span data-negocio="zonaEnvio">Rivera Indarte y alrededores</span>.</p>
+            <p><strong>Modalidad:</strong> envios realizados directamente por Brotes Dietetica.</p>
+            <p><strong>Condiciones:</strong></p>
+            <ul>
+                <li>El cliente debe proporcionar una direccion correcta y completa.</li>
+                <li>El costo de envio se informa al confirmar el pedido.</li>
+                <li>El horario de entrega debe ser coordinado previamente.</li>
+            </ul>
+            <p>En caso de ausencia del cliente al momento de la entrega, se debera coordinar un nuevo horario.</p>
+            <h3>Aviso sobre productos alimenticios</h3>
+            <p>Los productos comercializados por Brotes Dietetica son alimentos o productos naturales. No reemplazan
+            tratamientos medicos ni deben interpretarse como productos terapeuticos.</p>
+            <p>Ante condiciones medicas especificas, alergias o dietas especiales, se recomienda consultar con un
+            profesional de salud antes de su consumo.</p>
+        </div>
+
+        <div class="policy-section deft" id="plataforma">
+            <span class="deft-badge"><i class="bi bi-code-slash"></i> Deft Software Solutions</span>
+            <h2>Terminos de la plataforma</h2>
+            <p>El sitio web y el sistema de gestion que lo respalda fueron <strong>desarrollados, son provistos y son
+            mantenidos por Deft Software Solutions</strong>, en adelante "el proveedor". Los presentes terminos de la
+            plataforma son redactados y provistos por el proveedor.</p>
+
+            <h3>Alcance</h3>
+            <ul>
+                <li>El proveedor es responsable del <strong>funcionamiento del software</strong>: disponibilidad del
+                    sitio, seguridad tecnica, correcciones y actualizaciones.</li>
+                <li>El proveedor <strong>no es parte de la relacion comercial</strong> entre Brotes Dietetica y sus
+                    clientes. No vende los productos, no cobra, no despacha y no entrega pedidos.</li>
+                <li>Los precios, el stock, las descripciones, las fotos y las condiciones de venta son cargados y
+                    administrados por Brotes Dietetica desde su panel de administracion.</li>
+            </ul>
+
+            <h3>Disponibilidad del servicio</h3>
+            <p>El proveedor trabaja para mantener el sitio disponible de forma continua, pero no puede garantizar
+            disponibilidad ininterrumpida: el servicio depende de proveedores de infraestructura de terceros
+            (Vercel y Google Firebase) y puede requerir ventanas de mantenimiento.</p>
+
+            <h3>Limitacion de responsabilidad</h3>
+            <p>En la maxima medida permitida por la ley aplicable, el proveedor no respondera por danios indirectos
+            o lucro cesante derivados de interrupciones del servicio, de errores en los datos cargados por el
+            comercio, ni del uso que terceros hagan del sitio. La responsabilidad del proveedor frente al comercio
+            se rige por el contrato de servicios acordado entre ambas partes.</p>
+
+            <h3>Seguridad y reporte de vulnerabilidades</h3>
+            <p>El sitio se sirve por HTTPS, aplica cabeceras de seguridad y protege el acceso a los datos con reglas
+            de autorizacion del lado del servidor. Si detectas una vulnerabilidad o un comportamiento que exponga
+            datos, te pedimos que <strong>no la difundas publicamente</strong> y nos escribas a los contactos de
+            abajo: lo revisamos y corregimos.</p>
+
+            <div class="contact-box">
+                <p><strong>Proveedor de la plataforma:</strong> <span data-negocio="devNombre">Deft Software Solutions</span></p>
+                <p><strong>Contacto tecnico (WhatsApp):</strong> <span data-negocio="devTelefono">+54 9 351 206-7970</span></p>
+                <p>Para consultas sobre productos, precios, pedidos o entregas, el contacto es
+                   <strong>Brotes Dietetica</strong>, no el proveedor.</p>
+            </div>
+        </div>
+
+        <div class="policy-section deft" id="marca">
+            <span class="deft-badge"><i class="bi bi-code-slash"></i> Deft Software Solutions</span>
+            <h2>Propiedad intelectual</h2>
+            <p><strong>Marca del comercio:</strong> el nombre "Brotes Dietetica", su logo y su identidad visual
+            pertenecen a Brotes Dietetica y forman parte de su identidad comercial. La marca podra registrarse ante
+            el Instituto Nacional de la Propiedad Industrial (INPI) para su proteccion legal.</p>
+            <p><strong>Software:</strong> el codigo fuente, la arquitectura y el diseno del sistema pertenecen a
+            <strong>Deft Software Solutions</strong>. Brotes Dietetica cuenta con licencia de uso para operar su
+            comercio a traves de esta plataforma, segun el contrato acordado entre las partes.</p>
+            <p>No esta permitido copiar, redistribuir, revender ni realizar obras derivadas del software sin
+            autorizacion escrita de Deft Software Solutions.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2>Vigencia y cambios</h2>
+            <p>Estas politicas pueden actualizarse para reflejar cambios en la operacion del comercio o en la
+            plataforma. La version publicada en esta pagina es la vigente.</p>
+            <p><strong>Ultima actualizacion:</strong> agosto de 2026.</p>
+            <p><strong>Jurisdiccion:</strong> ante cualquier controversia se aplica la legislacion de la Republica
+            Argentina y seran competentes los tribunales ordinarios de la Ciudad de Cordoba.</p>
+        </div>
+    </div>
+
+    <footer class="policy-footer">
+        <p>&copy; 2026 Brotes Dietetica. Todos los derechos reservados.</p>
+        <p>Plataforma desarrollada y provista por
+           <a href="https://wa.me/5493512067970" class="wa-dev" target="_blank" rel="noopener"><span data-negocio="devNombre">Deft Software Solutions</span></a>
+           &middot; <span data-negocio="devTelefono">+54 9 351 206-7970</span></p>
+        <p><a href="/">Volver a la tienda</a></p>
+    </footer>
+
+    <script src="config-negocio.js"></script>
+</body>
+</html>

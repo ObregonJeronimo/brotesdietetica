@@ -1,0 +1,66 @@
+rules_version = '2';
+
+/*
+ * BROTES DIETÉTICA — REGLAS DE FIREBASE STORAGE
+ * =============================================================================
+ * IMPORTANTE: el proyecto YERCO NO tenía este archivo. Sin reglas propias,
+ * Storage arranca con las reglas por defecto (solo usuarios autenticados, o
+ * directamente todo denegado según la versión), y la subida de imágenes de
+ * productos desde /admin falla con "storage/unauthorized".
+ *
+ * Modelo:
+ *   - LECTURA pública: las fotos de productos y del sitio se muestran en la
+ *     tienda, que es pública.
+ *   - ESCRITURA solo admins, con límite de tamaño y validación de tipo, para
+ *     que nadie use el bucket como hosting gratis.
+ *
+ * Desplegar con:  firebase deploy --only storage
+ *
+ * Los emails de admin están DUPLICADOS acá y en firestore.rules porque son
+ * dos servicios distintos: Storage no puede leer las reglas de Firestore.
+ * Si agregás un admin, tocá los dos archivos.
+ */
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'jeroobregon03@gmail.com' ||
+        request.auth.token.email == 'thiagowendler53@gmail.com'
+      );
+    }
+
+    function esImagenValida() {
+      return request.resource.contentType.matches('image/.*')
+        && request.resource.size < 6 * 1024 * 1024;
+    }
+
+    /* Fotos de productos (las sube el admin desde el panel) */
+    match /productos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && esImagenValida();
+      allow delete: if isAdmin();
+    }
+
+    /* Imágenes del sitio: hero, CTA y los 3 logos (Editor Web) */
+    match /site/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && esImagenValida();
+      allow delete: if isAdmin();
+    }
+
+    /* Comprobantes / logo y QR de la factura */
+    match /factura/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && esImagenValida();
+      allow delete: if isAdmin();
+    }
+
+    /* Todo lo demás: cerrado. Sin esta regla, cualquier ruta nueva que agregue
+       el panel en el futuro quedaría sin cubrir y Storage la denegaría igual,
+       pero dejarlo explícito evita sorpresas. */
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

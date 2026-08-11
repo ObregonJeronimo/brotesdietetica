@@ -1,0 +1,23 @@
+node_modules/
+
+# Vercel / Firebase CLI
+.vercel/
+.firebase/
+.firebaserc
+firebase-debug.log
+firebase-debug.*.log
+*.local
+
+# Logs y basura de editor
+*.log
+.DS_Store
+Thumbs.db
+
+# Nunca commitear credenciales de servidor.
+# La clave de cuenta de servicio de Firebase da acceso TOTAL al proyecto
+# (ignora firestore.rules). Si alguna vez descargas una, va acá.
+*serviceAccount*.json
+*service-account*.json
+*-firebase-adminsdk-*.json
+.env
+.env.*
