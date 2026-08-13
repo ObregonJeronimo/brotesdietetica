@@ -1,5 +1,8 @@
 # Brotes Dietética — Puesta en marcha (Firebase + Vercel)
 
+> **Empezás de cero acá?** Leé `PENDIENTE.md` primero: tiene solo lo que falta hacer,
+> en orden. Este archivo es la referencia completa del sistema.
+
 Réplica del sistema de YERCO para **Brotes Dietética**.
 Desarrollado por **Deft Software Solutions** · +54 9 351 206-7970
 
@@ -55,9 +58,11 @@ Admins del panel definidos en este repo:
 2. Nombre: `brotes-dietetica`. Anotá el **Project ID** real que te asigna
    (suele quedar `brotes-dietetica` o `brotes-dietetica-xxxxx`). Lo vas a necesitar 4 veces.
 3. Google Analytics: **desactivar** (no se usa).
-4. **Pasar a plan Blaze ahora.** Las 4 Cloud Functions son Gen 2 (Cloud Run + Eventarc);
-   el plan gratuito Spark **no puede desplegarlas**. Con el uso de un negocio chico el
-   costo real es ~USD 0, pero pide tarjeta. Poné un presupuesto de alerta en USD 5.
+4. **Plan: Spark alcanza para empezar.** Las 4 Cloud Functions son Gen 2 (Cloud Run +
+   Eventarc) y **solo se despliegan en Blaze**, pero el sitio funciona completo sin ellas
+   (ver [§7](#7-cloud-functions) para qué se pierde exactamente). Blaze pide tarjeta y con
+   el uso de un negocio chico sale ~USD 0, porque mantiene la capa gratuita. Si lo activás,
+   poné un presupuesto de alerta en USD 5.
 5. **Agregar app → Web** (ícono `</>`). Apodo: `brotes-web`. **No** marcar Firebase Hosting
    (el hosting lo hace Vercel).
 6. Copiá el objeto `firebaseConfig` que te muestra. Lo pegás en el [paso 8](#8-pegar-la-config-en-el-repo).
