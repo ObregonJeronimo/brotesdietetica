@@ -3,7 +3,6 @@ node_modules/
 # Vercel / Firebase CLI
 .vercel/
 .firebase/
-.firebaserc
 firebase-debug.log
 firebase-debug.*.log
 *.local
