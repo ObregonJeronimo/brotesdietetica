@@ -122,10 +122,25 @@ async function cargarDatosCaja(cajaId) {
    Se muestran aparte para poder adjuntarlas, en vez de que desaparezcan. */
 async function cargarVentasSueltas(fecha) {
   cajaVentasSueltas = [];
-  try {
-    const q = await db.collection('ventas').where('fecha', '==', fecha).get();
-    q.forEach(d => { const v = d.data(); if (!v.cajaId) cajaVentasSueltas.push(Object.assign({ docId: d.id }, v)); });
-  } catch (e) { console.warn('ventas sueltas:', e); }
+  if (!fecha) return;
+  /* `ventas.fecha` es un Timestamp, no el string 'AAAA-MM-DD': hay que pedir el
+     rango del día. Con `== fecha` la consulta no devolvía nunca nada y el aviso
+     de ventas fuera de caja no aparecía jamás.
+     Sin sufijo Z, `new Date('...T00:00:00')` se interpreta en hora local, que es
+     justo como se arma la fecha al registrar la venta. */
+  const desde = new Date(fecha + 'T00:00:00');
+  const hasta = new Date(fecha + 'T23:59:59.999');
+  if (isNaN(desde)) return;
+  const buscar = async (col, tipo) => {
+    try {
+      const q = await db.collection(col).where('fecha', '>=', desde).where('fecha', '<=', hasta).get();
+      q.forEach(d => {
+        const v = d.data();
+        if (!v.cajaId) cajaVentasSueltas.push(Object.assign({ docId: d.id, _col: col, _tipo: tipo }, v));
+      });
+    } catch (e) { console.warn('ventas sueltas (' + col + '):', e); }
+  };
+  await Promise.all([buscar('ventas', 'minorista'), buscar('ventasMayoristas', 'mayorista')]);
 }
 
 /* ============================ CÁLCULO ============================ */
@@ -491,7 +506,9 @@ async function adjuntarVentasSueltas() {
   if (!confirm('Adjuntar ' + cajaVentasSueltas.length + ' venta(s) a la caja #' + cajaActual.numero + '?')) return;
   try {
     const batch = db.batch();
-    cajaVentasSueltas.forEach(v => batch.update(db.collection('ventas').doc(v.docId), { cajaId: cajaActual.docId }));
+    /* Se usa v._col: una mayorista suelta vive en otra coleccion y actualizarla
+       contra 'ventas' escribiria un documento que no existe. */
+    cajaVentasSueltas.forEach(v => batch.update(db.collection(v._col || 'ventas').doc(v.docId), { cajaId: cajaActual.docId }));
     await batch.commit();
     showAdminToast('Ventas adjuntadas', 'success');
     await cargarDatosCaja(cajaActual.docId);
