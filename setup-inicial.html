@@ -133,7 +133,10 @@ const PLAN = [
       agradecimiento:'Gracias por elegirnos',
       subtitulo:'En Brotes creemos que alimentarse bien no deberia ser un lujo.',
       instagram:'@'+ig, whatsapp:waCorto, slogan:'Brotes, tu dietetica de confianza.',
-      termicaAncho:100, termicaAlto:0 } },
+      /* Dos formatos de papel: el adhesivo grande del mostrador y la termica de
+         rollo continuo de los pedidos web. La impresora se elige en la ventana
+         de impresion del sistema; el navegador no puede hacerlo. */
+      etiquetaAncho:100, etiquetaAlto:150, termicaAncho:80, termicaAlto:0 } },
 
   { id:'pedidos',     tipo:'doc', path:'config/pedidos', bloqueante:false,
     label:'Envios, monto minimo y envio gratis (se edita en /admin -> Configuracion)',
