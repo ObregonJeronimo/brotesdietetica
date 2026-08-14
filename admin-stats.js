@@ -400,7 +400,8 @@ async function renderComparativa(t) {
       '<span style="color:var(--text-dim);font-size:0.78rem">' + f(antes) + ' →</span>' +
       '<span style="font-weight:700">' + f(hoy) + '</span>' +
       '<span style="color:' + col + ';font-weight:700;font-size:0.78rem;white-space:nowrap">' +
-        (sube ? '▲' : '▼') + ' ' + Math.abs(dif).toFixed(0) + '%</span></div>';
+        '<i class="bi bi-arrow-' + (sube ? 'up' : 'down') + '-short"></i>' +
+        Math.abs(dif).toFixed(0) + '%</span></div>';
   };
   const nDias = Object.values(prev.porDia).filter(x => x.count).length;
   cont.innerHTML = _card('Contra ' + _mesLabel(_mesSumar(_statsMes, -1)),
