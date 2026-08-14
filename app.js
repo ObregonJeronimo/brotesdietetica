@@ -23,6 +23,10 @@ let ordenPrecio = null;
 const PEDIDOS = {
     /* false = el comercio no hace envios: en toda la web solo existe el retiro */
     haceEnvios: true,
+    /* Descontar stock automaticamente al confirmar un pedido web. Si el comercio
+       lleva el stock a mano y los numeros no son confiables, se puede apagar para
+       que la tienda no rechace pedidos por un stock que no refleja la realidad. */
+    descontarStock: true,
     minimoPedido: 30000,
     envioPrecio: 2000,
     envioGratisActivo: true,
@@ -46,6 +50,7 @@ async function loadPedidosConfig(){
         PEDIDOS.envioGratisDesde = _num(d.envioGratisDesde, PEDIDOS.envioGratisDesde);
         if(typeof d.envioGratisActivo === 'boolean') PEDIDOS.envioGratisActivo = d.envioGratisActivo;
         if(typeof d.haceEnvios === 'boolean') PEDIDOS.haceEnvios = d.haceEnvios;
+        if(typeof d.descontarStock === 'boolean') PEDIDOS.descontarStock = d.descontarStock;
     }catch(e){ console.log('Config de pedidos no cargada:', e); }
     aplicarModoEntrega();
     updateCartUI();
@@ -752,17 +757,48 @@ async function confirmCheckout(){
         const envio=costoEnvio(subtotalConDesc,tipoEntrega);
         const total=subtotalConDesc+envio;
         const clienteNombreCompleto=nombre+' '+apellido;
-        /* Obtener numero de pedido secuencial con transaction atomica */
+        /* Numero de pedido y RESERVA DE STOCK en una sola transaccion.
+           Van juntos a proposito: si dos personas compran la ultima unidad al
+           mismo tiempo, la transaccion relee el stock y una de las dos falla, en
+           vez de vender dos veces la misma unidad. Antes la web no tocaba nunca
+           el stock, asi que se podia sobrevender sin que nadie se enterara. */
         let pedidoNum=1;
         const cntRef=db.collection('config').doc('pedidosCount');
+        let _faltante=null;
         try{
             pedidoNum=await db.runTransaction(async t=>{
-                const snap=await t.get(cntRef);
-                const next=(snap.exists?(parseInt(snap.data().count)||0):0)+1;
+                /* Firestore exige TODAS las lecturas antes de cualquier escritura */
+                const snapCnt=await t.get(cntRef);
+                let refs=[],snaps=[];
+                if(PEDIDOS.descontarStock){
+                    const porProd={};
+                    carrito.forEach(i=>{porProd[i.id]=(porProd[i.id]||0)+i.cantidad;});
+                    refs=Object.keys(porProd).map(id=>({id:id,cant:porProd[id],ref:db.collection('productos').doc(id)}));
+                    snaps=await Promise.all(refs.map(r=>t.get(r.ref)));
+                    for(let k=0;k<refs.length;k++){
+                        if(!snaps[k].exists)continue;
+                        const prod=snaps[k].data(),disp=Number(prod.stock||0);
+                        if(disp<refs[k].cant){
+                            _faltante={nombre:prod.nombreMostrado||prod.nombre||'un producto',disponible:disp};
+                            throw new Error('sin-stock');
+                        }
+                    }
+                }
+                const next=(snapCnt.exists?(parseInt(snapCnt.data().count)||0):0)+1;
+                refs.forEach((r,k)=>{ if(snaps[k].exists)t.update(r.ref,{stock:Number(snaps[k].data().stock||0)-r.cant}); });
                 t.set(cntRef,{count:next});
                 return next;
             });
-        }catch(e){console.warn('Transaction pedidosCount falló:',e);}
+        }catch(e){
+            if(_faltante){
+                showToast('Nos quedamos sin stock de "'+_faltante.nombre+'" (quedan '+_faltante.disponible+'). Revisa el carrito.','error');
+                loadProductsFromFirebase();
+                const b=document.getElementById('chkConfirmBtn');
+                if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
+                return;
+            }
+            console.warn('Transaction pedidosCount fallo:',e);
+        }
         /* Crear pedido en BDD (NO se toca la coleccion clientes desde la web) */
         const pedido={
             numero:pedidoNum,
@@ -775,6 +811,8 @@ async function confirmCheckout(){
             direccion:tipoEntrega==='envio'?direccion:null,
             notas:notas||null,
             tipoEntrega:tipoEntrega,
+            /* para que al convertirlo en venta no se descuente dos veces */
+            stockDescontado:!!PEDIDOS.descontarStock,
             items:carrito.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,cantidad:i.cantidad,subtotal:i.precio*i.cantidad})),
             subtotalProductos:subtotal,
             envio:envio,
