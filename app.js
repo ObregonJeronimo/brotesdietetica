@@ -150,7 +150,7 @@ function aplicarFiltros() {
         if(ordenPrecio){const cmp=precioFinal(a)-precioFinal(b);if(cmp!==0)return ordenPrecio==='asc'?cmp:-cmp;}
         return 0;
     });
-    renderProductsPaginated(r); updateSortButtonUI();
+    renderProductsPaginated(r); updateSortButtonUI(); revelar(document);
 }
 
 function filterByCategory(cat) { categoriaActual=cat; subcategoriaActual=null; paginaActual=1; aplicarFiltros(); }
@@ -327,8 +327,20 @@ function requireLoginToBuy(){
     /* Abrir el login directamente */
     if(typeof authLogin==='function')authLogin();
 }
+/* Salto del boton del carrito: confirma la accion sin leer el toast.
+   Se reinicia la animacion quitando y volviendo a poner la clase. */
+function _acusarCarrito(){
+    if(window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+    [document.getElementById('cartToggle'), document.getElementById('cartCount')].forEach(el => {
+        if(!el) return;
+        el.classList.remove('acusa');
+        void el.offsetWidth;
+        el.classList.add('acusa');
+    });
+}
 function addToCart(id) {
     if(!clienteAuth){requireLoginToBuy();return;}
+    _acusarCarrito();
     const p=productos.find(x=>x.id===id); if(!p||p.stock===0)return;
     const existing=carrito.find(i=>i.id===id);
     if(existing){
@@ -819,7 +831,47 @@ async function confirmCheckout(){
 
 function showToast(message,type){type=type||'info';const c=document.getElementById('toastContainer');if(!c)return;const icons={success:'bi-check-circle-fill',error:'bi-exclamation-circle-fill',info:'bi-info-circle-fill'};const t=document.createElement('div');t.className='toast '+type;t.innerHTML='<i class="toast-icon bi '+(icons[type]||icons.info)+'"></i><span class="toast-message">'+message+'</span>';c.appendChild(t);setTimeout(()=>{t.classList.add('removing');setTimeout(()=>t.remove(),300);},3000);}
 
-function initScrollAnimations(){if(window.innerWidth<768||window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;const o=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('animate-in');o.unobserve(e.target);}});},{threshold:0.1,rootMargin:'0px 0px -50px 0px'});document.querySelectorAll('.service-card,.feature-card,.product-card').forEach(el=>{el.style.opacity='0';el.style.transform='translateY(30px)';el.style.transition='opacity 0.6s ease, transform 0.6s ease';o.observe(el);});const s=document.createElement('style');s.textContent='.animate-in{opacity:1!important;transform:translateY(0)!important;}';document.head.appendChild(s);}
+/* Revelado al entrar en pantalla. A diferencia de antes, ahora TAMBIEN corre en
+   movil: es IntersectionObserver + transform/opacity, de lo mas barato que hay, y
+   es justo donde mas se nota que la pagina esta viva.
+   Las clases se agregan por JS, asi que si esto falla no se oculta nada. */
+const _REVELAR = '.feature-card,.service-card,.product-card,.review-card,' +
+                 '.why-us-content,.trust-badge,.section-header>*,.cta-content>*,' +
+                 '.products-toolbar,.footer-brand,.footer-title';
+function initScrollAnimations(){
+    if(window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+    if(!('IntersectionObserver' in window)) return;
+    const obs = new IntersectionObserver(entradas => {
+        entradas.forEach(e => {
+            if(!e.isIntersecting) return;
+            e.target.classList.add('visible');
+            /* soltamos will-change cuando termina, para no dejar capas vivas */
+            setTimeout(() => e.target.classList.add('listo'), 700);
+            obs.unobserve(e.target);
+        });
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+    revelar(document, obs);
+    window._revealObs = obs;
+    /* Red de seguridad: si el observer no llega a disparar (navegador raro, la
+       pestana quedo en segundo plano al cargar), a los 3 segundos mostramos todo.
+       Nunca dejar contenido invisible por una animacion. */
+    setTimeout(() => {
+        document.querySelectorAll('.reveal:not(.visible)').forEach(el => el.classList.add('visible','listo'));
+    }, 3000);
+}
+/* Marca y observa. El escalonado se calcula por posicion dentro del grupo, tope
+   de 5 para que el ultimo de una grilla larga no espere una eternidad. */
+function revelar(raiz, obs){
+    obs = obs || window._revealObs; if(!obs) return;
+    raiz.querySelectorAll(_REVELAR).forEach(el => {
+        if(el.classList.contains('reveal')) return;
+        el.classList.add('reveal');
+        const hermanos = el.parentElement ? [...el.parentElement.children] : [];
+        const i = Math.min(hermanos.indexOf(el), 5);
+        if(i > 0) el.style.transitionDelay = (i * 0.07) + 's';
+        obs.observe(el);
+    });
+}
 
 function toggleCategoryFilters(){const f=document.getElementById('categoryFilters');const btn=document.getElementById('toggleCatsBtn');f.classList.toggle('cat-hidden');if(f.classList.contains('cat-hidden')){btn.innerHTML='<i class="bi bi-funnel"></i> Categorias';}else{btn.innerHTML='<i class="bi bi-funnel-fill"></i> Categorias';}}
 

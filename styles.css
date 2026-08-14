@@ -226,6 +226,7 @@ img { max-width: 100%; height: auto; }
         radial-gradient(circle 20px at 20px 0, #26261F 19px, transparent 20px) 0 25px / 40px 23px repeat-x; }
 }
 
+
 /* === SECCIONES COMUNES === */
 .section-header { text-align: center; margin-bottom: var(--spacing-xxl); }
 .section-tag { display: inline-block; background: rgba(30, 62, 44, 0.10); color: var(--color-primary); padding: 0.4rem 1rem; border-radius: 50px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: var(--spacing-sm); }
@@ -589,6 +590,34 @@ img { max-width: 100%; height: auto; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 /* === MOBILE PERF === */
 @media(max-width:768px){.product-card{transition:none}.product-image img{transition:none}.hero-particles{display:none}}
+/* === REVELADO AL HACER SCROLL ===
+   Las clases las agrega app.js. Si el JS falla, nada queda oculto: el contenido
+   se ve normal y solo se pierde la animacion. Solo transform y opacity, asi que
+   se resuelve en el compositor y anda en gama baja. */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.55s ease, transform 0.55s cubic-bezier(.2,.7,.3,1); will-change: opacity, transform; }
+.reveal.visible { opacity: 1; transform: none; }
+/* Terminada la entrada soltamos will-change: dejarlo puesto mantiene una capa
+   de composicion viva por elemento y en moviles lentos eso se acumula. */
+.reveal.listo { will-change: auto; }
+@media (prefers-reduced-motion: reduce) {
+    .reveal, .reveal.visible { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+
+/* === EL CARRITO ACUSA RECIBO ===
+   Al agregar un producto el boton pega un salto y el contador aparece de golpe:
+   confirma la accion sin necesidad de leer el toast. */
+.cart-btn.acusa { animation: saltar 0.45s cubic-bezier(.3,1.6,.5,1); }
+.cart-count.acusa { animation: aparecerContador 0.45s cubic-bezier(.3,1.7,.5,1); }
+@keyframes saltar { 0%,100% { transform: scale(1); } 35% { transform: scale(1.18); } 65% { transform: scale(0.95); } }
+@keyframes aparecerContador { 0% { transform: scale(0.4); } 55% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+/* Los chips de categoria y los botones de orden responden al toque */
+.category-btn, .sort-btn, .rv-filter-btn { transition: transform var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast); }
+@media (hover: hover) {
+    .category-btn:hover, .sort-btn:hover, .rv-filter-btn:hover { transform: translateY(-2px); }
+}
+.category-btn:active, .sort-btn:active, .rv-filter-btn:active, .add-to-cart-btn:active { transform: scale(0.97); }
+
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}
   /* Sin animacion, el brote quedaria invisible (su estado inicial es "sin dibujar").
      Lo mostramos ya crecido, y las capas que entran con fadeInUp visibles. */
