@@ -136,8 +136,8 @@ const PLAN = [
       termicaAncho:100, termicaAlto:0 } },
 
   { id:'pedidos',     tipo:'doc', path:'config/pedidos', bloqueante:false,
-    label:'Monto minimo de pedido y envio gratis (editable desde el Editor Web)',
-    data:{ minimoPedido:30000, envioPrecio:2000, envioGratisActivo:true, envioGratisDesde:100000 } },
+    label:'Envios, monto minimo y envio gratis (se edita en /admin -> Configuracion)',
+    data:{ haceEnvios:true, minimoPedido:30000, envioPrecio:2000, envioGratisActivo:true, envioGratisDesde:100000 } },
 
   { id:'resenas',     tipo:'doc', path:'config/resenasConfig', bloqueante:false,
     label:'Preguntas del formulario de reseñas',

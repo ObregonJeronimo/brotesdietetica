@@ -21,6 +21,8 @@ let ordenPrecio = null;
    exista todavia; apenas carga Firestore, mandan los de la base.
    minimoPedido 0 = sin minimo. envioGratisActivo false = nunca hay envio gratis. */
 const PEDIDOS = {
+    /* false = el comercio no hace envios: en toda la web solo existe el retiro */
+    haceEnvios: true,
     minimoPedido: 30000,
     envioPrecio: 2000,
     envioGratisActivo: true,
@@ -29,6 +31,7 @@ const PEDIDOS = {
 function _num(v, porDefecto){ const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : porDefecto; }
 /* Costo de envio segun el subtotal ya con descuentos aplicados */
 function costoEnvio(subtotalConDesc, tipoEntrega){
+    if (!PEDIDOS.haceEnvios) return 0;
     if (tipoEntrega === 'retiro') return 0;
     if (PEDIDOS.envioGratisActivo && subtotalConDesc >= PEDIDOS.envioGratisDesde) return 0;
     return PEDIDOS.envioPrecio;
@@ -42,7 +45,9 @@ async function loadPedidosConfig(){
         PEDIDOS.envioPrecio      = _num(d.envioPrecio, PEDIDOS.envioPrecio);
         PEDIDOS.envioGratisDesde = _num(d.envioGratisDesde, PEDIDOS.envioGratisDesde);
         if(typeof d.envioGratisActivo === 'boolean') PEDIDOS.envioGratisActivo = d.envioGratisActivo;
+        if(typeof d.haceEnvios === 'boolean') PEDIDOS.haceEnvios = d.haceEnvios;
     }catch(e){ console.log('Config de pedidos no cargada:', e); }
+    aplicarModoEntrega();
     updateCartUI();
 }
 
@@ -495,7 +500,7 @@ function renderCartItems() {
 function updateShippingBar(total) {
     const msg=document.getElementById('shippingMsg'),fill=document.getElementById('shippingBarFill'),wrap=document.getElementById('shippingProgress');
     if(!msg||!fill)return;
-    const MIN=PEDIDOS.minimoPedido, GRATIS=PEDIDOS.envioGratisActivo?PEDIDOS.envioGratisDesde:0;
+    const MIN=PEDIDOS.minimoPedido, GRATIS=(PEDIDOS.haceEnvios&&PEDIDOS.envioGratisActivo)?PEDIDOS.envioGratisDesde:0;
     /* Sin minimo y sin envio gratis no hay nada que mostrar */
     if(MIN<=0 && !GRATIS){ if(wrap)wrap.style.display='none'; return; }
     if(wrap)wrap.style.display='';
@@ -586,7 +591,8 @@ function openCheckoutModal(){
             if(dEl&&!dEl.value&&saved.direccion)dEl.value=saved.direccion;
         }catch(e){}
     }
-    setCheckoutEntrega('envio');
+    setCheckoutEntrega(PEDIDOS.haceEnvios?'envio':'retiro');
+    aplicarModoEntrega();
     /* Limpiar cupón al abrir nuevo checkout */
     quitarCupon();
     updateCheckoutResumen();
@@ -624,7 +630,20 @@ function closeCheckoutModal(){
     if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-whatsapp"></i> Confirmar pedido';}
 }
 
+/* Si el comercio no hace envios, el checkout no ofrece la opcion: se esconde el
+   selector, se fuerza retiro y se oculta el campo de direccion. */
+function aplicarModoEntrega(){
+    const toggle=document.querySelector('.chk-entrega-toggle');
+    if(!PEDIDOS.haceEnvios){
+        if(toggle)toggle.style.display='none';
+        setCheckoutEntrega('retiro');
+    } else if(toggle){
+        toggle.style.display='';
+    }
+}
 function setCheckoutEntrega(tipo){
+    /* Sin envios no se puede elegir envio ni aunque llamen a mano a la funcion */
+    if(!PEDIDOS.haceEnvios) tipo='retiro';
     window._chkTipoEntrega=tipo==='retiro'?'retiro':'envio';
     document.querySelectorAll('.chk-entrega-btn').forEach(b=>{
         b.classList.toggle('active',b.getAttribute('data-tipo')===window._chkTipoEntrega);
@@ -632,6 +651,10 @@ function setCheckoutEntrega(tipo){
     /* Mostrar/ocultar campo direccion segun tipo */
     const dirGroup=document.getElementById('chkDireccionGroup');
     const dirInput=document.getElementById('chkDireccion');
+    /* La direccion de retiro solo tiene sentido si el cliente eligio retirar.
+       Antes se mostraba siempre, incluso a quien pidio envio a domicilio. */
+    const retiroInfo=document.getElementById('chkRetiroInfo');
+    if(retiroInfo)retiroInfo.style.display=(window._chkTipoEntrega==='retiro')?'':'none';
     if(window._chkTipoEntrega==='retiro'){
         if(dirGroup)dirGroup.style.display='none';
         if(dirInput)dirInput.removeAttribute('required');
@@ -644,7 +667,7 @@ function setCheckoutEntrega(tipo){
 
 function updateCheckoutResumen(){
     const subtotal=carrito.reduce((s,i)=>s+i.precio*i.cantidad,0);
-    const tipoEntrega=window._chkTipoEntrega||'envio';
+    const tipoEntrega=PEDIDOS.haceEnvios?(window._chkTipoEntrega||'envio'):'retiro';
     const dcMonto=_cuponAplicado?Math.min(_cuponAplicado.monto||0,subtotal):0;
     const subtotalConDesc=subtotal-dcMonto;
     const envio=costoEnvio(subtotalConDesc,tipoEntrega);
@@ -708,7 +731,7 @@ async function confirmCheckout(){
     const telefono=sanitizePhone(document.getElementById('chkTelefono').value);
     const direccion=sanitizeText(document.getElementById('chkDireccion').value, 200);
     const notas=sanitizeText(document.getElementById('chkNotas').value, 500);
-    const tipoEntrega=window._chkTipoEntrega||'envio';
+    const tipoEntrega=PEDIDOS.haceEnvios?(window._chkTipoEntrega||'envio'):'retiro';
     /* Validaciones */
     if(!nombre){showToast('Ingresá tu nombre','error');document.getElementById('chkNombre').focus();return;}
     if(!apellido){showToast('Ingresá tu apellido','error');document.getElementById('chkApellido').focus();return;}
