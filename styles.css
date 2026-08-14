@@ -73,38 +73,129 @@ img { max-width: 100%; height: auto; }
 .navbar-toggler:focus { box-shadow: none; }
 .navbar-toggler-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%2314251A' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e"); }
 
-/* === HERO SECTION === */
-.hero-section { position: relative; min-height: 100vh; background: linear-gradient(135deg, #F5EEDA 0%, #EFDDA9 50%, #EDB833 100%); overflow: hidden; }
-/* Imagen del hero. Por defecto img/hero-bg.svg (variable --hero-bg).
-   Si el admin sube una foto (Editor Web → Imagen del hero), app.js le pisa
-   el background-image con un style inline y gana la foto. */
-.hero-overlay { position: absolute; inset: 0; background-image: var(--hero-bg); background-size: cover; background-position: center; opacity: 0; transition: opacity 0.5s ease; z-index: 0; }
-.hero-section::after { content: ''; position: absolute; inset: 0; background: rgba(245, 238, 218, 0.42); z-index: 1; pointer-events: none; }
+/* === HERO SECTION ===
+   Fondo verde bosque profundo: el logo es tinta verde sobre oro con aro crema,
+   asi que invertimos esa relacion y el oro pasa a ser el unico acento fuerte.
+   Un solo momento de movimiento: el brote se dibuja al cargar (.brote-svg). */
+.hero-section {
+    position: relative; min-height: 100svh; overflow: hidden; isolation: isolate;
+    color: var(--color-cream);
+    background:
+        radial-gradient(120% 90% at 82% 8%, rgba(237,184,51,0.22) 0%, rgba(237,184,51,0) 55%),
+        radial-gradient(90% 70% at 8% 92%, rgba(143,203,163,0.14) 0%, rgba(143,203,163,0) 60%),
+        linear-gradient(158deg, #1E3E2C 0%, #16301F 45%, #0C1A11 100%);
+}
+/* Foto del hero. Por defecto img/hero-bg.svg (variable --hero-bg).
+   Si el admin sube una foto (Editor Web -> Imagen del hero), app.js le pisa el
+   background-image con un style inline y gana la foto. */
+.hero-overlay { position: absolute; inset: 0; background-image: var(--hero-bg); background-size: cover; background-position: center; opacity: 0; transition: opacity 0.6s ease; z-index: 0; }
+/* Velo. Sobre fondo oscuro no aclara: oscurece de izquierda a derecha para que
+   el texto siga legible aunque el comercio suba una foto clara. */
+.hero-section::after {
+    content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(100deg, rgba(8,18,12,0.90) 0%, rgba(8,18,12,0.72) 42%, rgba(8,18,12,0.30) 100%);
+}
+/* Curva organica que entrega el hero a la seccion crema de abajo */
+.hero-section::before {
+    content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: clamp(38px, 5vw, 70px);
+    z-index: 4; pointer-events: none;
+    background: var(--color-cream);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 60' preserveAspectRatio='none'%3E%3Cpath d='M0,60 L0,30 C420,-8 1020,-8 1440,30 L1440,60 Z' fill='%23000'/%3E%3C/svg%3E") no-repeat center/100% 100%;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 60' preserveAspectRatio='none'%3E%3Cpath d='M0,60 L0,30 C420,-8 1020,-8 1440,30 L1440,60 Z' fill='%23000'/%3E%3C/svg%3E") no-repeat center/100% 100%;
+}
 .hero-particles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
-.particle { position: absolute; width: 10px; height: 10px; background: var(--color-primary-light); border-radius: 50%; opacity: 0.3; animation: float 15s infinite ease-in-out; will-change: transform; }
+.particle { position: absolute; width: 8px; height: 8px; background: var(--color-primary-light); border-radius: 50%; opacity: 0.16; animation: float 18s infinite ease-in-out; will-change: transform; }
 @keyframes float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-100px) rotate(180deg); } }
-.hero-content { position: relative; z-index: 3; padding-top: 100px; }
-.hero-text { padding: var(--spacing-xl) 0; }
-.hero-badge { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(20, 37, 26, 0.12); color: var(--color-primary-dark); padding: 0.5rem 1rem; border-radius: 50px; font-size: 0.9rem; font-weight: 600; margin-bottom: var(--spacing-md); animation: fadeInUp 0.6s ease forwards; }
-.hero-badge i { font-size: 1.1rem; }
-.hero-title { font-size: clamp(2.5rem, 5vw, 4rem); margin-bottom: var(--spacing-md); animation: fadeInUp 0.6s ease 0.1s forwards; opacity: 0; text-shadow: 0 0 10px rgba(255,255,255,0.85), 0 0 20px rgba(255,255,255,0.55); }
-.title-line { display: block; color: var(--color-text); }
-.title-highlight { display: block; color: var(--color-primary-dark); position: relative; }
-.title-highlight::after { content: ''; position: absolute; bottom: 5px; left: 0; width: 100%; height: 12px; background: rgba(237, 184, 51, 0.35); z-index: -1; transform: skewX(-5deg); }
-.hero-subtitle { font-size: 1.2rem; color: #26261F; font-weight: 500; max-width: 500px; margin-bottom: var(--spacing-lg); animation: fadeInUp 0.6s ease 0.2s forwards; opacity: 0; text-shadow: 0 0 6px rgba(255,255,255,0.7); }
-.hero-buttons { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: var(--spacing-xl); animation: fadeInUp 0.6s ease 0.3s forwards; opacity: 0; }
-.btn-primary-custom { background: var(--color-primary); color: white; padding: 0.9rem 2rem; border-radius: 50px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; border: 2px solid var(--color-primary); transition: all var(--transition-normal); }
-.btn-primary-custom:hover { background: var(--color-primary-dark); border-color: var(--color-primary-dark); color: white; transform: translateY(-3px); box-shadow: var(--shadow-md); }
-.btn-outline-custom { background: transparent; color: var(--color-primary); padding: 0.9rem 2rem; border-radius: 50px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; border: 2px solid var(--color-primary); transition: all var(--transition-normal); }
-.btn-outline-custom:hover { background: var(--color-primary); color: white; transform: translateY(-3px); }
-.hero-stats { display: flex; gap: var(--spacing-xl); animation: fadeInUp 0.6s ease 0.4s forwards; opacity: 0; }
-.stat-item { text-align: center; }
-.stat-number { display: block; font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--color-primary-dark); }
-.stat-label { font-size: 0.88rem; color: #26261F; font-weight: 600; text-shadow: 0 0 6px rgba(255,255,255,0.7); }
-.scroll-indicator { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); text-align: center; animation: bounce 2s infinite; cursor: pointer; z-index: 3; }
-.scroll-indicator span { display: block; font-size: 0.9rem; color: #26261F; font-weight: 600; margin-bottom: 0.3rem; text-shadow: 0 0 6px rgba(255,255,255,0.7); }
-.scroll-indicator i { color: var(--color-primary-dark); font-size: 1.3rem; }
+
+.hero-content { position: relative; z-index: 3; padding-top: 96px; padding-bottom: clamp(64px, 9vw, 110px); }
+.hero-text { padding: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1.35rem; }
+
+.hero-badge {
+    display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0;
+    background: rgba(237,184,51,0.12); border: 1px solid rgba(237,184,51,0.34);
+    color: var(--color-secondary);
+    padding: 0.4rem 0.95rem; border-radius: 50px;
+    font-size: 0.74rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase;
+    animation: fadeInUp 0.7s ease forwards;
+}
+.hero-badge i { font-size: 0.95rem; }
+
+@media (min-width: 992px) { .hero-title { max-width: 13ch; } }
+.hero-title {
+    font-size: clamp(2.9rem, 7.2vw, 5.4rem); line-height: 0.96; letter-spacing: -0.025em;
+    margin-bottom: 0; text-wrap: balance; text-shadow: none;
+    animation: fadeInUp 0.7s ease 0.08s forwards; opacity: 0;
+}
+.title-line { display: block; color: var(--color-cream); font-weight: 400; }
+.title-highlight { display: block; color: var(--color-secondary); position: relative; font-weight: 700; }
+/* El subrayado sigue el trazo de un tallo, no es una barra recta */
+.title-highlight::after {
+    content: ''; position: absolute; left: 0.06em; right: 0.5em; bottom: -0.16em; height: 0.11em;
+    background: var(--color-secondary); opacity: 0.5; border-radius: 50%;
+    transform: rotate(-0.6deg);
+}
+.hero-subtitle {
+    font-size: clamp(1rem, 1.25vw, 1.14rem); line-height: 1.65; font-weight: 400;
+    color: rgba(245,238,218,0.76); max-width: 46ch; margin-bottom: 0; text-shadow: none;
+    animation: fadeInUp 0.7s ease 0.16s forwards; opacity: 0;
+}
+.hero-buttons { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.4rem; animation: fadeInUp 0.7s ease 0.24s forwards; opacity: 0; }
+.btn-primary-custom { background: var(--color-secondary); color: #14251A; padding: 0.85rem 1.7rem; border-radius: 50px; font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; border: 2px solid var(--color-secondary); transition: all var(--transition-normal); }
+.btn-primary-custom:hover { background: #F4CE6B; border-color: #F4CE6B; color: #14251A; transform: translateY(-2px); box-shadow: 0 10px 26px -10px rgba(237,184,51,0.65); }
+.btn-outline-custom { background: transparent; color: var(--color-cream); padding: 0.85rem 1.7rem; border-radius: 50px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; border: 1.5px solid rgba(245,238,218,0.34); transition: all var(--transition-normal); }
+.btn-outline-custom:hover { background: rgba(245,238,218,0.1); border-color: var(--color-cream); color: var(--color-cream); transform: translateY(-2px); }
+
+.hero-stats { display: flex; gap: 2.6rem; animation: fadeInUp 0.7s ease 0.32s forwards; opacity: 0; padding-top: 0.4rem; }
+.stat-item { text-align: left; position: relative; }
+.stat-item + .stat-item::before { content: ''; position: absolute; left: -1.3rem; top: 0.35rem; bottom: 0.35rem; width: 1px; background: rgba(245,238,218,0.18); }
+.stat-number { display: block; font-family: var(--font-display); font-size: 1.45rem; font-weight: 700; color: var(--color-cream); line-height: 1.2; }
+.stat-label { font-size: 0.78rem; color: rgba(245,238,218,0.58); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; text-shadow: none; }
+
+/* --- El brote que se dibuja solo --- */
+.hero-brote { position: relative; z-index: 3; display: flex; justify-content: center; align-items: center; pointer-events: none; }
+.brote-svg { width: min(100%, 330px); height: auto; overflow: visible; }
+/* El estado "sin dibujar" vive en el keyframe from, no en el estilo base, y el
+   fill-mode es both. Asi, si las animaciones no corren por lo que sea, el brote
+   aparece dibujado en vez de invisible: falla visible, no en blanco. */
+.brote-svg [data-crece] {
+    stroke-dasharray: 1;
+    animation: crecer 1.25s cubic-bezier(.33,.7,.3,1) both;
+}
+.brote-svg [data-crece="tallo"]  { animation-delay: 0.35s; }
+.brote-svg [data-crece="raiz"]   { animation-delay: 1.1s; animation-duration: 0.9s; }
+.brote-svg [data-crece="hoja-a"] { animation-delay: 0.95s; animation-duration: 1s; }
+.brote-svg [data-crece="hoja-b"] { animation-delay: 1.15s; animation-duration: 1s; }
+.brote-svg .brote-semilla { animation: aparecer 0.6s ease 0.15s both; }
+@keyframes crecer { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+
+.scroll-indicator { position: absolute; bottom: clamp(52px, 7vw, 84px); left: 50%; transform: translateX(-50%); text-align: center; animation: bounce 2s infinite; cursor: pointer; z-index: 5; }
+.scroll-indicator span { display: block; font-size: 0.72rem; color: rgba(245,238,218,0.6); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; text-shadow: none; }
+.scroll-indicator i { color: var(--color-secondary); font-size: 1.15rem; }
 @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); } 40% { transform: translateX(-50%) translateY(-10px); } 60% { transform: translateX(-50%) translateY(-5px); } }
+
+/* --- Navbar transparente sobre el hero oscuro, solida al hacer scroll --- */
+.navbar { background: transparent; backdrop-filter: none; box-shadow: none; }
+.navbar .nav-link { color: rgba(245,238,218,0.82) !important; }
+.navbar .nav-link:hover, .navbar .nav-link.active { color: var(--color-secondary) !important; }
+.navbar .nav-link::after { background: var(--color-secondary); }
+.navbar .brand-text-img { filter: brightness(0) invert(1); opacity: 0.95; }
+.navbar .cart-btn { background: rgba(245,238,218,0.12); border: 1px solid rgba(245,238,218,0.28); }
+.navbar .cart-btn:hover { background: var(--color-secondary); color: #14251A; }
+.navbar .navbar-toggler-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23F5EEDA' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e"); }
+.navbar .btn-auth-nav { color: var(--color-cream); border-color: rgba(245,238,218,0.34); }
+.navbar .btn-auth-icon-mobile { color: var(--color-cream); }
+
+.navbar.scrolled { background: rgba(251,247,236,0.97); backdrop-filter: blur(10px); box-shadow: var(--shadow-sm); }
+.navbar.scrolled .nav-link { color: var(--color-text) !important; }
+.navbar.scrolled .nav-link:hover, .navbar.scrolled .nav-link.active { color: var(--color-primary) !important; }
+.navbar.scrolled .nav-link::after { background: var(--color-primary); }
+.navbar.scrolled .brand-text-img { filter: none; opacity: 1; }
+.navbar.scrolled .cart-btn { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.navbar.scrolled .cart-btn:hover { background: var(--color-primary-dark); }
+.navbar.scrolled .navbar-toggler-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%2314251A' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e"); }
+.navbar.scrolled .btn-auth-nav { color: var(--color-primary); border-color: var(--color-primary); }
+.navbar.scrolled .btn-auth-icon-mobile { color: var(--color-primary); }
 
 /* === SECCIONES COMUNES === */
 .section-header { text-align: center; margin-bottom: var(--spacing-xxl); }
@@ -469,7 +560,12 @@ img { max-width: 100%; height: auto; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 /* === MOBILE PERF === */
 @media(max-width:768px){.product-card{transition:none}.product-image img{transition:none}.hero-particles{display:none}}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}
+  /* Sin animacion, el brote quedaria invisible (su estado inicial es "sin dibujar").
+     Lo mostramos ya crecido, y las capas que entran con fadeInUp visibles. */
+  .brote-svg [data-crece]{stroke-dashoffset:0!important}
+  .brote-svg .brote-semilla{opacity:1!important}
+  .hero-title,.hero-subtitle,.hero-buttons,.hero-stats{opacity:1!important}}
 
 /* === POPULARES SECTION === */
 #popularesRow::-webkit-scrollbar { display: none; }
