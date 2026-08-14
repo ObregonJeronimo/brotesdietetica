@@ -757,39 +757,50 @@ async function confirmCheckout(){
         const envio=costoEnvio(subtotalConDesc,tipoEntrega);
         const total=subtotalConDesc+envio;
         const clienteNombreCompleto=nombre+' '+apellido;
-        /* Numero de pedido y RESERVA DE STOCK en una sola transaccion.
-           Van juntos a proposito: si dos personas compran la ultima unidad al
-           mismo tiempo, la transaccion relee el stock y una de las dos falla, en
-           vez de vender dos veces la misma unidad. Antes la web no tocaba nunca
-           el stock, asi que se podia sobrevender sin que nadie se enterara. */
-        let pedidoNum=1;
+        /* firestore.rules exige `total > 0` al crear un pedido. Con un cupon que
+           cubre todo el carrito y retiro en local el total da 0, la regla rechaza el
+           create, y el pedido se perdia sin que nadie se enterara. Se corta antes. */
+        if(!(total>0)){
+            showToast('El total del pedido queda en $0. Revisa el cupon o el carrito.','error');
+            const b=document.getElementById('chkConfirmBtn');
+            if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
+            return;
+        }
+        /* El stock NO se descuenta desde aca, y el motivo importa:
+           firestore.rules tiene /productos como `allow write: if isAdmin()`, asi que
+           este update lo rechazaba SIEMPRE para un cliente comun. La transaccion
+           entera moria con permission-denied, el catch solo avisaba por consola, la
+           ejecucion seguia de largo, y el pedido terminaba guardado con numero 1 y
+           con stockDescontado en true sin haber descontado una sola unidad.
+           No se noto antes porque el que probaba el checkout estaba logueado con una
+           cuenta de admin, que si tiene permiso: andaba para nosotros dos y para
+           nadie mas.
+           Ahora el descuento real lo hace descontarStockPedido() en Cloud Functions
+           con el Admin SDK, que ademas puede validar los precios contra el catalogo.
+           Aca queda solo el aviso temprano de faltantes, que es cortesia y no
+           control: leer productos si esta permitido. */
+        let pedidoNum=null;
         const cntRef=db.collection('config').doc('pedidosCount');
         let _faltante=null;
-        try{
-            pedidoNum=await db.runTransaction(async t=>{
-                /* Firestore exige TODAS las lecturas antes de cualquier escritura */
-                const snapCnt=await t.get(cntRef);
-                let refs=[],snaps=[];
-                if(PEDIDOS.descontarStock){
-                    const porProd={};
-                    carrito.forEach(i=>{porProd[i.id]=(porProd[i.id]||0)+i.cantidad;});
-                    refs=Object.keys(porProd).map(id=>({id:id,cant:porProd[id],ref:db.collection('productos').doc(id)}));
-                    snaps=await Promise.all(refs.map(r=>t.get(r.ref)));
-                    for(let k=0;k<refs.length;k++){
-                        if(!snaps[k].exists)continue;
-                        const prod=snaps[k].data(),disp=Number(prod.stock||0);
-                        if(disp<refs[k].cant){
-                            _faltante={nombre:prod.nombreMostrado||prod.nombre||'un producto',disponible:disp};
-                            throw new Error('sin-stock');
-                        }
+
+        if(PEDIDOS.descontarStock){
+            const porProd={};
+            carrito.forEach(i=>{porProd[i.id]=(porProd[i.id]||0)+i.cantidad;});
+            const ids=Object.keys(porProd);
+            try{
+                const snaps=await Promise.all(ids.map(id=>db.collection('productos').doc(id).get()));
+                for(let k=0;k<ids.length;k++){
+                    if(!snaps[k].exists)continue;
+                    const prod=snaps[k].data(),disp=Number(prod.stock||0);
+                    if(disp<porProd[ids[k]]){
+                        _faltante={nombre:prod.nombreMostrado||prod.nombre||'un producto',disponible:disp};
+                        break;
                     }
                 }
-                const next=(snapCnt.exists?(parseInt(snapCnt.data().count)||0):0)+1;
-                refs.forEach((r,k)=>{ if(snaps[k].exists)t.update(r.ref,{stock:Number(snaps[k].data().stock||0)-r.cant}); });
-                t.set(cntRef,{count:next});
-                return next;
-            });
-        }catch(e){
+            }catch(e){
+                /* Si no se pudo leer, se sigue: quien decide de verdad es el servidor */
+                console.warn('No se pudo verificar el stock antes de confirmar:',e);
+            }
             if(_faltante){
                 showToast('Nos quedamos sin stock de "'+_faltante.nombre+'" (quedan '+_faltante.disponible+'). Revisa el carrito.','error');
                 loadProductsFromFirebase();
@@ -797,8 +808,29 @@ async function confirmCheckout(){
                 if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
                 return;
             }
-            console.warn('Transaction pedidosCount fallo:',e);
         }
+
+        /* El numero sale de config/pedidosCount, que las reglas SI le permiten
+           escribir a un usuario logueado. Va en transaccion para que dos pedidos
+           simultaneos no saquen el mismo numero. */
+        try{
+            pedidoNum=await db.runTransaction(async t=>{
+                const snapCnt=await t.get(cntRef);
+                const next=(snapCnt.exists?(parseInt(snapCnt.data().count)||0):0)+1;
+                t.set(cntRef,{count:next});
+                return next;
+            });
+        }catch(e){
+            /* Antes esto seguia de largo y guardaba el pedido como N°1, pisando el
+               numero del primer pedido real. Un pedido con un numero que miente es
+               peor que un pedido que no se hizo: frenamos y avisamos. */
+            console.error('No se pudo numerar el pedido:',e);
+            showToast('No pudimos confirmar el pedido. Proba de nuevo en un momento.','error');
+            const b=document.getElementById('chkConfirmBtn');
+            if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
+            return;
+        }
+
         /* Crear pedido en BDD (NO se toca la coleccion clientes desde la web) */
         const pedido={
             numero:pedidoNum,
@@ -811,8 +843,11 @@ async function confirmCheckout(){
             direccion:tipoEntrega==='envio'?direccion:null,
             notas:notas||null,
             tipoEntrega:tipoEntrega,
-            /* para que al convertirlo en venta no se descuente dos veces */
-            stockDescontado:!!PEDIDOS.descontarStock,
+            /* Lo pone en true descontarStockPedido() cuando descuenta de verdad.
+               Nace en false a proposito: si la funcion no llega a correr, el panel
+               tiene que descontar al convertirlo en venta, no dar por hecho que ya
+               esta hecho. */
+            stockDescontado:false,
             items:carrito.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,cantidad:i.cantidad,subtotal:i.precio*i.cantidad})),
             subtotalProductos:subtotal,
             envio:envio,
@@ -822,9 +857,11 @@ async function confirmCheckout(){
             origen:'web',
             creadoEn:firebase.firestore.FieldValue.serverTimestamp()
         };
+        let _pedidoGuardado=true;
         try{
             await db.collection('pedidos').add(pedido);
         }catch(e){
+            _pedidoGuardado=false;
             /* Si falla el guardado (billing, red, reglas), NO frenar: el pedido por WhatsApp es lo importante */
             console.warn('No se pudo guardar el pedido en BDD, se continua con WhatsApp:',e);
         }
@@ -837,13 +874,26 @@ async function confirmCheckout(){
         if(tipoEntrega==='envio'&&direccion)msg+='*Dirección:* '+direccion+'\n';
         if(_cuponAplicado)msg+='*Cupón:* '+_cuponAplicado.codigo+' (-$'+dcMonto.toLocaleString('es-AR')+')\n';
         if(notas)msg+='*Notas:* '+notas+'\n';
-        msg+='\nGracias!';
+        /* El detalle va SIEMPRE. Este mensaje es el respaldo si el pedido no llega a
+           guardarse en la base, y sin los productos ni el total no alcanza para armar
+           nada: el comercio recibia un aviso de que alguien compro algo, sin saber que. */
+        msg+='\n*Pedido:*\n';
+        carrito.forEach(i=>{msg+='- '+i.cantidad+'x '+i.nombre+' = $'+(i.precio*i.cantidad).toLocaleString('es-AR')+'\n';});
+        msg+='\nSubtotal: $'+subtotal.toLocaleString('es-AR')+'\n';
+        if(dcMonto)msg+='Cupon '+_cuponAplicado.codigo+': -$'+dcMonto.toLocaleString('es-AR')+'\n';
+        if(tipoEntrega==='envio')msg+='Envio: '+(envio?('$'+envio.toLocaleString('es-AR')):'gratis')+'\n';
+        msg+='*TOTAL: $'+total.toLocaleString('es-AR')+'*';
+        msg+='\n\nGracias!';
         /* Limpiar carrito y resetear las cards de productos */
         const idsAResetear=carrito.map(i=>i.id);
         carrito=[];saveCart();updateCartUI();
         idsAResetear.forEach(id=>updateProductCard(id));
         closeCheckoutModal();closeCart();
-        showToast('Pedido N°'+numeroFmt+' confirmado','success');
+        (_pedidoGuardado
+            ? showToast('Pedido N'+String.fromCharCode(176)+numeroFmt+' confirmado','success')
+            /* No entro al sistema: el comercio lo va a ver solo por WhatsApp, y el
+               cliente tiene que saberlo para no quedarse esperando. */
+            : showToast('Te abrimos WhatsApp con el pedido. Envialo para confirmarlo.','error'));
         /* Registrar uso del cupón ANTES de abrir WhatsApp (en móvil location.href corta la ejecución del código que sigue) */
         if (_cuponAplicado) {
             try {

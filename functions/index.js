@@ -4,11 +4,13 @@
  * - procesarUsoCupon:         incrementa usos del cupon y lo desactiva al llegar a maxUsos
  * - rateLimitPedidos:         borra el pedido si el mismo uid hizo mas de 5 en una hora
  * - sanitizarPedido:          limpia los campos de texto del pedido del lado del servidor
+ * - descontarStockPedido:     descuenta el stock del pedido web (el cliente no tiene
+ *                             permiso de escritura sobre /productos, y no deberia)
  *
  * Requiere documento Firestore: config/telegram con campos `token` y `chatId`
  * (ese doc solo lo pueden leer los admins, ver firestore.rules).
  *
- * Las 4 son Gen 2 y estan todas en southamerica-east1, la misma region que
+ * Las 5 son Gen 2 y estan todas en southamerica-east1, la misma region que
  * Firestore. Requiere plan Blaze.
  */
 
@@ -223,5 +225,117 @@ exports.sanitizarPedido = onDocumentCreated(
     });
   } catch (e) {
     logger.error('Error en sanitizarPedido:', e);
+  }
+  });
+
+/**
+ * DESCUENTA EL STOCK DE UN PEDIDO WEB
+ *
+ * Por que vive aca y no en la web: firestore.rules tiene /productos como
+ * `allow write: if isAdmin()`. Cuando el descuento se intentaba desde el
+ * navegador del cliente, la transaccion moria con permission-denied SIEMPRE, y
+ * como el error se tragaba en un catch, el pedido terminaba guardado sin
+ * descontar una sola unidad. Solo funcionaba probandolo con una cuenta de admin,
+ * que es justo lo que hace el que desarrolla.
+ *
+ * Aca corre con el Admin SDK, que no pasa por las reglas. El cliente nunca
+ * necesita permiso de escritura sobre el catalogo, que es como tiene que ser.
+ *
+ * Si no alcanza el stock igual se descuenta y el producto queda en negativo: eso
+ * avisa que el conteo fisico esta mal, que es informacion util. El pedido queda
+ * marcado con `stockFaltante` para que el panel lo muestre antes de prepararlo.
+ */
+exports.descontarStockPedido = onDocumentCreated(
+  {
+    document: 'pedidos/{pedidoId}',
+    region: 'southamerica-east1',
+    memory: '256MiB',
+    timeoutSeconds: 60
+  },
+  async (event) => {
+  const snap = event.data;
+  const data = snap && snap.data();
+  if (!data || data.origen !== 'web') return;
+  if (data.stockDescontado === true) return;   /* idempotente: no descontar dos veces */
+
+  try {
+    const cfg = await db.collection('config').doc('pedidos').get();
+    if (cfg.exists && cfg.data().descontarStock === false) return;
+  } catch (e) {
+    logger.warn('No se pudo leer config/pedidos, se descuenta igual:', e);
+  }
+
+  const porProd = {};
+  (data.items || []).forEach((i) => {
+    if (i && i.id) porProd[i.id] = (porProd[i.id] || 0) + Number(i.cantidad || 0);
+  });
+  const ids = Object.keys(porProd).filter((id) => porProd[id] > 0);
+  if (!ids.length) return;
+
+  try {
+    const faltantes = await db.runTransaction(async (t) => {
+      const refs = ids.map((id) => db.collection('productos').doc(id));
+      const snaps = await t.getAll(...refs);
+      const falt = [];
+      let totalCatalogo = 0;
+
+      snaps.forEach((sn, k) => {
+        if (!sn.exists) return;
+        const p = sn.data();
+        const disp = Number(p.stock || 0);
+        const pedido = porProd[ids[k]];
+        if (disp < pedido) {
+          falt.push({
+            id: ids[k],
+            nombre: p.nombreMostrado || p.nombre || ids[k],
+            pedido: pedido,
+            disponible: disp
+          });
+        }
+        /* Precio de catalogo al momento de procesar, para poder comparar contra lo
+           que se le cobro. No se corrige solo: que el precio haya cambiado entre que
+           el cliente abrio la pagina y confirmo es normal y no es fraude. */
+        const base = Number(p.precio || 0);
+        const desc = Number(p.descuento || 0);
+        totalCatalogo += Math.round(base * (1 - desc / 100)) * pedido;
+      });
+
+      snaps.forEach((sn, k) => {
+        if (!sn.exists) return;
+        t.update(refs[k], {
+          stock: admin.firestore.FieldValue.increment(-porProd[ids[k]])
+        });
+      });
+
+      const cobrado = Number(data.subtotalProductos || 0);
+      const patch = {
+        stockDescontado: true,
+        stockFaltante: falt.length ? falt : null,
+        subtotalCatalogo: totalCatalogo
+      };
+      /* Solo se marca cuando la diferencia no se explica por un cambio de precios:
+         pagar menos de la mitad de lo que vale hoy es otra cosa. */
+      if (totalCatalogo > 0 && cobrado < totalCatalogo * 0.5) patch.revisarPrecio = true;
+      t.update(snap.ref, patch);
+
+      return falt;
+    });
+
+    if (faltantes.length) {
+      logger.warn('Pedido con stock insuficiente', {
+        pedido: event.params.pedidoId,
+        faltantes: faltantes
+      });
+    }
+  } catch (e) {
+    logger.error('Error descontando stock del pedido:', e);
+    try {
+      await snap.ref.update({
+        stockDescontado: false,
+        stockError: String(e && e.message ? e.message : e).slice(0, 300)
+      });
+    } catch (e2) {
+      logger.error('Tampoco se pudo marcar el error en el pedido:', e2);
+    }
   }
   });
