@@ -93,7 +93,19 @@ function _accionDeTecla(tecla) {
   return k || null;
 }
 
+/* Un lector de códigos de barras es un teclado que escribe "7790895000123" en
+   milisegundos. Sin esto, escanear disparaba los atajos de navegación uno atrás
+   del otro y el panel saltaba de pantalla en pantalla.
+
+   Por eso el atajo no se ejecuta al instante: se espera un momento y, si en el
+   medio llega otra tecla, no era un atajo sino el principio de un escaneo. La
+   demora es imperceptible tecleando, y no hay forma humana de apretar dos
+   atajos a propósito dentro de esa ventana. */
+const ATAJO_DEMORA = 70;
+let _atajoPendiente = null;
+
 document.addEventListener('keydown', function (e) {
+  if (_atajoPendiente) { clearTimeout(_atajoPendiente); _atajoPendiente = null; }
   if (_atajosCapturando) { capturarTecla(e); return; }
   if (e.ctrlKey || e.altKey || e.metaKey) return;
 
@@ -111,8 +123,16 @@ document.addEventListener('keydown', function (e) {
   const accion = _accionDeTecla(e.key);
   if (!accion) return;
   e.preventDefault();
-  ejecutarAtajo(accion);
-});
+  _atajoPendiente = setTimeout(function () { _atajoPendiente = null; ejecutarAtajo(accion); }, ATAJO_DEMORA);
+}, true);
+/* Va en fase de captura sobre `document`, igual que el lector de códigos. No es
+   un detalle: el lector hace stopPropagation() al cerrar un escaneo, y desde la
+   fase de burbujeo este handler no llegaba a ver ese Enter. Resultado: el atajo
+   del último dígito del código quedaba agendado y se disparaba solo, así que
+   escanear un producto terminaba cambiando de pantalla.
+   Dos listeners sobre el MISMO nodo se ejecutan los dos igual —stopPropagation
+   corta hacia otros nodos, no hacia los hermanos—, así que ahora no importa en
+   qué orden se carguen los dos archivos. */
 
 /* ============================ ACCIONES ============================ */
 
