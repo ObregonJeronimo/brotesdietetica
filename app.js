@@ -15,12 +15,43 @@ let ordenPrecio = null;
    ordenAlfa antes que ordenPrecio, asi que si ordenAlfa nunca es falsy el
    boton de precio no hace nada. Los dos ordenes son mutuamente excluyentes
    (ver toggleSortPrice / toggleSortAlfa). */
+/* ===== CONFIGURACION DE PEDIDOS =====
+   Se edita desde /admin -> Editor Web -> Pedidos y envio (Firestore config/pedidos).
+   Estos son solo los valores por defecto para el caso en que el documento no
+   exista todavia; apenas carga Firestore, mandan los de la base.
+   minimoPedido 0 = sin minimo. envioGratisActivo false = nunca hay envio gratis. */
+const PEDIDOS = {
+    minimoPedido: 30000,
+    envioPrecio: 2000,
+    envioGratisActivo: true,
+    envioGratisDesde: 100000
+};
+function _num(v, porDefecto){ const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : porDefecto; }
+/* Costo de envio segun el subtotal ya con descuentos aplicados */
+function costoEnvio(subtotalConDesc, tipoEntrega){
+    if (tipoEntrega === 'retiro') return 0;
+    if (PEDIDOS.envioGratisActivo && subtotalConDesc >= PEDIDOS.envioGratisDesde) return 0;
+    return PEDIDOS.envioPrecio;
+}
+async function loadPedidosConfig(){
+    try{
+        const snap = await db.collection('config').doc('pedidos').get();
+        if(!snap.exists) return;
+        const d = snap.data();
+        PEDIDOS.minimoPedido     = _num(d.minimoPedido, PEDIDOS.minimoPedido);
+        PEDIDOS.envioPrecio      = _num(d.envioPrecio, PEDIDOS.envioPrecio);
+        PEDIDOS.envioGratisDesde = _num(d.envioGratisDesde, PEDIDOS.envioGratisDesde);
+        if(typeof d.envioGratisActivo === 'boolean') PEDIDOS.envioGratisActivo = d.envioGratisActivo;
+    }catch(e){ console.log('Config de pedidos no cargada:', e); }
+    updateCartUI();
+}
+
 let ordenAlfa = 'asc';
 let busquedaTexto = '';
 let paginaActual = 1;
 
 document.addEventListener('DOMContentLoaded', () => {
-    initNavbar(); initParticles(); initContactForm(); initCart();
+    initNavbar(); initParticles(); initContactForm(); initCart(); loadPedidosConfig();
     loadProductsFromFirebase(); initScrollAnimations();
 });
 
@@ -433,7 +464,7 @@ function updateCartUI() {
     if(count)count.textContent=ti;if(cta)cta.textContent=ti;if(total)total.textContent='$'+formatPrice(tp);
     if(carrito.length===0){if(empty)empty.style.display='block';if(footer)footer.style.display='none';body?.querySelectorAll('.cart-item').forEach(i=>i.remove());}
     else{if(empty)empty.style.display='none';if(footer){footer.style.display='';footer.style.removeProperty('display');}renderCartItems();}
-    if(ckBtn){ckBtn.disabled=carrito.length===0||tp<30000;if(tp>0&&tp<30000){ckBtn.innerHTML='<i class="bi bi-bag-check"></i> Mínimo $30.000';}else{ckBtn.innerHTML='<i class="bi bi-bag-check"></i> Confirmar';}}
+    if(ckBtn){const min=PEDIDOS.minimoPedido;ckBtn.disabled=carrito.length===0||tp<min;if(min>0&&tp>0&&tp<min){ckBtn.innerHTML='<i class="bi bi-bag-check"></i> Mínimo $'+formatPrice(min);}else{ckBtn.innerHTML='<i class="bi bi-bag-check"></i> Confirmar';}}
     updateShippingBar(tp);
 }
 function renderCartItems() {
@@ -443,13 +474,40 @@ function renderCartItems() {
 }
 
 function updateShippingBar(total) {
-    const msg=document.getElementById('shippingMsg'),fill=document.getElementById('shippingBarFill');
+    const msg=document.getElementById('shippingMsg'),fill=document.getElementById('shippingBarFill'),wrap=document.getElementById('shippingProgress');
     if(!msg||!fill)return;
-    const MIN_ORDER=30000,FREE_SHIPPING=100000;
-    if(total<MIN_ORDER){const faltan=MIN_ORDER-total;msg.textContent='Faltan $'+formatPrice(faltan)+' para pedido minimo ($30.000)';msg.className='shipping-msg under-min';fill.style.width=(total/FREE_SHIPPING*100)+'%';fill.style.background='#c0392b';}
-    else if(total<FREE_SHIPPING){const faltan=FREE_SHIPPING-total;msg.textContent='Faltan $'+formatPrice(faltan)+' para envio gratis!';msg.className='shipping-msg near-free';fill.style.width=(total/FREE_SHIPPING*100)+'%';fill.style.background='#EDB833';}
-    else{msg.textContent='Tenes envio gratis!';msg.className='shipping-msg free-shipping';fill.style.width='100%';fill.style.background='var(--color-primary)';}
+    const MIN=PEDIDOS.minimoPedido, GRATIS=PEDIDOS.envioGratisActivo?PEDIDOS.envioGratisDesde:0;
+    /* Sin minimo y sin envio gratis no hay nada que mostrar */
+    if(MIN<=0 && !GRATIS){ if(wrap)wrap.style.display='none'; return; }
+    if(wrap)wrap.style.display='';
+    /* La barra se llena hasta la meta mas lejana que este activa */
+    const meta = GRATIS || MIN;
+    const pct = Math.min(100, meta>0 ? (total/meta*100) : 0);
+    _renderMarcadoresEnvio(MIN, GRATIS, meta);
+    if(MIN>0 && total<MIN){
+        msg.textContent='Faltan $'+formatPrice(MIN-total)+' para el pedido minimo ($'+formatPrice(MIN)+')';
+        msg.className='shipping-msg under-min'; fill.style.width=pct+'%'; fill.style.background='#c0392b';
+    } else if(GRATIS && total<GRATIS){
+        msg.textContent='Faltan $'+formatPrice(GRATIS-total)+' para envio gratis!';
+        msg.className='shipping-msg near-free'; fill.style.width=pct+'%'; fill.style.background='#EDB833';
+    } else if(GRATIS){
+        msg.textContent='Tenes envio gratis!';
+        msg.className='shipping-msg free-shipping'; fill.style.width='100%'; fill.style.background='var(--color-primary)';
+    } else {
+        msg.textContent='Pedido minimo alcanzado';
+        msg.className='shipping-msg free-shipping'; fill.style.width='100%'; fill.style.background='var(--color-primary)';
+    }
 }
+/* Los marcadores de la barra se dibujan segun la config, no hardcodeados en el HTML */
+function _renderMarcadoresEnvio(MIN, GRATIS, meta){
+    const bar=document.querySelector('.shipping-bar'); if(!bar||!meta)return;
+    const firma=MIN+'|'+GRATIS; if(bar.dataset.firma===firma)return; bar.dataset.firma=firma;
+    bar.querySelectorAll('.shipping-marker').forEach(m=>m.remove());
+    const corto=v=>v>=1000?Math.round(v/1000)+'k':String(v);
+    const puntos=[]; if(MIN>0)puntos.push(MIN); if(GRATIS&&GRATIS!==MIN)puntos.push(GRATIS);
+    puntos.forEach(v=>{const m=document.createElement('div');m.className='shipping-marker';m.style.left=Math.min(100,v/meta*100)+'%';m.textContent=corto(v);bar.appendChild(m);});
+}
+
 
 function checkout() {
     if(carrito.length===0){showToast('Carrito vacío','error');return;}
@@ -570,7 +628,7 @@ function updateCheckoutResumen(){
     const tipoEntrega=window._chkTipoEntrega||'envio';
     const dcMonto=_cuponAplicado?Math.min(_cuponAplicado.monto||0,subtotal):0;
     const subtotalConDesc=subtotal-dcMonto;
-    const envio=tipoEntrega==='retiro'?0:(subtotalConDesc>=100000?0:2000);
+    const envio=costoEnvio(subtotalConDesc,tipoEntrega);
     const total=subtotalConDesc+envio;
     const el=document.getElementById('chkResumen');
     if(!el)return;
@@ -649,7 +707,7 @@ async function confirmCheckout(){
         const subtotal=carrito.reduce((s,i)=>s+i.precio*i.cantidad,0);
         const dcMonto=_cuponAplicado?Math.min(_cuponAplicado.monto||0,subtotal):0;
         const subtotalConDesc=subtotal-dcMonto;
-        const envio=tipoEntrega==='retiro'?0:(subtotalConDesc>=100000?0:2000);
+        const envio=costoEnvio(subtotalConDesc,tipoEntrega);
         const total=subtotalConDesc+envio;
         const clienteNombreCompleto=nombre+' '+apellido;
         /* Obtener numero de pedido secuencial con transaction atomica */
