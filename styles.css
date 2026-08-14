@@ -130,18 +130,11 @@ img { max-width: 100%; height: auto; }
     display: inline-flex; align-items: center; gap: 0.55rem; margin-bottom: 0;
     background: rgba(255,253,247,0.82); border: 1px solid rgba(20,37,26,0.13);
     color: var(--color-primary);
-    padding: 0.42rem 1rem 0.42rem 0.8rem; border-radius: 50px;
+    padding: 0.42rem 1rem; border-radius: 50px;
     font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
     animation: fadeInUp 0.6s ease both;
 }
 .hero-badge i { font-size: 0.95rem; color: var(--color-brown); }
-/* Punto dorado que late: el oro como detalle, no como fondo */
-.hero-badge::before {
-    content: ''; width: 7px; height: 7px; border-radius: 50%;
-    background: var(--color-secondary); flex: 0 0 auto;
-}
-.motion-rica .hero-badge::before { animation: latir 2.6s ease-in-out infinite; }
-@keyframes latir { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.55; } }
 
 @media (min-width: 992px) { .hero-title { max-width: 13ch; } }
 .hero-title {
