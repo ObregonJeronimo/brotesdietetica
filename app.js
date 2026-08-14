@@ -51,7 +51,7 @@ let busquedaTexto = '';
 let paginaActual = 1;
 
 document.addEventListener('DOMContentLoaded', () => {
-    initNavbar(); initParticles(); initContactForm(); initCart(); loadPedidosConfig();
+    initNavbar(); initMotion(); initParticles(); initContactForm(); initCart(); loadPedidosConfig();
     loadProductsFromFirebase(); initScrollAnimations();
 });
 
@@ -68,14 +68,21 @@ function updateActiveNavLink() {
     document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + cur));
 }
 
+/* Un solo lugar decide si el equipo aguanta movimiento ambiental (bucles
+   infinitos). Las animaciones de entrada corren siempre: son una sola pasada. */
+function equipoCapaz() {
+    if (window.innerWidth < 992) return false;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    if ((navigator.hardwareConcurrency || 8) <= 4) return false;
+    if ((navigator.deviceMemory || 8) <= 4) return false;
+    return true;
+}
+/* .motion-rica habilita en CSS lo que late, se mece y va a la deriva */
+function initMotion() { if (equipoCapaz()) document.documentElement.classList.add('motion-rica'); }
+
 function initParticles() {
     const c = document.getElementById('particles'); if (!c) return;
-    /* Puro adorno: no se dibuja en pantallas chicas, si el usuario pidio menos
-       movimiento, ni en equipos con pocos nucleos o poca memoria. */
-    if (window.innerWidth < 992) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if ((navigator.hardwareConcurrency || 8) <= 4) return;
-    if ((navigator.deviceMemory || 8) <= 4) return;
+    if (!equipoCapaz()) return;
     const count = window.innerWidth < 1400 ? 5 : 8;
     for (let i = 0; i < count; i++) { const p = document.createElement('div'); p.className='particle'; p.style.left=Math.random()*100+'%'; p.style.top=Math.random()*100+'%'; p.style.animationDelay=Math.random()*15+'s'; p.style.animationDuration=(15+Math.random()*10)+'s'; p.style.width=(5+Math.random()*15)+'px'; p.style.height=p.style.width; c.appendChild(p); }
 }
