@@ -99,20 +99,24 @@ service cloud.firestore {
     }
 
     /* ===== CONFIG =====
-       OJO con el orden: la regla mas especifica (config/telegram) va PRIMERO.
-       config/telegram guarda el TOKEN del bot de Telegram. Con la regla generica
-       de abajo (`allow read: if true`) ese token queda legible por cualquiera que
-       abra la consola del navegador. Por eso se restringe a admins.
-       Esto NO rompe nada:
+       config/telegram guarda el TOKEN del bot. El resto de los documentos de
+       config/ son contenido publico (textos de la web, datos de la factura,
+       contadores) y la tienda los necesita leer sin login.
+
+       IMPORTANTE - por que la exclusion va ACA ADENTRO y no en un match aparte:
+       en Firestore las reglas de todos los match que coinciden se combinan con
+       OR. Un match mas especifico NO pisa al generico: solo puede SUMAR permisos,
+       nunca quitarlos. Si dejas `match /config/{doc} { allow read: if true }` y
+       agregas un `match /config/telegram { allow read: if isAdmin() }`, el token
+       sigue siendo publico, porque la primera regla ya lo permitio.
+
+       Esto no rompe nada:
          - la Cloud Function usa el Admin SDK y no pasa por estas reglas
          - el panel /admin lo lee logueado como admin
        Mas seguro todavia (ver SETUP.md): mover el token a Secret Manager con
        defineSecret() y sacarlo de Firestore por completo. */
-    match /config/telegram {
-      allow read, write: if isAdmin();
-    }
     match /config/{doc} {
-      allow read: if true;
+      allow read: if doc != 'telegram' || isAdmin();
       allow write: if isAdmin()
         || ((doc == 'pedidosCount' || doc == 'clientesAuthCount') && isAuthUser());
     }
