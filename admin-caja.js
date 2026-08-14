@@ -400,8 +400,16 @@ async function guardarMovimiento() {
 
 /* ============================ CIERRE ============================ */
 
-function openCierreModal() {
+async function openCierreModal() {
   if (!cajaActual) return;
+  /* Se recargan las ventas ANTES de arquear. `cajaVentas` es lo que quedó cargado
+     la última vez que se abrió la sección: si el mostrador vendió desde otra
+     pantalla, o el otro admin cargó algo, o simplemente pasaron horas, el arqueo
+     salía contra una foto vieja. Con el atajo de teclado era peor todavía, porque
+     se puede llegar acá sin volver a pasar por la pantalla de Caja. */
+  const btn = document.getElementById('cajaCerrarBtn');
+  if (btn) { btn.disabled = true; }
+  await cargarDatosCaja(cajaActual.docId);
   const t = calcularTotalesCaja();
   window._cajaTotalesCierre = t;
   const ciego = !!cajaCfg.arqueoCiego;
@@ -473,8 +481,18 @@ async function confirmarCierre() {
   btn.disabled = true;
   try {
     /* Todo CONGELADO: si mañana editan una venta de hoy, este arqueo tiene que
-       seguir diciendo lo que se contó hoy. Por eso no se recalcula al leer. */
-    await db.collection('cajas').doc(cajaActual.docId).update({
+       seguir diciendo lo que se contó hoy. Por eso no se recalcula al leer.
+
+       Va en transacción y revisando `estado` primero porque con dos admins el
+       cierre se puede correr dos veces: el segundo pisaba el arqueo del primero
+       con su propio conteo, y el primero se enteraba de que su cierre ya no
+       existía recién al mirar el historial. */
+    await db.runTransaction(async tx => {
+      const ref = db.collection('cajas').doc(cajaActual.docId);
+      const sn = await tx.get(ref);
+      if (!sn.exists) throw new Error('La caja ya no existe');
+      if (sn.data().estado !== 'abierta') throw new Error('cerrada-por-otro');
+      tx.update(ref, {
       estado: 'cerrada',
       cerradoPor: (auth.currentUser && auth.currentUser.email) || '-',
       cerradoEn: firebase.firestore.FieldValue.serverTimestamp(),
@@ -484,6 +502,7 @@ async function confirmarCierre() {
       motivoDiferencia: dif !== 0 ? (document.getElementById('cajaMotivo').value.trim() || null) : null,
       retiroFinal: retiro, dejaEnCaja: contado - retiro,
       observaciones: document.getElementById('cajaObs').value.trim() || null
+      });
     });
     await db.collection('config').doc('cajaEstado').set({ cajaAbiertaId: null });
     window._cajaEstadoCache = { cajaAbiertaId: null };
@@ -494,6 +513,12 @@ async function confirmarCierre() {
     closeCierreModal();
     await loadCaja();
   } catch (e) {
+    if (e && e.message === 'cerrada-por-otro') {
+      showAdminToast('Esta caja ya la cerró alguien más. Actualizamos la pantalla.', 'error');
+      closeCierreModal();
+      await loadCaja();
+      return;
+    }
     showAdminToast('Error al cerrar: ' + e.message, 'error');
     btn.disabled = false;
   }
