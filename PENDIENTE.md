@@ -1,14 +1,114 @@
-# Brotes Dietética — Qué falta hacer
+# Brotes Dietética — Estado y pendientes
 
-**Para:** Thiago
-**Estado del código:** terminado y subido. No hace falta programar nada más.
-**Lo que falta:** configuración en las consolas de Firebase y Vercel.
-
-Tiempo estimado: **40–60 min**, casi todo esperando que Firestore cree los índices.
+**Código:** terminado y desplegado.
+**Infraestructura:** lista (reglas, índices, Storage, Cloud Functions, bot de Telegram, datos iniciales).
+**Lo único que queda:** cinco cosas que solo puede hacer una persona, listadas acá abajo.
 
 ---
 
-## 0. Datos del proyecto (tenelos a mano)
+## Lo que falta, y solo lo podés hacer vos
+
+**1. Rotar el token del bot de Telegram.**
+Estuvo un rato legible sin login por una regla de Firestore. Ya está cerrada, pero el
+token viejo hay que darlo de baja igual: escribile `/revoke` a
+[@BotFather](https://t.me/BotFather), pedí uno nuevo, y pegalo en `config/telegram`
+desde la consola de Firebase.
+
+**2. Revocar el token de GitHub** que pegaste en el chat.
+Cualquiera que lea esa conversación puede escribir en el repo.
+GitHub → Settings → Developer settings → Personal access tokens → Delete.
+
+**3. Limpiar el remoto de YERCO**, que quedó apuntando con credenciales embebidas:
+
+```bash
+git -C "C:/Users/Usuario/Documents/YERCO" remote set-url origin https://github.com/ObregonJeronimo/YERCO.git
+```
+
+**4. Probar el login con Google en un celular de verdad.**
+El proxy de `/__/auth/` existe justamente porque los celulares bloquean cookies de
+terceros. Anda en escritorio; en móvil hay que verlo una vez.
+
+**5. App Check** (opcional, gratis).
+Evita que alguien use tus credenciales de Firebase desde afuera. Está explicado en el
+PASO 7, más abajo.
+
+Aparte: el texto de la insignia del hero ("Dietética de barrio · Córdoba") se cambia
+desde **/admin → Editor Web**, no tocando código.
+
+---
+
+## Lo que se sumó para el local físico
+
+Todo esto se maneja desde `/admin` y no necesita configuración.
+
+### Caja
+
+El ciclo del día: se abre con un fondo inicial, se registran los ingresos y egresos
+que no son ventas (siempre con un detalle, para que la caja cierre), y al final se
+cuenta el efectivo y queda el arqueo.
+
+> Al esperado en efectivo **solo suman las ventas cobradas en efectivo**. Tarjeta y
+> transferencia no pasan por el cajón, y el fiado todavía no se cobró. El arqueo, en
+> cambio, sí cuenta el envío, porque ese flete entró a la caja. Las estadísticas
+> hacen lo contrario, porque el flete no es mercadería vendida.
+
+Los totales quedan **congelados** al cerrar: si mañana se edita una venta vieja, el
+arqueo de aquel día sigue diciendo lo que se contó aquel día.
+
+Si se registró una venta con la caja cerrada, el panel la muestra aparte como "venta
+fuera de caja" y se puede adjuntar, en vez de que desaparezca del arqueo.
+
+### Estadísticas
+
+Un mes por vez. El calendario usa el **color** de cada día para decir cómo cerró la
+caja —la leyenda con los seis estados está debajo del calendario— y la **barrita de
+abajo** para cuánto se vendió comparado con el mejor día del mes. Tocando un día se
+ve su detalle.
+
+Separa siempre local de online, muestra medios de pago, lo más vendido, cómo viene la
+tienda web (pedidos recibidos, confirmados, sin resolver) y compara contra el mes
+anterior.
+
+### Stock
+
+Ahora baja solo también en las ventas del mostrador, no solo en los pedidos web, y
+vuelve a subir si se elimina la venta. Se puede apagar desde **Configuración** si
+preferís llevarlo a mano.
+
+El stock puede quedar en negativo: no es un error, avisa que se vendió más de lo que
+el sistema creía tener y que hay que recontar.
+
+### Atajos de teclado
+
+`v` nueva venta · `m` mayorista · `p` producto · `/` buscar · `i` ingreso ·
+`e` egreso · `x` cerrar caja · números para cambiar de pantalla.
+
+`?` muestra la lista completa desde cualquier pantalla. Se cambian desde
+**Configuración**. No se disparan mientras escribís ni con una ventana abierta.
+
+### Lector de códigos de barras
+
+Se enchufa y anda: para el navegador es un teclado, no hay nada que instalar.
+
+Como el catálogo arranca sin ningún código cargado, **aprende usándolo**: la primera
+vez que escaneás algo desconocido, el panel pregunta de qué producto es y lo guarda.
+De la segunda vez en adelante ese producto entra de una.
+
+Lo que se vende suelto no tiene código de fábrica y no lo va a tener: eso se sigue
+buscando por nombre. El lector ayuda con lo envasado, no reemplaza al buscador.
+
+### Formatos de papel
+
+El ticket del mostrador (etiqueta adhesiva grande) y el de pedido web (térmica de
+rollo continuo) tienen cada uno su tamaño, configurables en **Factura**.
+
+> **A qué impresora sale no lo elige el navegador.** Eso se elige en la ventana de
+> impresión de Windows, y conviene dejar cada una como predeterminada según el caso.
+> Acá solo se define el tamaño del papel, para que el ticket salga bien cortado.
+
+---
+
+## Referencia — datos del proyecto
 
 | Qué | Valor |
 |---|---|
@@ -17,7 +117,7 @@ Tiempo estimado: **40–60 min**, casi todo esperando que Firestore cree los ín
 | Panel admin | https://brotesdietetica.vercel.app/admin |
 | Proyecto Firebase | `brotesdietetica-2f78e` |
 | Región Firestore | `southamerica-east1` (São Paulo) — ya elegida, **no se puede cambiar** |
-| Plan Firebase | Spark (gratis) |
+| Plan Firebase | Blaze (pago por uso; con este volumen no factura) |
 | Admins del panel | `jeroobregon03@gmail.com` · `thiagowendler53@gmail.com` |
 | Carpeta local | `C:\Users\Usuario\Documents\brotesdietetica` |
 
@@ -27,7 +127,7 @@ zona de envío `Rivera Indarte y alrededores`.
 
 ---
 
-## Ya está hecho (no lo toques)
+## Historial — lo que ya se hizo (referencia, no hay que repetirlo)
 
 - Ecommerce y panel `/admin` completos, replicados de YERCO.
 - Marca, logos, paleta del logo y textos de Brotes.
