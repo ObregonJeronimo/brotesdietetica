@@ -74,73 +74,81 @@ img { max-width: 100%; height: auto; }
 .navbar-toggler-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%2314251A' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e"); }
 
 /* === HERO SECTION ===
-   Claro y natural: crema calido que baja a un verde salvia muy suave. El verde
-   de marca queda para la tipografia y el oro como unico acento.
-   Pensado para gama baja: un solo degrade, sin blur, sin mascaras, sin capas
-   de composicion extra. El unico movimiento es el brote que se dibuja al cargar. */
+   El hero ES el logo: campo dorado con tinta verde profunda, y al pie el toldo
+   festoneado en carbon con su filete crema, igual que el isotipo.
+   Tono medio a proposito: ni el verde oscuro que tapaba todo ni el crema lavado.
+   Verde sobre dorado da 8:1 de contraste, asi que el texto respira solo.
+
+   Pensado para equipos lentos: un degrade lineal, el toldo resuelto con
+   gradientes (sin mascaras ni filtros SVG) y una sola animacion de entrada. */
 .hero-section {
     position: relative; min-height: 100svh; overflow: hidden; isolation: isolate;
-    color: var(--color-text);
-    background: linear-gradient(168deg, #FBF8EE 0%, #F4EFDD 48%, #E6EFDE 100%);
+    color: var(--color-primary-dark);
+    background: linear-gradient(152deg, #F2CE72 0%, #EBB93A 42%, #DFA424 100%);
 }
 /* Foto del hero. Por defecto img/hero-bg.svg (variable --hero-bg).
    Si el comercio sube una foto desde /admin -> Editor Web, app.js le pisa el
    background-image con un style inline y gana la foto. */
 .hero-overlay { position: absolute; inset: 0; background-image: var(--hero-bg); background-size: cover; background-position: center; opacity: 0; transition: opacity 0.5s ease; z-index: 0; }
-/* Velo: aclara la foto de izquierda a derecha para que el texto oscuro se lea
-   sobre cualquier imagen que suba el comercio. */
+/* Velo dorado: cualquier foto que suba el comercio queda tenida con el color de
+   la marca y el texto verde sigue legible encima. */
 .hero-section::after {
     content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: linear-gradient(100deg, rgba(251,248,238,0.93) 0%, rgba(251,248,238,0.74) 46%, rgba(251,248,238,0.40) 100%);
+    background: linear-gradient(104deg, rgba(240,199,88,0.93) 0%, rgba(238,192,70,0.78) 44%, rgba(223,164,36,0.52) 100%);
+}
+/* Brillo calido arriba a la derecha, para que el campo no sea plano */
+.hero-section::before {
+    content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(70% 55% at 78% 12%, rgba(255,245,214,0.55) 0%, rgba(255,245,214,0) 62%);
 }
 .hero-particles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
-.particle { position: absolute; width: 8px; height: 8px; background: var(--color-primary); border-radius: 50%; opacity: 0.10; animation: float 20s infinite ease-in-out; }
+.particle { position: absolute; width: 8px; height: 8px; background: var(--color-primary-dark); border-radius: 50%; opacity: 0.09; animation: float 20s infinite ease-in-out; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-90px); } }
 
-.hero-content { position: relative; z-index: 3; padding-top: 92px; padding-bottom: clamp(72px, 9vw, 120px); }
-.hero-text { padding: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1.3rem; }
+.hero-content { position: relative; z-index: 3; padding-top: 92px; padding-bottom: clamp(96px, 11vw, 150px); }
+.hero-text { padding: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1.25rem; }
 
 .hero-badge {
     display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0;
-    background: rgba(30,62,44,0.07); border: 1px solid rgba(30,62,44,0.18);
+    background: var(--color-cream); border: 1px solid rgba(20,37,26,0.14);
     color: var(--color-primary);
-    padding: 0.4rem 0.95rem; border-radius: 50px;
-    font-size: 0.74rem; font-weight: 600; letter-spacing: 0.11em; text-transform: uppercase;
+    padding: 0.42rem 1rem; border-radius: 50px;
+    font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
     animation: fadeInUp 0.6s ease forwards;
 }
 .hero-badge i { font-size: 0.95rem; color: var(--color-brown); }
 
 @media (min-width: 992px) { .hero-title { max-width: 13ch; } }
 .hero-title {
-    font-size: clamp(2.8rem, 7vw, 5.2rem); line-height: 0.98; letter-spacing: -0.022em;
-    margin-bottom: 0; text-wrap: balance; text-shadow: none;
+    font-size: clamp(2.9rem, 7.4vw, 5.6rem); line-height: 0.95; letter-spacing: -0.028em;
+    margin-bottom: 0; text-wrap: balance; text-shadow: none; color: var(--color-primary-dark);
     animation: fadeInUp 0.6s ease 0.08s forwards; opacity: 0;
 }
-.title-line { display: block; color: var(--color-text); font-weight: 400; }
-.title-highlight { display: block; color: var(--color-primary); position: relative; font-weight: 700; }
-/* Trazo de oro bajo la segunda linea: acompana la curva de un tallo, no es una
-   barra recta. Es decorativo, asi que el contraste lo da el verde del texto. */
+.title-line { display: block; font-weight: 400; }
+.title-highlight { display: block; font-weight: 700; position: relative; }
+/* Trazo crema bajo la segunda linea: sobre dorado el oro no se ve, asi que el
+   acento se invierte y lo da el crema del aro del logo. */
 .title-highlight::after {
-    content: ''; position: absolute; left: 0.05em; right: 0.45em; bottom: -0.13em; height: 0.1em;
-    background: var(--color-secondary); opacity: 0.85; border-radius: 50%;
+    content: ''; position: absolute; left: 0.04em; right: 0.42em; bottom: -0.12em; height: 0.1em;
+    background: var(--color-cream); opacity: 0.9; border-radius: 50%;
     transform: rotate(-0.5deg);
 }
 .hero-subtitle {
-    font-size: clamp(1rem, 1.2vw, 1.12rem); line-height: 1.65; font-weight: 400;
-    color: var(--color-text-light); max-width: 46ch; margin-bottom: 0; text-shadow: none;
+    font-size: clamp(1rem, 1.2vw, 1.14rem); line-height: 1.6; font-weight: 500;
+    color: #2C4433; max-width: 44ch; margin-bottom: 0; text-shadow: none;
     animation: fadeInUp 0.6s ease 0.16s forwards; opacity: 0;
 }
-.hero-buttons { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.3rem; animation: fadeInUp 0.6s ease 0.24s forwards; opacity: 0; }
-.btn-primary-custom { background: var(--color-primary); color: var(--color-cream); padding: 0.85rem 1.7rem; border-radius: 50px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; border: 2px solid var(--color-primary); transition: background-color var(--transition-fast), transform var(--transition-fast); }
-.btn-primary-custom:hover { background: var(--color-primary-dark); border-color: var(--color-primary-dark); color: var(--color-cream); transform: translateY(-2px); }
-.btn-outline-custom { background: transparent; color: var(--color-primary); padding: 0.85rem 1.7rem; border-radius: 50px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; border: 1.5px solid rgba(30,62,44,0.35); transition: background-color var(--transition-fast), transform var(--transition-fast); }
-.btn-outline-custom:hover { background: rgba(30,62,44,0.07); border-color: var(--color-primary); color: var(--color-primary); transform: translateY(-2px); }
+.hero-buttons { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.2rem; animation: fadeInUp 0.6s ease 0.24s forwards; opacity: 0; }
+.btn-primary-custom { background: var(--color-primary-dark); color: var(--color-cream); padding: 0.85rem 1.75rem; border-radius: 50px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; border: 2px solid var(--color-primary-dark); transition: background-color var(--transition-fast), transform var(--transition-fast); }
+.btn-primary-custom:hover { background: #0A160E; border-color: #0A160E; color: var(--color-cream); transform: translateY(-2px); }
+.btn-outline-custom { background: rgba(255,251,240,0.55); color: var(--color-primary-dark); padding: 0.85rem 1.75rem; border-radius: 50px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; border: 1.5px solid rgba(20,37,26,0.3); transition: background-color var(--transition-fast), transform var(--transition-fast); }
+.btn-outline-custom:hover { background: var(--color-cream); border-color: var(--color-primary-dark); color: var(--color-primary-dark); transform: translateY(-2px); }
 
-.hero-stats { display: flex; gap: 2.5rem; animation: fadeInUp 0.6s ease 0.32s forwards; opacity: 0; padding-top: 0.3rem; }
+.hero-stats { display: flex; gap: 2.4rem; animation: fadeInUp 0.6s ease 0.32s forwards; opacity: 0; padding-top: 0.2rem; }
 .stat-item { text-align: left; position: relative; }
-.stat-item + .stat-item::before { content: ''; position: absolute; left: -1.25rem; top: 0.3rem; bottom: 0.3rem; width: 1px; background: rgba(30,62,44,0.16); }
-.stat-number { display: block; font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--color-primary); line-height: 1.2; }
-.stat-label { font-size: 0.76rem; color: var(--color-text-light); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; text-shadow: none; }
+.stat-item + .stat-item::before { content: ''; position: absolute; left: -1.2rem; top: 0.3rem; bottom: 0.3rem; width: 1px; background: rgba(20,37,26,0.22); }
+.stat-number { display: block; font-family: var(--font-display); font-size: 1.42rem; font-weight: 700; color: var(--color-primary-dark); line-height: 1.2; }
+.stat-label { font-size: 0.75rem; color: #40563F; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; text-shadow: none; }
 
 /* --- El brote que se dibuja solo --- */
 .hero-brote { position: relative; z-index: 3; display: flex; justify-content: center; align-items: center; pointer-events: none; }
@@ -156,25 +164,38 @@ img { max-width: 100%; height: auto; }
 @keyframes crecer { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
 
-/* Curva organica que entrega el hero a la seccion de abajo.
-   Es un SVG en el marcado, no una mascara CSS: las mascaras obligan al navegador
-   a componer una capa aparte y en equipos lentos se nota. */
-.hero-curva { position: absolute; left: 0; right: 0; bottom: -1px; width: 100%; height: clamp(34px, 4.5vw, 64px); z-index: 4; pointer-events: none; display: block; }
-.hero-curva path { fill: var(--color-cream); }
+/* --- El toldo del logo, al pie del hero ---
+   Resuelto con gradientes en vez de una mascara o un SVG con arcos: se pinta una
+   vez, no crea capa de composicion y no depende de que el navegador soporte
+   mask-image. El festoneado son medios circulos colgando de la banda. */
+.hero-toldo {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; pointer-events: none;
+    height: 62px;
+    background:
+        /* filete crema superior */
+        linear-gradient(var(--color-cream), var(--color-cream)) 0 0 / 100% 5px no-repeat,
+        /* banda carbon */
+        linear-gradient(#26261F, #26261F) 0 5px / 100% 27px no-repeat,
+        /* festones colgando */
+        radial-gradient(circle 26px at 26px 0, #26261F 25px, transparent 26px) 0 32px / 52px 30px repeat-x;
+}
 
-.scroll-indicator { position: absolute; bottom: clamp(52px, 7vw, 82px); left: 50%; transform: translateX(-50%); text-align: center; animation: bounce 2s infinite; cursor: pointer; z-index: 5; }
-.scroll-indicator span { display: block; font-size: 0.7rem; color: var(--color-text-light); font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 0.25rem; text-shadow: none; }
-.scroll-indicator i { color: var(--color-primary); font-size: 1.1rem; }
+.scroll-indicator { position: absolute; bottom: clamp(74px, 9vw, 104px); left: 50%; transform: translateX(-50%); text-align: center; animation: bounce 2s infinite; cursor: pointer; z-index: 5; }
+.scroll-indicator span { display: block; font-size: 0.7rem; color: #40563F; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 0.25rem; text-shadow: none; }
+.scroll-indicator i { color: var(--color-primary-dark); font-size: 1.1rem; }
 @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); } 40% { transform: translateX(-50%) translateY(-9px); } 60% { transform: translateX(-50%) translateY(-4px); } }
 
-/* En pantallas chicas el hero no necesita ocupar todo el alto: deja ver que hay
-   contenido abajo y evita que el telefono tenga que pintar una pantalla entera
-   de degrade antes de mostrar nada. */
+/* En pantallas chicas el hero no ocupa todo el alto: deja ver que hay contenido
+   abajo y el telefono no pinta una pantalla entera antes de mostrar nada. */
 @media (max-width: 991.98px) {
     .hero-section { min-height: auto; }
-    .hero-content { padding-top: 104px; padding-bottom: 88px; }
+    .hero-content { padding-top: 104px; padding-bottom: 110px; }
     .hero-particles { display: none; }
     .scroll-indicator { display: none; }
+    .hero-toldo { height: 48px; background:
+        linear-gradient(var(--color-cream), var(--color-cream)) 0 0 / 100% 4px no-repeat,
+        linear-gradient(#26261F, #26261F) 0 4px / 100% 21px no-repeat,
+        radial-gradient(circle 20px at 20px 0, #26261F 19px, transparent 20px) 0 25px / 40px 23px repeat-x; }
 }
 
 /* === SECCIONES COMUNES === */
