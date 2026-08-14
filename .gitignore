@@ -20,3 +20,7 @@ Thumbs.db
 *-firebase-adminsdk-*.json
 .env
 .env.*
+
+# Bancos de prueba locales: montan los modulos del panel contra un Firestore
+# falso. No deben desplegarse: el sitio es estatico y publico.
+_test-*.html

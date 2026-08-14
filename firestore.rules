@@ -121,6 +121,18 @@ service cloud.firestore {
         || ((doc == 'pedidosCount' || doc == 'clientesAuthCount') && isAuthUser());
     }
 
+    /* ===== CAJA / ARQUEO =====
+       Hacen falta los DOS match: en Firestore las reglas NO bajan a las
+       subcolecciones. Sin el segundo, toda escritura de movimientos se rechaza,
+       y como el panel envuelve todo en try/catch el error no se ve: la caja
+       parece andar y no guarda nada. */
+    match /cajas/{doc} {
+      allow read, write: if isAdmin();
+    }
+    match /cajas/{doc}/movimientos/{mov} {
+      allow read, write: if isAdmin();
+    }
+
     /* ===== RESEÑAS ===== */
     match /resenas/{doc} {
       allow read: if true;

@@ -217,8 +217,9 @@
     <div class="admin-layout">
     <nav class="sidebar" id="adminSidebar">
         <div class="sidebar-section">
+            <a class="sidebar-item" onclick="switchSection('caja')"><i class="bi bi-cash-stack"></i><span>Caja</span></a>
             <a class="sidebar-item active" onclick="switchSection('products')"><i class="bi bi-box-seam"></i><span>Productos</span></a>
-            
+
             <a class="sidebar-item" onclick="switchSection('stock')"><i class="bi bi-clipboard-data"></i><span>Stock</span></a>
             <a class="sidebar-item" onclick="switchSection('insumos')"><i class="bi bi-tools"></i><span>Insumos</span></a>
             <div class="sidebar-group" id="sidebarVentasGroup">
@@ -337,6 +338,18 @@
 
 <div><div style="background:var(--bg-card);border-radius:var(--radius);padding:1rem;position:sticky;top:1rem"><h4 style="font-size:0.9rem;color:var(--accent-light);margin-bottom:0.75rem;text-align:center"><i class="bi bi-eye"></i> Preview etiqueta</h4><div id="fcePreview" style="background:#fff;color:#000;padding:15px;border-radius:8px;font-family:Arial,sans-serif;font-size:11px;max-width:340px;margin:0 auto;transform:scale(1.25);transform-origin:top center;margin-bottom:4rem"></div><button class="btn btn-secondary btn-sm" style="width:auto;margin-top:0.75rem;display:block;margin-left:auto;margin-right:auto" onclick="renderFcePreview()"><i class="bi bi-arrow-clockwise"></i> Actualizar preview</button></div></div>
 </div></div>
+    <div class="section-content" id="sec-caja">
+      <div class="toolbar" style="margin-bottom:1.25rem">
+        <h3 style="font-size:1.05rem;font-weight:700;flex:1">Caja del local</h3>
+        <button class="btn btn-secondary" style="width:auto" onclick="loadCaja()"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+      </div>
+      <div id="cajaTop"><p style="color:var(--text-dim);font-size:0.88rem">Cargando...</p></div>
+      <div class="card" style="padding:1.25rem;margin-top:1.5rem">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:0.85rem">Cajas anteriores</h3>
+        <div id="cajaHistorial"><p style="color:var(--text-dim);font-size:0.85rem">Cargando...</p></div>
+      </div>
+    </div>
+
     <div class="section-content" id="sec-config">
   <div class="toolbar" style="margin-bottom:1.25rem"><h3 style="font-size:1.05rem;font-weight:700;flex:1">Configuraci&oacute;n de pedidos</h3>
   <button class="btn btn-primary" style="width:auto" onclick="savePedidosCfg(true)" id="savePedCfgBtn"><i class="bi bi-check-lg"></i> Guardar</button></div>
@@ -360,6 +373,21 @@
     <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.9rem;line-height:1.5">
       Debajo de este monto el bot&oacute;n de confirmar del carrito queda deshabilitado. Pon&eacute; <b>0</b> para no exigir m&iacute;nimo.</p>
     <div style="max-width:260px"><input type="number" min="0" step="100" class="form-input" id="pc_minimoPedido" placeholder="30000"></div>
+  </div>
+
+  <div class="card" style="max-width:720px;padding:1.5rem;margin-bottom:1rem">
+    <label style="display:flex;align-items:flex-start;gap:0.85rem;cursor:pointer">
+      <input type="checkbox" id="pc_descontarStock" style="width:20px;height:20px;margin:0.15rem 0 0;flex:0 0 auto;accent-color:var(--accent)">
+      <span>
+        <span style="display:block;font-size:1rem;font-weight:700;margin-bottom:0.2rem">Descontar stock autom&aacute;ticamente</span>
+        <span style="display:block;font-size:0.85rem;color:var(--text-dim);line-height:1.5">
+          El stock baja solo, tanto en las <b>ventas del local</b> como en los <b>pedidos web</b>,
+          y vuelve a subir si se elimina la venta o el pedido.<br>
+          Desmarcalo si llev&aacute;s el stock a mano y los n&uacute;meros no son confiables:
+          as&iacute; la tienda no rechaza pedidos por un stock que no refleja la realidad.
+        </span>
+      </span>
+    </label>
   </div>
 
   <div class="card" id="cardEnvios" style="max-width:720px;padding:1.5rem">
@@ -441,6 +469,46 @@ function keyDeMedio(m){const t=(m||'').toLowerCase();
   return'otro';}
 function medioKeyDeVenta(v){return (v&&v.medioPagoKey)||keyDeMedio(v&&v.medioPago);}
 function netoVenta(v){return Number((v&&v.total)||0)-Number((v&&v.envio)||0);}
+
+/* ---- Stock de PRODUCTOS en las ventas del local ----
+   Insumos y productos son cosas distintas y se venian mezclando: las ventas ya
+   descontaban insumos (stockActual) pero nunca tocaban el stock de gondola
+   (stock), asi que el catalogo online seguia ofreciendo mercaderia que ya se
+   habia vendido en el mostrador.
+
+   `deltas` es {idProducto: cantidad}: negativo descuenta, positivo devuelve.
+
+   Usa increment() y no leer-sumar-escribir porque el stock se toca desde tres
+   lados a la vez (mostrador, pedido web, edicion) y un read-modify-write pierde
+   la venta del otro. El precio es que el stock puede quedar negativo si se
+   vendio de mas; eso es informacion util (avisa que el conteo fisico esta mal),
+   asi que no se recorta: solo hay que contar "sin stock" como <=0. */
+async function aplicarStockProductos(deltas){
+    if(!DESCONTAR_STOCK)return;
+    const ids=Object.keys(deltas||{}).filter(id=>id&&Number(deltas[id])!==0);
+    if(!ids.length)return;
+    for(let j=0;j<ids.length;j+=450){
+        const batch=db.batch();
+        ids.slice(j,j+450).forEach(id=>{
+            batch.update(db.collection('productos').doc(id),
+                {stock:firebase.firestore.FieldValue.increment(Number(deltas[id]))});
+        });
+        await batch.commit();
+    }
+    /* Espejo en memoria: sin esto la tabla de Productos sigue mostrando el stock
+       viejo hasta que se recargue la pagina */
+    if(typeof allProducts!=='undefined'&&Array.isArray(allProducts)){
+        ids.forEach(id=>{const p=allProducts.find(x=>x.id===id);
+            if(p)p.stock=Number(p.stock||0)+Number(deltas[id]);});
+    }
+}
+/* Suma las cantidades por producto de una lista de items de venta. signo=-1
+   descuenta, +1 devuelve. Agrupa porque el mismo producto puede estar repetido. */
+function deltasDeItems(items,signo){
+    const d={};
+    (items||[]).forEach(i=>{if(!i||!i.id)return;d[i.id]=(d[i.id]||0)+signo*Number(i.cantidad||0);});
+    return d;
+}
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
         async function loginWithGoogle(){const btn=document.getElementById('googleLoginBtn');const err=document.getElementById('loginError');if(btn)btn.disabled=true;if(err)err.style.display='none';try{const p=new firebase.auth.GoogleAuthProvider();await firebase.auth().signInWithPopup(p);}catch(er){if(er.code!=='auth/popup-closed-by-user'){if(err){err.textContent='Error al iniciar sesión.';err.style.display='block';}}if(btn)btn.disabled=false;}}
         let auth,storage;try{auth=firebase.auth();storage=firebase.storage();}catch(_e){console.warn('Firebase init parcial:',_e);}let allProducts=[],editingId=null,selectedImageFile=null,existingImageUrl=null,listasData=[],editingListaId=null;
@@ -453,17 +521,17 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         _initAuth();
         function logout(){auth.signOut();}
         function toggleSidebarVentas(){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(!sub)return;const open=sub.classList.toggle('open');if(chev)chev.style.transform=open?'rotate(90deg)':'rotate(0deg)';}
-        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();document.getElementById('adminSidebar').classList.remove('open');}
+        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')loadCaja();document.getElementById('adminSidebar').classList.remove('open');}
         function toggleSidebar(){document.getElementById('adminSidebar').classList.toggle('open');}
         let savedCats={};async function loadCategorias(){try{const snap=await db.collection('_categorias').get();savedCats={};snap.docs.forEach(d=>{const data=d.data();savedCats[d.id]={nombre:data.nombre||d.id,subcategorias:data.subcategorias||[]};});}catch(e){}}
         async function loadProducts(){try{await loadCategorias();const snap=await db.collection('productos').get();allProducts=snap.docs.map(d=>{const r=d.data();return{id:d.id,...r,porcentajeMayorista:r.porcentajeMayorista||0,precioMayorista:r.precioMayorista||0};});filterTable();updateStats();updateCategoryFilter();renderStockList();renderListaFilterSelect();}catch(e){console.error(e);showAdminToast('Error al cargar','error');}}
         function renderTable(prods){const tb=document.getElementById('productsTableBody');const thr=getLowStockThreshold();if(!prods.length){tb.innerHTML='<tr><td colspan="8"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Sin productos</p></div></td></tr>';return;}tb.innerHTML=prods.map(p=>{let sc='stock-ok',sv=p.stock||0;if(sv===0)sc='stock-out';else if(sv<thr)sc='stock-low';const img=p.imagen||'img/default-product.svg';const sub=p.subcategoria?' / '+esc(p.subcategoria):'';const sn=(p.nombre||'').replace(/'/g,"\'").replace(/"/g,'&quot;');const costo=p.costo||0;const pct=p.porcentaje||0;const precio=p.precio||0;const star=p.popular?'bi-star-fill':'bi-star';const starColor=p.popular?'color:#e6a23c':'';const oculto=p.oculto===true;const eyeIcon=oculto?'bi-eye-slash-fill':'bi-eye';const eyeColor=oculto?'color:#f56c6c':'';const eyeTitle=oculto?'Oculto del catalogo (click para mostrar)':'Visible en catalogo (click para ocultar)';const rowStyle=oculto?' style="opacity:0.55"':'';const hiddenTag=oculto?' <span style="font-size:0.68rem;background:#5a2d2d;color:#f56c6c;padding:1px 6px;border-radius:3px;margin-left:4px;vertical-align:middle">OCULTO</span>':'';return'<tr'+rowStyle+'><td><img src="'+esc(img)+'" class="product-img-cell" onerror="this.src=\'img/default-product.svg\'"></td><td><strong>'+esc(p.nombre||'\u2014')+'</strong>'+hiddenTag+'</td><td><span class="cat-badge">'+esc(p.categoria||'\u2014')+sub+'</span></td><td class="price-cell" style="color:var(--text-dim);font-size:0.82rem">$'+costo.toLocaleString('es-AR')+'</td><td style="text-align:left;font-size:0.82rem;color:var(--text-dim);font-family:var(--mono)">'+pct+'%</td><td class="price-cell">$'+precio.toLocaleString('es-AR')+'</td><td style="text-align:center">'+((p.descuento||0)>0?'<span style="background:linear-gradient(135deg,#e6a23c,#d97706);color:#fff;font-weight:700;font-size:0.72rem;padding:2px 7px;border-radius:5px">'+(p.descuento||0)+'%</span>':'<span style="color:var(--text-dim);font-size:0.8rem">0%</span>')+'</td><td><span class="stock-badge '+sc+'">'+sv+'</span></td><td><div class="actions-cell"><button class="btn-icon" onclick="togglePopular(\''+p.id+'\')" title="Popular" style="'+starColor+'"><i class="bi '+star+'"></i></button><button class="btn-icon" onclick="toggleOculto(\''+p.id+'\')" title="'+eyeTitle+'" style="'+eyeColor+'"><i class="bi '+eyeIcon+'"></i></button>'+(p.envasadoPropio?'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Envasado propio (click para desmarcar)" style="color:#a78bfa"><i class="bi bi-bag-check-fill"></i></button>':'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Marcar como envasado propio"><i class="bi bi-bag-check"></i></button>')+(p.gramajePadreId?'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Gramaje asociado (click para gestionar)" style="color:#4a9eff"><i class="bi bi-stack"></i></button>':'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Asociar gramajes"><i class="bi bi-stack"></i></button>')+'<button class="btn-icon" onclick="editProduct(\''+p.id+'\')"><i class="bi bi-pencil"></i></button><button class="btn-icon delete" onclick="deleteProduct(\''+p.id+'\',\''+sn+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';}).join('');}
         function getLowStockThreshold(){return parseInt(localStorage.getItem('brotesLowStockThr'))||10;}
         function saveLowStockThreshold(){const v=parseInt(document.getElementById('lowStockThreshold').value)||10;localStorage.setItem('brotesLowStockThr',v);updateStats();renderTable(allProducts);}
-        function updateStats(){const thr=getLowStockThreshold();const cats=new Set(allProducts.map(p=>p.categoria).filter(Boolean));document.getElementById('statTotal').textContent=allProducts.length;document.getElementById('statCats').textContent=cats.size;document.getElementById('statOutStock').textContent=allProducts.filter(p=>(p.stock||0)===0).length;document.getElementById('statLowStock').textContent=allProducts.filter(p=>(p.stock||0)>0&&(p.stock||0)<thr).length;document.getElementById('statNoCat').textContent=allProducts.filter(p=>!p.categoria).length;const ti=document.getElementById('lowStockThreshold');if(ti)ti.value=thr;}
+        function updateStats(){const thr=getLowStockThreshold();const cats=new Set(allProducts.map(p=>p.categoria).filter(Boolean));document.getElementById('statTotal').textContent=allProducts.length;document.getElementById('statCats').textContent=cats.size;document.getElementById('statOutStock').textContent=allProducts.filter(p=>(p.stock||0)<=0).length;document.getElementById('statLowStock').textContent=allProducts.filter(p=>(p.stock||0)>0&&(p.stock||0)<thr).length;document.getElementById('statNoCat').textContent=allProducts.filter(p=>!p.categoria).length;const ti=document.getElementById('lowStockThreshold');if(ti)ti.value=thr;}
         let tooltipPages={};
         function toggleStatTooltip(type){const tt=document.getElementById(type==='outstock'?'tooltipOutstock':'tooltipLowstock');const other=document.getElementById(type==='outstock'?'tooltipLowstock':'tooltipOutstock');other.classList.remove('show');if(tt.classList.contains('show')){tt.classList.remove('show');return;}tooltipPages[type]=0;renderTooltipPage(type);}
-        function renderTooltipPage(type){const thr=getLowStockThreshold();const tt=document.getElementById(type==='outstock'?'tooltipOutstock':'tooltipLowstock');let prods;if(type==='outstock'){prods=allProducts.filter(p=>(p.stock||0)===0);}else{prods=allProducts.filter(p=>(p.stock||0)>0&&(p.stock||0)<thr);}if(!prods.length){tt.innerHTML='<em style="color:var(--text-dim)">Ninguno</em>';tt.classList.add('show');return;}prods.sort((a,b)=>(a.stock||0)-(b.stock||0));const page=tooltipPages[type]||0;const perPage=10;const total=prods.length;const totalPages=Math.ceil(total/perPage);const shown=prods.slice(page*perPage,(page+1)*perPage);let html=shown.map(p=>'<div class="tt-item"><span>'+p.nombre+'</span><span class="tt-stock">'+p.stock+'</span></div>').join('');if(totalPages>1){html+='<div class="tt-pager"><button class="tt-pager-btn" onclick="tooltipPageNav(\''+type+'\',-1)"'+(page===0?' disabled':'')+'>&#9664;</button><span>'+( page+1)+' / '+totalPages+'</span><button class="tt-pager-btn" onclick="tooltipPageNav(\''+type+'\',1)"'+(page>=totalPages-1?' disabled':'')+'>&#9654;</button></div>';}tt.innerHTML=html;tt.classList.add('show');}
+        function renderTooltipPage(type){const thr=getLowStockThreshold();const tt=document.getElementById(type==='outstock'?'tooltipOutstock':'tooltipLowstock');let prods;if(type==='outstock'){prods=allProducts.filter(p=>(p.stock||0)<=0);}else{prods=allProducts.filter(p=>(p.stock||0)>0&&(p.stock||0)<thr);}if(!prods.length){tt.innerHTML='<em style="color:var(--text-dim)">Ninguno</em>';tt.classList.add('show');return;}prods.sort((a,b)=>(a.stock||0)-(b.stock||0));const page=tooltipPages[type]||0;const perPage=10;const total=prods.length;const totalPages=Math.ceil(total/perPage);const shown=prods.slice(page*perPage,(page+1)*perPage);let html=shown.map(p=>'<div class="tt-item"><span>'+p.nombre+'</span><span class="tt-stock">'+p.stock+'</span></div>').join('');if(totalPages>1){html+='<div class="tt-pager"><button class="tt-pager-btn" onclick="tooltipPageNav(\''+type+'\',-1)"'+(page===0?' disabled':'')+'>&#9664;</button><span>'+( page+1)+' / '+totalPages+'</span><button class="tt-pager-btn" onclick="tooltipPageNav(\''+type+'\',1)"'+(page>=totalPages-1?' disabled':'')+'>&#9654;</button></div>';}tt.innerHTML=html;tt.classList.add('show');}
         function tooltipPageNav(type,dir){tooltipPages[type]=(tooltipPages[type]||0)+dir;renderTooltipPage(type);}
         function openCatManager(){renderCatManager();updateSubCatParentSelect();document.getElementById('catManagerModal').classList.add('show');}
         function renderCatManager(){const catMap={};Object.keys(savedCats).forEach(c=>{catMap[c]={count:0,subs:{}};(savedCats[c].subcategorias||[]).forEach(s=>{catMap[c].subs[s]=0;});});allProducts.forEach(p=>{if(!p.categoria)return;if(!catMap[p.categoria])catMap[p.categoria]={count:0,subs:{}};catMap[p.categoria].count++;if(p.subcategoria){if(!catMap[p.categoria].subs[p.subcategoria])catMap[p.categoria].subs[p.subcategoria]=0;catMap[p.categoria].subs[p.subcategoria]++;}});const cats=Object.keys(catMap).sort();const list=document.getElementById('catManagerList');list.innerHTML=cats.map(c=>{const ci=catMap[c];const subs=Object.keys(ci.subs).sort();return '<div style="padding:10px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:600;font-size:1.05rem">'+esc(c)+'</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:0.88rem;color:var(--text-dim)">'+ci.count+' prod.</span><button class="btn-icon delete" onclick="deleteCategory(\''+c.replace(/'/g,"\'")+'\')""><i class="bi bi-trash"></i></button></div></div>'+(subs.length?'<div style="margin-top:6px;padding-left:1.25rem">'+subs.map(s=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:0.92rem;color:var(--text-dim)"><span>'+esc(s)+'</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:0.85rem">'+(ci.subs[s]||0)+'</span><button class="btn-icon delete" style="font-size:0.85rem" onclick="deleteSubcategory(\''+c.replace(/'/g,"\'")+'\',\''+s.replace(/'/g,"\'")+'\')"><i class="bi bi-trash"></i></button></div></div>').join('')+'</div>':'')+'</div>';}).join('');}
@@ -764,7 +832,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             return {subtotal,descuentoPct,descuentoMonto,subtotalConDesc,envio,total:subtotalConDesc+envio};
         }
         function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='envio';window._pedidoCuponVenta=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='envio'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
-        async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio'}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';document.getElementById('ventaClienteId').value=v.clienteId||'';document.getElementById('ventaMedio').value=v.medioPago||'Efectivo';/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+String(v.numero||0).padStart(6,'0');const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;
+        async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio',stockDescontado:!!v.stockDescontado}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';document.getElementById('ventaClienteId').value=v.clienteId||'';document.getElementById('ventaMedio').value=v.medioPago||'Efectivo';/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+String(v.numero||0).padStart(6,'0');const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;
             /* Restaurar cupón si la venta lo tiene */
             window._pedidoCuponVenta=v.cupon||null;
             const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();
@@ -880,7 +948,24 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             throw new Error('No se pudo generar un id unico para la resena');
         }
 
-        async function saveVenta(){if(!ventaClienteSelected){showAdminToast('Selecciona un cliente de la lista','error');document.getElementById('ventaCliente').focus();return;}if(!ventaItems.length){showAdminToast('Agrega al menos un producto','error');return;}const isEdit=!!editingVentaId;/* Para edicion: el "stock disponible" para validar es stockActual + cantidad del original (que ya esta descontada y vamos a devolver) */const originalInsumos={};if(isEdit&&editingVentaOriginal&&editingVentaOriginal.insumosUsados){editingVentaOriginal.insumosUsados.forEach(u=>{originalInsumos[u.id]=Number(u.cantidad||0);});}for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i){showAdminToast('Insumo "'+u.nombre+'" ya no existe','error');return;}const stockEfectivo=Number(i.stockActual||0)+(originalInsumos[u.id]||0);if(u.cantidad>stockEfectivo){showAdminToast('Stock insuficiente de "'+u.nombre+'" (hay '+stockEfectivo+', usas '+u.cantidad+')','error');return;}}const btn=document.getElementById('saveVentaBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{const totales=calcularTotalesVenta();const subtotalProductos=totales.subtotal;const envio=totales.envio;const total=totales.total;const now=new Date();const fechaStr=document.getElementById('ventaFecha').value;const fechaParts=fechaStr.split('-');const fechaVenta=new Date(fechaParts[0],fechaParts[1]-1,fechaParts[2],now.getHours(),now.getMinutes(),now.getSeconds());if(isEdit){/* === MODO EDICION === */const ventaPrevia=ventasData.find(x=>x.docId===editingVentaId);const numActual=ventaPrevia?ventaPrevia.numero:0;/* 1. Devolver stock de insumos originales */const stockUpdates={};(editingVentaOriginal.insumosUsados||[]).forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)+Number(u.cantidad||0);});/* 2. Restar stock de insumos nuevos */ventaInsumosUsados.forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)-Number(u.cantidad||0);});/* 3. Aplicar deltas al stock */for(const id in stockUpdates){const delta=stockUpdates[id];if(delta===0)continue;const i=insumosData.find(x=>x.id===id);if(!i)continue;const nuevo=Math.max(0,Number(i.stockActual||0)+delta);await db.collection('insumos').doc(id).update({stockActual:nuevo,actualizadoEn:new Date()});i.stockActual=nuevo;}/* 4. Actualizar la venta */const ventaUpdate={fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,editadoEn:new Date(),editadoPor:auth.currentUser?auth.currentUser.email:''};await db.collection('ventas').doc(editingVentaId).update(ventaUpdate);/* Log con detalles */const origTotal=ventaPrevia?(ventaPrevia.total||0):0;const origItems=editingVentaOriginal.items.length;const newItems=ventaItems.length;let detalle='Total: $'+origTotal.toLocaleString('es-AR')+' -> $'+total.toLocaleString('es-AR');if(origItems!==newItems)detalle+=' | items: '+origItems+' -> '+newItems;if((editingVentaOriginal.tipoEntrega||'envio')!==ventaTipoEntrega)detalle+=' | entrega: '+(editingVentaOriginal.tipoEntrega||'envio')+' -> '+ventaTipoEntrega;logAction('editar','Venta #'+numActual+' editada',detalle);showAdminToast('Venta #'+numActual+' actualizada','success');}else{/* === MODO CREAR === */const countSnap=await db.collection('config').doc('ventasCount').get();let num=1;if(countSnap.exists)num=(countSnap.data().count||0)+1;let resenaId=null;let resenaOk=false;try{resenaId=await _generarResenaIdUnico();await db.collection('resenas').doc(resenaId).set({usado:false,ventaNum:num,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',creadoEn:new Date()});resenaOk=true;}catch(re){console.warn('No se pudo crear token resena:',re);resenaId=null;}const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,cupon:window._pedidoCuponVenta||null,usuario:auth.currentUser?auth.currentUser.email:'',creadoEn:firebase.firestore.FieldValue.serverTimestamp()};await db.collection('ventas').add(venta);await db.collection('config').doc('ventasCount').set({count:num});/* Descontar insumos */for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i)continue;const nuevo=Math.max(0,Number(i.stockActual||0)-u.cantidad);await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});i.stockActual=nuevo;}logAction('crear','Venta #'+num+' - $'+total.toLocaleString('es-AR'),venta.cliente+' | '+venta.medioPago+' | '+(ventaTipoEntrega==='envio'?'Envio':'Retiro')+' | '+ventaItems.length+' items'+(ventaInsumosUsados.length?' | insumos: '+ventaInsumosUsados.map(u=>u.nombre+'x'+u.cantidad).join(', '):''));showAdminToast('Venta #'+num+' registrada','success');/* Marcar pedido origen como confirmado */if(window._pedidoOrigenVentaId){try{const ventaRef=await db.collection('ventas').orderBy('numero','desc').limit(1).get();const ventaDocId=ventaRef.docs[0]?.id||null;await db.collection('pedidos').doc(window._pedidoOrigenVentaId).update({estado:'confirmado',ventaId:ventaDocId,confirmedAt:firebase.firestore.FieldValue.serverTimestamp()});const ped=pedidosData.find(x=>x.docId===window._pedidoOrigenVentaId);if(ped){ped.estado='confirmado';if(ventaDocId)ped.ventaId=ventaDocId;}}catch(e){console.warn('No se pudo marcar pedido como confirmado:',e);}window._pedidoOrigenVentaId=null;}}sessionStorage.removeItem(STOCK_BAJO_VISTOS_KEY);closeVentaModal();editingVentaId=null;editingVentaOriginal=null;loadVentas();if(ventaInsumosUsados.length)checkStockBajoInsumos();}catch(e){showAdminToast('Error: '+e.message,'error');}finally{btn.disabled=false;btn.innerHTML=editingVentaId?'<i class="bi bi-check-lg"></i> Guardar cambios':'<i class="bi bi-check-lg"></i> Registrar Venta';}}
+        async function saveVenta(){if(!ventaClienteSelected){showAdminToast('Selecciona un cliente de la lista','error');document.getElementById('ventaCliente').focus();return;}if(!ventaItems.length){showAdminToast('Agrega al menos un producto','error');return;}const isEdit=!!editingVentaId;/* Para edicion: el "stock disponible" para validar es stockActual + cantidad del original (que ya esta descontada y vamos a devolver) */const originalInsumos={};if(isEdit&&editingVentaOriginal&&editingVentaOriginal.insumosUsados){editingVentaOriginal.insumosUsados.forEach(u=>{originalInsumos[u.id]=Number(u.cantidad||0);});}for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i){showAdminToast('Insumo "'+u.nombre+'" ya no existe','error');return;}const stockEfectivo=Number(i.stockActual||0)+(originalInsumos[u.id]||0);if(u.cantidad>stockEfectivo){showAdminToast('Stock insuficiente de "'+u.nombre+'" (hay '+stockEfectivo+', usas '+u.cantidad+')','error');return;}}const btn=document.getElementById('saveVentaBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{const totales=calcularTotalesVenta();const subtotalProductos=totales.subtotal;const envio=totales.envio;const total=totales.total;const now=new Date();const fechaStr=document.getElementById('ventaFecha').value;const fechaParts=fechaStr.split('-');const fechaVenta=new Date(fechaParts[0],fechaParts[1]-1,fechaParts[2],now.getHours(),now.getMinutes(),now.getSeconds());if(isEdit){/* === MODO EDICION === */const ventaPrevia=ventasData.find(x=>x.docId===editingVentaId);const numActual=ventaPrevia?ventaPrevia.numero:0;/* 1. Devolver stock de insumos originales */const stockUpdates={};(editingVentaOriginal.insumosUsados||[]).forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)+Number(u.cantidad||0);});/* 2. Restar stock de insumos nuevos */ventaInsumosUsados.forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)-Number(u.cantidad||0);});/* 3. Aplicar deltas al stock */for(const id in stockUpdates){const delta=stockUpdates[id];if(delta===0)continue;const i=insumosData.find(x=>x.id===id);if(!i)continue;const nuevo=Math.max(0,Number(i.stockActual||0)+delta);await db.collection('insumos').doc(id).update({stockActual:nuevo,actualizadoEn:new Date()});i.stockActual=nuevo;}/* 3b. Stock de productos: devolver los del original y descontar los nuevos.
+   Solo se devuelve si la venta original REALMENTE habia descontado (stockDescontado).
+   Sin ese guardia, editar una venta anterior a esta funcion inflaria el stock
+   devolviendo mercaderia que nunca se habia restado. */
+const dProd=(editingVentaOriginal.stockDescontado?deltasDeItems(editingVentaOriginal.items,1):{});
+const dNuevo=deltasDeItems(ventaItems,-1);
+Object.keys(dNuevo).forEach(k=>{dProd[k]=(dProd[k]||0)+dNuevo[k];});
+await aplicarStockProductos(dProd);
+/* 4. Actualizar la venta */const ventaUpdate={fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,medioPagoKey:keyDeMedio(document.getElementById('ventaMedio').value),stockDescontado:!!DESCONTAR_STOCK,editadoEn:new Date(),editadoPor:auth.currentUser?auth.currentUser.email:''};await db.collection('ventas').doc(editingVentaId).update(ventaUpdate);/* Log con detalles */const origTotal=ventaPrevia?(ventaPrevia.total||0):0;const origItems=editingVentaOriginal.items.length;const newItems=ventaItems.length;let detalle='Total: $'+origTotal.toLocaleString('es-AR')+' -> $'+total.toLocaleString('es-AR');if(origItems!==newItems)detalle+=' | items: '+origItems+' -> '+newItems;if((editingVentaOriginal.tipoEntrega||'envio')!==ventaTipoEntrega)detalle+=' | entrega: '+(editingVentaOriginal.tipoEntrega||'envio')+' -> '+ventaTipoEntrega;logAction('editar','Venta #'+numActual+' editada',detalle);showAdminToast('Venta #'+numActual+' actualizada','success');}else{/* === MODO CREAR === */const countSnap=await db.collection('config').doc('ventasCount').get();let num=1;if(countSnap.exists)num=(countSnap.data().count||0)+1;let resenaId=null;let resenaOk=false;try{resenaId=await _generarResenaIdUnico();await db.collection('resenas').doc(resenaId).set({usado:false,ventaNum:num,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',creadoEn:new Date()});resenaOk=true;}catch(re){console.warn('No se pudo crear token resena:',re);resenaId=null;}/* Quien "posee" el descuento de stock, para que nadie lo devuelva dos veces:
+   si la venta nace de un pedido web el stock ya lo descontó la tienda, asi que
+   la venta hereda esa responsabilidad y mas abajo se la sacamos al pedido. */
+const _pedOrigen=window._pedidoOrigenVentaId?pedidosData.find(x=>x.docId===window._pedidoOrigenVentaId):null;
+const _ventaPoseeStock=window._pedidoOrigenVentaId?!!(_pedOrigen&&_pedOrigen.stockDescontado):!!DESCONTAR_STOCK;
+const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,cupon:window._pedidoCuponVenta||null,usuario:auth.currentUser?auth.currentUser.email:'',cajaId:(typeof getCajaAbiertaIdLive==='function'?await getCajaAbiertaIdLive():null),medioPagoKey:(typeof keyDeMedio==='function'?keyDeMedio(document.getElementById('ventaMedio').value):null),origen:window._pedidoOrigenVentaId?'web':'mostrador',pedidoId:window._pedidoOrigenVentaId||null,stockDescontado:_ventaPoseeStock,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};const ventaRefNueva=await db.collection('ventas').add(venta);await db.collection('config').doc('ventasCount').set({count:num});/* Descontar stock de productos (gondola). Si la venta viene de un pedido web el
+   stock YA lo descontó la tienda al confirmar, asi que no se resta dos veces. */
+if(!window._pedidoOrigenVentaId)await aplicarStockProductos(deltasDeItems(ventaItems,-1));/* Descontar insumos */for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i)continue;const nuevo=Math.max(0,Number(i.stockActual||0)-u.cantidad);await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});i.stockActual=nuevo;}logAction('crear','Venta #'+num+' - $'+total.toLocaleString('es-AR'),venta.cliente+' | '+venta.medioPago+' | '+(ventaTipoEntrega==='envio'?'Envio':'Retiro')+' | '+ventaItems.length+' items'+(ventaInsumosUsados.length?' | insumos: '+ventaInsumosUsados.map(u=>u.nombre+'x'+u.cantidad).join(', '):''));showAdminToast('Venta #'+num+' registrada','success');/* Marcar pedido origen como confirmado */if(window._pedidoOrigenVentaId){try{/* Usamos el id que devolvio add(): buscar "la venta con el numero mas alto" ataba el pedido a la venta equivocada si el otro admin registraba una en el medio */const ventaDocId=ventaRefNueva.id;/* stockDescontado:false traspasa la responsabilidad del stock a la venta:
+   sin esto, borrar el pedido Y la venta devolveria la mercaderia dos veces. */
+await db.collection('pedidos').doc(window._pedidoOrigenVentaId).update({estado:'confirmado',ventaId:ventaDocId,stockDescontado:false,confirmedAt:firebase.firestore.FieldValue.serverTimestamp()});const ped=pedidosData.find(x=>x.docId===window._pedidoOrigenVentaId);if(ped){ped.estado='confirmado';ped.stockDescontado=false;if(ventaDocId)ped.ventaId=ventaDocId;}}catch(e){console.warn('No se pudo marcar pedido como confirmado:',e);}window._pedidoOrigenVentaId=null;}}sessionStorage.removeItem(STOCK_BAJO_VISTOS_KEY);closeVentaModal();editingVentaId=null;editingVentaOriginal=null;loadVentas();if(ventaInsumosUsados.length)checkStockBajoInsumos();}catch(e){showAdminToast('Error: '+e.message,'error');}finally{btn.disabled=false;btn.innerHTML=editingVentaId?'<i class="bi bi-check-lg"></i> Guardar cambios':'<i class="bi bi-check-lg"></i> Registrar Venta';}}
 
         /* Genera un link de resena anonimo (sin venta asociada) y lo muestra en un modal para copiar */
         async function generarLinkResena(){
@@ -1064,7 +1149,11 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             setTimeout(()=>{const t=document.getElementById('stockBajoToast');if(t)t.remove();},6700);
         }
 
-        async function deleteVenta(docId,num){if(!confirm('Eliminar venta #'+num+'? Esta accion no se puede deshacer.'))return;try{const venta=ventasData.find(v=>v.docId===docId);if(venta&&venta.insumosUsados&&venta.insumosUsados.length){for(const u of venta.insumosUsados){const ins=insumosData.find(x=>x.id===u.id);if(!ins)continue;const nuevo=Number(ins.stockActual||0)+Number(u.cantidad||0);await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});ins.stockActual=nuevo;}}await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta #'+num+' eliminada','DocID: '+docId);ventasData=ventasData.filter(v=>v.docId!==docId);filterVentas();}catch(e){showAdminToast('Error: '+e.message,'error');}}
+        async function deleteVenta(docId,num){if(!confirm('Eliminar venta #'+num+'? Esta accion no se puede deshacer.'))return;try{const venta=ventasData.find(v=>v.docId===docId);if(venta&&venta.insumosUsados&&venta.insumosUsados.length){for(const u of venta.insumosUsados){const ins=insumosData.find(x=>x.id===u.id);if(!ins)continue;const nuevo=Number(ins.stockActual||0)+Number(u.cantidad||0);await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});ins.stockActual=nuevo;}}/* Devolver stock de gondola solo si esta venta fue la que lo descontó.
+   La bandera se baja ANTES del await, igual que en devolverStockPedido: dos clics
+   seguidos en Eliminar alcanzaban para devolver la mercaderia dos veces. */
+if(venta&&venta.stockDescontado){venta.stockDescontado=false;await aplicarStockProductos(deltasDeItems(venta.items,1));}
+await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta #'+num+' eliminada','DocID: '+docId);ventasData=ventasData.filter(v=>v.docId!==docId);filterVentas();}catch(e){showAdminToast('Error: '+e.message,'error');}}
         function _buildMesOptions(selId,noDefault){const sel=document.getElementById(selId);if(!sel)return;const now=new Date();let opts='<option value="">Todos los meses</option>';for(let i=0;i<12;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');const label=d.toLocaleDateString('es-AR',{month:'long',year:'numeric'});opts+='<option value="'+val+'"'+(!noDefault&&i===0?' selected':'')+'>'+label.charAt(0).toUpperCase()+label.slice(1)+'</option>';}sel.innerHTML=opts;}
         async function loadVentas(){_buildMesOptions('ventaMesFiltro');const c=document.getElementById('ventasList');c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Cargando...</p></div>';try{const snap=await db.collection('ventas').orderBy('creadoEn','desc').get();ventasData=snap.docs.map(d=>{const r=d.data();return{docId:d.id,...r,fecha:r.fecha?r.fecha.toDate?r.fecha.toDate():new Date(r.fecha):new Date()};});ventasPage=0;filterVentas();}catch(e){c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Error: '+e.message+'</p></div>';}}
         function filterVentas(){const q=(document.getElementById('ventaSearch')?.value||'').toLowerCase();const mes=document.getElementById('ventaMesFiltro')?.value||'';ventasFiltered=ventasData;if(mes){const[my,mm]=mes.split('-').map(Number);ventasFiltered=ventasFiltered.filter(v=>v.fecha.getFullYear()===my&&(v.fecha.getMonth()+1)===mm);}if(q)ventasFiltered=ventasFiltered.filter(v=>(v.cliente||'').toLowerCase().includes(q)||String(v.numero).includes(q)||(v.medioPago||'').toLowerCase().includes(q));renderVentas();}
@@ -2028,10 +2117,13 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         const SC_DEFAULTS={heroBadge:'100% Natural',heroTitle1:'Tu dietetica',heroTitle2:'de confianza',heroSubtitle:'Productos naturales y de calidad a la puerta de tu casa. Envios en Rivera Indarte y alrededores.',stat1Num:'Natural',stat1Label:'Seleccionado',stat2Num:'24h',stat2Label:'Envio rapido',nosotrosTag:'Quienes somos?',nosotrosTitulo:'Una dietetica distinta',nosotrosTexto:'Brotes es una dietetica de barrio en Cordoba.',badge1:'Atencion personalizada',badge2:'Envios en Rivera Indarte y alrededores',card1t:'Seleccion cuidada',card1p:'Elegimos productos certificados.',card2t:'Amplio catalogo',card2p:'Productos de dietetica para cada forma de alimentarse.',card3t:'Precios pensados',card3p:'Precios razonables.',card4t:'Logistica eficiente',card4p:'Entregas agiles y confiables.',ctaTitulo:'Mejora tu vida con nuestros productos',ctaTexto:'Comenza hoy tu camino hacia una alimentacion mas saludable.',footerDesc:'Tu dietetica de confianza.',instagram:'https://instagram.com/brotesdietetica',whatsapp:'5493516872770',email:'brotesdietetica@gmail.com'};
         let editorImgFiles={};
         async function loadSiteContent(){try{const snap=await db.collection('config').doc('siteContent').get();const data=snap.exists?snap.data():SC_DEFAULTS;SC_FIELDS.forEach(f=>{const el=document.getElementById('sc_'+f);if(el)el.value=data[f]||SC_DEFAULTS[f]||'';});SC_IMG_FIELDS.forEach(f=>{const prev=document.getElementById('sc_'+f+'Preview');if(prev&&data[f])prev.src=data[f];});}catch(e){SC_FIELDS.forEach(f=>{const el=document.getElementById('sc_'+f);if(el)el.value=SC_DEFAULTS[f]||'';});}}
-        const PC_DEFAULTS={haceEnvios:true,minimoPedido:30000,envioPrecio:2000,envioGratisActivo:true,envioGratisDesde:100000};
+        const PC_DEFAULTS={haceEnvios:true,descontarStock:true,minimoPedido:30000,envioPrecio:2000,envioGratisActivo:true,envioGratisDesde:100000};
 /* HACE_ENVIOS manda en todo el panel: si es false, Ventas y Pedidos no ofrecen
    envio. Se carga al iniciar sesion, no solo al abrir la Configuracion. */
 let HACE_ENVIOS=true;
+/* Mismo interruptor que usa la tienda (app.js lee config/pedidos.descontarStock).
+   Si esta en false, ni el local ni la web tocan el stock: queda todo a mano. */
+let DESCONTAR_STOCK=true;
 async function loadPedidosCfgEditor(){
   let d={};
   try{const snap=await db.collection('config').doc('pedidos').get();if(snap.exists)d=snap.data();}catch(e){}
@@ -2042,6 +2134,8 @@ async function loadPedidosCfgEditor(){
   chk('pc_envioGratisActivo',(typeof d.envioGratisActivo==='boolean')?d.envioGratisActivo:PC_DEFAULTS.envioGratisActivo);
   HACE_ENVIOS=(typeof d.haceEnvios==='boolean')?d.haceEnvios:PC_DEFAULTS.haceEnvios;
   chk('pc_haceEnvios',HACE_ENVIOS);
+  DESCONTAR_STOCK=(typeof d.descontarStock==='boolean')?d.descontarStock:PC_DEFAULTS.descontarStock;
+  chk('pc_descontarStock',DESCONTAR_STOCK);
   ENVIO_PRECIO=HACE_ENVIOS?v('envioPrecio'):0;
   ENVIO_GRATIS_DESDE=(HACE_ENVIOS&&((typeof d.envioGratisActivo==='boolean')?d.envioGratisActivo:PC_DEFAULTS.envioGratisActivo))?v('envioGratisDesde'):Infinity;
   aplicarModoEnvios();
@@ -2069,14 +2163,19 @@ async function savePedidosCfg(avisar){
   const chk=(id,def)=>{const el=document.getElementById(id);return el?el.checked:def;};
   const cfg={
     haceEnvios:chk('pc_haceEnvios',PC_DEFAULTS.haceEnvios),
+    descontarStock:chk('pc_descontarStock',PC_DEFAULTS.descontarStock),
     minimoPedido:num('pc_minimoPedido',PC_DEFAULTS.minimoPedido),
     envioPrecio:num('pc_envioPrecio',PC_DEFAULTS.envioPrecio),
     envioGratisDesde:num('pc_envioGratisDesde',PC_DEFAULTS.envioGratisDesde),
     envioGratisActivo:chk('pc_envioGratisActivo',PC_DEFAULTS.envioGratisActivo)
   };
   try{
-    await db.collection('config').doc('pedidos').set(cfg);
+    /* merge:true a proposito: este .set() pisaba el documento entero, asi que
+       cualquier campo de config/pedidos que la tienda leyera y este formulario
+       no tuviera se perdia al guardar. */
+    await db.collection('config').doc('pedidos').set(cfg,{merge:true});
     HACE_ENVIOS=cfg.haceEnvios;
+    DESCONTAR_STOCK=cfg.descontarStock;
     ENVIO_PRECIO=cfg.haceEnvios?cfg.envioPrecio:0;
     ENVIO_GRATIS_DESDE=(cfg.haceEnvios&&cfg.envioGratisActivo)?cfg.envioGratisDesde:Infinity;
     aplicarModoEnvios();
@@ -2693,7 +2792,8 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
             const mw=document.getElementById('ventaMayCliente')?.closest('.cliente-select-wrap');if(mw)mw.style.display='';
             document.getElementById('ventaMayModal').classList.remove('show');editingVentaMayId=null;
         }
-        async function deleteVentaMay(docId,num){if(!confirm('Eliminar venta mayorista #'+num+'? Esta accion no se puede deshacer.'))return;try{const venta=ventasMayData.find(v=>v.id===docId);if(venta&&venta.insumosUsados&&venta.insumosUsados.length){for(const u of venta.insumosUsados){const ins=insumosData.find(x=>x.id===u.id);if(!ins)continue;const nuevo=Number(ins.stockActual||0)+Number(u.cantidad||0);await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});ins.stockActual=nuevo;}}await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Venta mayorista #'+num+' eliminada','success');logAction('eliminar','Venta Mayorista #'+num+' eliminada','DocID: '+docId);ventasMayData=ventasMayData.filter(v=>v.id!==docId);filterVentasMay();}catch(e){showAdminToast('Error: '+e.message,'error');}}
+        async function deleteVentaMay(docId,num){if(!confirm('Eliminar venta mayorista #'+num+'? Esta accion no se puede deshacer.'))return;try{const venta=ventasMayData.find(v=>v.id===docId);if(venta&&venta.insumosUsados&&venta.insumosUsados.length){for(const u of venta.insumosUsados){const ins=insumosData.find(x=>x.id===u.id);if(!ins)continue;const nuevo=Number(ins.stockActual||0)+Number(u.cantidad||0);await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});ins.stockActual=nuevo;}}if(venta&&venta.stockDescontado){venta.stockDescontado=false;await aplicarStockProductos(deltasDeItems(venta.items,1));}
+await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Venta mayorista #'+num+' eliminada','success');logAction('eliminar','Venta Mayorista #'+num+' eliminada','DocID: '+docId);ventasMayData=ventasMayData.filter(v=>v.id!==docId);filterVentasMay();}catch(e){showAdminToast('Error: '+e.message,'error');}}
 
         function setVentaMayEntrega(tipo){
             ventaMayTipoEntrega=tipo;
@@ -2796,9 +2896,13 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
             if(!ventaMayItems.length){showAdminToast('Agregá al menos un producto','error');return;}
             /* Validar stock de insumos */
             const originalInsumosMay={};
+            let _mayItemsPrevios=null,_mayPoseiaStock=false;
             if(editingVentaMayId){
                 const vPrev=ventasMayData.find(x=>x.id===editingVentaMayId);
                 if(vPrev&&vPrev.insumosUsados)(vPrev.insumosUsados||[]).forEach(u=>{originalInsumosMay[u.id]=Number(u.cantidad||0);});
+                /* Copia de los items ANTES de editar, para poder devolver el stock viejo */
+                _mayItemsPrevios=vPrev?JSON.parse(JSON.stringify(vPrev.items||[])):[];
+                _mayPoseiaStock=!!(vPrev&&vPrev.stockDescontado);
             }
             for(const u of ventaMayInsumosUsados){
                 const ins=insumosData.find(x=>x.id===u.id);
@@ -2814,7 +2918,9 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
                 const clienteId=document.getElementById('ventaMayClienteId').value||null;
                 const fecha=new Date(document.getElementById('ventaMayFecha').value+'T12:00:00');
                 const medioPago=document.getElementById('ventaMayMedioPago').value;
-                const ventaData={cliente:cliente,clienteId:clienteId,fecha:fecha,medioPago:medioPago,tipoEntrega:ventaMayTipoEntrega,items:ventaMayItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),insumosUsados:ventaMayInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotal:t.subtotal,descuentoPct:t.descuentoPct||0,descuentoMonto:t.descuentoMonto||0,envio:t.envio,envioGratis:ventaMayTipoEntrega==='envio'&&t.envio===0,total:t.total,tipo:'mayorista'};
+                /* cajaId NO va en ventaData: como la rama de edicion hace update({...ventaData}), pondria
+                   la venta en la caja de HOY al editar una de la semana pasada. Solo se estampa al crear. */
+                const ventaData={cliente:cliente,clienteId:clienteId,fecha:fecha,medioPago:medioPago,medioPagoKey:(typeof keyDeMedio==='function'?keyDeMedio(medioPago):null),tipoEntrega:ventaMayTipoEntrega,items:ventaMayItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),insumosUsados:ventaMayInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotal:t.subtotal,descuentoPct:t.descuentoPct||0,descuentoMonto:t.descuentoMonto||0,envio:t.envio,envioGratis:ventaMayTipoEntrega==='envio'&&t.envio===0,total:t.total,tipo:'mayorista'};
                 if(editingVentaMayId){
                     /* Restaurar stock insumos originales y descontar nuevos */
                     const stockUpdates={};
@@ -2827,15 +2933,22 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
                         await db.collection('insumos').doc(id).update({stockActual:nuevo,actualizadoEn:new Date()});
                         ins.stockActual=nuevo;
                     }
+                    /* Stock de productos: devolver lo viejo (solo si esta venta lo habia
+                       descontado) y descontar lo nuevo */
+                    const dProdMay=(_mayPoseiaStock?deltasDeItems(_mayItemsPrevios,1):{});
+                    const dNuevoMay=deltasDeItems(ventaMayItems,-1);
+                    Object.keys(dNuevoMay).forEach(k=>{dProdMay[k]=(dProdMay[k]||0)+dNuevoMay[k];});
+                    await aplicarStockProductos(dProdMay);
                     const vPrev=ventasMayData.find(x=>x.id===editingVentaMayId);
-                    await db.collection('ventasMayoristas').doc(editingVentaMayId).update({...ventaData,numero:vPrev?vPrev.numero:0,editadoEn:new Date(),editadoPor:auth.currentUser?auth.currentUser.email:''});
+                    await db.collection('ventasMayoristas').doc(editingVentaMayId).update({...ventaData,numero:vPrev?vPrev.numero:0,stockDescontado:!!DESCONTAR_STOCK,editadoEn:new Date(),editadoPor:auth.currentUser?auth.currentUser.email:''});
                     showAdminToast('Venta mayorista actualizada','success');
                 }else{
                     /* Numero nuevo solo al crear */
                     const cntRef=db.collection('config').doc('ventasMayCount');
                     let num=1;
                     await db.runTransaction(async tx=>{const s=await tx.get(cntRef);num=(s.exists?parseInt(s.data().count)||0:0)+1;tx.set(cntRef,{count:num});});
-                    await db.collection('ventasMayoristas').add({...ventaData,numero:num,usuario:auth.currentUser?auth.currentUser.email:'',creadoEn:firebase.firestore.FieldValue.serverTimestamp()});
+                    await db.collection('ventasMayoristas').add({...ventaData,numero:num,cajaId:(typeof getCajaAbiertaIdLive==='function'?await getCajaAbiertaIdLive():null),origen:'mostrador',stockDescontado:!!DESCONTAR_STOCK,usuario:auth.currentUser?auth.currentUser.email:'',creadoEn:firebase.firestore.FieldValue.serverTimestamp()});
+                    await aplicarStockProductos(deltasDeItems(ventaMayItems,-1));
                     /* Descontar stock insumos */
                     for(const u of ventaMayInsumosUsados){
                         const ins=insumosData.find(x=>x.id===u.id);if(!ins)continue;
@@ -3399,6 +3512,73 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
 
         </script>
     <script src="admin-pagination.js"></script>
+    <script src="admin-caja.js"></script>
+
+    <div class="modal-overlay" id="abrirCajaModal"><div class="modal-box" style="max-width:460px;width:96vw">
+      <div class="modal-header"><h3><i class="bi bi-unlock"></i> Abrir caja</h3><button class="modal-close" onclick="closeAbrirCajaModal()">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Fondo inicial (efectivo con el que arranca)</label>
+          <input type="number" class="form-input" id="cajaMontoInicial" min="0" step="100" placeholder="20000">
+          <small style="color:var(--text-dim);font-size:0.78rem">Sugerido: lo que qued&oacute; en el caj&oacute;n al cerrar la caja anterior.</small>
+        </div>
+        <div class="form-group">
+          <label>Nota (opcional)</label>
+          <input type="text" class="form-input" id="cajaNotaApertura" maxlength="120" placeholder="Ej: falta cambio chico">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAbrirCajaModal()">Cancelar</button>
+        <button class="btn btn-primary" id="cajaAbrirBtn" onclick="abrirCaja()"><i class="bi bi-unlock"></i> Abrir caja</button>
+      </div>
+    </div></div>
+
+    <div class="modal-overlay" id="movModal"><div class="modal-box" style="max-width:460px;width:96vw">
+      <div class="modal-header"><h3 id="movTitulo"><i class="bi bi-arrow-down-circle"></i> Registrar movimiento</h3><button class="modal-close" onclick="closeMovModal()">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-group"><label>Concepto</label><select class="form-input" id="movConcepto"></select></div>
+        <div class="form-group"><label>Monto</label><input type="number" class="form-input" id="movMonto" min="1" step="100" placeholder="0"></div>
+        <div class="form-group">
+          <label>Detalle <span style="color:var(--danger)">*</span></label>
+          <input type="text" class="form-input" id="movDetalle" maxlength="160" placeholder="Ej: pago flete Fruticor, remito 4412">
+          <small style="color:var(--text-dim);font-size:0.78rem">Obligatorio: es lo que despu&eacute;s explica la diferencia en el arqueo.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeMovModal()">Cancelar</button>
+        <button class="btn btn-primary" id="movGuardarBtn" onclick="guardarMovimiento()"><i class="bi bi-check-lg"></i> Guardar</button>
+      </div>
+    </div></div>
+
+    <div class="modal-overlay" id="cierreModal"><div class="modal-box" style="max-width:520px;width:96vw;max-height:92vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h3><i class="bi bi-lock"></i> Cerrar caja y arquear</h3><button class="modal-close" onclick="closeCierreModal()">&times;</button></div>
+      <div class="modal-body" style="overflow-y:auto">
+        <div id="cierreResumen" style="margin-bottom:1.1rem"></div>
+        <div class="form-group">
+          <label>Efectivo contado en el caj&oacute;n</label>
+          <input type="number" class="form-input" id="cajaContado" min="0" step="100" placeholder="0" oninput="onContadoInput()">
+        </div>
+        <div id="cierreDiferencia"></div>
+        <div class="form-group" id="cajaMotivoWrap" style="display:none;margin-top:0.75rem">
+          <label>&iquest;Por qu&eacute; no coincide? <span style="color:var(--danger)">*</span></label>
+          <input type="text" class="form-input" id="cajaMotivo" maxlength="200" placeholder="Ej: falt&oacute; cargar un gasto de $500" oninput="validarCierre()">
+        </div>
+        <div class="form-group" style="margin-top:0.75rem">
+          <label>Retiro final (opcional)</label>
+          <input type="number" class="form-input" id="cajaRetiro" min="0" step="100" placeholder="0">
+          <small style="color:var(--text-dim);font-size:0.78rem">Lo que sac&aacute;s del caj&oacute;n. El resto queda como fondo de ma&ntilde;ana.</small>
+        </div>
+        <div class="form-group">
+          <label>Observaciones (opcional)</label>
+          <input type="text" class="form-input" id="cajaObs" maxlength="200">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCierreModal()">Cancelar</button>
+        <button class="btn btn-primary" id="cajaCerrarBtn" onclick="confirmarCierre()" disabled><i class="bi bi-lock"></i> Cerrar caja</button>
+      </div>
+    </div></div>
+
     <div class="modal-overlay" id="noCatModal"><div class="modal-box" style="max-width:700px;max-height:92vh"><div class="modal-header"><h3><i class="bi bi-exclamation-triangle" style="color:#9b59b6"></i> Productos sin categoria</h3><button class="modal-close" onclick="document.getElementById('noCatModal').classList.remove('show')"><i class="bi bi-x-lg"></i></button></div><div style="padding:1rem;overflow-y:auto;max-height:calc(92vh - 80px)"><div id="noCatList"></div><div class="price-pager" id="noCatPager"></div></div></div></div>
     <div class="modal-overlay" id="catManagerModal"><div class="modal-box" style="max-width:900px;width:96vw;max-height:92vh"><div class="modal-header"><h3><i class="bi bi-gear"></i> Administrar Categorias</h3><button class="modal-close" onclick="document.getElementById('catManagerModal').classList.remove('show')"><i class="bi bi-x-lg"></i></button></div><div style="padding:1.25rem;overflow-y:auto;max-height:calc(92vh - 80px)"><div style="display:flex;gap:0.5rem;margin-bottom:1.25rem"><input type="text" id="newCatInput" placeholder="Nueva categoria..." style="flex:1;min-width:0;font-size:1.1rem;padding:12px 16px;color:#fff;background:#2a2d35;border:2px solid #555;border-radius:8px;outline:none"><button class="btn btn-primary" onclick="addNewCategory()" style="white-space:nowrap;width:auto;padding:12px 24px;font-size:1.05rem"><i class="bi bi-plus-lg"></i> Agregar</button></div><div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;align-items:center"><select id="newSubCatParent" style="flex:1;min-width:0;font-size:1rem;padding:10px 14px;color:#fff;background:#2a2d35;border:2px solid #555;border-radius:8px;outline:none"><option value="">(seleccionar categoria)</option></select><input type="text" id="newSubCatInput" placeholder="Nueva subcategoria..." style="flex:1;min-width:0;font-size:1rem;padding:10px 14px;color:#fff;background:#2a2d35;border:2px solid #555;border-radius:8px;outline:none"><button class="btn btn-secondary" onclick="addNewSubcategory()" style="white-space:nowrap;width:auto;padding:10px 20px;font-size:1rem"><i class="bi bi-plus-lg"></i> Sub</button></div><div id="catManagerList" style="font-size:1.05rem"></div></div></div></div>
     <div class="modal-overlay" id="insumoModal"><div class="modal-box" style="max-width:480px;width:96vw"><div class="modal-header"><h3 id="insumoModalTitle"><i class="bi bi-tools"></i> Nuevo insumo</h3><button class="modal-close" onclick="closeInsumoModal()"><i class="bi bi-x-lg"></i></button></div><div style="padding:1rem;display:flex;flex-direction:column;gap:0.75rem"><div><label style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:4px">Nombre</label><input type="text" id="insumoNombre" class="form-input" placeholder="Ej: Caja chica, Cinta 50cm..." maxlength="80"></div><div style="display:flex;gap:0.5rem"><div style="flex:1"><label style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:4px">Stock actual</label><input type="number" id="insumoStock" class="form-input" min="0" value="0"></div><div style="flex:1"><label style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:4px">Stock mínimo</label><input type="number" id="insumoStockMin" class="form-input" min="0" value="5"></div></div><div style="display:flex;gap:0.5rem;margin-top:0.5rem"><button class="btn btn-secondary" style="flex:1" onclick="closeInsumoModal()">Cancelar</button><button class="btn btn-primary" style="flex:1" id="saveInsumoBtn" onclick="saveInsumo()"><i class="bi bi-check-lg"></i> Guardar</button></div></div></div></div>

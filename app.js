@@ -351,7 +351,7 @@ function _acusarCarrito(){
 function addToCart(id) {
     if(!clienteAuth){requireLoginToBuy();return;}
     _acusarCarrito();
-    const p=productos.find(x=>x.id===id); if(!p||p.stock===0)return;
+    const p=productos.find(x=>x.id===id); if(!p||(p.stock||0)<=0)return;
     const existing=carrito.find(i=>i.id===id);
     if(existing){
         if(existing.cantidad<p.stock){existing.cantidad++;}else{showToast('Stock máximo','error');return;}
@@ -366,7 +366,7 @@ function updateProductCard(id) {
     const card=document.querySelector('.product-card[data-id="'+id+'"]');
     if(!card)return;
     const ci=carrito.find(i=>i.id===id),qty=ci?ci.cantidad:0;
-    const noStock=p.stock===0;
+    const noStock=(p.stock||0)<=0;
     const maxOut=qty>=p.stock;
     const oldEl=card.querySelector('.add-to-cart-btn');
     if(!oldEl)return;
@@ -403,7 +403,7 @@ function openProductDetailModal(id){
     _pdmImages=imgsArr;
     _pdmCurrentImgIdx=0;
     const ci=carrito.find(i=>i.id===id),qty=ci?ci.cantidad:0;
-    const noStock=p.stock===0;
+    const noStock=(p.stock||0)<=0;
     const maxOut=qty>=p.stock;
     const imgsHtml=_pdmImages.length?_pdmImages.map((url,i)=>'<img src="'+esc(optImg(url,800)||url)+'" class="pdm-img'+(i===0?' active':'')+'" data-idx="'+i+'" alt="'+esc(p.nombre)+'" data-orig="'+esc(url||'')+'" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig;}else{this.src=\'img/default-product.svg\';}">').join(''):'<div class="pdm-img-placeholder"><i class="bi bi-image"></i> Sin imagen</div>';
     const carouselNav=_pdmImages.length>1?'<button class="pdm-carousel-btn pdm-prev" onclick="pdmCarouselNav(-1)"><i class="bi bi-chevron-left"></i></button><button class="pdm-carousel-btn pdm-next" onclick="pdmCarouselNav(1)"><i class="bi bi-chevron-right"></i></button><div class="pdm-carousel-dots">'+_pdmImages.map((_,i)=>'<span class="pdm-dot'+(i===0?' active':'')+'" onclick="pdmCarouselGoTo('+i+')"></span>').join('')+'</div>':'';
@@ -449,7 +449,7 @@ function refreshProductDetailModal(id){
     const btnEl=document.getElementById('pdmAddBtn-'+id)||(document.getElementById('productDetailFooter')&&document.getElementById('productDetailFooter').querySelector('#pdmAddBtn-'+id));
     if(!btnEl)return;
     const ci=carrito.find(i=>i.id===id),qty=ci?ci.cantidad:0;
-    const noStock=p.stock===0;
+    const noStock=(p.stock||0)<=0;
     const maxOut=qty>=p.stock;
     let btnContent,newEl;
     if(noStock){

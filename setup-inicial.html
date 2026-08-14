@@ -137,7 +137,18 @@ const PLAN = [
 
   { id:'pedidos',     tipo:'doc', path:'config/pedidos', bloqueante:false,
     label:'Envios, monto minimo y envio gratis (se edita en /admin -> Configuracion)',
-    data:{ haceEnvios:true, minimoPedido:30000, envioPrecio:2000, envioGratisActivo:true, envioGratisDesde:100000 } },
+    data:{ haceEnvios:true, descontarStock:true, minimoPedido:30000, envioPrecio:2000, envioGratisActivo:true, envioGratisDesde:100000 } },
+
+  { id:'cajaCfg',     tipo:'doc', path:'config/cajaConfig', bloqueante:false,
+    label:'Caja: fondo sugerido y tolerancia del arqueo',
+    data:{ fondoFijoSugerido:20000, toleranciaDiferencia:500, exigirMotivoSiDifiere:true, arqueoCiego:false } },
+
+  /* Puntero a la caja abierta. Va en su PROPIO documento y no dentro de
+     cajaConfig: si compartieran doc, guardar la configuracion con .set() borraria
+     el puntero y las ventas dejarian de entrar al arqueo sin aviso. */
+  { id:'cajaEst',     tipo:'doc', path:'config/cajaEstado', bloqueante:false,
+    label:'Caja: puntero a la caja abierta',
+    data:{ cajaAbiertaId:null } },
 
   { id:'resenas',     tipo:'doc', path:'config/resenasConfig', bloqueante:false,
     label:'Preguntas del formulario de reseñas',
@@ -147,7 +158,8 @@ const PLAN = [
   { id:'c1', tipo:'doc', path:'config/pedidosCount',      bloqueante:false, label:'Contador de pedidos',            data:{ count:0 } },
   { id:'c2', tipo:'doc', path:'config/clientesAuthCount', bloqueante:false, label:'Contador de clientes',           data:{ count:0 } },
   { id:'c3', tipo:'doc', path:'config/ventasCount',       bloqueante:false, label:'Contador de ventas',             data:{ count:0 } },
-  { id:'c4', tipo:'doc', path:'config/ventasMayCount',    bloqueante:false, label:'Contador de ventas mayoristas',  data:{ count:0 } }
+  { id:'c4', tipo:'doc', path:'config/ventasMayCount',    bloqueante:false, label:'Contador de ventas mayoristas',  data:{ count:0 } },
+  { id:'c5', tipo:'doc', path:'config/cajasCount',        bloqueante:false, label:'Contador de cajas',              data:{ count:0 } }
 ];
 
 /* config/telegram NO se crea acá: lleva el token del bot, que es un secreto.
