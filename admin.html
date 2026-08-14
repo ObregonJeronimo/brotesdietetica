@@ -49,6 +49,9 @@
         .admin-layout{display:flex;min-height:calc(100vh - 57px)}
         .sidebar{width:220px;background:var(--bg-card);border-right:1px solid var(--border);padding:1rem 0;flex-shrink:0;position:sticky;top:57px;height:calc(100vh - 57px);overflow-y:auto}
         .sidebar-section{padding:0.5rem 0}.sidebar-divider{height:1px;background:var(--border);margin:0.5rem 1rem}
+        /* Rotulo del grupo: separa lo del local fisico de lo de la tienda online.
+           Sin esto "Ventas" y "Caja" parecen lo mismo y no lo son. */
+        .sidebar-rotulo{padding:0.35rem 1.25rem 0.3rem;font-size:0.64rem;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-dim);opacity:0.65;user-select:none}
         .sidebar-item{display:flex;align-items:center;gap:10px;padding:0.7rem 1.25rem;color:var(--text-dim);cursor:pointer;font-size:0.88rem;font-weight:500;transition:all 0.15s;text-decoration:none;border-left:3px solid transparent}
         .sidebar-item:hover{color:var(--text);background:var(--bg-input)}.sidebar-item.active{color:var(--accent-light);background:var(--accent-bg);border-left-color:var(--accent-light)}
         .sidebar-item i{font-size:1.1rem;width:20px;text-align:center}
@@ -217,11 +220,8 @@
     <div class="admin-layout">
     <nav class="sidebar" id="adminSidebar">
         <div class="sidebar-section">
+            <div class="sidebar-rotulo">Local</div>
             <a class="sidebar-item" onclick="switchSection('caja')"><i class="bi bi-cash-stack"></i><span>Caja</span></a>
-            <a class="sidebar-item active" onclick="switchSection('products')"><i class="bi bi-box-seam"></i><span>Productos</span></a>
-
-            <a class="sidebar-item" onclick="switchSection('stock')"><i class="bi bi-clipboard-data"></i><span>Stock</span></a>
-            <a class="sidebar-item" onclick="switchSection('insumos')"><i class="bi bi-tools"></i><span>Insumos</span></a>
             <div class="sidebar-group" id="sidebarVentasGroup">
                 <a class="sidebar-item sidebar-group-toggle" onclick="toggleSidebarVentas()"><i class="bi bi-cart-check"></i><span>Ventas</span><i class="bi bi-chevron-right sidebar-chevron" id="ventasChevron"></i></a>
                 <div class="sidebar-subitems" id="sidebarVentasSub">
@@ -229,17 +229,35 @@
                     <a class="sidebar-item sidebar-subitem" onclick="switchSection('ventasMay')"><i class="bi bi-buildings"></i><span>Mayoristas</span></a>
                 </div>
             </div>
-            <a class="sidebar-item" id="sidebarPedidos" onclick="switchSection('pedidos')"><i class="bi bi-bag-check"></i><span>Pedidos</span></a>
-            <a class="sidebar-item" onclick="switchSection('clientes')"><i class="bi bi-people"></i><span>Clientes</span></a>
-            <a class="sidebar-item" onclick="switchSection('clientesAuth')"><i class="bi bi-person-check"></i><span>Clientes Auth</span></a>
         </div>
         <div class="sidebar-divider"></div>
         <div class="sidebar-section">
-            <a class="sidebar-item" onclick="switchSection('historial')"><i class="bi bi-clock-history"></i><span>Historial</span></a>
+            <div class="sidebar-rotulo">Tienda online</div>
+            <a class="sidebar-item" id="sidebarPedidos" onclick="switchSection('pedidos')"><i class="bi bi-bag-check"></i><span>Pedidos</span></a>
+            <a class="sidebar-item" onclick="switchSection('clientes')"><i class="bi bi-people"></i><span>Clientes</span></a>
+            <a class="sidebar-item" onclick="switchSection('clientesAuth')"><i class="bi bi-person-check"></i><span>Clientes Auth</span></a>
             <a class="sidebar-item" onclick="switchSection('resenas')"><i class="bi bi-star"></i><span>Reseñas</span></a>
             <a class="sidebar-item" onclick="switchSection('cupones')"><i class="bi bi-ticket-perforated"></i><span>Cupones</span></a>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-rotulo">Cat&aacute;logo</div>
+            <a class="sidebar-item active" onclick="switchSection('products')"><i class="bi bi-box-seam"></i><span>Productos</span></a>
+            <a class="sidebar-item" onclick="switchSection('stock')"><i class="bi bi-clipboard-data"></i><span>Stock</span></a>
+            <a class="sidebar-item" onclick="switchSection('insumos')"><i class="bi bi-tools"></i><span>Insumos</span></a>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-rotulo">An&aacute;lisis</div>
+            <a class="sidebar-item" onclick="switchSection('stats')"><i class="bi bi-graph-up-arrow"></i><span>Estad&iacute;sticas</span></a>
+            <a class="sidebar-item" onclick="switchSection('historial')"><i class="bi bi-clock-history"></i><span>Historial</span></a>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-rotulo">Sistema</div>
+            <a class="sidebar-item" onclick="switchSection('editor')"><i class="bi bi-brush"></i><span>Editor Web</span></a>
             <a class="sidebar-item" onclick="switchSection('factura')"><i class="bi bi-receipt"></i><span>Factura</span></a>
-            <a class="sidebar-item" onclick="switchSection('editor')"><i class="bi bi-brush"></i><span>Editor Web</span></a><a class="sidebar-item" onclick="switchSection('config')"><i class="bi bi-sliders"></i><span>Configuraci&oacute;n</span></a>
+            <a class="sidebar-item" onclick="switchSection('config')"><i class="bi bi-sliders"></i><span>Configuraci&oacute;n</span></a>
         </div>
     </nav>
     <div class="admin-main">
@@ -338,6 +356,20 @@
 
 <div><div style="background:var(--bg-card);border-radius:var(--radius);padding:1rem;position:sticky;top:1rem"><h4 style="font-size:0.9rem;color:var(--accent-light);margin-bottom:0.75rem;text-align:center"><i class="bi bi-eye"></i> Preview etiqueta</h4><div id="fcePreview" style="background:#fff;color:#000;padding:15px;border-radius:8px;font-family:Arial,sans-serif;font-size:11px;max-width:340px;margin:0 auto;transform:scale(1.25);transform-origin:top center;margin-bottom:4rem"></div><button class="btn btn-secondary btn-sm" style="width:auto;margin-top:0.75rem;display:block;margin-left:auto;margin-right:auto" onclick="renderFcePreview()"><i class="bi bi-arrow-clockwise"></i> Actualizar preview</button></div></div>
 </div></div>
+    <div class="section-content" id="sec-stats">
+      <div class="toolbar" style="margin-bottom:1.25rem;flex-wrap:wrap">
+        <h3 style="font-size:1.05rem;font-weight:700">Estad&iacute;sticas</h3>
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-left:auto">
+          <button class="btn btn-secondary" style="width:auto;padding:6px 11px" onclick="statsMesNav(-1)" title="Mes anterior"><i class="bi bi-chevron-left"></i></button>
+          <span id="statsMesLabel" style="min-width:170px;text-align:center;font-weight:700;font-size:0.95rem">&nbsp;</span>
+          <button class="btn btn-secondary" style="width:auto;padding:6px 11px" id="statsMesSig" onclick="statsMesNav(1)" title="Mes siguiente"><i class="bi bi-chevron-right"></i></button>
+          <button class="btn btn-secondary" style="width:auto;margin-left:0.35rem" onclick="statsIrHoy()"><i class="bi bi-calendar-check"></i> Hoy</button>
+        </div>
+      </div>
+      <div id="statsBody"></div>
+      <div id="statsComparativa" style="margin-top:1rem"></div>
+    </div>
+
     <div class="section-content" id="sec-caja">
       <div class="toolbar" style="margin-bottom:1.25rem">
         <h3 style="font-size:1.05rem;font-weight:700;flex:1">Caja del local</h3>
@@ -521,7 +553,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         _initAuth();
         function logout(){auth.signOut();}
         function toggleSidebarVentas(){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(!sub)return;const open=sub.classList.toggle('open');if(chev)chev.style.transform=open?'rotate(90deg)':'rotate(0deg)';}
-        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')loadCaja();document.getElementById('adminSidebar').classList.remove('open');}
+        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')loadCaja();if(sec==='stats')loadStats();document.getElementById('adminSidebar').classList.remove('open');}
         function toggleSidebar(){document.getElementById('adminSidebar').classList.toggle('open');}
         let savedCats={};async function loadCategorias(){try{const snap=await db.collection('_categorias').get();savedCats={};snap.docs.forEach(d=>{const data=d.data();savedCats[d.id]={nombre:data.nombre||d.id,subcategorias:data.subcategorias||[]};});}catch(e){}}
         async function loadProducts(){try{await loadCategorias();const snap=await db.collection('productos').get();allProducts=snap.docs.map(d=>{const r=d.data();return{id:d.id,...r,porcentajeMayorista:r.porcentajeMayorista||0,precioMayorista:r.precioMayorista||0};});filterTable();updateStats();updateCategoryFilter();renderStockList();renderListaFilterSelect();}catch(e){console.error(e);showAdminToast('Error al cargar','error');}}
@@ -3513,6 +3545,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         </script>
     <script src="admin-pagination.js"></script>
     <script src="admin-caja.js"></script>
+    <script src="admin-stats.js"></script>
 
     <div class="modal-overlay" id="abrirCajaModal"><div class="modal-box" style="max-width:460px;width:96vw">
       <div class="modal-header"><h3><i class="bi bi-unlock"></i> Abrir caja</h3><button class="modal-close" onclick="closeAbrirCajaModal()">&times;</button></div>
