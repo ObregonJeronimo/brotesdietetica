@@ -51,6 +51,55 @@
         .sidebar-section{padding:0.5rem 0}.sidebar-divider{height:1px;background:var(--border);margin:0.5rem 1rem}
         /* Rotulo del grupo: separa lo del local fisico de lo de la tienda online.
            Sin esto "Ventas" y "Caja" parecen lo mismo y no lo son. */
+        /* ===== Menus de la barra de Productos =====
+           Eran once botones en fila con el mismo peso visual, y no todos se usan con
+           la misma frecuencia: "Nuevo" es de todos los dias y "Exportar PDF M" es de
+           una vez por mes. Aplanarlos a todos al mismo nivel obligaba a leer los once
+           cada vez para encontrar uno. Ahora: un primario, y el resto agrupado por
+           para que sirve. No se saco ninguna funcion. */
+        /* ===== Visor de imagen =====
+           Para mirar la foto de un producto sin tener que abrir el editor. */
+        .product-img-zoom{cursor:zoom-in;transition:transform 0.12s}
+        .product-img-zoom:hover{transform:scale(1.08)}
+        .visor{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;
+            background:rgba(6,10,7,0.82);padding:1.5rem}
+        .visor.show{display:flex}
+        .visor-caja{position:relative;background:var(--bg-card);border:1px solid var(--border);
+            border-radius:12px;padding:0.75rem;max-width:min(440px,92vw);
+            box-shadow:0 24px 60px rgba(0,0,0,0.5)}
+        .visor-img{display:block;max-width:100%;max-height:62vh;width:auto;height:auto;
+            border-radius:8px;background:#fff;object-fit:contain}
+        .visor-pie{margin:0.6rem 0.15rem 0.1rem;font-size:0.85rem;font-weight:600;color:var(--text-main);
+            text-align:center;line-height:1.35;word-break:break-word}
+        .visor-x{position:absolute;top:-12px;right:-12px;width:32px;height:32px;border-radius:50%;
+            background:var(--bg-card);border:1px solid var(--border);color:var(--text-main);
+            cursor:pointer;font-size:0.95rem;line-height:1;display:flex;align-items:center;
+            justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.4)}
+        .visor-x:hover{background:var(--danger,#c0392b);border-color:var(--danger,#c0392b);color:#fff}
+        .visor-x:focus-visible{outline:2px solid var(--accent-light);outline-offset:2px}
+        @media(max-width:768px){.visor{padding:1rem}.visor-x{top:-10px;right:-10px}}
+        .tb-menu{position:relative;display:inline-block}
+        .tb-menu>.tb-tog{display:inline-flex;align-items:center;gap:6px}
+        .tb-menu>.tb-tog .bi-chevron-down{font-size:0.62rem;opacity:0.6;transition:transform 0.15s}
+        .tb-menu.open>.tb-tog .bi-chevron-down{transform:rotate(180deg)}
+        .tb-pop{position:absolute;top:calc(100% + 5px);left:0;z-index:60;min-width:250px;
+            background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+            box-shadow:0 10px 30px rgba(0,0,0,0.45);padding:0.35rem;display:none}
+        .tb-menu.open .tb-pop{display:block}
+        .tb-menu:last-child .tb-pop,.tb-pop.derecha{left:auto;right:0}
+        .tb-it{display:flex;width:100%;align-items:flex-start;gap:0.6rem;background:none;border:none;
+            color:var(--text-main);text-align:left;padding:0.5rem 0.6rem;border-radius:6px;
+            cursor:pointer;font-size:0.85rem;font-family:inherit;line-height:1.35}
+        .tb-it:hover{background:var(--bg-input)}
+        .tb-it:focus-visible{outline:2px solid var(--accent-light);outline-offset:-2px}
+        .tb-it i{font-size:0.95rem;width:18px;text-align:center;flex:0 0 auto;margin-top:1px;color:var(--accent-light)}
+        .tb-it b{display:block;font-weight:600}
+        .tb-it span{display:block;font-size:0.76rem;color:var(--text-dim);margin-top:1px}
+        .tb-sep{height:1px;background:var(--border);margin:0.3rem 0.3rem}
+        .tb-rot{font-size:0.64rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+            color:var(--text-dim);padding:0.45rem 0.6rem 0.25rem;opacity:0.75}
+        @media(max-width:768px){.tb-pop{position:fixed;left:0.5rem;right:0.5rem;min-width:0;
+            top:auto;bottom:0.5rem;max-height:70vh;overflow-y:auto}}
         .sidebar-rotulo{padding:0.35rem 1.25rem 0.3rem;font-size:0.64rem;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-dim);opacity:0.65;user-select:none}
         .sidebar-item{display:flex;align-items:center;gap:10px;padding:0.7rem 1.25rem;color:var(--text-dim);cursor:pointer;font-size:0.88rem;font-weight:500;transition:all 0.15s;text-decoration:none;border-left:3px solid transparent}
         .sidebar-item:hover{color:var(--text);background:var(--bg-input)}.sidebar-item.active{color:var(--accent-light);background:var(--accent-bg);border-left-color:var(--accent-light)}
@@ -261,7 +310,7 @@
         </div>
     </nav>
     <div class="admin-main">
-    <div class="section-content active" id="sec-products"><div id="listasPanel" style="margin-bottom:1.5rem"><div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem"><span style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-weight:600">Listas de proveedores</span><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem" onclick="openCrearListaModal()"><i class="bi bi-plus-lg"></i> Nueva</button><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem;background:#2d4a6b;border-color:#2d4a6b;color:#fff" onclick="openReasignarListaModal()"><i class="bi bi-shuffle"></i> Reasignar lista</button></div><div id="listasCards" style="display:flex;gap:0.5rem;flex-wrap:wrap"><span style="color:var(--text-dim);font-size:0.85rem">Cargando...</span></div></div><div class="stats-row" id="productsStatsRow"><div class="stat-card"><div class="stat-label">Total Productos</div><div class="stat-value" id="statTotal">0</div></div><div class="stat-card"><div class="stat-label">Categorias</div><div class="stat-value" id="statCats">0</div></div><div class="stat-card"><div class="stat-label">Sin Stock <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('outstock')">?</span><div class="stat-tooltip" id="tooltipOutstock"></div></div><div class="stat-value" style="color:var(--danger)" id="statOutStock">0</div></div><div class="stat-card"><div class="stat-label">Stock Bajo <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('lowstock')">?</span><div class="stat-tooltip" id="tooltipLowstock"></div></div><div class="stat-value" style="color:var(--warning)" id="statLowStock">0</div><div class="stock-threshold-row"><label>Limite:</label><input type="number" class="threshold-input" id="lowStockThreshold" value="10" min="1" max="999" onchange="saveLowStockThreshold()"></div></div><div class="stat-card"><div class="stat-label">Sin Categoria <span class="stat-tooltip-trigger" onclick="openNoCatModal()">?</span></div><div class="stat-value" style="color:#9b59b6" id="statNoCat">0</div></div></div><div class="toolbar"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto..." id="searchInput" oninput="filterTable()"></div><select class="form-input" style="width:auto;min-width:160px" id="filterCat" onchange="filterTable()"><option value="">Todas</option></select><select class="form-input" style="width:auto;min-width:140px" id="filterLista" onchange="filterTable()"><option value="">Todas las listas</option></select><select class="form-input" style="width:auto;min-width:115px;font-size:0.82rem" id="filterVisibilidad" onchange="filterTable()" title="Filtrar por visibilidad en el catálogo"><option value="">Todos</option><option value="visibles">Solo visibles</option><option value="ocultos">Solo ocultos</option></select><button class="btn btn-secondary" style="width:auto;padding:6px 10px" onclick="openCatManager()" title="Administrar categorias"><i class="bi bi-gear"></i></button><button class="btn btn-primary" style="width:auto" onclick="openModal()"><i class="bi bi-plus-lg"></i> Nuevo</button><button class="btn btn-secondary" style="width:auto" onclick="openPriceModal('all')"><i class="bi bi-percent"></i> Costo %</button><button class="btn btn-secondary" style="width:auto;background:#d97706;border-color:#d97706;color:#fff" onclick="openDescuentoModal()"><i class="bi bi-tag-fill"></i> Descuentos</button><button class="btn btn-secondary" style="width:auto" onclick="exportCostosExcel()"><i class="bi bi-download"></i> Exportar Costos</button><button class="btn btn-secondary" style="width:auto" onclick="switchSection('excel')"><i class="bi bi-upload"></i> Importar Costos</button><button class="btn btn-secondary" style="width:auto" onclick="switchSection('excelNew')"><i class="bi bi-file-earmark-plus"></i> Importar Nuevos</button><button class="btn btn-secondary" style="width:auto" onclick="openRoundModal('all')"><i class="bi bi-arrows-angle-contract"></i> Redondear</button><button class="btn btn-secondary" style="width:auto;background:#8a2d2d;border-color:#8a2d2d;color:#fff" onclick="exportCatalogoPDF()" title="Descargar catalogo PDF para clientes"><i class="bi bi-file-earmark-pdf"></i> Exportar PDF</button><button class="btn btn-secondary" style="width:auto;background:#5b2d8a;border-color:#5b2d8a;color:#fff" onclick="openMayoristaPdfModal()" title="PDF de precios mayoristas (con % personalizado)"><i class="bi bi-file-earmark-pdf"></i> Exportar PDF M</button><button class="btn btn-secondary" style="width:auto;background:#2d6b4a;border-color:#2d6b4a;color:#ccc;display:none" id="btnPdfSemanal" onclick="openWeeklyPdfModal()"><i class="bi bi-calendar-week"></i> PDF Semanal</button></div><div class="table-wrap"><div class="table-scroll"><table><thead><tr><th onclick="sortTableBy('imagen')" style="cursor:pointer">Img <i class="bi bi-arrow-down-up" id="sortIconImagen" style="font-size:0.6rem;opacity:0.4"></i></th><th>Nombre</th><th>Cat / Sub</th><th onclick="sortTableBy('costo')">Costo <i class="bi bi-arrow-down-up" id="sortIconCosto" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('porcentaje')">Porcentaje(%) <i class="bi bi-arrow-down-up" id="sortIconPct" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('precio')">Precio <i class="bi bi-arrow-down-up" id="sortIconPrecio" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('descuento')" style="cursor:pointer">Desc% <i class="bi bi-arrow-down-up" id="sortIconDesc" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('stock')">Stock <i class="bi bi-arrow-down-up" id="sortIconStock" style="font-size:0.6rem;opacity:0.4"></i></th><th>Acciones</th></tr></thead><tbody id="productsTableBody"><tr><td colspan="9"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Cargando...</p></div></td></tr></tbody></table></div></div></div>
+    <div class="section-content active" id="sec-products"><div id="listasPanel" style="margin-bottom:1.5rem"><div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem"><span style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-weight:600">Listas de proveedores</span><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem" onclick="openCrearListaModal()"><i class="bi bi-plus-lg"></i> Nueva</button><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem;background:#2d4a6b;border-color:#2d4a6b;color:#fff" onclick="openReasignarListaModal()"><i class="bi bi-shuffle"></i> Reasignar lista</button></div><div id="listasCards" style="display:flex;gap:0.5rem;flex-wrap:wrap"><span style="color:var(--text-dim);font-size:0.85rem">Cargando...</span></div></div><div class="stats-row" id="productsStatsRow"><div class="stat-card"><div class="stat-label">Total Productos</div><div class="stat-value" id="statTotal">0</div></div><div class="stat-card"><div class="stat-label">Categorias</div><div class="stat-value" id="statCats">0</div></div><div class="stat-card"><div class="stat-label">Sin Stock <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('outstock')">?</span><div class="stat-tooltip" id="tooltipOutstock"></div></div><div class="stat-value" style="color:var(--danger)" id="statOutStock">0</div></div><div class="stat-card"><div class="stat-label">Stock Bajo <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('lowstock')">?</span><div class="stat-tooltip" id="tooltipLowstock"></div></div><div class="stat-value" style="color:var(--warning)" id="statLowStock">0</div><div class="stock-threshold-row"><label>Limite:</label><input type="number" class="threshold-input" id="lowStockThreshold" value="10" min="1" max="999" onchange="saveLowStockThreshold()"></div></div><div class="stat-card"><div class="stat-label">Sin Categoria <span class="stat-tooltip-trigger" onclick="openNoCatModal()">?</span></div><div class="stat-value" style="color:#9b59b6" id="statNoCat">0</div></div></div><div class="toolbar" style="margin-bottom:0.6rem"><div class="search-box" style="flex:1;min-width:180px"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto..." id="searchInput" oninput="filterTable()"></div><select class="form-input" style="width:auto;min-width:150px" id="filterCat" onchange="filterTable()"><option value="">Todas las categor&iacute;as</option></select><select class="form-input" style="width:auto;min-width:150px" id="filterLista" onchange="filterTable()"><option value="">Todas las listas</option></select><select class="form-input" style="width:auto;min-width:130px" id="filterVisibilidad" onchange="filterTable()" title="Filtrar por visibilidad en el cat&aacute;logo"><option value="">Visibles y ocultos</option><option value="visibles">Solo visibles</option><option value="ocultos">Solo ocultos</option></select><button class="btn btn-secondary" style="width:auto;padding:6px 10px" onclick="openCatManager()" title="Administrar categor&iacute;as y subcategor&iacute;as"><i class="bi bi-tags"></i></button></div><div class="toolbar" style="margin-bottom:1rem"><button class="btn btn-primary" style="width:auto" onclick="openModal()"><i class="bi bi-plus-lg"></i> Nuevo producto</button><div class="tb-menu" id="tbPrecios"><button class="btn btn-secondary tb-tog" style="width:auto" onclick="tbToggle('tbPrecios')"><i class="bi bi-tag"></i> Precios <i class="bi bi-chevron-down"></i></button><div class="tb-pop"><button type="button" class="tb-it" onclick="tbCerrar();openPriceModal(&quot;all&quot;)"><i class="bi bi-percent"></i><span style="flex:1"><b>Cambiar costos por porcentaje</b><span>Sube o baja el costo de varios productos de una vez.</span></span></button><button type="button" class="tb-it" onclick="tbCerrar();openRoundModal(&quot;all&quot;)"><i class="bi bi-arrows-angle-contract"></i><span style="flex:1"><b>Redondear precios</b><span>Deja los precios en n&uacute;meros lindos. Se usa despu&eacute;s de un aumento.</span></span></button><div class="tb-sep"></div><button type="button" class="tb-it" onclick="tbCerrar();openDescuentoModal()"><i class="bi bi-tag-fill"></i><span style="flex:1"><b>Aplicar descuentos</b><span>La cinta de -X% OFF que ve el cliente en la tienda.</span></span></button></div></div><div class="tb-menu" id="tbExcel"><button class="btn btn-secondary tb-tog" style="width:auto" onclick="tbToggle('tbExcel')"><i class="bi bi-file-earmark-spreadsheet"></i> Excel <i class="bi bi-chevron-down"></i></button><div class="tb-pop"><div class="tb-rot">Traer del proveedor</div><button type="button" class="tb-it" onclick="tbCerrar();switchSection(&quot;excel&quot;)"><i class="bi bi-box-arrow-in-down"></i><span style="flex:1"><b>Actualizar costos</b><span>Toma la lista del proveedor y actualiza los costos por nombre.</span></span></button><button type="button" class="tb-it" onclick="tbCerrar();switchSection(&quot;excelNew&quot;)"><i class="bi bi-file-earmark-plus"></i><span style="flex:1"><b>Cargar productos nuevos</b><span>Da de alta los que todav&iacute;a no est&aacute;n en el cat&aacute;logo.</span></span></button><div class="tb-sep"></div><div class="tb-rot">Sacar del sistema</div><button type="button" class="tb-it" onclick="tbCerrar();exportCostosExcel()"><i class="bi bi-box-arrow-up"></i><span style="flex:1"><b>Bajar planilla de costos</b><span>Todo el cat&aacute;logo en Excel, para revisar o mandar al proveedor.</span></span></button></div></div><div class="tb-menu" id="tbPdf"><button class="btn btn-secondary tb-tog" style="width:auto" onclick="tbToggle('tbPdf')"><i class="bi bi-file-earmark-pdf"></i> Cat&aacute;logos <i class="bi bi-chevron-down"></i></button><div class="tb-pop derecha"><button type="button" class="tb-it" onclick="tbCerrar();exportCatalogoPDF()"><i class="bi bi-people"></i><span style="flex:1"><b>Cat&aacute;logo para clientes</b><span>Precios de venta al p&uacute;blico, listo para mandar por WhatsApp.</span></span></button><button type="button" class="tb-it" onclick="tbCerrar();openMayoristaPdfModal()"><i class="bi bi-buildings"></i><span style="flex:1"><b>Cat&aacute;logo mayorista</b><span>Con el porcentaje que le pongas a cada cliente mayorista.</span></span></button><div class="tb-sep" id="tbSepSemanal"></div><div id="tbSemanalWrap"><button type="button" class="tb-it" onclick="tbCerrar();openWeeklyPdfModal()"><i class="bi bi-calendar-week"></i><span style="flex:1"><b>Planilla semanal</b><span>Para las listas que cambian de precio todas las semanas.</span></span></button></div></div></div></div><div class="table-wrap"><div class="table-scroll"><table><thead><tr><th onclick="sortTableBy('imagen')" style="cursor:pointer">Img <i class="bi bi-arrow-down-up" id="sortIconImagen" style="font-size:0.6rem;opacity:0.4"></i></th><th>Nombre</th><th>Cat / Sub</th><th onclick="sortTableBy('costo')">Costo <i class="bi bi-arrow-down-up" id="sortIconCosto" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('porcentaje')">Porcentaje(%) <i class="bi bi-arrow-down-up" id="sortIconPct" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('precio')">Precio <i class="bi bi-arrow-down-up" id="sortIconPrecio" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('descuento')" style="cursor:pointer">Desc% <i class="bi bi-arrow-down-up" id="sortIconDesc" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('stock')">Stock <i class="bi bi-arrow-down-up" id="sortIconStock" style="font-size:0.6rem;opacity:0.4"></i></th><th>Acciones</th></tr></thead><tbody id="productsTableBody"><tr><td colspan="9"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Cargando...</p></div></td></tr></tbody></table></div></div></div>
     
         <div class="section-content" id="sec-stock"><div class="toolbar"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto para agregar stock..." id="stockSearch" oninput="filterStockList()"></div><select class="form-input" style="width:auto;min-width:160px" id="stockFilterCat" onchange="filterStockList()"><option value="">Todas</option></select><button class="btn btn-secondary" style="width:auto" id="stockSortBtn" onclick="toggleStockSort()"><i class="bi bi-sort-numeric-down"></i> Mayor stock</button></div><div id="stockList"></div></div>
     <div class="section-content" id="sec-cupones">
@@ -561,10 +610,55 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function logout(){auth.signOut();}
         function toggleSidebarVentas(){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(!sub)return;const open=sub.classList.toggle('open');if(chev)chev.style.transform=open?'rotate(90deg)':'rotate(0deg)';}
         function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')loadCaja();if(sec==='stats')loadStats();document.getElementById('adminSidebar').classList.remove('open');}
+        /* Visor de imagen. Se abre desde la miniatura de la tabla y no deja tocar nada
+           de atras hasta cerrarlo: el fondo tapa la pantalla completa, asi que un click
+           afuera cae en el propio fondo y cierra, en vez de apretar el boton que estaba
+           debajo. Cierra con la X, con un click afuera, o con Escape. */
+        function verImagen(src,nombre){
+            if(!src)return;
+            const v=document.getElementById('visorImagen');
+            const img=document.getElementById('visorImg');
+            img.src=src;
+            img.alt=nombre||'Imagen del producto';
+            img.onerror=function(){this.src='img/default-product.svg';};
+            document.getElementById('visorPie').textContent=nombre||'';
+            v.classList.add('show');
+            /* El foco va a la X para poder cerrarlo con el teclado */
+            const x=v.querySelector('.visor-x'); if(x)setTimeout(()=>x.focus(),40);
+        }
+        function cerrarImagen(){
+            const v=document.getElementById('visorImagen');
+            if(!v)return;
+            v.classList.remove('show');
+            document.getElementById('visorImg').src='';
+        }
+        document.addEventListener('keydown',e=>{
+            if(e.key!=='Escape')return;
+            const v=document.getElementById('visorImagen');
+            /* Va primero que el resto de los Escape: si el visor esta abierto, es lo que
+               el usuario quiere cerrar, no el modal que puede haber debajo.
+               stopImmediatePropagation y no stopPropagation: el modulo de atajos escucha
+               en el MISMO nodo, y stopPropagation no frena a los hermanos, solo corta
+               hacia otros nodos. Con el, un Escape cerraba el visor Y el modal de atras
+               de una sola vez. */
+            if(v&&v.classList.contains('show')){e.stopImmediatePropagation();cerrarImagen();}
+        },true);
+
+        /* Menus de la barra de Productos. Uno solo abierto a la vez, y se cierran
+           con Escape o clickeando afuera, que es lo que espera cualquiera. */
+        function tbCerrar(){document.querySelectorAll('.tb-menu.open').forEach(m=>m.classList.remove('open'));}
+        function tbToggle(id){
+            const m=document.getElementById(id);if(!m)return;
+            const abierto=m.classList.contains('open');
+            tbCerrar();
+            if(!abierto)m.classList.add('open');
+        }
+        document.addEventListener('click',e=>{if(!e.target.closest('.tb-menu'))tbCerrar();});
+        document.addEventListener('keydown',e=>{if(e.key==='Escape')tbCerrar();});
         function toggleSidebar(){document.getElementById('adminSidebar').classList.toggle('open');}
         let savedCats={};async function loadCategorias(){try{const snap=await db.collection('_categorias').get();savedCats={};snap.docs.forEach(d=>{const data=d.data();savedCats[d.id]={nombre:data.nombre||d.id,subcategorias:data.subcategorias||[]};});}catch(e){}}
         async function loadProducts(){try{await loadCategorias();const snap=await db.collection('productos').get();allProducts=snap.docs.map(d=>{const r=d.data();return{id:d.id,...r,porcentajeMayorista:r.porcentajeMayorista||0,precioMayorista:r.precioMayorista||0};});filterTable();updateStats();updateCategoryFilter();renderStockList();renderListaFilterSelect();}catch(e){console.error(e);showAdminToast('Error al cargar','error');}}
-        function renderTable(prods){const tb=document.getElementById('productsTableBody');const thr=getLowStockThreshold();if(!prods.length){tb.innerHTML='<tr><td colspan="8"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Sin productos</p></div></td></tr>';return;}tb.innerHTML=prods.map(p=>{let sc='stock-ok',sv=p.stock||0;if(sv===0)sc='stock-out';else if(sv<thr)sc='stock-low';const img=p.imagen||'img/default-product.svg';const sub=p.subcategoria?' / '+esc(p.subcategoria):'';const sn=(p.nombre||'').replace(/'/g,"\'").replace(/"/g,'&quot;');const costo=p.costo||0;const pct=p.porcentaje||0;const precio=p.precio||0;const star=p.popular?'bi-star-fill':'bi-star';const starColor=p.popular?'color:#e6a23c':'';const oculto=p.oculto===true;const eyeIcon=oculto?'bi-eye-slash-fill':'bi-eye';const eyeColor=oculto?'color:#f56c6c':'';const eyeTitle=oculto?'Oculto del catalogo (click para mostrar)':'Visible en catalogo (click para ocultar)';const rowStyle=oculto?' style="opacity:0.55"':'';const hiddenTag=oculto?' <span style="font-size:0.68rem;background:#5a2d2d;color:#f56c6c;padding:1px 6px;border-radius:3px;margin-left:4px;vertical-align:middle">OCULTO</span>':'';return'<tr'+rowStyle+'><td><img src="'+esc(img)+'" class="product-img-cell" onerror="this.src=\'img/default-product.svg\'"></td><td><strong>'+esc(p.nombre||'\u2014')+'</strong>'+hiddenTag+'</td><td><span class="cat-badge">'+esc(p.categoria||'\u2014')+sub+'</span></td><td class="price-cell" style="color:var(--text-dim);font-size:0.82rem">$'+costo.toLocaleString('es-AR')+'</td><td style="text-align:left;font-size:0.82rem;color:var(--text-dim);font-family:var(--mono)">'+pct+'%</td><td class="price-cell">$'+precio.toLocaleString('es-AR')+'</td><td style="text-align:center">'+((p.descuento||0)>0?'<span style="background:linear-gradient(135deg,#e6a23c,#d97706);color:#fff;font-weight:700;font-size:0.72rem;padding:2px 7px;border-radius:5px">'+(p.descuento||0)+'%</span>':'<span style="color:var(--text-dim);font-size:0.8rem">0%</span>')+'</td><td><span class="stock-badge '+sc+'">'+sv+'</span></td><td><div class="actions-cell"><button class="btn-icon" onclick="togglePopular(\''+p.id+'\')" title="Popular" style="'+starColor+'"><i class="bi '+star+'"></i></button><button class="btn-icon" onclick="toggleOculto(\''+p.id+'\')" title="'+eyeTitle+'" style="'+eyeColor+'"><i class="bi '+eyeIcon+'"></i></button>'+(p.envasadoPropio?'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Envasado propio (click para desmarcar)" style="color:#a78bfa"><i class="bi bi-bag-check-fill"></i></button>':'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Marcar como envasado propio"><i class="bi bi-bag-check"></i></button>')+(p.gramajePadreId?'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Gramaje asociado (click para gestionar)" style="color:#4a9eff"><i class="bi bi-stack"></i></button>':'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Asociar gramajes"><i class="bi bi-stack"></i></button>')+'<button class="btn-icon" onclick="editProduct(\''+p.id+'\')"><i class="bi bi-pencil"></i></button><button class="btn-icon delete" onclick="deleteProduct(\''+p.id+'\',\''+sn+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';}).join('');}
+        function renderTable(prods){const tb=document.getElementById('productsTableBody');const thr=getLowStockThreshold();if(!prods.length){tb.innerHTML='<tr><td colspan="8"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Sin productos</p></div></td></tr>';return;}tb.innerHTML=prods.map(p=>{let sc='stock-ok',sv=p.stock||0;if(sv===0)sc='stock-out';else if(sv<thr)sc='stock-low';const img=p.imagen||'img/default-product.svg';const sub=p.subcategoria?' / '+esc(p.subcategoria):'';const sn=(p.nombre||'').replace(/'/g,"\'").replace(/"/g,'&quot;');const costo=p.costo||0;const pct=p.porcentaje||0;const precio=p.precio||0;const star=p.popular?'bi-star-fill':'bi-star';const starColor=p.popular?'color:#e6a23c':'';const oculto=p.oculto===true;const eyeIcon=oculto?'bi-eye-slash-fill':'bi-eye';const eyeColor=oculto?'color:#f56c6c':'';const eyeTitle=oculto?'Oculto del catalogo (click para mostrar)':'Visible en catalogo (click para ocultar)';const rowStyle=oculto?' style="opacity:0.55"':'';const hiddenTag=oculto?' <span style="font-size:0.68rem;background:#5a2d2d;color:#f56c6c;padding:1px 6px;border-radius:3px;margin-left:4px;vertical-align:middle">OCULTO</span>':'';return'<tr'+rowStyle+'><td><img src="'+esc(img)+'" class="product-img-cell product-img-zoom" onclick="verImagen(\''+esc(img)+'\',\''+esc((p.nombreMostrado||p.nombre||'').replace(/'/g,"")) +'\')" title="Ver la imagen en grande" onerror="this.src=\'img/default-product.svg\'"></td><td><strong>'+esc(p.nombre||'\u2014')+'</strong>'+hiddenTag+'</td><td><span class="cat-badge">'+esc(p.categoria||'\u2014')+sub+'</span></td><td class="price-cell" style="color:var(--text-dim);font-size:0.82rem">$'+costo.toLocaleString('es-AR')+'</td><td style="text-align:left;font-size:0.82rem;color:var(--text-dim);font-family:var(--mono)">'+pct+'%</td><td class="price-cell">$'+precio.toLocaleString('es-AR')+'</td><td style="text-align:center">'+((p.descuento||0)>0?'<span style="background:linear-gradient(135deg,#e6a23c,#d97706);color:#fff;font-weight:700;font-size:0.72rem;padding:2px 7px;border-radius:5px">'+(p.descuento||0)+'%</span>':'<span style="color:var(--text-dim);font-size:0.8rem">0%</span>')+'</td><td><span class="stock-badge '+sc+'">'+sv+'</span></td><td><div class="actions-cell"><button class="btn-icon" onclick="togglePopular(\''+p.id+'\')" title="Popular" style="'+starColor+'"><i class="bi '+star+'"></i></button><button class="btn-icon" onclick="toggleOculto(\''+p.id+'\')" title="'+eyeTitle+'" style="'+eyeColor+'"><i class="bi '+eyeIcon+'"></i></button>'+(p.envasadoPropio?'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Envasado propio (click para desmarcar)" style="color:#a78bfa"><i class="bi bi-bag-check-fill"></i></button>':'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Marcar como envasado propio"><i class="bi bi-bag-check"></i></button>')+(p.gramajePadreId?'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Gramaje asociado (click para gestionar)" style="color:#4a9eff"><i class="bi bi-stack"></i></button>':'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Asociar gramajes"><i class="bi bi-stack"></i></button>')+'<button class="btn-icon" onclick="editProduct(\''+p.id+'\')"><i class="bi bi-pencil"></i></button><button class="btn-icon delete" onclick="deleteProduct(\''+p.id+'\',\''+sn+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';}).join('');}
         function getLowStockThreshold(){return parseInt(localStorage.getItem('brotesLowStockThr'))||10;}
         function saveLowStockThreshold(){const v=parseInt(document.getElementById('lowStockThreshold').value)||10;localStorage.setItem('brotesLowStockThr',v);updateStats();renderTable(allProducts);}
         function updateStats(){const thr=getLowStockThreshold();const cats=new Set(allProducts.map(p=>p.categoria).filter(Boolean));document.getElementById('statTotal').textContent=allProducts.length;document.getElementById('statCats').textContent=cats.size;document.getElementById('statOutStock').textContent=allProducts.filter(p=>(p.stock||0)<=0).length;document.getElementById('statLowStock').textContent=allProducts.filter(p=>(p.stock||0)>0&&(p.stock||0)<thr).length;document.getElementById('statNoCat').textContent=allProducts.filter(p=>!p.categoria).length;const ti=document.getElementById('lowStockThreshold');if(ti)ti.value=thr;}
@@ -584,11 +678,18 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function updateSubcatSelect(){const cat=document.getElementById('pCategoria')?.value||'';const subs=[...new Set(allProducts.filter(p=>(!cat||p.categoria===cat)&&p.subcategoria).map(p=>p.subcategoria))].sort();const sel=document.getElementById('pSubcategoria');if(sel){const cur=sel.value;sel.innerHTML='<option value="">Ninguna</option>'+subs.map(s=>'<option value="'+s+'">'+s+'</option>').join('');if(cur)sel.value=cur;}}
         let adminSortField=null,adminSortDir='asc';
         function filterTable(){
-            /* Mostrar botón PDF Semanal solo si la lista activa es FRUTICOR */
+            /* La planilla semanal se muestra segun la bandera de la lista, no segun como
+               se llame. Estaba clavado a que la lista se llamara FRUTICOR, que era el
+               proveedor del comercio original: si el cliente le pone otro nombre, o suma
+               un segundo proveedor con lista semanal, no habia forma de que apareciera.
+               Ahora es una casilla en el editor de cada lista. */
             const listaSelId=document.getElementById('filterLista')?.value||'';
-            const listaSelNombre=listasData.find(l=>l.id===listaSelId)?.nombre||'';
-            const btnSemanal=document.getElementById('btnPdfSemanal');
-            if(btnSemanal)btnSemanal.style.display=listaSelNombre.toUpperCase()==='FRUTICOR'?'':'none';const q=document.getElementById('searchInput').value.toLowerCase(),cat=document.getElementById('filterCat').value,lista=document.getElementById('filterLista')?.value||'';const vis=document.getElementById('filterVisibilidad')?.value||'';let f=allProducts;if(q)f=f.filter(p=>(p.nombre||'').toLowerCase().includes(q));if(cat)f=f.filter(p=>p.categoria===cat);if(lista)f=f.filter(p=>p.lista===lista);if(vis==='ocultos')f=f.filter(p=>p.oculto===true);else if(vis==='visibles')f=f.filter(p=>p.oculto!==true);if(adminSortField){f=[...f].sort((a,b)=>{if(adminSortField==='imagen'){const va=a.imagen?1:0,vb=b.imagen?1:0;return adminSortDir==='asc'?va-vb:vb-va;}const va=a[adminSortField]||0,vb=b[adminSortField]||0;return adminSortDir==='asc'?va-vb:vb-va;});}else{f=[...f].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es'));}renderTable(f);}
+            const listaSel=listasData.find(l=>l.id===listaSelId);
+            const wrapSemanal=document.getElementById('tbSemanalWrap');
+            const sepSemanal=document.getElementById('tbSepSemanal');
+            const verSemanal=!!(listaSel&&listaSel.pdfSemanal);
+            if(wrapSemanal)wrapSemanal.style.display=verSemanal?'':'none';
+            if(sepSemanal)sepSemanal.style.display=verSemanal?'':'none';const q=document.getElementById('searchInput').value.toLowerCase(),cat=document.getElementById('filterCat').value,lista=document.getElementById('filterLista')?.value||'';const vis=document.getElementById('filterVisibilidad')?.value||'';let f=allProducts;if(q)f=f.filter(p=>(p.nombre||'').toLowerCase().includes(q));if(cat)f=f.filter(p=>p.categoria===cat);if(lista)f=f.filter(p=>p.lista===lista);if(vis==='ocultos')f=f.filter(p=>p.oculto===true);else if(vis==='visibles')f=f.filter(p=>p.oculto!==true);if(adminSortField){f=[...f].sort((a,b)=>{if(adminSortField==='imagen'){const va=a.imagen?1:0,vb=b.imagen?1:0;return adminSortDir==='asc'?va-vb:vb-va;}const va=a[adminSortField]||0,vb=b[adminSortField]||0;return adminSortDir==='asc'?va-vb:vb-va;});}else{f=[...f].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es'));}renderTable(f);}
         function sortTableBy(field){if(adminSortField===field){adminSortDir=adminSortDir==='asc'?'desc':'asc';}else{adminSortField=field;adminSortDir='asc';}updateSortIcons();filterTable();}
         function updateSortIcons(){['Costo','Pct','Precio','Stock','Imagen','Desc'].forEach(n=>{const el=document.getElementById('sortIcon'+n);if(el){el.className='bi bi-arrow-down-up';el.style.opacity='0.4';}});const map={costo:'Costo',porcentaje:'Pct',precio:'Precio',stock:'Stock',imagen:'Imagen',descuento:'Desc'};if(adminSortField&&map[adminSortField]){const el=document.getElementById('sortIcon'+map[adminSortField]);if(el){el.className=adminSortDir==='asc'?'bi bi-arrow-up':'bi bi-arrow-down';el.style.opacity='1';}}}
 
@@ -718,7 +819,11 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         const dropZone=document.getElementById('dropZone'),excelInput=document.getElementById('excelInput');if(dropZone){dropZone.addEventListener('click',()=>excelInput.click());dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover')});dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');if(e.dataTransfer.files[0])processExcel(e.dataTransfer.files[0])});}if(excelInput)excelInput.addEventListener('change',e=>{if(e.target.files[0])processExcel(e.target.files[0]);});
         const dropZoneNew=document.getElementById('dropZoneNew'),excelInputNew=document.getElementById('excelInputNew');if(dropZoneNew){dropZoneNew.addEventListener('click',()=>excelInputNew.click());dropZoneNew.addEventListener('dragover',e=>{e.preventDefault();dropZoneNew.classList.add('dragover')});dropZoneNew.addEventListener('dragleave',()=>dropZoneNew.classList.remove('dragover'));dropZoneNew.addEventListener('drop',e=>{e.preventDefault();dropZoneNew.classList.remove('dragover');if(e.dataTransfer.files[0])processNewProductsExcel(e.dataTransfer.files[0])});}if(excelInputNew)excelInputNew.addEventListener('change',e=>{if(e.target.files[0])processNewProductsExcel(e.target.files[0]);});
         const dropZoneJoaco=document.getElementById('dropZoneJoaco'),excelInputJoaco=document.getElementById('excelInputJoaco');if(dropZoneJoaco){dropZoneJoaco.addEventListener('click',()=>excelInputJoaco.click());dropZoneJoaco.addEventListener('dragover',e=>{e.preventDefault();dropZoneJoaco.classList.add('dragover')});dropZoneJoaco.addEventListener('dragleave',()=>dropZoneJoaco.classList.remove('dragover'));dropZoneJoaco.addEventListener('drop',e=>{e.preventDefault();dropZoneJoaco.classList.remove('dragover');if(e.dataTransfer.files[0])processJoacoExcel(e.dataTransfer.files[0])});}if(excelInputJoaco)excelInputJoaco.addEventListener('change',e=>{if(e.target.files[0])processJoacoExcel(e.target.files[0]);});
-        async function processExcel(file){if(!file.name.match(/\.xlsx?$/i)){showAdminToast('Solo .xlsx','error');return;}const pw=document.getElementById('uploadProgress'),pb=document.getElementById('progressBar'),pt=document.getElementById('progressText');pw.style.display='block';pb.style.width='10%';pt.textContent='Leyendo...';try{const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array'});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});pb.style.width='30%';pt.textContent=rows.length+' filas. Procesando...';const keys0=rows.length?Object.keys(rows[0]).map(k=>k.toUpperCase().trim()):[];const isCostosExcel=keys0.includes('PORCENTAJE')&&!keys0.includes('CATEGORIA')&&!keys0.includes('STOCK');if(isCostosExcel){await importCostosExcel(rows,pw,pb,pt,file.name);return;}const prods=[];for(const row of rows){const keys=Object.keys(row);const get=opts=>{for(const o of opts){const f=keys.find(k=>k.toUpperCase().trim()===o.toUpperCase());if(f&&row[f]!=='')return row[f];}return null;};const n=get(['NOMBRE','PRODUCTO','NAME']);if(!n)continue;const costo=parseInt(get(['COSTO','COST']))||0;const pct=parseFloat(get(['PORCENTAJE','%','MARGEN']))||0;const precio=costo>0?Math.round(costo*(1+pct/100)):(parseInt(String(get(['PRECIO','PRICE','REDONDEO'])||'0').replace(/[^\d]/g,''))||0);prods.push({nombre:String(n).trim(),costo:costo,porcentaje:pct,precio:precio,stock:parseInt(get(['STOCK','CANTIDAD']))||0,categoria:String(get(['CATEGORIA','CATEGOR\u00cdA','CATEGORY'])||'Sin categor\u00eda').trim(),subcategoria:get(['SUBCATEGORIA','SUBCATEGOR\u00cdA','SUB-CATEGORIA'])?String(get(['SUBCATEGORIA','SUBCATEGOR\u00cdA','SUB-CATEGORIA'])).trim():null,imagen:null,descripcion:get(['DESCRIPCION','DESCRIPCI\u00d3N'])?String(get(['DESCRIPCION','DESCRIPCI\u00d3N'])).trim():String(n).trim()});}if(!prods.length){pw.style.display='none';showAdminToast('Sin productos validos','error');return;}pb.style.width='50%';pt.textContent='Subiendo '+prods.length+'...';let up=0;for(let i=0;i<prods.length;i+=450){const batch=db.batch();prods.slice(i,i+450).forEach(p=>batch.set(db.collection('productos').doc(),p));await batch.commit();up+=Math.min(450,prods.length-i);pb.style.width=(50+Math.round(up/prods.length*50))+'%';pt.textContent=up+'/'+prods.length;}pb.style.width='100%';pt.textContent=prods.length+' productos cargados!';showAdminToast(prods.length+' importados','success');logAction('importar','Importacion Excel: '+prods.length+' productos desde '+file.name,'Categorias: '+[...new Set(prods.map(p=>p.categoria))].join(', '));await loadProducts();setTimeout(()=>{pw.style.display='none';pb.style.width='0%';},3000);}catch(e){pw.style.display='none';showAdminToast('Error: '+e.message,'error');}excelInput.value='';}
+        async function processExcel(file){if(!file.name.match(/\.xlsx?$/i)){showAdminToast('Solo .xlsx','error');return;}const pw=document.getElementById('uploadProgress'),pb=document.getElementById('progressBar'),pt=document.getElementById('progressText');pw.style.display='block';pb.style.width='10%';pt.textContent='Leyendo...';try{const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array'});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});pb.style.width='30%';pt.textContent=rows.length+' filas. Procesando...';const keys0=rows.length?Object.keys(rows[0]).map(k=>k.toUpperCase().trim()):[];/* Un archivo se toma como "de costos" (actualiza los que ya existen) y no como alta
+               masiva por la AUSENCIA de CATEGORIA y STOCK. Es fragil, asi que esta dicho: si
+               alguna vez se agregan esas columnas a la planilla que exporta el panel,
+               reimportarla duplica todo el catalogo. */
+            const isCostosExcel=keys0.includes('PORCENTAJE')&&!keys0.includes('CATEGORIA')&&!keys0.includes('STOCK');if(isCostosExcel){await importCostosExcel(rows,pw,pb,pt,file.name);return;}const prods=[];for(const row of rows){const keys=Object.keys(row);const get=opts=>{for(const o of opts){const f=keys.find(k=>k.toUpperCase().trim()===o.toUpperCase());if(f&&row[f]!=='')return row[f];}return null;};const n=get(['NOMBRE','PRODUCTO','NAME']);if(!n)continue;const costo=parseInt(get(['COSTO','COST']))||0;const pct=parseFloat(get(['PORCENTAJE','%','MARGEN']))||0;const precio=costo>0?Math.round(costo*(1+pct/100)):(parseInt(String(get(['PRECIO','PRICE','REDONDEO'])||'0').replace(/[^\d]/g,''))||0);prods.push({nombre:String(n).trim(),costo:costo,porcentaje:pct,precio:precio,stock:parseInt(get(['STOCK','CANTIDAD']))||0,categoria:String(get(['CATEGORIA','CATEGOR\u00cdA','CATEGORY'])||'Sin categor\u00eda').trim(),subcategoria:get(['SUBCATEGORIA','SUBCATEGOR\u00cdA','SUB-CATEGORIA'])?String(get(['SUBCATEGORIA','SUBCATEGOR\u00cdA','SUB-CATEGORIA'])).trim():null,imagen:null,descripcion:get(['DESCRIPCION','DESCRIPCI\u00d3N'])?String(get(['DESCRIPCION','DESCRIPCI\u00d3N'])).trim():String(n).trim()});}if(!prods.length){pw.style.display='none';showAdminToast('Sin productos validos','error');return;}pb.style.width='50%';pt.textContent='Subiendo '+prods.length+'...';let up=0;for(let i=0;i<prods.length;i+=450){const batch=db.batch();prods.slice(i,i+450).forEach(p=>batch.set(db.collection('productos').doc(),p));await batch.commit();up+=Math.min(450,prods.length-i);pb.style.width=(50+Math.round(up/prods.length*50))+'%';pt.textContent=up+'/'+prods.length;}pb.style.width='100%';pt.textContent=prods.length+' productos cargados!';showAdminToast(prods.length+' importados','success');logAction('importar','Importacion Excel: '+prods.length+' productos desde '+file.name,'Categorias: '+[...new Set(prods.map(p=>p.categoria))].join(', '));await loadProducts();setTimeout(()=>{pw.style.display='none';pb.style.width='0%';},3000);}catch(e){pw.style.display='none';showAdminToast('Error: '+e.message,'error');}excelInput.value='';}
         async function importCostosExcel(rows,pw,pb,pt,fileName){let matched=0,notFound=[],sinCosto=[];for(const row of rows){const keys=Object.keys(row);const get=opts=>{for(const o of opts){const f=keys.find(k=>k.toUpperCase().trim()===o.toUpperCase());if(f&&row[f]!=='')return row[f];}return null;};const n=get(['NOMBRE','PRODUCTO']);if(!n)continue;const nombre=String(n).trim().toLowerCase();const prod=allProducts.find(p=>(p.nombre||'').toLowerCase()===nombre);if(!prod){notFound.push(String(n).trim());continue;}/* Una fila con nombre pero sin costo usable NO se toca. Antes `parseInt(...)||0` la
                    dejaba en costo 0, calculaba precio 0, la contaba como actualizada y el aviso salia
                    en verde: un listado de proveedor con filas de subtotal, encabezados repetidos o
@@ -1898,8 +2003,20 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
         function exportCostosWithFormat(formato){
             document.getElementById('exportFormatModal').classList.remove('show');
             if(!allProducts.length){showAdminToast('No hay productos','error');return;}
-            const data=[['NOMBRE','COSTO','PORCENTAJE']];
-            allProducts.forEach(p=>data.push([p.nombre||'',p.costo||0,p.porcentaje||0]));
+            /* Las tres primeras columnas son las que lee importCostosExcel al volver.
+               El resto son informativas, para poder revisar la planilla y encontrar el
+               producto sin tener que abrir el panel.
+
+               NO agregar aca una columna STOCK ni CATEGORIA: processExcel decide si un
+               archivo es "de costos" justamente por la ausencia de esas dos, y si
+               aparecen, reimportar esta misma planilla se toma como un alta masiva y
+               duplica el catalogo entero. */
+            const data=[['NOMBRE','COSTO','PORCENTAJE','PRECIO','GRAMAJE','CODIGO','LISTA','NOMBRE PUBLICO']];
+            const _nomLista=id=>(listasData.find(l=>l.id===id)||{}).nombre||'';
+            allProducts.forEach(p=>data.push([
+                p.nombre||'',p.costo||0,p.porcentaje||0,p.precio||0,
+                p.gramaje||'',p.codigoBarras||'',_nomLista(p.lista),p.nombreMostrado||''
+            ]));
             const ws=XLSX.utils.aoa_to_sheet(data);
             const fechaTag=new Date().toISOString().split('T')[0];
             if(formato==='csv'){
@@ -1910,7 +2027,7 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                 URL.revokeObjectURL(url);
                 showAdminToast('CSV exportado','success');
             }else{
-                ws['!cols']=[{wch:50},{wch:12},{wch:14}];
+                ws['!cols']=[{wch:44},{wch:11},{wch:12},{wch:11},{wch:12},{wch:16},{wch:18},{wch:34}];
                 const wb=XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb,ws,'Costos');
                 XLSX.writeFile(wb,'BROTES_costos_'+fechaTag+'.xlsx');
@@ -1963,7 +2080,17 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
             if(!window.jspdf||!window.jspdf.jsPDF){showAdminToast('Libreria PDF no cargada, recarga la pagina','error');return;}
             const visibles=allProducts.filter(p=>p.oculto!==true&&p.nombre);
             /* Resolver precio: si hay priceMap usar ese precio, si no usar p.precio. Filtrar precios en 0. */
-            const _getPrice=p=>priceMap?(priceMap[p.id]||0):(p.precio||0);
+            /* Se aplica el descuento, que es lo que el cliente ve en la tienda. Antes se
+               imprimia el precio de lista, asi que un producto en promocion figuraba en el
+               PDF mas caro que en la web y el cliente llegaba al local con otro numero.
+               El PDF mayorista no lleva descuento: esos son precios de otra lista. */
+            const _getPrice=p=>{
+                if(priceMap)return priceMap[p.id]||0;
+                const base=Number(p.precio||0);
+                if(mayorista)return base;
+                const d=Number(p.descuento||0);
+                return d>0&&d<100?Math.round(base*(1-d/100)):base;
+            };
             const conPrecio=visibles.filter(p=>_getPrice(p)>0);
             if(!conPrecio.length){showAdminToast('No hay productos con precio','error');return;}
 
@@ -2084,12 +2211,22 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                         const precio='$'+_p.toLocaleString('es-AR');
                         const precioW=doc.getTextWidth(precio);
                         const maxNameW=colW-precioW-4;
-                        let nombre=(mayorista?p.nombre:(p.nombreMostrado||p.nombre))||'';
-                        /* Truncar nombre si no entra */
+                        /* El gramaje va pegado al nombre: una dietetica vende el mismo producto
+                           en 250g, 500g y 1kg, y sin el la lista repetia tres veces el mismo
+                           nombre a tres precios distintos sin forma de saber cual era cual. */
+                        const _etq=(mayorista?p.nombre:(p.nombreMostrado||p.nombre))||'';
+                        const _gr=(p.gramaje||'').trim();
+                        const _completo=_gr&&_etq.toLowerCase().indexOf(_gr.toLowerCase())===-1?(_etq+' '+_gr):_etq;
+                        let nombre=_completo;
                         while(doc.getTextWidth(nombre)>maxNameW&&nombre.length>4){
                             nombre=nombre.slice(0,-1);
                         }
-                        if(nombre!==(p.nombre||''))nombre=nombre.slice(0,-1)+'\u2026';
+                        /* Se compara contra la etiqueta con la que se empezo, no contra
+                           p.nombre. Antes se comparaba contra el nombre interno, asi que todo
+                           producto con nombre publico distinto perdia su ultima letra y se
+                           llevaba puntos suspensivos aunque entrara de sobra:
+                           "Chocolate Artesanal 1kg" salia impreso "Chocolate Artesanal 1k...". */
+                        if(nombre!==_completo)nombre=nombre.slice(0,-1)+'\u2026';
                         doc.text(nombre,px,y+3);
                         doc.setFont('helvetica','bold');
                         doc.text(precio,px+colW,y+3,{align:'right'});
@@ -2579,9 +2716,20 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
             try{
                 const snap=await db.collection('listas').orderBy('nombre').get();
                 listasData=snap.docs.map(d=>({id:d.id,...d.data()}));
-                renderListasPanel();
                 renderListaFilterSelect();
+                /* Siempre queda una lista activa. Antes se entraba a Productos sin ninguna
+                   seleccionada, que es un estado que no le sirve a nadie: el catalogo de
+                   una dietetica se trabaja proveedor por proveedor. Se recuerda la ultima
+                   usada, y si ya no existe (la borraron) se cae en la primera. */
+                const sel=document.getElementById('filterLista');
+                if(sel&&listasData.length&&!sel.value){
+                    const guardada=localStorage.getItem(LISTA_ACTIVA_KEY);
+                    const vale=guardada&&listasData.some(l=>l.id===guardada);
+                    sel.value=vale?guardada:listasData[0].id;
+                }
+                renderListasPanel();
                 updateListaSelect('');
+                filterTable();
             }catch(e){console.error('loadListas:',e);}
         }
 
@@ -2603,7 +2751,7 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
                     '<i class="bi bi-box-seam"></i> '+l.nombre+
                     ' <span style="background:rgba(255,255,255,0.2);border-radius:20px;padding:1px 7px;font-size:0.75rem">'+count+'</span></button>'+
                     '<button class="rl-editar-btn" data-id="'+l.id+'" style="background:none;border:none;border-left:1px solid rgba(255,255,255,0.2);color:'+tdim+';padding:0.4rem 0.5rem;cursor:pointer;font-size:0.78rem" title="Editar"><i class="bi bi-pencil"></i></button>'+
-                    (l.nombre.toUpperCase()==='FRUTICOR'?'':'<button class="rl-eliminar-btn" data-id="'+l.id+'" data-nombre="'+l.nombre+'" style="background:none;border:none;border-left:1px solid rgba(255,255,255,0.2);color:'+tdim+';padding:0.4rem 0.5rem;cursor:pointer;font-size:0.78rem" title="Eliminar"><i class="bi bi-trash"></i></button>')+
+                    ('<button class="rl-eliminar-btn" data-id="'+l.id+'" data-nombre="'+l.nombre+'" style="background:none;border:none;border-left:1px solid rgba(255,255,255,0.2);color:'+tdim+';padding:0.4rem 0.5rem;cursor:pointer;font-size:0.78rem" title="Eliminar"><i class="bi bi-trash"></i></button>')+
                     '</div>';
             });
             if(filtroActual)html+='<button class="rl-filtrar-btn" data-id="" style="background:none;border:1.5px dashed var(--border);border-radius:8px;color:var(--text-dim);padding:0.4rem 0.75rem;cursor:pointer;font-size:0.82rem"><i class="bi bi-x"></i> Ver todos</button>';
@@ -2612,9 +2760,11 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
             c.querySelectorAll('.rl-editar-btn').forEach(b=>b.addEventListener('click',()=>openEditarListaModal(b.dataset.id)));
             c.querySelectorAll('.rl-eliminar-btn').forEach(b=>b.addEventListener('click',()=>eliminarLista(b.dataset.id,b.dataset.nombre)));
         }
+        const LISTA_ACTIVA_KEY='brotesListaActiva';
         function filtrarPorLista(id){
             const sel=document.getElementById('filterLista');
             if(sel)sel.value=id;
+            try{ if(id)localStorage.setItem(LISTA_ACTIVA_KEY,id); else localStorage.removeItem(LISTA_ACTIVA_KEY); }catch(e){}
             filterTable();
             renderListasPanel();
         }
@@ -2642,6 +2792,7 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
             editingListaId=null;
             document.getElementById('crearListaTitle').textContent='Nueva lista';
             document.getElementById('crearListaNombre').value='';
+            document.getElementById('crearListaPdfSemanal').checked=false;
             document.getElementById('crearListaModal').classList.add('show');
             setTimeout(()=>document.getElementById('crearListaNombre').focus(),100);
         }
@@ -2652,6 +2803,7 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
             editingListaId=id;
             document.getElementById('crearListaTitle').textContent='Editar lista';
             document.getElementById('crearListaNombre').value=l.nombre;
+            document.getElementById('crearListaPdfSemanal').checked=!!l.pdfSemanal;
             document.getElementById('crearListaModal').classList.add('show');
             setTimeout(()=>document.getElementById('crearListaNombre').focus(),100);
         }
@@ -2663,14 +2815,16 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
             if(!nombre){showAdminToast('Ingresa un nombre','error');return;}
             const existe=listasData.find(l=>l.nombre.toUpperCase()===nombre&&l.id!==editingListaId);
             if(existe){showAdminToast('Ya existe una lista con ese nombre','error');return;}
+            const pdfSemanal=!!document.getElementById('crearListaPdfSemanal')?.checked;
             try{
                 if(editingListaId){
-                    await db.collection('listas').doc(editingListaId).update({nombre});
-                    listasData.find(l=>l.id===editingListaId).nombre=nombre;
+                    await db.collection('listas').doc(editingListaId).update({nombre,pdfSemanal});
+                    const _l=listasData.find(l=>l.id===editingListaId);
+                    _l.nombre=nombre;_l.pdfSemanal=pdfSemanal;
                     showAdminToast('Lista actualizada','success');
                 }else{
-                    const ref=await db.collection('listas').add({nombre});
-                    const nuevaLista={id:ref.id,nombre};
+                    const ref=await db.collection('listas').add({nombre,pdfSemanal});
+                    const nuevaLista={id:ref.id,nombre,pdfSemanal};
                     listasData.push(nuevaLista);
                     listasData.sort((a,b)=>a.nombre.localeCompare(b.nombre));
                     showAdminToast('Lista creada','success');
@@ -3611,6 +3765,14 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <script src="admin-atajos.js"></script>
     <script src="admin-lector.js"></script>
 
+    <div class="visor" id="visorImagen" onclick="if(event.target===this)cerrarImagen()">
+      <div class="visor-caja" role="dialog" aria-modal="true" aria-label="Imagen del producto">
+        <button type="button" class="visor-x" onclick="cerrarImagen()" title="Cerrar" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+        <img class="visor-img" id="visorImg" src="" alt="">
+        <p class="visor-pie" id="visorPie"></p>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="asignarCodigoModal"><div class="modal-box" style="max-width:520px;width:96vw;max-height:88vh;display:flex;flex-direction:column">
       <div class="modal-header"><h3><i class="bi bi-upc-scan"></i> C&oacute;digo desconocido</h3><button class="modal-close" onclick="closeAsignarCodigo()">&times;</button></div>
       <div class="modal-body" style="overflow-y:auto">
@@ -3796,7 +3958,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
       </div>
     </div>
     <!-- MODAL CREAR/EDITAR LISTA -->
-    <div class="modal-overlay" id="crearListaModal"><div class="modal-box" style="max-width:400px"><div class="modal-header"><h3 id="crearListaTitle">Nueva lista</h3><button class="modal-close" onclick="closeCrearListaModal()"><i class="bi bi-x-lg"></i></button></div><div class="form-group" style="margin-bottom:1rem"><label>Nombre de la lista (proveedor)</label><input type="text" class="form-input" id="crearListaNombre" placeholder="Ej: FRUTICOR" style="text-transform:uppercase"></div><div class="form-actions"><button class="btn btn-secondary" onclick="closeCrearListaModal()">Cancelar</button><button class="btn btn-primary" onclick="guardarLista()"><i class="bi bi-check-lg"></i> Guardar</button></div></div></div>
+    <div class="modal-overlay" id="crearListaModal"><div class="modal-box" style="max-width:400px"><div class="modal-header"><h3 id="crearListaTitle">Nueva lista</h3><button class="modal-close" onclick="closeCrearListaModal()"><i class="bi bi-x-lg"></i></button></div><div class="form-group" style="margin-bottom:1rem"><label>Nombre de la lista (proveedor)</label><input type="text" class="form-input" id="crearListaNombre" placeholder="Ej: LA HUERTA" style="text-transform:uppercase"></div><label style="display:flex;align-items:flex-start;gap:0.7rem;cursor:pointer;margin-bottom:1rem"><input type="checkbox" id="crearListaPdfSemanal" style="width:18px;height:18px;margin:0.15rem 0 0;flex:0 0 auto;accent-color:var(--accent)"><span><span style="display:block;font-size:0.9rem;font-weight:600">Este proveedor cambia precios cada semana</span><span style="display:block;font-size:0.78rem;color:var(--text-dim);line-height:1.45">Con esto marcado, al filtrar por esta lista aparece la opci&oacute;n <b>Planilla semanal</b> dentro de Cat&aacute;logos.</span></span></label><div class="form-actions"><button class="btn btn-secondary" onclick="closeCrearListaModal()">Cancelar</button><button class="btn btn-primary" onclick="guardarLista()"><i class="bi bi-check-lg"></i> Guardar</button></div></div></div>
     <!-- MODAL REASIGNAR LISTA -->
     <div class="modal-overlay" id="reasignarListaModal"><div class="modal-box" style="max-width:700px"><div class="modal-header"><h3>Reasignar lista</h3><button class="modal-close" onclick="closeReasignarListaModal()"><i class="bi bi-x-lg"></i></button></div><div class="toolbar" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem"><div class="search-box" style="flex:1;min-width:180px"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto..." id="rlSearch" oninput="renderRlList()"></div><select class="form-input" style="width:auto;min-width:140px" id="rlFiltroLista" onchange="renderRlList()"><option value="">Todas las listas</option></select><label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="rlSelAll" onchange="toggleRlAll(this.checked)"> Seleccionar todos</label></div><div id="rlList" style="max-height:350px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:1rem"></div><div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap"><span style="font-size:0.85rem;color:var(--text-dim)">Mover <strong id="rlSelCount">0</strong> seleccionados a:</span><select class="form-input" style="width:auto;min-width:160px" id="rlDestinoLista"><option value="">Elegir lista...</option></select><button class="btn btn-primary" style="width:auto" onclick="aplicarReasignacion()"><i class="bi bi-shuffle"></i> Reasignar</button></div></div></div>
     <!-- MODAL CONFIG RESEÑAS -->
