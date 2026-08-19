@@ -65,6 +65,7 @@ const NEGOCIO = {
     'jeroobregon03@gmail.com',
     'thiagowendler53@gmail.com',
     'cecilialoreanaserafini@gmail.com',
+    'joacobrarda06@gmail.com',
   ],
 };
 
