@@ -64,6 +64,7 @@ const NEGOCIO = {
   ADMIN_EMAILS: [
     'jeroobregon03@gmail.com',
     'thiagowendler53@gmail.com',
+    'cecilialoreanaserafini@gmail.com',
   ],
 };
 
