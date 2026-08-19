@@ -753,6 +753,17 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             };
             reader.readAsDataURL(file);
         }
+        /* El input de archivo llamaba a handleImgExtraUpload(this), una funcion que no
+           existia: elegir una imagen extra desde el selector tiraba ReferenceError y no
+           pasaba nada. Solo funcionaba arrastrandola, que es el otro camino que llama
+           directo a handleImgExtraUploadFile. Este envoltorio saca el File del input y
+           lo vacia, para que elegir dos veces la misma imagen vuelva a disparar. */
+        function handleImgExtraUpload(input){
+            const file=input&&input.files&&input.files[0];
+            if(!file)return;
+            handleImgExtraUploadFile(file);
+            input.value='';
+        }
         async function handleImgExtraUploadFile(file){
             if(_imgExtraUrls.length>=20){showAdminToast('Máximo 20 imágenes extras','error');return;}
             try{
@@ -1357,7 +1368,12 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
         let fcQrFileData=null;let facturaConfig={nombre:'BROTES DIETETICA',direccion:'Manuel de Falla, Cordoba',telefono:'351 687 2770',email:'brotesdietetica@gmail.com',cuit:'',pie:'Gracias por su compra!',logo:'img/logo-brotes-light.svg',qr:'',agradecimiento:'Gracias por elegirnos',subtitulo:'En Brotes creemos que alimentarse bien no deberia ser un lujo.',instagram:'@brotesdietetica',whatsapp:'351-6872770',slogan:'Brotes, la dietetica a tu casa.',termicaAncho:80,etiquetaAncho:100,etiquetaAlto:150,termicaAlto:0};
         async function loadFacturaConfig(){try{const snap=await db.collection('config').doc('factura').get();if(snap.exists)Object.assign(facturaConfig,snap.data());}catch(e){}}
         let fcLogoFile=null;
-        function openFacturaConfig(){fcLogoFile=null;loadFacturaConfig().then(()=>{document.getElementById('fcNombre').value=facturaConfig.nombre||'';document.getElementById('fcDireccion').value=facturaConfig.direccion||'';document.getElementById('fcTelefono').value=facturaConfig.telefono||'';document.getElementById('fcEmail').value=facturaConfig.email||'';document.getElementById('fcCuit').value=facturaConfig.cuit||'';document.getElementById('fcPie').value=facturaConfig.pie||'';document.getElementById('fcLogo').value=facturaConfig.logo||'';document.getElementById('fcTermicaAncho').value=facturaConfig.termicaAncho||72;document.getElementById('fcTermicaAlto').value=facturaConfig.termicaAlto||0;const img=document.getElementById('fcLogoImg');if(facturaConfig.logo)img.src=facturaConfig.logo;else img.src='img/logo-brotes-light.svg';document.getElementById('fcQr').value=facturaConfig.qr||'';const qrImg=document.getElementById('fcQrImg');if(facturaConfig.qr)qrImg.src=facturaConfig.qr;else qrImg.src='';document.getElementById('fcAgradecimiento').value=facturaConfig.agradecimiento||'Gracias por elegirnos';document.getElementById('fcSubtitulo').value=facturaConfig.subtitulo||'';document.getElementById('fcInstagram').value=facturaConfig.instagram||'';document.getElementById('fcWhatsapp').value=facturaConfig.whatsapp||'';document.getElementById('fcSlogan').value=facturaConfig.slogan||'';document.getElementById('facturaConfigModal').classList.add('show');});}
+        function openFacturaConfig(){fcLogoFile=null;loadFacturaConfig().then(()=>{document.getElementById('fcNombre').value=facturaConfig.nombre||'';document.getElementById('fcDireccion').value=facturaConfig.direccion||'';document.getElementById('fcTelefono').value=facturaConfig.telefono||'';document.getElementById('fcEmail').value=facturaConfig.email||'';document.getElementById('fcCuit').value=facturaConfig.cuit||'';document.getElementById('fcPie').value=facturaConfig.pie||'';document.getElementById('fcLogo').value=facturaConfig.logo||'';/* Estos dos inputs ya no existen: los reemplazaron los formatos de papel de la seccion
+   Factura (fce_etiquetaAncho / fce_termicaAncho). Toda esta funcion quedo huerfana —nada
+   llama a openFacturaConfig()— pero se dejan con guardia para que, si alguien vuelve a
+   conectar el modal viejo, no explote con TypeError en la primera linea. */
+const _fcTa=document.getElementById('fcTermicaAncho');if(_fcTa)_fcTa.value=facturaConfig.termicaAncho||80;
+const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=facturaConfig.termicaAlto||0;const img=document.getElementById('fcLogoImg');if(facturaConfig.logo)img.src=facturaConfig.logo;else img.src='img/logo-brotes-light.svg';document.getElementById('fcQr').value=facturaConfig.qr||'';const qrImg=document.getElementById('fcQrImg');if(facturaConfig.qr)qrImg.src=facturaConfig.qr;else qrImg.src='';document.getElementById('fcAgradecimiento').value=facturaConfig.agradecimiento||'Gracias por elegirnos';document.getElementById('fcSubtitulo').value=facturaConfig.subtitulo||'';document.getElementById('fcInstagram').value=facturaConfig.instagram||'';document.getElementById('fcWhatsapp').value=facturaConfig.whatsapp||'';document.getElementById('fcSlogan').value=facturaConfig.slogan||'';document.getElementById('facturaConfigModal').classList.add('show');});}
         function previewFacturaLogo(input){if(!input.files[0])return;fcLogoFile=input.files[0];const img=document.getElementById('fcLogoImg');img.src=URL.createObjectURL(fcLogoFile);}
         async function saveFacturaConfig(e){e.preventDefault();let logoUrl=document.getElementById('fcLogo').value.trim();if(fcLogoFile){try{const compressed=await compressImage(fcLogoFile,400,0.8);const ref=storage.ref('config/logo-factura.jpg');await ref.put(compressed,{contentType:'image/jpeg'});logoUrl=await ref.getDownloadURL();}catch(er){showAdminToast('Error subiendo logo: '+er.message,'error');return;}}let qrUrl=document.getElementById('fcQr').value.trim();if(fcQrFileData){try{const cQr=await compressImage(fcQrFileData,400,0.9);const refQr=storage.ref('config/qr-etiqueta.png');await refQr.put(cQr,{contentType:'image/png'});qrUrl=await refQr.getDownloadURL();}catch(er){showAdminToast('Error subiendo QR: '+er.message,'error');return;}}fcQrFileData=null;facturaConfig={nombre:document.getElementById('fcNombre').value.trim(),direccion:document.getElementById('fcDireccion').value.trim(),telefono:document.getElementById('fcTelefono').value.trim(),email:document.getElementById('fcEmail').value.trim(),cuit:document.getElementById('fcCuit').value.trim(),pie:document.getElementById('fcPie').value.trim(),logo:logoUrl,qr:qrUrl,agradecimiento:document.getElementById('fcAgradecimiento').value.trim(),subtitulo:document.getElementById('fcSubtitulo').value.trim(),instagram:document.getElementById('fcInstagram').value.trim(),whatsapp:document.getElementById('fcWhatsapp').value.trim(),slogan:document.getElementById('fcSlogan').value.trim(),termicaAncho:parseInt(document.getElementById('fcTermicaAncho').value)||100,termicaAlto:parseInt(document.getElementById('fcTermicaAlto').value)||0};try{await db.collection('config').doc('factura').set(facturaConfig);logAction('editar','Config factura actualizada','');showAdminToast('Configuracion guardada','success');document.getElementById('facturaConfigModal').classList.remove('show');}catch(er){showAdminToast('Error: '+er.message,'error');}}
         function showFactura(docId){currentFacturaId=docId;const html=buildFacturaA4HTML(docId);if(!html)return;document.getElementById('facturaContent').innerHTML=html;document.getElementById('facturaModal').classList.add('show');}
@@ -3044,10 +3060,22 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
 await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Venta mayorista #'+num+' eliminada','success');logAction('eliminar','Venta Mayorista #'+num+' eliminada','DocID: '+docId);ventasMayData=ventasMayData.filter(v=>v.id!==docId);filterVentasMay();}catch(e){showAdminToast('Error: '+e.message,'error');}}
 
         function setVentaMayEntrega(tipo){
+            if(typeof HACE_ENVIOS!=='undefined'&&!HACE_ENVIOS)tipo='retiro';
             ventaMayTipoEntrega=tipo;
-            document.getElementById('ventaMayBtnEnvio').classList.toggle('active',tipo==='envio');
-            document.getElementById('ventaMayBtnRetiro').classList.toggle('active',tipo==='retiro');
-            document.getElementById('ventaMayDireccionGroup').style.display=tipo==='envio'?'block':'none';
+            /* Los botones se buscan por data-entrega DENTRO del modal mayorista.
+               Antes esto leia tres ids —ventaMayBtnEnvio, ventaMayBtnRetiro y
+               ventaMayDireccionGroup— que no existen en el HTML: la primera linea tiraba
+               TypeError y la funcion moria ahi. El efecto era peor que un boton que no
+               responde: ventaMayTipoEntrega SI se cambiaba (linea de arriba), pero el
+               boton nunca se marcaba y renderVentaMayItems() no llegaba a correr. Se
+               clickeaba "Retiro", quedaba resaltado "Con envio", la pantalla seguia
+               mostrando el total CON envio, y al guardar se recalculaba sin el: el numero
+               que veia el usuario y el que se guardaba eran distintos.
+               El selector va acotado al modal porque la venta minorista usa los mismos
+               data-entrega y si no le pegaria a los dos a la vez. */
+            document.querySelectorAll('#ventaMayModal [data-entrega]').forEach(function(b){
+                b.classList.toggle('active',b.getAttribute('data-entrega')===tipo);
+            });
             renderVentaMayItems();
         }
 
