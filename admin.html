@@ -101,7 +101,7 @@
         @media(max-width:768px){.tb-pop{position:fixed;left:0.5rem;right:0.5rem;min-width:0;
             top:auto;bottom:0.5rem;max-height:70vh;overflow-y:auto}}
         .sidebar-rotulo{padding:0.35rem 1.25rem 0.3rem;font-size:0.64rem;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-dim);opacity:0.65;user-select:none}
-        .sidebar-item{display:flex;align-items:center;gap:10px;padding:0.7rem 1.25rem;color:var(--text-dim);cursor:pointer;font-size:0.88rem;font-weight:500;transition:all 0.15s;text-decoration:none;border-left:3px solid transparent}
+        .sidebar{display:flex;flex-direction:column}.sb-uso{margin-top:auto;padding:0.85rem 1.25rem 1rem;border-top:1px solid var(--border);flex-shrink:0}.sb-uso-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px}.sb-uso-tit{font-size:0.74rem;color:var(--text-dim);font-weight:600;display:flex;align-items:center;gap:6px;letter-spacing:0.02em}.sb-uso-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:2px;font-size:0.78rem;line-height:1;border-radius:4px;transition:color .15s}.sb-uso-btn:hover{color:var(--accent-light)}.sb-uso-barra{height:6px;border-radius:99px;background:var(--border);overflow:hidden}.sb-uso-relleno{height:100%;width:0;border-radius:99px;background:var(--accent-light);transition:width .45s ease,background .3s}.sb-uso-relleno.medio{background:#e6a817}.sb-uso-relleno.alto{background:#f56c6c}.sb-uso-txt{font-size:0.72rem;color:var(--text-dim);margin-top:7px;line-height:1.35}.sb-uso-txt b{color:var(--text-main);font-weight:600}.sidebar-item{display:flex;align-items:center;gap:10px;padding:0.7rem 1.25rem;color:var(--text-dim);cursor:pointer;font-size:0.88rem;font-weight:500;transition:all 0.15s;text-decoration:none;border-left:3px solid transparent}
         .sidebar-item:hover{color:var(--text);background:var(--bg-input)}.sidebar-item.active{color:var(--accent-light);background:var(--accent-bg);border-left-color:var(--accent-light)}
         .sidebar-item i{font-size:1.1rem;width:20px;text-align:center}
         .sidebar-toggle{background:none;border:none;color:var(--text);font-size:1.4rem;cursor:pointer;display:none;padding:0.2rem}
@@ -307,6 +307,16 @@
             <a class="sidebar-item" onclick="switchSection('editor')"><i class="bi bi-brush"></i><span>Editor Web</span></a>
             <a class="sidebar-item" onclick="switchSection('factura')"><i class="bi bi-receipt"></i><span>Factura</span></a>
             <a class="sidebar-item" onclick="switchSection('config')"><i class="bi bi-sliders"></i><span>Configuraci&oacute;n</span></a>
+        </div>
+        <!-- Espacio ocupado. Se actualiza solo: escucha config/storage, que mantienen
+             las Cloud Functions cada vez que entra o sale un archivo. -->
+        <div class="sb-uso" id="sbUso">
+            <div class="sb-uso-top">
+                <span class="sb-uso-tit"><i class="bi bi-hdd"></i> Almacenamiento</span>
+                <button class="sb-uso-btn" id="sbUsoBtn" onclick="recalcularUso()" title="Volver a contar"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+            <div class="sb-uso-barra"><div class="sb-uso-relleno" id="sbUsoRelleno"></div></div>
+            <div class="sb-uso-txt" id="sbUsoTxt">Calculando&hellip;</div>
         </div>
     </nav>
     <div class="admin-main">
@@ -751,7 +761,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function _initAuth(){
             if(!firebase.auth){setTimeout(_initAuth,100);return;}
             try{if(!auth)auth=firebase.auth();if(!storage)storage=firebase.storage();}catch(e){}
-            auth.onAuthStateChanged(async u=>{if(u){const allowed=await isAllowedEmail(u.email);if(!allowed){auth.signOut();const err=document.getElementById('loginError');err.textContent='Tu cuenta no tiene permisos para acceder.';err.style.display='block';return;}document.getElementById('loginScreen').style.display='none';document.getElementById('dashboard').style.display='block';document.getElementById('userEmail').textContent=u.email;loadProducts();loadListas();loadFacturaConfig();loadTelegramConfig();loadResenasConfig();loadPedidosCfgEditor();loadAtajos();}else{document.getElementById('loginScreen').style.display='flex';document.getElementById('dashboard').style.display='none';}});
+            auth.onAuthStateChanged(async u=>{if(u){const allowed=await isAllowedEmail(u.email);if(!allowed){auth.signOut();const err=document.getElementById('loginError');err.textContent='Tu cuenta no tiene permisos para acceder.';err.style.display='block';return;}document.getElementById('loginScreen').style.display='none';document.getElementById('dashboard').style.display='block';document.getElementById('userEmail').textContent=u.email;loadProducts();loadListas();loadFacturaConfig();loadTelegramConfig();loadResenasConfig();loadPedidosCfgEditor();loadAtajos();escucharUso();}else{document.getElementById('loginScreen').style.display='flex';document.getElementById('dashboard').style.display='none';}});
         } // end _initAuth
         _initAuth();
         function logout(){auth.signOut();}
@@ -942,6 +952,95 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             return /\.(jpe?g|png|webp|avif|gif|svg)(\?|#|$)/i.test(v);
         }
         let _scImgInvalidas={};
+        /* ------------------------------------------------------- espacio en Storage
+           Tope de lo que se puede tener guardado. Las Cloud Functions llevan la cuenta
+           en config/storage; aca solo se lee, se dibuja, y no se deja pasar nada por
+           encima del tope: toda subida pasa antes por hayEspacio(). */
+        const STORAGE_TOPE=5*1024*1024*1024;   /* 5 GB */
+        /* Se corta un poco antes del tope para no quedar en el borde justo con un
+           archivo a medio subir. */
+        const STORAGE_MARGEN=20*1024*1024;     /* 20 MB */
+        let _uso={bytes:0,archivos:0,exacto:false,listo:false};
+
+        function fmtBytes(b){
+            b=Number(b)||0;
+            if(b<1024)return b+' B';
+            if(b<1024*1024)return (b/1024).toFixed(0)+' KB';
+            if(b<1024*1024*1024)return (b/(1024*1024)).toFixed(b<10*1024*1024?1:0).replace('.',',')+' MB';
+            return (b/(1024*1024*1024)).toFixed(2).replace('.',',')+' GB';
+        }
+        function _libreStorage(){ return STORAGE_TOPE-STORAGE_MARGEN-_uso.bytes; }
+
+        function pintarUso(){
+            const rel=document.getElementById('sbUsoRelleno');
+            const txt=document.getElementById('sbUsoTxt');
+            if(!rel||!txt)return;
+            const pct=Math.min(100,(_uso.bytes/STORAGE_TOPE)*100);
+            rel.style.width=pct.toFixed(2)+'%';
+            rel.classList.toggle('medio',pct>=75&&pct<90);
+            rel.classList.toggle('alto',pct>=90);
+            if(!_uso.listo){txt.textContent='Calculando\u2026';return;}
+            txt.innerHTML='<b>'+fmtBytes(_uso.bytes)+'</b> de '+fmtBytes(STORAGE_TOPE)+' usados'+
+                (_uso.archivos?' \u00b7 '+_uso.archivos.toLocaleString('es-AR')+' archivo'+(_uso.archivos===1?'':'s'):'');
+            const cont=document.getElementById('sbUso');
+            if(cont)cont.title=pct>=90
+                ?'Queda poco espacio. Convien\u00e9 borrar im\u00e1genes que no uses.'
+                :(_uso.exacto?'Contado archivo por archivo':'Estimado. Toc\u00e1 el bot\u00f3n para contar de nuevo.');
+        }
+
+        /* Se escucha el documento en vez de leerlo una vez: cuando termina un recalculo
+           o entra un archivo nuevo, la barra se mueve sola sin recargar el panel. */
+        function escucharUso(){
+            try{
+                db.collection('config').doc('storage').onSnapshot(function(snap){
+                    const d=snap.exists?snap.data():null;
+                    _uso={
+                        bytes:Number(d&&d.bytes)||0,
+                        archivos:Number(d&&d.archivos)||0,
+                        exacto:!!(d&&d.exacto),
+                        listo:true
+                    };
+                    const btn=document.getElementById('sbUsoBtn');
+                    if(btn)btn.innerHTML=(d&&d.recalcular===true)
+                        ?'<i class="bi bi-arrow-repeat spin"></i>'
+                        :'<i class="bi bi-arrow-clockwise"></i>';
+                    pintarUso();
+                    /* Si nunca se conto, o el numero viene de sumas y restas y ya paso un
+                       rato, se pide una cuenta exacta. */
+                    if(!d){recalcularUso(true);return;}
+                    const cuando=(d.actualizado&&d.actualizado.toDate)?d.actualizado.toDate():null;
+                    const viejo=!cuando||(Date.now()-cuando.getTime())>6*60*60*1000;
+                    if(d.recalcular!==true&&!d.exacto&&viejo)recalcularUso(true);
+                },function(e){console.warn('No se pudo leer el uso de storage:',e);});
+            }catch(e){console.warn('No se pudo escuchar el uso de storage:',e);}
+        }
+
+        async function recalcularUso(silencioso){
+            try{
+                await db.collection('config').doc('storage').set({recalcular:true},{merge:true});
+                if(!silencioso&&typeof showAdminToast==='function')showAdminToast('Contando archivos\u2026','info');
+            }catch(e){
+                if(!silencioso&&typeof showAdminToast==='function')showAdminToast('No se pudo recalcular: '+e.message,'error');
+            }
+        }
+
+        /**
+         * Puerta unica antes de cualquier subida. true si entra; si no, avisa y da false.
+         * Si todavia no se sabe cuanto hay ocupado se deja pasar: bloquear por no tener
+         * el dato dejaria al comercio sin poder trabajar, y las Cloud Functions llevan
+         * la cuenta igual.
+         */
+        function hayEspacio(bytes){
+            if(!_uso.listo)return true;
+            const t=Number(bytes)||0;
+            const libre=_libreStorage();
+            if(t<=libre)return true;
+            const msg=libre<=0
+                ?'No queda espacio disponible ('+fmtBytes(_uso.bytes)+' de '+fmtBytes(STORAGE_TOPE)+'). Borr\u00e1 im\u00e1genes que no uses antes de subir m\u00e1s.'
+                :'No entra: el archivo ocupa '+fmtBytes(t)+' y quedan '+fmtBytes(Math.max(0,libre))+' libres de '+fmtBytes(STORAGE_TOPE)+'. Borr\u00e1 im\u00e1genes que no uses o sub\u00ed una m\u00e1s liviana.';
+            if(typeof showAdminToast==='function')showAdminToast(msg,'error');
+            return false;
+        }
         async function loadProducts(){try{await loadCategorias();const snap=await db.collection('productos').get();allProducts=snap.docs.map(d=>{const r=d.data();return{id:d.id,...r,porcentajeMayorista:r.porcentajeMayorista||0,precioMayorista:r.precioMayorista||0};});filterTable();updateStats();updateCategoryFilter();renderStockList();renderListaFilterSelect();}catch(e){console.error(e);showAdminToast('Error al cargar','error');}}
         function renderTable(prods){const tb=document.getElementById('productsTableBody');const thr=getLowStockThreshold();if(!prods.length){tb.innerHTML='<tr><td colspan="8"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Sin productos</p></div></td></tr>';return;}tb.innerHTML=prods.map(p=>{let sc='stock-ok',sv=p.stock||0;if(sv===0)sc='stock-out';else if(sv<thr)sc='stock-low';const img=p.imagen||'img/default-product.svg';const sub=p.subcategoria?' / '+esc(p.subcategoria):'';const sn=(p.nombre||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');const costo=p.costo||0;const pct=p.porcentaje||0;const precio=p.precio||0;const star=p.popular?'bi-star-fill':'bi-star';const starColor=p.popular?'color:#e6a23c':'';const oculto=p.oculto===true;const eyeIcon=oculto?'bi-eye-slash-fill':'bi-eye';const eyeColor=oculto?'color:#f56c6c':'';const eyeTitle=oculto?'Oculto del catalogo (click para mostrar)':'Visible en catalogo (click para ocultar)';const rowStyle=oculto?' style="opacity:0.55"':'';const hiddenTag=oculto?' <span style="font-size:0.68rem;background:#5a2d2d;color:#f56c6c;padding:1px 6px;border-radius:3px;margin-left:4px;vertical-align:middle">OCULTO</span>':'';return'<tr'+rowStyle+'><td><img src="'+esc(img)+'" class="product-img-cell product-img-zoom" onclick="verImagen(\''+esc(img)+'\',\''+esc((p.nombreMostrado||p.nombre||'').replace(/'/g,"")) +'\')" title="Ver la imagen en grande" onerror="this.src=\'img/default-product.svg\'"></td><td><strong>'+esc(p.nombre||'\u2014')+'</strong>'+hiddenTag+'</td><td><span class="cat-badge">'+esc(p.categoria||'\u2014')+sub+'</span></td><td class="price-cell" style="color:var(--text-dim);font-size:0.82rem">$'+costo.toLocaleString('es-AR')+'</td><td style="text-align:left;font-size:0.82rem;color:var(--text-dim);font-family:var(--mono)">'+pct+'%</td><td class="price-cell">$'+precio.toLocaleString('es-AR')+'</td><td style="text-align:center">'+((p.descuento||0)>0?'<span style="background:linear-gradient(135deg,#e6a23c,#d97706);color:#fff;font-weight:700;font-size:0.72rem;padding:2px 7px;border-radius:5px">'+(p.descuento||0)+'%</span>':'<span style="color:var(--text-dim);font-size:0.8rem">0%</span>')+'</td><td><span class="stock-badge '+sc+'">'+sv+'</span></td><td><div class="actions-cell"><button class="btn-icon" onclick="togglePopular(\''+p.id+'\')" title="Popular" style="'+starColor+'"><i class="bi '+star+'"></i></button><button class="btn-icon" onclick="toggleOculto(\''+p.id+'\')" title="'+eyeTitle+'" style="'+eyeColor+'"><i class="bi '+eyeIcon+'"></i></button>'+(p.envasadoPropio?'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Envasado propio (click para desmarcar)" style="color:#a78bfa"><i class="bi bi-bag-check-fill"></i></button>':'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Marcar como envasado propio"><i class="bi bi-bag-check"></i></button>')+(p.gramajePadreId?'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Gramaje asociado (click para gestionar)" style="color:#4a9eff"><i class="bi bi-stack"></i></button>':'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Asociar gramajes"><i class="bi bi-stack"></i></button>')+'<button class="btn-icon" onclick="editProduct(\''+p.id+'\')"><i class="bi bi-pencil"></i></button><button class="btn-icon delete" onclick="deleteProduct(\''+p.id+'\',\''+sn+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';}).join('');}
         function getLowStockThreshold(){return parseInt(localStorage.getItem('brotesLowStockThr'))||10;}
@@ -1105,6 +1204,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const ref=storage.ref(name);
             const metadata={contentType:mime,cacheControl:'public,max-age=31536000'};
             try{
+                if(!hayEspacio(compressed.size))throw new Error('Sin espacio disponible');
                 const snapshot=await ref.put(compressed,metadata);
                 const url=await snapshot.ref.getDownloadURL();
                 return url;
@@ -3176,6 +3276,7 @@ async function previewEditorImg(input,field){
     const prev=document.getElementById('sc_'+field+'Preview');
     if(prev)prev.src=URL.createObjectURL(f);
     try{
+        if(!hayEspacio(f.size))return fallar('Sin espacio disponible para esta imagen.');
         const blob=await compressImage(f,IMG_ANCHO[field]||1920,0.82);
         editorImgFiles[field]=blob;
         const kb=Math.round(blob.size/1024);
@@ -3203,6 +3304,7 @@ async function previewEditorImg(input,field){
                 const ext=compressed._ext||'jpg';
                 const mime=compressed._mime||'image/jpeg';
                 const ref=storage.ref('site/'+f+'.'+ext);
+                if(!hayEspacio(compressed.size))throw new Error('Sin espacio disponible');
                 await ref.put(compressed,{contentType:mime});
                 data[f]=await ref.getDownloadURL();_scImgGuardadas[f]=data[f];}else{
                 /* Si no se subio nada nuevo, se deja EXACTAMENTE lo que ya estaba guardado.
@@ -3474,7 +3576,7 @@ async function previewEditorImg(input,field){
         function buildFacturaA4Footer(fc,v,esRetiro,pageInfo){const subtProd=v.subtotalProductos||v.total||0;const envio=v.envio!=null?v.envio:0;const total=v.total||0;const descPct=v.descuentoPct||0;const descMonto=v.descuentoMonto||0;let h='<div class="fa4-footer"><div style="border-top:1px solid #999;margin-top:8px;padding-top:6px;font-size:0.85rem"><div style="display:flex;justify-content:space-between"><span>Subtotal productos</span><span>$'+subtProd.toLocaleString('es-AR')+'</span></div>';if(descPct>0)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Descuento ('+descPct+'%)</span><span>-$'+descMonto.toLocaleString('es-AR')+'</span></div>';/* El cupon se restaba del total al guardar la venta pero no se imprimia como renglon: subtotal - descuento + envio daba MAS que el TOTAL de abajo, y ni el cliente que suma el papel ni el que atiende tenian con que explicar la diferencia. Se topea igual que en calcularTotalesVenta (contra lo que queda despues del descuento) para que los renglones sumen EXACTO el TOTAL guardado. */var _cupA4=v.cupon||null;var _cupMontoA4=_cupA4?Math.min(Math.max(0,Number(_cupA4.monto||0)),Math.max(0,subtProd-descMonto)):0;if(_cupMontoA4>0)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Cupón '+esc(_cupA4.codigo||'')+'</span><span>-$'+_cupMontoA4.toLocaleString('es-AR')+'</span></div>';if(!esRetiro)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Env\u00edo</span><span style="'+(envio===0?'color:#27ae60;font-weight:600':'')+'">'+(envio===0?'GRATIS':'$'+envio.toLocaleString('es-AR'))+'</span></div>';h+='</div>';h+='<div class="factura-total" style="display:flex;justify-content:space-between;border-top:2px solid #111;margin-top:8px;padding-top:8px;font-size:1.1rem;font-weight:700"><span>TOTAL</span><span>$'+total.toLocaleString('es-AR')+'</span></div>';if(fc.pie)h+='<div style="text-align:center;margin-top:12px;font-size:0.7rem;color:#888">'+esc(fc.pie)+'</div>';h+='<div style="text-align:center;margin-top:8px;font-size:0.6rem;color:#aaa;letter-spacing:1px;text-transform:uppercase">No valido como factura</div>';/* pageInfo NO se muestra */h+='</div>';return h;}
         function buildFacturaA4HTML(docId){const v=ventasData.find(x=>x.docId===docId);if(!v)return'';const f=v.fecha;const fecha=f.toLocaleDateString('es-AR');const nro='00001-'+String(v.numero||0).padStart(8,'0');const fc=facturaConfig;const esRetiro=v.tipoEntrega==='retiro';const allItems=v.items||[];const pages=splitItemsContinuous(allItems,a4CapPrimera(),a4CapMedio(),a4CapUltima());let out='';for(let p=0;p<pages.length;p++){const pg=pages[p];let pageContent='';if(pg.type==='single'){pageContent=buildFacturaA4Header(fc,v,fecha,nro,esRetiro)+buildFacturaA4Items(pg.items)+buildFacturaA4Footer(fc,v,esRetiro,'');}else if(pg.type==='first'){pageContent=buildFacturaA4Header(fc,v,fecha,nro,esRetiro)+buildFacturaA4Items(pg.items);}else if(pg.type==='middle'){pageContent=buildFacturaA4Items(pg.items);}else if(pg.type==='last'){pageContent=buildFacturaA4Items(pg.items)+buildFacturaA4Footer(fc,v,esRetiro,'');}out+='<div class="fa4-page fa4-page-'+pg.type+'">'+pageContent+'</div>';}return out;}
         function renderFcePreview(){const g=id=>document.getElementById(id)?.value||'';const p=document.getElementById('fcePreview');if(!p)return;const fc={logo:fceLogoFile?URL.createObjectURL(fceLogoFile):(document.getElementById('fce_logoPreview')?.src||''),agradecimiento:g('fce_agradecimiento'),subtitulo:g('fce_subtitulo'),nombre:g('fce_nombre'),direccion:g('fce_direccion'),telefono:facturaConfig.telefono||'',email:g('fce_email'),cuit:g('fce_cuit'),instagram:g('fce_instagram'),whatsapp:g('fce_whatsapp'),slogan:g('fce_slogan')};if(fc.logo&&fc.logo.endsWith('admin.html'))fc.logo='';const items=[{nombre:'Producto ejemplo',cantidad:2,precio:5000,subtotal:10000},{nombre:'Otro producto',cantidad:1,precio:3500,subtotal:3500},{nombre:'Tercer producto',cantidad:3,precio:8200,subtotal:24600}];p.innerHTML=buildEtiquetaHTML(fc,items,new Date().toLocaleDateString('es-AR'),'00001','https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://brotesdietetica.vercel.app','Cliente Ejemplo');}
-        async function saveFacturaFromEditor(){const btn=document.getElementById('saveFcEditorBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{let logoUrl=facturaConfig.logo||'';if(fceLogoFile){const c=await compressImage(fceLogoFile,400,0.8);const ref=storage.ref('config/logo-factura.jpg');await ref.put(c,{contentType:'image/jpeg'});logoUrl=await ref.getDownloadURL();}let qrUrl=facturaConfig.qr||'';facturaConfig={nombre:document.getElementById('fce_nombre').value.trim(),direccion:document.getElementById('fce_direccion').value.trim(),/* El telefono se imprime en el ticket y no habia forma de cambiarlo: el editor no
+        async function saveFacturaFromEditor(){const btn=document.getElementById('saveFcEditorBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{let logoUrl=facturaConfig.logo||'';if(fceLogoFile){const c=await compressImage(fceLogoFile,400,0.8);if(!hayEspacio(c.size))throw new Error('Sin espacio disponible');const ref=storage.ref('config/logo-factura.jpg');await ref.put(c,{contentType:'image/jpeg'});logoUrl=await ref.getDownloadURL();}let qrUrl=facturaConfig.qr||'';facturaConfig={nombre:document.getElementById('fce_nombre').value.trim(),direccion:document.getElementById('fce_direccion').value.trim(),/* El telefono se imprime en el ticket y no habia forma de cambiarlo: el editor no
                    tenia el campo y esta linea lo unico que hacia era arrastrar el valor sembrado.
                    Si el comercio cambiaba de numero, seguia imprimiendo el viejo para siempre. */
                 telefono:(document.getElementById('fce_telefono')?document.getElementById('fce_telefono').value.trim():(facturaConfig.telefono||'')),email:document.getElementById('fce_email').value.trim(),cuit:document.getElementById('fce_cuit').value.trim(),agradecimiento:document.getElementById('fce_agradecimiento').value.trim(),subtitulo:document.getElementById('fce_subtitulo').value.trim(),instagram:document.getElementById('fce_instagram').value.trim(),whatsapp:document.getElementById('fce_whatsapp').value.trim(),slogan:document.getElementById('fce_slogan').value.trim(),logo:logoUrl,qr:qrUrl,pie:facturaConfig.pie||'',termicaAncho:parseInt(document.getElementById('fce_termicaAncho').value)||80,termicaAlto:parseInt(document.getElementById('fce_termicaAlto').value)||0,etiquetaAncho:parseInt(document.getElementById('fce_etiquetaAncho').value)||100,etiquetaAlto:(function(){const n=parseInt(document.getElementById('fce_etiquetaAlto').value);return Number.isFinite(n)&&n>=0?n:150;})()};await db.collection('config').doc('factura').set(facturaConfig);fceLogoFile=null;fceQrFile=null;logAction('editar','Config factura actualizada via editor','');showAdminToast('Factura guardada','success');}catch(e){showAdminToast('Error: '+e.message,'error');}finally{btn.disabled=false;btn.innerHTML='<i class="bi bi-check-lg"></i> Guardar';}}

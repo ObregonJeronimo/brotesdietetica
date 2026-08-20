@@ -67,6 +67,15 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    /* El logo de la factura se sube a config/logo-factura.jpg (ver admin.html,
+       saveFacturaFromEditor). No estaba contemplado en ninguna regla, asi que caia
+       en el cierre de abajo y la subida fallaba con "storage/unauthorized". */
+    match /config/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && esImagenValida();
+      allow delete: if isAdmin();
+    }
+
     /* Todo lo demás: cerrado. Sin esta regla, cualquier ruta nueva que agregue
        el panel en el futuro quedaría sin cubrir y Storage la denegaría igual,
        pero dejarlo explícito evita sorpresas. */

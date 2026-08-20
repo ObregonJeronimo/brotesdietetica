@@ -19,6 +19,7 @@
  */
 
 const {onDocumentCreated, onDocumentWritten} = require('firebase-functions/v2/firestore');
+const {onObjectFinalized, onObjectDeleted} = require('firebase-functions/v2/storage');
 /* Gen 1 solo para el disparador de creacion de usuario: Gen 2 no tiene triggers de Auth
    (los blocking functions necesitan Identity Platform). Conviven sin problema. */
 const functionsV1 = require('firebase-functions/v1');
@@ -493,3 +494,119 @@ exports.aplicarClaimAlIngresar = functionsV1
       logger.error('Error aplicando el claim al ingresar (' + mail + '):', e);
     }
   });
+
+
+/* ===========================================================================
+ * ESPACIO OCUPADO EN STORAGE
+ * ---------------------------------------------------------------------------
+ * El panel muestra cuanto espacio hay ocupado y no deja pasar el tope. Para eso
+ * necesita un numero, y Storage no expone un "total" que se pueda consultar.
+ *
+ * Se resuelve con tres piezas que se complementan:
+ *
+ *   sumarUsoStorage / restarUsoStorage
+ *     Reaccionan a cada archivo que entra o sale y ajustan el total al momento,
+ *     asi la barra se mueve apenas se sube algo. Son baratas pero no perfectas:
+ *     pisar un archivo con otro del mismo nombre dispara solo el alta, sin la
+ *     baja, y el total queda de mas.
+ *
+ *   recalcularUsoStorage
+ *     La cuenta exacta. Recorre el bucket entero y reemplaza el total. El listado
+ *     del Admin SDK ya trae el tamaño de cada archivo, asi que son unas pocas
+ *     peticiones aunque haya miles. Corrige la desviacion de las otras dos.
+ *     Se dispara escribiendo `recalcular: true` en config/storage, que es lo que
+ *     hace el panel al abrirse si el numero quedo viejo.
+ *
+ * El documento config/storage queda con: bytes, archivos, actualizado y exacto.
+ * `exacto` en false significa "esto viene de sumas y restas, puede haber
+ * corrido un poco"; el panel lo usa para saber cuando conviene recalcular.
+ * =========================================================================== */
+
+const REF_USO = () => db.collection('config').doc('storage');
+
+exports.sumarUsoStorage = onObjectFinalized(
+  {
+    /* En la region del BUCKET, no en la de Firestore: un disparador de Storage
+       tiene que estar donde vive el bucket o el despliegue lo rechaza. */
+    region: 'us-east1', memory: '256MiB', timeoutSeconds: 60},
+  async (event) => {
+    const size = Number(event.data && event.data.size) || 0;
+    if (!size) return;
+    try {
+      await REF_USO().set({
+        bytes: admin.firestore.FieldValue.increment(size),
+        archivos: admin.firestore.FieldValue.increment(1),
+        actualizado: admin.firestore.FieldValue.serverTimestamp(),
+        exacto: false
+      }, {merge: true});
+    } catch (e) {
+      logger.error('No se pudo sumar el uso de storage:', e);
+    }
+  }
+);
+
+exports.restarUsoStorage = onObjectDeleted(
+  {
+    /* En la region del BUCKET, no en la de Firestore: un disparador de Storage
+       tiene que estar donde vive el bucket o el despliegue lo rechaza. */
+    region: 'us-east1', memory: '256MiB', timeoutSeconds: 60},
+  async (event) => {
+    const size = Number(event.data && event.data.size) || 0;
+    if (!size) return;
+    try {
+      await REF_USO().set({
+        bytes: admin.firestore.FieldValue.increment(-size),
+        archivos: admin.firestore.FieldValue.increment(-1),
+        actualizado: admin.firestore.FieldValue.serverTimestamp(),
+        exacto: false
+      }, {merge: true});
+    } catch (e) {
+      logger.error('No se pudo restar el uso de storage:', e);
+    }
+  }
+);
+
+exports.recalcularUsoStorage = onDocumentWritten(
+  {
+    document: 'config/storage',
+    region: 'southamerica-east1',
+    memory: '512MiB',
+    timeoutSeconds: 300
+  },
+  async (event) => {
+    const despues = event.data && event.data.after && event.data.after.data();
+    /* Solo trabaja cuando se lo piden. Sin esta salida temprana la propia
+       escritura del resultado volveria a dispararla, y no pararia nunca. */
+    if (!despues || despues.recalcular !== true) return;
+
+    try {
+      const bucket = admin.storage().bucket();
+      let bytes = 0;
+      let archivos = 0;
+      let pageToken;
+      /* getFiles ya devuelve el tamaño de cada archivo en la misma respuesta, asi
+         que esto son unas pocas peticiones y no una por archivo. */
+      do {
+        const [files, next] = await bucket.getFiles({maxResults: 1000, pageToken, autoPaginate: false});
+        files.forEach((f) => {
+          const t = Number(f.metadata && f.metadata.size) || 0;
+          if (t > 0) { bytes += t; archivos++; }
+        });
+        pageToken = next && next.pageToken;
+      } while (pageToken);
+
+      await REF_USO().set({
+        bytes: bytes,
+        archivos: archivos,
+        actualizado: admin.firestore.FieldValue.serverTimestamp(),
+        exacto: true,
+        recalcular: false
+      }, {merge: true});
+      logger.info(`Uso de storage recalculado: ${archivos} archivos, ${bytes} bytes`);
+    } catch (e) {
+      logger.error('No se pudo recalcular el uso de storage:', e);
+      await REF_USO().set({recalcular: false, error: String(e && e.message || e)}, {merge: true})
+        .catch(() => {});
+    }
+  }
+);
