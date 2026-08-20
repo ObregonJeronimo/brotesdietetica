@@ -289,7 +289,10 @@ function renderCalendario(t) {
     celdas +=
       '<button type="button" onclick="statsVerDia(\'' + f + '\')" ' +
         'title="' + n + ' · ' + est.etq + (x.count ? ' · ' + _sp(x.ventas) + ' en ' + x.count + ' venta' + (x.count === 1 ? '' : 's') : '') + '" ' +
-        'style="position:relative;aspect-ratio:1;border-radius:7px;cursor:pointer;padding:0;overflow:hidden;' +
+        /* aspect-ratio sin tope hacia celdas de 120px en pantalla ancha: un calendario
+       gigante y casi vacio. Con max-height la celda deja de crecer y queda
+       apaisada, que es como se ve un mes en cualquier calendario. */
+      'style="position:relative;aspect-ratio:1;max-height:58px;min-height:38px;border-radius:7px;cursor:pointer;padding:0;overflow:hidden;' +
         'background:' + est.color + ';border:' + (sel ? '2px solid #fff' : esHoy ? '2px solid var(--accent-light)' : '1px solid rgba(255,255,255,0.07)') + ';' +
         'color:' + (x.estado === 'sin_actividad' ? 'var(--text-dim)' : '#0b1210') + ';font-weight:700;font-size:0.76rem">' +
         '<span style="position:absolute;top:3px;left:5px">' + n + '</span>' +
