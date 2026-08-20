@@ -31,6 +31,13 @@ let _lecCodigoPendiente = null;
    frenar el Enter, que si no dispara el submit del formulario que esté abierto. */
 document.addEventListener('keydown', function (e) {
   if (e.ctrlKey || e.altKey || e.metaKey) return;
+  /* `key` no siempre viene. Un evento sintetico, un autocompletado del navegador o
+     una extension pueden disparar keydown sin el campo, y mas abajo se hace
+     e.key.length. Esto corria en fase de CAPTURA sobre document, es decir antes que
+     cualquier otro handler de la pagina y en CADA tecla del panel, asi que una
+     excepcion aca ensuciaba la consola de errores constantemente.
+     Visto en produccion: "Cannot read properties of undefined (reading 'length')". */
+  if (typeof e.key !== 'string') { _lecBuf = ''; _lecRafaga = false; return; }
   const t = e.timeStamp;
   const gap = t - _lecUltima;
   _lecUltima = t;

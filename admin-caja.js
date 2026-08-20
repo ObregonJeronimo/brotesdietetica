@@ -359,7 +359,14 @@ async function abrirCaja() {
     if (typeof logAction === 'function') logAction('abrir', 'Caja #' + numero + ' abierta', 'Fondo inicial ' + _pesos(monto));
     showAdminToast('Caja #' + numero + ' abierta', 'success');
     closeAbrirCajaModal();
-    await loadCaja();
+    /* Igual que al cerrar: la caja ya quedo abierta en la base. Si el refresco de
+       pantalla falla, no se puede avisar "Error al abrir", porque no es cierto. */
+    try {
+      await loadCaja();
+    } catch (err) {
+      console.warn('La caja abrio pero no se pudo refrescar:', err);
+      showAdminToast('La caja se abrió. No se pudo actualizar la pantalla: recargá para verla.', 'info');
+    }
   } catch (e) {
     showAdminToast('Error al abrir: ' + e.message, 'error');
   } finally { btn.disabled = false; }
@@ -581,7 +588,18 @@ async function confirmarCierre() {
         'Esperado ' + _pesos(t.esperado) + ' | Contado ' + _pesos(contado) + ' | Diferencia ' + _pesos(dif));
     showAdminToast('Caja #' + cajaActual.numero + ' cerrada', 'success');
     closeCierreModal();
-    await loadCaja();
+    /* A partir de aca la caja YA ESTA CERRADA en la base. Refrescar la pantalla es
+       otra cosa, y tiene que fallar aparte: cuando el refresco estaba dentro de este
+       mismo try, cualquier tropiezo al releer saltaba al catch de abajo y avisaba
+       "Error al cerrar" —que es falso, el cierre se guardo— dejando ademas la
+       pantalla mostrando la caja como si siguiera abierta. Paso en produccion: la
+       caja quedo cerrada y hubo que recargar a mano para verlo. */
+    try {
+      await loadCaja();
+    } catch (err) {
+      console.warn('La caja cerro pero no se pudo refrescar:', err);
+      showAdminToast('La caja se cerró. No se pudo actualizar la pantalla: recargá para verla.', 'info');
+    }
   } catch (e) {
     if (e && e.message === 'cerrada-por-otro') {
       showAdminToast('Esta caja ya la cerró alguien más. Actualizamos la pantalla.', 'error');
