@@ -1510,13 +1510,23 @@ function _renderPedidosCliente() {
 async function repetirPedido(pedidoId) {
     const pedido = _todosPedidosCliente.find(p => p.id === pedidoId);
     if (!pedido) return;
+    /* Se avisa antes de pisar el carrito. Antes lo vaciaba de una: si ya habias armado
+       algo, desaparecia sin preguntar y sin forma de recuperarlo. */
+    if (carrito.length && !confirm('Esto reemplaza lo que tenés en el carrito (' +
+        carrito.length + ' producto' + (carrito.length === 1 ? '' : 's') + '). ¿Seguir?')) return;
     let agregados = 0, omitidos = [];
     carrito = [];
     for (const item of (pedido.items || [])) {
         const prod = productos.find(p => p.id === item.id);
         if (!prod) { omitidos.push(item.nombre + ' (ya no existe)'); continue; }
         if ((prod.stock || 0) <= 0) { omitidos.push(item.nombre + ' (sin stock)'); continue; }
-        carrito.push({ id: prod.id, nombre: prod.nombre, precio: prod.precio, imagen: prod.imagen, cantidad: item.cantidad });
+        /* Se cobra el precio VIGENTE con su descuento, igual que addToCart. Antes usaba
+           prod.precio pelado: un producto con 20% off que la web mostraba a $8.000 entraba
+           al carrito a $10.000, o sea que repetir un pedido salia mas caro que armarlo a
+           mano y el cliente veia un precio distinto del de la ficha. */
+        carrito.push({ id: prod.id, nombre: prod.nombre, precio: precioFinal(prod),
+            precioOriginal: prod.precio, descuento: prod.descuento || 0,
+            imagen: prod.imagen, cantidad: item.cantidad });
         agregados++;
     }
     saveCart(); updateCartUI();

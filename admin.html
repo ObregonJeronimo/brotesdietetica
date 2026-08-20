@@ -612,7 +612,38 @@ async function aplicarStockProductos(deltas){
             if(p)p.stock=Number(p.stock||0)+Number(deltas[id]);});
     }
 }
-/* Suma las cantidades por producto de una lista de items de venta. signo=-1
+/* Mismo criterio que aplicarStockProductos, y por el mismo motivo. `insumosData` se
+   carga UNA sola vez (`if(!insumosData.length)`) y se reusa toda la sesion, asi que el
+   numero que tiene en memoria puede ser de la manana. Escribir el absoluto calculado
+   sobre eso borraba lo que habia consumido el otro admin en el medio: los dos vendian,
+   cada uno restaba sobre su propia foto vieja, y el insumo quedaba con el consumo de uno
+   solo. Con increment() el que suma es el servidor.
+   `deltas` es {idInsumo: cantidad}: negativo consume, positivo devuelve. */
+async function aplicarStockInsumos(deltas){
+    const ids=Object.keys(deltas||{}).filter(id=>id&&Number(deltas[id])!==0);
+    if(!ids.length)return;
+    for(let j=0;j<ids.length;j+=450){
+        const batch=db.batch();
+        ids.slice(j,j+450).forEach(id=>{
+            batch.update(db.collection('insumos').doc(id),
+                {stockActual:firebase.firestore.FieldValue.increment(Number(deltas[id])),
+                 actualizadoEn:new Date()});
+        });
+        await batch.commit();
+    }
+    /* Espejo en memoria para que la pantalla no muestre el numero viejo */
+    if(typeof insumosData!=='undefined'&&Array.isArray(insumosData)){
+        ids.forEach(id=>{const i=insumosData.find(x=>x.id===id);
+            if(i)i.stockActual=Number(i.stockActual||0)+Number(deltas[id]);});
+    }
+}
+/* Convierte una lista de insumosUsados en deltas. signo=-1 consume, +1 devuelve. */
+function deltasDeInsumos(usados,signo){
+    const d={};
+    (usados||[]).forEach(u=>{if(!u||!u.id)return;d[u.id]=(d[u.id]||0)+signo*Number(u.cantidad||0);});
+    return d;
+}
+        /* Suma las cantidades por producto de una lista de items de venta. signo=-1
    descuenta, +1 devuelve. Agrupa porque el mismo producto puede estar repetido. */
 function deltasDeItems(items,signo){
     const d={};
@@ -1078,8 +1109,15 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             if(descuentoPct<0)descuentoPct=0;
             if(descuentoPct>100)descuentoPct=100;
             const descuentoMonto=Math.round(subtotal*descuentoPct/100);
-            const cuponMonto=window._pedidoCuponVenta?Math.min((window._pedidoCuponVenta.monto||0),subtotal):0;
-            const subtotalConDesc=subtotal-descuentoMonto-cuponMonto;
+            /* El cupon se topea contra lo que QUEDA despues del descuento general, no contra el
+               subtotal. Antes se topeaba contra el subtotal y los dos se restaban por separado:
+               un pedido de $2.200 con un cupon de $2.000 mas un 20% de descuento daba
+               2200 - 440 - 2000 = -240, o sea una venta con total negativo, que despues se
+               guardaba asi y ensuciaba el arqueo y las estadisticas. */
+            const cuponMonto=window._pedidoCuponVenta
+                ? Math.min(Math.max(0,Number(window._pedidoCuponVenta.monto||0)),Math.max(0,subtotal-descuentoMonto))
+                : 0;
+            const subtotalConDesc=Math.max(0,subtotal-descuentoMonto-cuponMonto);
             const envio=ventaTipoEntrega==='envio'?(subtotalConDesc>=ENVIO_GRATIS_DESDE?0:ENVIO_PRECIO):0;
             return {subtotal,descuentoPct,descuentoMonto,subtotalConDesc,envio,total:subtotalConDesc+envio};
         }
@@ -1208,7 +1246,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             throw new Error('No se pudo generar un id unico para la resena');
         }
 
-        async function saveVenta(){if(!ventaClienteSelected){showAdminToast('Selecciona un cliente de la lista','error');document.getElementById('ventaCliente').focus();return;}if(!ventaItems.length){showAdminToast('Agrega al menos un producto','error');return;}const isEdit=!!editingVentaId;/* Para edicion: el "stock disponible" para validar es stockActual + cantidad del original (que ya esta descontada y vamos a devolver) */const originalInsumos={};if(isEdit&&editingVentaOriginal&&editingVentaOriginal.insumosUsados){editingVentaOriginal.insumosUsados.forEach(u=>{originalInsumos[u.id]=Number(u.cantidad||0);});}for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i){showAdminToast('Insumo "'+u.nombre+'" ya no existe','error');return;}const stockEfectivo=Number(i.stockActual||0)+(originalInsumos[u.id]||0);if(u.cantidad>stockEfectivo){showAdminToast('Stock insuficiente de "'+u.nombre+'" (hay '+stockEfectivo+', usas '+u.cantidad+')','error');return;}}const btn=document.getElementById('saveVentaBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{const totales=calcularTotalesVenta();const subtotalProductos=totales.subtotal;const envio=totales.envio;const total=totales.total;const now=new Date();const fechaStr=document.getElementById('ventaFecha').value;const fechaParts=fechaStr.split('-');const fechaVenta=new Date(fechaParts[0],fechaParts[1]-1,fechaParts[2],now.getHours(),now.getMinutes(),now.getSeconds());if(isEdit){/* === MODO EDICION === */const ventaPrevia=ventasData.find(x=>x.docId===editingVentaId);const numActual=ventaPrevia?ventaPrevia.numero:0;/* 1. Devolver stock de insumos originales */const stockUpdates={};(editingVentaOriginal.insumosUsados||[]).forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)+Number(u.cantidad||0);});/* 2. Restar stock de insumos nuevos */ventaInsumosUsados.forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)-Number(u.cantidad||0);});/* 3. Aplicar deltas al stock */for(const id in stockUpdates){const delta=stockUpdates[id];if(delta===0)continue;const i=insumosData.find(x=>x.id===id);if(!i)continue;const nuevo=Math.max(0,Number(i.stockActual||0)+delta);await db.collection('insumos').doc(id).update({stockActual:nuevo,actualizadoEn:new Date()});i.stockActual=nuevo;}/* 3b. Stock de productos: devolver los del original y descontar los nuevos.
+        async function saveVenta(){if(!ventaClienteSelected){showAdminToast('Selecciona un cliente de la lista','error');document.getElementById('ventaCliente').focus();return;}if(!ventaItems.length){showAdminToast('Agrega al menos un producto','error');return;}const isEdit=!!editingVentaId;/* Para edicion: el "stock disponible" para validar es stockActual + cantidad del original (que ya esta descontada y vamos a devolver) */const originalInsumos={};if(isEdit&&editingVentaOriginal&&editingVentaOriginal.insumosUsados){editingVentaOriginal.insumosUsados.forEach(u=>{originalInsumos[u.id]=Number(u.cantidad||0);});}for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i){showAdminToast('Insumo "'+u.nombre+'" ya no existe','error');return;}const stockEfectivo=Number(i.stockActual||0)+(originalInsumos[u.id]||0);if(u.cantidad>stockEfectivo){showAdminToast('Stock insuficiente de "'+u.nombre+'" (hay '+stockEfectivo+', usas '+u.cantidad+')','error');return;}}const btn=document.getElementById('saveVentaBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{const totales=calcularTotalesVenta();const subtotalProductos=totales.subtotal;const envio=totales.envio;const total=totales.total;const now=new Date();const fechaStr=document.getElementById('ventaFecha').value;const fechaParts=fechaStr.split('-');const fechaVenta=new Date(fechaParts[0],fechaParts[1]-1,fechaParts[2],now.getHours(),now.getMinutes(),now.getSeconds());if(isEdit){/* === MODO EDICION === */const ventaPrevia=ventasData.find(x=>x.docId===editingVentaId);const numActual=ventaPrevia?ventaPrevia.numero:0;/* 1. Devolver stock de insumos originales */const stockUpdates={};(editingVentaOriginal.insumosUsados||[]).forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)+Number(u.cantidad||0);});/* 2. Restar stock de insumos nuevos */ventaInsumosUsados.forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)-Number(u.cantidad||0);});/* 3. Aplicar deltas al stock */await aplicarStockInsumos(stockUpdates);/* 3b. Stock de productos: devolver los del original y descontar los nuevos.
    Solo se devuelve si la venta original REALMENTE habia descontado (stockDescontado).
    Sin ese guardia, editar una venta anterior a esta funcion inflaria el stock
    devolviendo mercaderia que nunca se habia restado. */
@@ -1238,7 +1276,7 @@ const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente
    que la venta naciera de un pedido web para NO descontar, dando por hecho que la
    tienda ya lo habia hecho; si esa vez fallaba, las unidades no se restaban nunca
    y nadie se enteraba. Ahora: se descuenta salvo que alguien ya lo haya hecho. */
-if(!_yaDescontado)await aplicarStockProductos(deltasDeItems(ventaItems,-1));/* Descontar insumos */for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i)continue;const nuevo=Math.max(0,Number(i.stockActual||0)-u.cantidad);await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});i.stockActual=nuevo;}logAction('crear','Venta #'+num+' - $'+total.toLocaleString('es-AR'),venta.cliente+' | '+venta.medioPago+' | '+(ventaTipoEntrega==='envio'?'Envio':'Retiro')+' | '+ventaItems.length+' items'+(ventaInsumosUsados.length?' | insumos: '+ventaInsumosUsados.map(u=>u.nombre+'x'+u.cantidad).join(', '):''));showAdminToast('Venta #'+num+' registrada','success');/* Marcar pedido origen como confirmado */if(window._pedidoOrigenVentaId){try{/* Usamos el id que devolvio add(): buscar "la venta con el numero mas alto" ataba el pedido a la venta equivocada si el otro admin registraba una en el medio */const ventaDocId=ventaRefNueva.id;/* stockDescontado:false traspasa la responsabilidad del stock a la venta:
+if(!_yaDescontado)await aplicarStockProductos(deltasDeItems(ventaItems,-1));/* Descontar insumos */await aplicarStockInsumos(deltasDeInsumos(ventaInsumosUsados,-1));logAction('crear','Venta #'+num+' - $'+total.toLocaleString('es-AR'),venta.cliente+' | '+venta.medioPago+' | '+(ventaTipoEntrega==='envio'?'Envio':'Retiro')+' | '+ventaItems.length+' items'+(ventaInsumosUsados.length?' | insumos: '+ventaInsumosUsados.map(u=>u.nombre+'x'+u.cantidad).join(', '):''));showAdminToast('Venta #'+num+' registrada','success');/* Marcar pedido origen como confirmado */if(window._pedidoOrigenVentaId){try{/* Usamos el id que devolvio add(): buscar "la venta con el numero mas alto" ataba el pedido a la venta equivocada si el otro admin registraba una en el medio */const ventaDocId=ventaRefNueva.id;/* stockDescontado:false traspasa la responsabilidad del stock a la venta:
    sin esto, borrar el pedido Y la venta devolveria la mercaderia dos veces. */
 await db.collection('pedidos').doc(window._pedidoOrigenVentaId).update({estado:'confirmado',ventaId:ventaDocId,stockDescontado:false,confirmedAt:firebase.firestore.FieldValue.serverTimestamp()});const ped=pedidosData.find(x=>x.docId===window._pedidoOrigenVentaId);if(ped){ped.estado='confirmado';ped.stockDescontado=false;if(ventaDocId)ped.ventaId=ventaDocId;}}catch(e){console.warn('No se pudo marcar pedido como confirmado:',e);}window._pedidoOrigenVentaId=null;}}sessionStorage.removeItem(STOCK_BAJO_VISTOS_KEY);closeVentaModal();editingVentaId=null;editingVentaOriginal=null;loadVentas();if(ventaInsumosUsados.length)checkStockBajoInsumos();}catch(e){showAdminToast('Error: '+e.message,'error');}finally{btn.disabled=false;btn.innerHTML=editingVentaId?'<i class="bi bi-check-lg"></i> Guardar cambios':'<i class="bi bi-check-lg"></i> Registrar Venta';}}
 
@@ -1430,7 +1468,7 @@ await db.collection('pedidos').doc(window._pedidoOrigenVentaId).update({estado:'
             setTimeout(()=>{const t=document.getElementById('stockBajoToast');if(t)t.remove();},6700);
         }
 
-        async function deleteVenta(docId,num){if(!confirm('Eliminar venta #'+num+'? Esta accion no se puede deshacer.'))return;try{const venta=ventasData.find(v=>v.docId===docId);if(venta&&venta.insumosUsados&&venta.insumosUsados.length){for(const u of venta.insumosUsados){const ins=insumosData.find(x=>x.id===u.id);if(!ins)continue;const nuevo=Number(ins.stockActual||0)+Number(u.cantidad||0);await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});ins.stockActual=nuevo;}}/* Devolver stock de gondola solo si esta venta fue la que lo descontó.
+        async function deleteVenta(docId,num){if(!confirm('Eliminar venta #'+num+'? Esta accion no se puede deshacer.'))return;try{const venta=ventasData.find(v=>v.docId===docId);if(venta&&venta.insumosUsados&&venta.insumosUsados.length){await aplicarStockInsumos(deltasDeInsumos(venta.insumosUsados,1));}/* Devolver stock de gondola solo si esta venta fue la que lo descontó.
    La bandera se baja ANTES del await, igual que en devolverStockPedido: dos clics
    seguidos en Eliminar alcanzaban para devolver la mercaderia dos veces. */
 if(venta&&venta.stockDescontado){venta.stockDescontado=false;await aplicarStockProductos(deltasDeItems(venta.items,1));}
@@ -1586,7 +1624,7 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
                     cards+=cuponBadge;
                     cards+='</div>';
                     cards+='<div style="font-size:0.8rem;font-weight:600;color:var(--text-main);margin:2px 0">'+esc(p.clienteWeb||p.cliente||'—')+'</div>';
-                    if(p.clienteAuthUid){cards+='<div style="font-size:0.72rem;color:var(--accent-light)">'+(p.clienteEmail||p.clienteId?'#'+p.clienteId+' · '+(p.clienteEmail||''):'')+'</div>';}
+                    if(p.clienteAuthUid){cards+='<div style="font-size:0.72rem;color:var(--accent-light)">'+(p.clienteEmail||p.clienteId?'#'+esc(p.clienteId||'')+' · '+esc(p.clienteEmail||''):'')+'</div>';}
                     cards+='<div class="kcard-bottom">';
                     cards+='<span class="kcard-date">'+fecha+'</span>';
                     cards+='<span class="kcard-items">'+itemsTxt+'</span>';
@@ -1732,6 +1770,15 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
             if(!docId){showAdminToast('Sin pedido activo','error');return;}
             const p=pedidosData.find(x=>x.docId===docId);
             if(!p){showAdminToast('Pedido no encontrado','error');return;}
+            /* Guardia en la funcion y no solo en el boton. Ocultar el boton evita el click,
+               pero esta funcion tambien se alcanza desde convertirPedidoEnVenta() y desde la
+               consola: sin este chequeo se podia facturar dos veces el mismo pedido, con dos
+               ventas, el stock descontado de nuevo, y pedido.ventaId apuntando a la segunda
+               mientras la primera quedaba huerfana. */
+            if(p.ventaId){
+                showAdminToast('Este pedido ya se convirtió en venta. No se puede facturar dos veces.','error');
+                return;
+            }
             closePedidoModal();
             if(!allProducts.length)await loadProducts();
             if(!insumosData.length){try{const s=await db.collection('insumos').orderBy('nombre').get();insumosData=s.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}
@@ -1758,7 +1805,7 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
             let authCard=document.getElementById('ventaAuthCard');
             if(!authCard){authCard=document.createElement('div');authCard.id='ventaAuthCard';ventaClienteWrap?.parentNode.insertBefore(authCard,ventaClienteWrap);}
             if(clienteAuthUid){
-                authCard.innerHTML='<div style="font-size:0.82rem;background:rgba(91,45,138,0.15);border-radius:6px;padding:6px 10px;margin-bottom:6px"><i class="bi bi-person-check" style="color:#a78bfa"></i> <strong>'+esc(nombreCliente)+'</strong>'+(clienteId?' <span style="color:var(--text-dim);font-size:0.75rem">#'+clienteId+'</span>':'')+(p.clienteEmail?' <span style="color:var(--text-dim);font-size:0.75rem">· '+esc(p.clienteEmail)+'</span>':'')+'</div>';
+                authCard.innerHTML='<div style="font-size:0.82rem;background:rgba(91,45,138,0.15);border-radius:6px;padding:6px 10px;margin-bottom:6px"><i class="bi bi-person-check" style="color:#a78bfa"></i> <strong>'+esc(nombreCliente)+'</strong>'+(clienteId?' <span style="color:var(--text-dim);font-size:0.75rem">#'+esc(clienteId)+'</span>':'')+(p.clienteEmail?' <span style="color:var(--text-dim);font-size:0.75rem">· '+esc(p.clienteEmail)+'</span>':'')+'</div>';
                 authCard.style.display='block';
                 if(ventaClienteWrap)ventaClienteWrap.style.display='none';
             }else{
@@ -1813,7 +1860,7 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
                         if(authInfoEl){
                             if(p.clienteAuthUid){
                                 authInfoEl.style.display='block';
-                                authInfoEl.innerHTML='<div style="font-size:0.8rem;background:rgba(91,45,138,0.15);border-radius:6px;padding:6px 10px"><i class="bi bi-person-check" style="color:#a78bfa"></i> <strong>'+esc(p.clienteWeb||p.cliente||'')+'</strong>'+(p.clienteId?' <span style="color:var(--text-dim);font-size:0.75rem">#'+p.clienteId+'</span>':'')+(p.clienteEmail?' <span style="color:var(--text-dim);font-size:0.75rem">· '+esc(p.clienteEmail)+'</span>':'')+'<br><small style="color:var(--text-dim)">'+esc(p.telefono||'')+'</small></div>';
+                                authInfoEl.innerHTML='<div style="font-size:0.8rem;background:rgba(91,45,138,0.15);border-radius:6px;padding:6px 10px"><i class="bi bi-person-check" style="color:#a78bfa"></i> <strong>'+esc(p.clienteWeb||p.cliente||'')+'</strong>'+(p.clienteId?' <span style="color:var(--text-dim);font-size:0.75rem">#'+esc(p.clienteId)+'</span>':'')+(p.clienteEmail?' <span style="color:var(--text-dim);font-size:0.75rem">· '+esc(p.clienteEmail)+'</span>':'')+'<br><small style="color:var(--text-dim)">'+esc(p.telefono||'')+'</small></div>';
                                 /* Ocultar selector BDD, nombre web y botón nuevo cliente */
                                 const webWrap=document.getElementById('pedClienteWebWrap');
                                 const bddWrap=document.querySelector('#pedidoModal .cliente-select-wrap');
@@ -1883,7 +1930,20 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
         function closePedidoModal(){document.getElementById('pedidoModal').classList.remove('show');editingPedidoId=null;pedidoDirty=false;}
         function markPedidoDirty(){pedidoDirty=true;const b=document.getElementById('convertirVentaBtn');if(b){b.disabled=true;b.title='Guardá los cambios antes de convertir a venta';}}
         function setPedEntrega(tipo){markPedidoDirty();if(!HACE_ENVIOS)tipo='retiro';pedTipoEntrega=tipo;document.querySelectorAll('[data-ped-entrega]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-ped-entrega')===tipo));renderPedItems();}
-        function calcPedTotales(){const sub=pedItems.reduce((s,i)=>s+Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad,0);const envio=pedTipoEntrega==='envio'?(sub>=ENVIO_GRATIS_DESDE?0:ENVIO_PRECIO):0;return{subtotal:sub,envio:envio,total:sub+envio};}
+        /* El cupon se descuenta ACA, no solo en la linea que se dibuja abajo del modal.
+           Antes esta funcion devolvia sub+envio y savePedidoDesdeModal guardaba ESE total:
+           la pantalla mostraba $17.000 y en Firestore quedaban $20.000 con el cupon intacto,
+           asi que el pedido se contradecia consigo mismo y el ticket salia con otro numero.
+           El envio se calcula sobre el subtotal YA con el cupon aplicado, igual que en la
+           tienda (app.js usa costoEnvio(subtotalConDesc,...)): si no, un cupon podia dejar el
+           pedido debajo del minimo de envio gratis y el cliente igual no lo pagaba. */
+        function calcPedTotales(){
+            const sub=pedItems.reduce((s,i)=>s+Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad,0);
+            const dc=Math.min(Math.max(0,Number((_pedidoCupon&&_pedidoCupon.monto)||0)),sub);
+            const subConDc=sub-dc;
+            const envio=pedTipoEntrega==='envio'?(subConDc>=ENVIO_GRATIS_DESDE?0:ENVIO_PRECIO):0;
+            return{subtotal:sub,cupon:dc,subtotalConDesc:subConDc,envio:envio,total:subConDc+envio};
+        }
         function filterPedProducts(){
             const c=document.getElementById('pedProdList');
             const q=(document.getElementById('pedProdSearch')?.value||'').toLowerCase();
@@ -1935,8 +1995,9 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
                 bdHtml+='</div>';
                 bd.innerHTML=bdHtml;
             }
-            var totalFinal=_pedidoCupon?Math.max(0,t.total-Number(_pedidoCupon.monto||0)):t.total;
-            document.getElementById('pedTotal').textContent='$'+totalFinal.toLocaleString('es-AR');
+            /* t.total ya viene con el cupon descontado: restarlo otra vez aca lo cobraba dos
+               veces en pantalla. */
+            document.getElementById('pedTotal').textContent='$'+t.total.toLocaleString('es-AR');
         }
         function refreshPedInsumosSelect(){const s=document.getElementById('pedInsumoSelect');if(!s)return;const usados=new Set(pedInsumosUsados.map(u=>u.id));s.innerHTML='<option value="">+ Agregar insumo...</option>'+insumosData.filter(i=>!usados.has(i.id)).map(i=>'<option value="'+i.id+'">'+i.nombre+' (stock: '+(i.stockActual||0)+')</option>').join('');}
         function addPedInsumoFromSelect(){markPedidoDirty();const s=document.getElementById('pedInsumoSelect');const id=s.value;if(!id)return;const i=insumosData.find(x=>x.id===id);if(!i)return;pedInsumosUsados.push({id:i.id,nombre:i.nombre,cantidad:1,stockActual:i.stockActual||0});renderPedInsumosUsados();refreshPedInsumosSelect();s.value='';}
@@ -1958,9 +2019,24 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
                     clienteId:document.getElementById('pedClienteId').value||null,
                     medioPago:document.getElementById('pedMedio').value,
                     tipoEntrega:pedTipoEntrega,
-                    items:pedItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,subtotal:i.precio*i.cantidad})),
+                    /* precioOriginal y descuento se conservan. Antes se reconstruia el item con
+                       solo cinco campos, asi que guardar un pedido web le borraba la promocion:
+                       un producto que estaba a $800 con 20% off quedaba como si valiera $800 sin
+                       descuento, y el ticket ya no podia mostrar el precio tachado. El subtotal
+                       tambien tiene que aplicar el descuento, si no la suma de los items no
+                       coincide con el total. */
+                    items:pedItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,
+                        precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,
+                        costo:i.costo,cantidad:i.cantidad,
+                        subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),
                     insumosUsados:pedInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),
-                    subtotal:t.subtotal,envio:t.envio,total:t.total,
+                    /* El cupon se guarda junto con el total que lo incluye. Antes el total se
+                       recalculaba sin el y el campo cupon quedaba intacto: el pedido decia
+                       "-$3.000 de cupon" y a la vez un total que no lo restaba. */
+                    subtotal:t.subtotal,subtotalProductos:t.subtotal,
+                    cupon:_pedidoCupon?{codigo:_pedidoCupon.codigo,monto:t.cupon,
+                        porcentaje:_pedidoCupon.porcentaje||null}:null,
+                    envio:t.envio,total:t.total,
                     actualizadoEn:firebase.firestore.FieldValue.serverTimestamp()
                 };
                 if(editingPedidoId){
@@ -2114,7 +2190,7 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
             items.forEach(function(cl){
                 var d=document.createElement('div');
                 d.className='cliente-select-item';
-                var idStr=cl.clienteId?'<span style="font-family:var(--mono);color:var(--accent-light);font-size:0.72rem">#'+cl.clienteId+'</span> ':'';
+                var idStr=cl.clienteId?'<span style="font-family:var(--mono);color:var(--accent-light);font-size:0.72rem">#'+esc(cl.clienteId)+'</span> ':'';
                 var sub=cl.tipo==='auth'?'<i class="bi bi-person-check" style="color:#a78bfa"></i> '+esc(cl.email||cl.telefono||''):'';
                 d.innerHTML='<span>'+idStr+esc(cl.nombre)+'</span>'+(sub?'<small>'+sub+'</small>':'');
                 d.addEventListener('mousedown',function(){pickCliente(cl.id,cl.nombre);});
@@ -3205,7 +3281,7 @@ function previewEditorImg(input,field){if(!input.files[0])return;editorImgFiles[
             const mw=document.getElementById('ventaMayCliente')?.closest('.cliente-select-wrap');if(mw)mw.style.display='';
             document.getElementById('ventaMayModal').classList.remove('show');editingVentaMayId=null;
         }
-        async function deleteVentaMay(docId,num){if(!confirm('Eliminar venta mayorista #'+num+'? Esta accion no se puede deshacer.'))return;try{const venta=ventasMayData.find(v=>v.id===docId);if(venta&&venta.insumosUsados&&venta.insumosUsados.length){for(const u of venta.insumosUsados){const ins=insumosData.find(x=>x.id===u.id);if(!ins)continue;const nuevo=Number(ins.stockActual||0)+Number(u.cantidad||0);await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});ins.stockActual=nuevo;}}if(venta&&venta.stockDescontado){venta.stockDescontado=false;await aplicarStockProductos(deltasDeItems(venta.items,1));}
+        async function deleteVentaMay(docId,num){if(!confirm('Eliminar venta mayorista #'+num+'? Esta accion no se puede deshacer.'))return;try{const venta=ventasMayData.find(v=>v.id===docId);if(venta&&venta.insumosUsados&&venta.insumosUsados.length){await aplicarStockInsumos(deltasDeInsumos(venta.insumosUsados,1));}if(venta&&venta.stockDescontado){venta.stockDescontado=false;await aplicarStockProductos(deltasDeItems(venta.items,1));}
 await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Venta mayorista #'+num+' eliminada','success');logAction('eliminar','Venta Mayorista #'+num+' eliminada','DocID: '+docId);ventasMayData=ventasMayData.filter(v=>v.id!==docId);filterVentasMay();}catch(e){showAdminToast('Error: '+e.message,'error');}}
 
         function setVentaMayEntrega(tipo){
@@ -3356,13 +3432,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                     const stockUpdates={};
                     (originalInsumosMay&&Object.keys(originalInsumosMay).length?Object.entries(originalInsumosMay):[]).forEach(([id,qty])=>{stockUpdates[id]=(stockUpdates[id]||0)+qty;});
                     ventaMayInsumosUsados.forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)-Number(u.cantidad||0);});
-                    for(const id in stockUpdates){
-                        const delta=stockUpdates[id];if(delta===0)continue;
-                        const ins=insumosData.find(x=>x.id===id);if(!ins)continue;
-                        const nuevo=Math.max(0,Number(ins.stockActual||0)+delta);
-                        await db.collection('insumos').doc(id).update({stockActual:nuevo,actualizadoEn:new Date()});
-                        ins.stockActual=nuevo;
-                    }
+                    await aplicarStockInsumos(stockUpdates);
                     /* Stock de productos: devolver lo viejo (solo si esta venta lo habia
                        descontado) y descontar lo nuevo */
                     const dProdMay=(_mayPoseiaStock?deltasDeItems(_mayItemsPrevios,1):{});
@@ -3380,12 +3450,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                     await db.collection('ventasMayoristas').add({...ventaData,numero:num,cajaId:(typeof getCajaAbiertaIdLive==='function'?await getCajaAbiertaIdLive():null),origen:'mostrador',stockDescontado:!!DESCONTAR_STOCK,usuario:auth.currentUser?auth.currentUser.email:'',creadoEn:firebase.firestore.FieldValue.serverTimestamp()});
                     await aplicarStockProductos(deltasDeItems(ventaMayItems,-1));
                     /* Descontar stock insumos */
-                    for(const u of ventaMayInsumosUsados){
-                        const ins=insumosData.find(x=>x.id===u.id);if(!ins)continue;
-                        const nuevo=Math.max(0,Number(ins.stockActual||0)-u.cantidad);
-                        await db.collection('insumos').doc(u.id).update({stockActual:nuevo,actualizadoEn:new Date()});
-                        ins.stockActual=nuevo;
-                    }
+                    await aplicarStockInsumos(deltasDeInsumos(ventaMayInsumosUsados,-1));
                     logAction('crear','Venta Mayorista #'+num+' - $'+t.total.toLocaleString('es-AR'),cliente+' | '+medioPago+' | '+ventaMayItems.length+' items'+(ventaMayInsumosUsados.length?' | insumos: '+ventaMayInsumosUsados.map(u=>u.nombre+'x'+u.cantidad).join(', '):''));
                     showAdminToast('Venta mayorista #'+num+' registrada','success');
                 }
@@ -3406,7 +3471,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             let res=[];
             (clientesAuthData||[]).filter(c=>{const n=((c.nombre||'')+' '+(c.apellido||'')).trim();return !q||n.toLowerCase().includes(q)||(c.telefono||'').includes(q)||(c.email||'').toLowerCase().includes(q);}).slice(0,8).forEach(c=>{const n=((c.nombre||'')+' '+(c.apellido||'')).trim();if(n)res.push({id:'auth:'+c.uid,nombre:n,sub:c.email||'',clienteId:c.clienteId||null,tipo:'auth'});});
             if(!res.length){list.innerHTML='<div style="padding:0.5rem;color:var(--text-dim);font-size:0.82rem">Sin resultados</div>';list.classList.add('open');return;}
-            list.innerHTML='';res.forEach(function(cl){var d=document.createElement('div');d.className='cliente-select-item';var idStr=cl.clienteId?'<span style="font-family:var(--mono);color:var(--accent-light);font-size:0.72rem">#'+cl.clienteId+'</span> ':'';var sub=cl.tipo==='auth'?'<i class="bi bi-person-check" style="color:#a78bfa"></i> '+esc(cl.sub):'';d.innerHTML='<span>'+idStr+esc(cl.nombre)+'</span>'+(sub?'<small>'+sub+'</small>':'');d.addEventListener('mousedown',function(){pickVentaMayCliente(cl.id,cl.nombre);});list.appendChild(d);});
+            list.innerHTML='';res.forEach(function(cl){var d=document.createElement('div');d.className='cliente-select-item';var idStr=cl.clienteId?'<span style="font-family:var(--mono);color:var(--accent-light);font-size:0.72rem">#'+esc(cl.clienteId)+'</span> ':'';var sub=cl.tipo==='auth'?'<i class="bi bi-person-check" style="color:#a78bfa"></i> '+esc(cl.sub):'';d.innerHTML='<span>'+idStr+esc(cl.nombre)+'</span>'+(sub?'<small>'+sub+'</small>':'');d.addEventListener('mousedown',function(){pickVentaMayCliente(cl.id,cl.nombre);});list.appendChild(d);});
             list.classList.add('open');
         }
         function pickVentaMayCliente(id,nombre){document.getElementById('ventaMayCliente').value=nombre;document.getElementById('ventaMayClienteId').value=id;ventaMayClienteSelected=true;document.getElementById('ventaMayClienteList').classList.remove('open');}
@@ -3705,7 +3770,9 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             lista.forEach(function(cl){
                 const nombre=((cl.nombre||'')+' '+(cl.apellido||'')).trim()||'Sin nombre';
                 const completo=cl.nombre&&cl.apellido&&cl.telefono;
-                const idStr=cl.clienteId?'<span style="font-family:var(--mono);color:var(--accent-light);font-size:0.75rem">#'+String(cl.clienteId).padStart(4,'0')+'</span>':'';
+                /* esc() obligatorio: clienteId lo escribe el cliente desde la tienda, no el
+                   panel. Sin escapar era XSS almacenado contra el admin. */
+                const idStr=cl.clienteId?'<span style="font-family:var(--mono);color:var(--accent-light);font-size:0.75rem">#'+esc(String(cl.clienteId).padStart(4,'0'))+'</span>':'';
                 const row=document.createElement('div');
                 row.style.cssText='background:var(--bg-card);border-radius:var(--radius);padding:0.6rem 1rem;margin-bottom:0.4rem;border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:0.75rem;cursor:pointer;transition:border-color 0.15s';
                 row.innerHTML='<div style="display:flex;align-items:center;gap:0.6rem;flex:1;min-width:0">'+

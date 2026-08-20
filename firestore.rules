@@ -109,8 +109,18 @@ service cloud.firestore {
         && validString(request.resource.data.telefono, 30)
         && request.resource.data.direcciones is list
         && request.resource.data.direcciones.size() <= 5;
+      /* El cliente solo puede tocar sus cuatro campos de perfil. Antes la regla validaba
+         el CONTENIDO de esos cuatro pero no limitaba QUE campos se podian escribir, asi
+         que cualquiera logueado podia agregarse un clienteId con HTML adentro:
+           .update({clienteId:'<img src=x onerror=...>'})
+         y el panel lo metia en innerHTML sin escapar al listar clientes y pedidos. Era XSS
+         almacenado contra el admin, disparable por cualquier cliente de la tienda.
+         clienteId es el vinculo con la coleccion clientes y lo asigna el admin: no tiene
+         por que poder escribirlo el cliente. */
       allow update: if isAdmin()
         || (isAuthUser() && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['nombre','apellido','telefono','direcciones'])
           && (!('nombre' in request.resource.data) || validString(request.resource.data.nombre, 80))
           && (!('apellido' in request.resource.data) || validString(request.resource.data.apellido, 80))
           && (!('telefono' in request.resource.data) || validString(request.resource.data.telefono, 30))
