@@ -1212,7 +1212,13 @@ await db.collection('pedidos').doc(window._pedidoOrigenVentaId).update({estado:'
         async function generarLinkResena(){
             try{
                 const id=await _generarResenaIdUnico();
-                await db.collection('resenas').doc(id).set({usado:false,origen:'manual',cliente:'Cliente pre-web',creadoEn:new Date()});
+                /* ventaNum:null tiene que estar. firestore.rules exige, al completar la
+                   reseña, que `request.resource.data.ventaNum == resource.data.ventaNum`. Si el
+                   campo no existe en el documento, esa comparacion no se puede evaluar y la
+                   regla rechaza: el link se generaba, se le pasaba al cliente, y al enviar la
+                   opinion daba error de permisos siempre. Los tokens que crea saveVenta si lo
+                   traen, asi que el problema era solo de los links hechos a mano. */
+                await db.collection('resenas').doc(id).set({usado:false,ventaNum:null,origen:'manual',cliente:'Cliente pre-web',creadoEn:new Date()});
                 const link='https://brotesdietetica.vercel.app/resena.html?id='+id;
                 document.getElementById('linkResenaInput').value=link;
                 document.getElementById('linkResenaModal').classList.add('show');
@@ -1484,7 +1490,12 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
 
 
         let _pedidosUnsubscribe=null;
-        function loadPedidos(){_buildMesOptions('pedidoMesFiltro');
+        /* El segundo argumento en true deja el filtro en "Todos los meses". Sin el,
+           _buildMesOptions preselecciona el mes actual, y un pedido pendiente de fin del mes
+           pasado desaparecia del tablero el dia 1: seguia sin entregar y nadie lo veia.
+           En Ventas tiene sentido arrancar por el mes corriente, porque son hechos cerrados;
+           en Pedidos no, porque son trabajo que todavia hay que hacer. */
+        function loadPedidos(){_buildMesOptions('pedidoMesFiltro',true);
             if(window.innerWidth<=700)switchKanbanTab('pendiente');
             /* Mostrar cargando solo la primera vez */
             if(!pedidosData.length){
@@ -1545,6 +1556,11 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
                     cards+='<div class="kcard-bottom">';
                     cards+='<span class="kcard-date">'+fecha+'</span>';
                     cards+='<span class="kcard-items">'+itemsTxt+'</span>';
+                    /* El tablero se movia SOLO arrastrando, y en celular no hay drag&drop: desde el
+                       telefono no habia ninguna forma de pasar un pedido de pendiente a confirmado
+                       o a entregado. openEstadoPedidoModal ya existia y hacia justo esto, pero
+                       nada lo llamaba desde la tarjeta. */
+                    cards+='<button onclick="event.stopPropagation();openEstadoPedidoModal(\''+p.docId+'\')" style="background:none;border:none;color:var(--accent-light);cursor:pointer;padding:0 2px;font-size:0.85rem;opacity:0.85" title="Cambiar estado"><i class="bi bi-arrow-left-right"></i></button>';
                     cards+='<button onclick="event.stopPropagation();deletePedido(\''+p.docId+'\','+String(p.numero||0)+')" style="background:none;border:none;color:#f56c6c;cursor:pointer;padding:0 2px;font-size:0.85rem;opacity:0.7" title="Eliminar"><i class="bi bi-trash"></i></button>';
                     cards+=badge;
                     cards+='</div>';
