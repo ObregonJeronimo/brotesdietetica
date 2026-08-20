@@ -284,6 +284,7 @@ exports.descontarStockPedido = onDocumentCreated(
       const refs = ids.map((id) => db.collection('productos').doc(id));
       const snaps = await t.getAll(...refs);
       const falt = [];
+      const bajoCosto = [];
       let totalCatalogo = 0;
 
       snaps.forEach((sn, k) => {
@@ -301,10 +302,29 @@ exports.descontarStockPedido = onDocumentCreated(
         }
         /* Precio de catalogo al momento de procesar, para poder comparar contra lo
            que se le cobro. No se corrige solo: que el precio haya cambiado entre que
-           el cliente abrio la pagina y confirmo es normal y no es fraude. */
+           el cliente abrio la pagina y confirmo es normal y no es fraude, y encima el
+           cliente acepto ESE precio. Cambiarselo despues seria peor. */
         const base = Number(p.precio || 0);
         const desc = Number(p.descuento || 0);
         totalCatalogo += Math.round(base * (1 - desc / 100)) * pedido;
+
+        /* Y aca la senal que SI distingue una manipulacion de un cambio de precios.
+           Con inflacion, un pedido legitimo hecho con la pagina abierta hace rato paga
+           MENOS que el catalogo de hoy: por monto solo, es igual a uno manipulado.
+           Lo que nunca pasa por un cambio de precios es cobrar por debajo del COSTO,
+           porque el comercio estaria perdiendo plata en cada unidad. Eso es la firma de
+           alguien tocando el carrito desde la consola. */
+        const itemPedido = (data.items || []).find((it) => it && it.id === ids[k]);
+        const cobradoUnidad = itemPedido ? Number(itemPedido.precio || 0) : null;
+        const costoUnidad = Number(p.costo || 0);
+        if (cobradoUnidad !== null && costoUnidad > 0 && cobradoUnidad < costoUnidad) {
+          bajoCosto.push({
+            id: ids[k],
+            nombre: p.nombreMostrado || p.nombre || ids[k],
+            cobrado: cobradoUnidad,
+            costo: costoUnidad
+          });
+        }
       });
 
       snaps.forEach((sn, k) => {
@@ -320,9 +340,19 @@ exports.descontarStockPedido = onDocumentCreated(
         stockFaltante: falt.length ? falt : null,
         subtotalCatalogo: totalCatalogo
       };
-      /* Solo se marca cuando la diferencia no se explica por un cambio de precios:
-         pagar menos de la mitad de lo que vale hoy es otra cosa. */
-      if (totalCatalogo > 0 && cobrado < totalCatalogo * 0.5) patch.revisarPrecio = true;
+      /* Dos motivos distintos para marcarlo, y se guarda cual fue:
+         - bajoCosto: algun item se cobro por debajo de lo que le cuesta al comercio.
+           Eso no lo produce un cambio de precios, asi que es el aviso fuerte.
+         - la mitad: el total quedo por debajo de la mitad del catalogo de hoy. Puede
+           ser inflacion sobre una pagina vieja, asi que es un aviso mas flojo, pero
+           conviene mirarlo igual antes de entregar. */
+      if (bajoCosto.length) {
+        patch.revisarPrecio = true;
+        patch.itemsBajoCosto = bajoCosto;
+      } else if (totalCatalogo > 0 && cobrado < totalCatalogo * 0.5) {
+        patch.revisarPrecio = true;
+      }
+      patch.diferenciaCatalogo = totalCatalogo - cobrado;
       t.update(snap.ref, patch);
 
       return falt;

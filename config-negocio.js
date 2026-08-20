@@ -112,4 +112,30 @@ NEGOCIO.hidratarDOM = function (root) {
   });
 };
 
+/**
+ * Numero de pedido, un solo formato para todos.
+ * ---------------------------------------------------------------------------
+ * Estaba escrito cuatro veces con tres anchos distintos: el cliente confirmaba y
+ * veia "#007", en Mis Pedidos el mismo pedido era "#000007", y el comercio lo veia
+ * como "#00007" en el panel y en el aviso de Telegram. Cuando el cliente llamaba
+ * diciendo "el pedido 7" no habia forma de buscarlo escribiendo lo que el leia.
+ * Cinco digitos porque es lo que ya usan el panel y la funcion de Telegram, o sea
+ * lo que el comercio tiene a la vista todos los dias.
+ */
+NEGOCIO.nroPedido = function (n) {
+  return '#' + String(Number(n) || 0).padStart(5, '0');
+};
+
+/**
+ * Numero de venta. Es OTRA numeracion que la de pedidos y por eso tiene su propia
+ * funcion: un pedido web #00042 y una venta #000042 no son lo mismo y no deberian
+ * parecerlo. Seis digitos porque es lo que ya usan la tarjeta de venta, la factura A4
+ * y el modal de edicion. El ticket termico imprimia cinco, asi que el papel que se le
+ * daba al cliente y la pantalla del comercio mostraban numeros distintos para la
+ * misma venta; con esto imprimen el mismo.
+ */
+NEGOCIO.nroVenta = function (n) {
+  return '#' + String(Number(n) || 0).padStart(6, '0');
+};
+
 document.addEventListener('DOMContentLoaded', () => NEGOCIO.hidratarDOM());

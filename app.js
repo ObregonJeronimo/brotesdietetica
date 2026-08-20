@@ -933,7 +933,11 @@ async function confirmCheckout(){
             console.warn('No se pudo guardar el pedido en BDD, se continua con WhatsApp:',e);
         }
         /* Construir mensaje de WhatsApp con el numero de pedido */
-        const numeroFmt=String(pedidoNum).padStart(3,'0');
+        /* Un solo formato para todo el sistema, definido en config-negocio.js. Aca
+           decia 3 digitos y en Mis Pedidos 6: el mismo pedido tenia dos nombres. */
+        const numeroFmt=(typeof NEGOCIO!=='undefined'&&NEGOCIO.nroPedido)
+            ?NEGOCIO.nroPedido(pedidoNum).slice(1)
+            :String(pedidoNum).padStart(5,'0');
         let msg='Hola! *Pedido confirmado N°'+numeroFmt+'*\n\n';
         msg+='*Cliente:* '+clienteNombreCompleto+'\n';
         msg+='*Tel:* '+telefonoLimpio+'\n';
@@ -1556,7 +1560,9 @@ function _renderPedidosCliente() {
         return;
     }
     c.innerHTML = pedidos.map(p => {
-        const num = '#' + String(p.numero || 0).padStart(6, '0');
+        const num = (typeof NEGOCIO !== 'undefined' && NEGOCIO.nroPedido)
+            ? NEGOCIO.nroPedido(p.numero)
+            : '#' + String(p.numero || 0).padStart(5, '0');
         const fecha = p.creadoEn.toLocaleDateString('es-AR');
         const items = (p.items || []).map(i => '<div style="font-size:0.8rem;color:#555;padding:1px 0">• '+esc(i.nombre)+' <span style="color:#888">x'+esc(i.cantidad)+'</span></div>').join('');
         const estadoClass = 'estado-' + (p.estado || 'pendiente');
