@@ -7,7 +7,8 @@
     "dev": "node dev-server.js 5173",
     "build:js": "terser app.js -c -m -o app.min.js",
     "build:css": "cleancss -o styles.min.css styles.css && cleancss -o toolbar.min.css toolbar.css && cleancss -o footer-dev.min.css footer-dev.css",
-    "build": "npm run build:js && npm run build:css"
+    "check": "node check-admin.js",
+    "build": "npm run check && npm run build:js && npm run build:css"
   },
   "devDependencies": {
     "clean-css-cli": "^5.6.3",

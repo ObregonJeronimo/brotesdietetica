@@ -35,3 +35,12 @@ dev-server.js
 
 # Bancos de prueba locales (montan los modulos contra un Firestore falso)
 _test-*.html
+
+# OJO: check-admin.js NO va aca a proposito.
+# Vercel corre `npm run build` al desplegar, y el build arranca con `npm run check`,
+# que es ese archivo. Si se excluye, el deploy se cae con "cannot find module".
+# Y esta bien que corra alla: si alguien commitea un JS que revienta al cargar, el
+# deploy falla y produccion se queda con la version anterior, que funciona. Sin eso,
+# el panel roto sale al aire (ya paso una vez: un `async` colgado que node --check
+# aprobaba y que dejaba todo el bloque de admin.html sin ejecutar).
+# Es una herramienta inerte: no expone nada ni escucha en ningun puerto.
