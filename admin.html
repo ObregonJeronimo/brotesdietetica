@@ -918,6 +918,23 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             total-=Number(doc&&doc.descuentoMonto||0);
             return {ganancia:Math.round(total),completa:completa};
         }
+        /* Una URL de imagen de verdad. Misma comprobacion que hace la tienda (app.js),
+           repetida aca porque el panel no carga app.js.
+           En config/siteContent quedaron guardados heroImg y ctaImg apuntando a
+           "https://<dominio>/admin" —la propia pagina, no una imagen— de cuando guardar
+           el Editor Web leia el src de un <img> vacio. Eso hacia dos cosas aca adentro:
+           la vista previa quedaba rota (un <img> intentando mostrar un documento HTML), y
+           al guardar se volvia a escribir el mismo valor, asi que se perpetuaba solo. */
+        function esUrlImagenAdmin(u){
+            if(!u||typeof u!=='string')return false;
+            const v=u.trim();
+            if(!v)return false;
+            if(/^\.?\/?img\//i.test(v))return true;
+            if(!/^https?:\/\//i.test(v))return false;
+            if(/(firebasestorage\.googleapis\.com|\.firebasestorage\.app|storage\.googleapis\.com)/i.test(v))return true;
+            return /\.(jpe?g|png|webp|avif|gif|svg)(\?|#|$)/i.test(v);
+        }
+        let _scImgInvalidas={};
         async function loadProducts(){try{await loadCategorias();const snap=await db.collection('productos').get();allProducts=snap.docs.map(d=>{const r=d.data();return{id:d.id,...r,porcentajeMayorista:r.porcentajeMayorista||0,precioMayorista:r.precioMayorista||0};});filterTable();updateStats();updateCategoryFilter();renderStockList();renderListaFilterSelect();}catch(e){console.error(e);showAdminToast('Error al cargar','error');}}
         function renderTable(prods){const tb=document.getElementById('productsTableBody');const thr=getLowStockThreshold();if(!prods.length){tb.innerHTML='<tr><td colspan="8"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Sin productos</p></div></td></tr>';return;}tb.innerHTML=prods.map(p=>{let sc='stock-ok',sv=p.stock||0;if(sv===0)sc='stock-out';else if(sv<thr)sc='stock-low';const img=p.imagen||'img/default-product.svg';const sub=p.subcategoria?' / '+esc(p.subcategoria):'';const sn=(p.nombre||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');const costo=p.costo||0;const pct=p.porcentaje||0;const precio=p.precio||0;const star=p.popular?'bi-star-fill':'bi-star';const starColor=p.popular?'color:#e6a23c':'';const oculto=p.oculto===true;const eyeIcon=oculto?'bi-eye-slash-fill':'bi-eye';const eyeColor=oculto?'color:#f56c6c':'';const eyeTitle=oculto?'Oculto del catalogo (click para mostrar)':'Visible en catalogo (click para ocultar)';const rowStyle=oculto?' style="opacity:0.55"':'';const hiddenTag=oculto?' <span style="font-size:0.68rem;background:#5a2d2d;color:#f56c6c;padding:1px 6px;border-radius:3px;margin-left:4px;vertical-align:middle">OCULTO</span>':'';return'<tr'+rowStyle+'><td><img src="'+esc(img)+'" class="product-img-cell product-img-zoom" onclick="verImagen(\''+esc(img)+'\',\''+esc((p.nombreMostrado||p.nombre||'').replace(/'/g,"")) +'\')" title="Ver la imagen en grande" onerror="this.src=\'img/default-product.svg\'"></td><td><strong>'+esc(p.nombre||'\u2014')+'</strong>'+hiddenTag+'</td><td><span class="cat-badge">'+esc(p.categoria||'\u2014')+sub+'</span></td><td class="price-cell" style="color:var(--text-dim);font-size:0.82rem">$'+costo.toLocaleString('es-AR')+'</td><td style="text-align:left;font-size:0.82rem;color:var(--text-dim);font-family:var(--mono)">'+pct+'%</td><td class="price-cell">$'+precio.toLocaleString('es-AR')+'</td><td style="text-align:center">'+((p.descuento||0)>0?'<span style="background:linear-gradient(135deg,#e6a23c,#d97706);color:#fff;font-weight:700;font-size:0.72rem;padding:2px 7px;border-radius:5px">'+(p.descuento||0)+'%</span>':'<span style="color:var(--text-dim);font-size:0.8rem">0%</span>')+'</td><td><span class="stock-badge '+sc+'">'+sv+'</span></td><td><div class="actions-cell"><button class="btn-icon" onclick="togglePopular(\''+p.id+'\')" title="Popular" style="'+starColor+'"><i class="bi '+star+'"></i></button><button class="btn-icon" onclick="toggleOculto(\''+p.id+'\')" title="'+eyeTitle+'" style="'+eyeColor+'"><i class="bi '+eyeIcon+'"></i></button>'+(p.envasadoPropio?'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Envasado propio (click para desmarcar)" style="color:#a78bfa"><i class="bi bi-bag-check-fill"></i></button>':'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Marcar como envasado propio"><i class="bi bi-bag-check"></i></button>')+(p.gramajePadreId?'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Gramaje asociado (click para gestionar)" style="color:#4a9eff"><i class="bi bi-stack"></i></button>':'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Asociar gramajes"><i class="bi bi-stack"></i></button>')+'<button class="btn-icon" onclick="editProduct(\''+p.id+'\')"><i class="bi bi-pencil"></i></button><button class="btn-icon delete" onclick="deleteProduct(\''+p.id+'\',\''+sn+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';}).join('');}
         function getLowStockThreshold(){return parseInt(localStorage.getItem('brotesLowStockThr'))||10;}
@@ -3019,7 +3036,23 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
            distinguir "esta imagen ya estaba" de "este preview esta mostrando el archivo
            por defecto del repo", y prev.src no sirve para eso: resuelve a una URL absoluta
            en los dos casos. Ver saveSiteContent. */
-        _scImgGuardadas={};SC_IMG_FIELDS.forEach(f=>{_scImgGuardadas[f]=data[f]||null;const prev=document.getElementById('sc_'+f+'Preview');if(prev&&data[f])prev.src=data[f];});}catch(e){/* Antes el catch rellenaba TODOS los campos con SC_DEFAULTS sin avisar: el admin veia un
+        _scImgGuardadas={};_scImgInvalidas={};
+        SC_IMG_FIELDS.forEach(f=>{
+            const v=data[f];
+            if(v&&!esUrlImagenAdmin(v)){
+                /* Guardado pero no es una imagen. No se pone en la vista previa (quedaria
+                   rota) ni se conserva para volver a guardarlo: se marca para borrarlo. */
+                _scImgInvalidas[f]=true;_scImgGuardadas[f]=null;
+            }else{
+                _scImgGuardadas[f]=v||null;
+                const prev=document.getElementById('sc_'+f+'Preview');
+                if(prev&&v)prev.src=v;
+            }
+        });
+        const _rotas=Object.keys(_scImgInvalidas);
+        if(_rotas.length&&typeof showAdminToast==='function'){
+            showAdminToast(_rotas.length+' imagen(es) guardadas no eran validas y se van a limpiar al guardar: '+_rotas.join(', ')+'. Subí las que quieras usar.','info');
+        }}catch(e){/* Antes el catch rellenaba TODOS los campos con SC_DEFAULTS sin avisar: el admin veia un
            formulario aparentemente normal (con los textos cortos y sin acentos de los defaults),
            cambiaba una foto o una palabra, guardaba, y saveSiteContent hace .set(), o sea que
            pisaba la portada publicada con esos defaults. Lo que no se pudo LEER no se puede
@@ -3176,7 +3209,14 @@ async function previewEditorImg(input,field){
                    2) Los tres logos tienen un src por defecto del repo, que resolvia a una
                       URL absoluta del dominio actual y quedaba clavada en la base: si el
                       cliente se muda a su propio dominio, los logos dejan de cargar. */
-                if(_scImgGuardadas[f])data[f]=_scImgGuardadas[f];
+                if(_scImgGuardadas[f]){data[f]=_scImgGuardadas[f];}
+                else if(_scImgInvalidas[f]){
+                    /* Con .set(...,{merge:true}) omitir la clave DEJA el valor viejo,
+                       asi que para sacar la basura hay que borrar el campo a proposito.
+                       Se limpia sola la primera vez que el comercio guarda. */
+                    data[f]=firebase.firestore.FieldValue.delete();
+                    delete _scImgInvalidas[f];
+                }
             }}editorImgFiles={};
             /* merge:true por si algun dia la tienda lee de siteContent un campo que este
                formulario no tiene: con .set() a secas, guardar lo borraba. */
