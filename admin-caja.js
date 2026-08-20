@@ -379,6 +379,17 @@ async function guardarMovimiento() {
   const btn = document.getElementById('movGuardarBtn');
   btn.disabled = true;
   try {
+    /* Se revisa que la caja siga abierta antes de escribir. Si el otro admin la cerró
+       mientras este movimiento se estaba cargando, el arqueo ya quedó congelado: el
+       movimiento se guardaba igual, avisaba "registrado", y esa plata no aparecía en
+       ningún cierre. Desaparecía sin dejar rastro salvo en la subcolección. */
+    const _snapCaja = await db.collection('cajas').doc(cajaActual.docId).get();
+    if (!_snapCaja.exists || _snapCaja.data().estado !== 'abierta') {
+      showAdminToast('Esta caja ya la cerró alguien más. El movimiento no se guardó.', 'error');
+      closeMovModal();
+      await loadCaja();
+      return;
+    }
     await db.collection('cajas').doc(cajaActual.docId).collection('movimientos').add({
       tipo: _movTipo,
       concepto: document.getElementById('movConcepto').value,

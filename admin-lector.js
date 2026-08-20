@@ -105,6 +105,17 @@ function procesarCodigoLeido(cod) {
     return;
   }
 
+  /* Con OTRO modal abierto —un cliente, un cupón, el cierre de caja— escanear no puede
+     cambiar de sección ni abrir la ficha del producto encima: eso secuestraba el panel y
+     se perdía lo que la persona estaba cargando. Pasa de verdad: el lector está en el
+     mostrador y alguien apoya algo sobre el gatillo. Se avisa y no se toca nada. */
+  if (document.querySelector('.modal-overlay.show')) {
+    showAdminToast(prod
+      ? ('Código de "' + (prod.nombreMostrado || prod.nombre) + '". Cerrá esta ventana para usarlo.')
+      : 'Código desconocido. Cerrá esta ventana para asignarlo.', 'error');
+    return;
+  }
+
   /* Fuera de una venta, escanear es consultar: abre la ficha del producto. */
   if (prod) {
     switchSection('products');

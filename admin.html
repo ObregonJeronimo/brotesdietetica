@@ -864,7 +864,24 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function renderStockList(){const c=document.getElementById('stockList');if(!c)return;const q=(document.getElementById('stockSearch')?.value||'').toLowerCase();const cat=document.getElementById('stockFilterCat')?.value||'';let f=allProducts.slice();if(q)f=f.filter(p=>(p.nombre||'').toLowerCase().includes(q));if(cat)f=f.filter(p=>p.categoria===cat);if(window._stockSortDir==='desc')f.sort((a,b)=>(b.stock||0)-(a.stock||0));else if(window._stockSortDir==='asc')f.sort((a,b)=>(a.stock||0)-(b.stock||0));if(!f.length){c.innerHTML='<div class="empty-state" style="padding:2rem"><p>No hay productos</p></div>';return;}c.innerHTML=f.map(p=>{const img=p.imagen||'img/default-product.svg';return'<div class="stock-row"><img src="'+img+'" onerror="this.src=\'img/default-product.svg\'"><div class="stock-row-info"><strong>'+p.nombre+'</strong><small>'+(p.categoria||'')+(p.subcategoria?' / '+p.subcategoria:'')+'</small></div><input type="number" class="stock-input" id="stock-'+p.id+'" value="'+(p.stock||0)+'" min="0"><button class="stock-save" onclick="saveStock(\''+p.id+'\')"><i class="bi bi-check-lg"></i></button></div>';}).join('');}
         function toggleStockSort(){const btn=document.getElementById('stockSortBtn');if(window._stockSortDir==='desc'){window._stockSortDir='asc';if(btn)btn.innerHTML='<i class="bi bi-sort-numeric-up"></i> Menor stock';}else{window._stockSortDir='desc';if(btn)btn.innerHTML='<i class="bi bi-sort-numeric-down"></i> Mayor stock';}renderStockList();}
         function filterStockList(){renderStockList();}
-        async function saveStock(id){const input=document.getElementById('stock-'+id);if(!input)return;const val=parseInt(input.value)||0;try{const p=allProducts.find(x=>x.id===id);const oldStock=p?p.stock:0;await db.collection('productos').doc(id).update({stock:val});logAction('stock','Stock: '+(p?p.nombre:id),'stock: '+oldStock+' -> '+val);if(p)p.stock=val;updateStats();showAdminToast('Stock actualizado','success');}catch(e){showAdminToast('Error: '+e.message,'error');}}
+        async function saveStock(id){const input=document.getElementById('stock-'+id);if(!input)return;const val=parseInt(input.value)||0;try{const p=allProducts.find(x=>x.id===id);const oldStock=p?p.stock:0;
+            /* Se relee el stock justo antes de escribir. Este formulario pone un numero
+               ABSOLUTO —es un conteo de inventario, esta bien que sea absoluto— pero la
+               lista se dibujo con lo que habia en memoria al entrar a la seccion. Si el
+               otro admin vendio mientras la pantalla estaba abierta, guardar devolvia al
+               stock las unidades ya vendidas sin avisar. Ahora, si cambio, se pregunta. */
+            const _snapP=await db.collection('productos').doc(id).get();
+            const _real=_snapP.exists?Number(_snapP.data().stock||0):Number(oldStock||0);
+            if(_real!==Number(oldStock||0)){
+                const _nl=String.fromCharCode(10);
+                if(!confirm('El stock de "'+(p?p.nombre:id)+'" paso a '+_real+' mientras tenias esta pantalla abierta (aca figuraba '+Number(oldStock||0)+').'+_nl+_nl+'Si guardas '+val+', ese movimiento se pierde.'+_nl+_nl+'Guardar igual?')){
+                    if(p)p.stock=_real;
+                    renderStockList();updateStats();
+                    showAdminToast('No se guardo. Se actualizo el numero en pantalla.','info');
+                    return;
+                }
+            }
+            await db.collection('productos').doc(id).update({stock:val});logAction('stock','Stock: '+(p?p.nombre:id),'stock: '+oldStock+' -> '+val);if(p)p.stock=val;updateStats();showAdminToast('Stock actualizado','success');}catch(e){showAdminToast('Error: '+e.message,'error');}}
         const dropZone=document.getElementById('dropZone'),excelInput=document.getElementById('excelInput');if(dropZone){dropZone.addEventListener('click',()=>excelInput.click());dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover')});dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');if(e.dataTransfer.files[0])processExcel(e.dataTransfer.files[0])});}if(excelInput)excelInput.addEventListener('change',e=>{if(e.target.files[0])processExcel(e.target.files[0]);});
         const dropZoneNew=document.getElementById('dropZoneNew'),excelInputNew=document.getElementById('excelInputNew');if(dropZoneNew){dropZoneNew.addEventListener('click',()=>excelInputNew.click());dropZoneNew.addEventListener('dragover',e=>{e.preventDefault();dropZoneNew.classList.add('dragover')});dropZoneNew.addEventListener('dragleave',()=>dropZoneNew.classList.remove('dragover'));dropZoneNew.addEventListener('drop',e=>{e.preventDefault();dropZoneNew.classList.remove('dragover');if(e.dataTransfer.files[0])processNewProductsExcel(e.dataTransfer.files[0])});}if(excelInputNew)excelInputNew.addEventListener('change',e=>{if(e.target.files[0])processNewProductsExcel(e.target.files[0]);});
         const dropZoneJoaco=document.getElementById('dropZoneJoaco'),excelInputJoaco=document.getElementById('excelInputJoaco');if(dropZoneJoaco){dropZoneJoaco.addEventListener('click',()=>excelInputJoaco.click());dropZoneJoaco.addEventListener('dragover',e=>{e.preventDefault();dropZoneJoaco.classList.add('dragover')});dropZoneJoaco.addEventListener('dragleave',()=>dropZoneJoaco.classList.remove('dragover'));dropZoneJoaco.addEventListener('drop',e=>{e.preventDefault();dropZoneJoaco.classList.remove('dragover');if(e.dataTransfer.files[0])processJoacoExcel(e.dataTransfer.files[0])});}if(excelInputJoaco)excelInputJoaco.addEventListener('change',e=>{if(e.target.files[0])processJoacoExcel(e.target.files[0]);});
@@ -3798,7 +3815,11 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             const data={codigo,monto,tipo:'monto',activo,limiteCompra:limite,maxUsos:maxUsos||null,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};
             try{
                 if(editingCuponId){
-                    await db.collection('cupones').doc(editingCuponId).update({codigo,monto,tipo:'monto',activo,limiteCompra:limite});
+                    /* maxUsos tiene que ir tambien. Sin el, el limite de usos no se podia
+                       cambiar NUNCA despues de crear el cupon: se ponia "maximo 10", el panel
+                       avisaba "Cupon actualizado", y el campo seguia como estaba. Igual al
+                       reves: destildar el limite no lo quitaba. */
+                    await db.collection('cupones').doc(editingCuponId).update({codigo,monto,tipo:'monto',activo,limiteCompra:limite,maxUsos:maxUsos||null});
                     showAdminToast('Cupón actualizado','success');
                 }else{
                     /* Verificar que no exista el código */
