@@ -235,9 +235,13 @@
 
         <div class="policy-section" id="cuentas">
             <h2>10. Cuentas de usuario</h2>
-            <p>Para guardar tus datos y ver el historial de tus pedidos podes iniciar sesion con tu
-            <strong>cuenta de Google</strong>. Iniciar sesion es <strong>opcional</strong>: se puede comprar sin
-            crear ninguna cuenta.</p>
+            <!-- Decia que iniciar sesion era OPCIONAL y que se podia comprar sin cuenta, pero
+                 no es cierto: addToCart manda al login antes de agregar nada (app.js:372), y
+                 la regla de Firestore para crear pedidos exige usuario autenticado
+                 (firestore.rules:71). Era una promesa publicada que el sitio no puede cumplir. -->
+            <p>Para comprar en la tienda hace falta iniciar sesion con tu
+            <strong>cuenta de Google</strong>. Con esa sesion tambien se guardan tus datos y podes
+            ver el historial de tus pedidos.</p>
             <p><strong>Que pasa cuando inicias sesion con Google:</strong></p>
             <ul>
                 <li>Google nos informa unicamente tu <strong>nombre, tu email y tu foto de perfil</strong>.</li>

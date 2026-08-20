@@ -193,7 +193,19 @@ function renderCaja() {
           '<h3 style="font-size:1rem;font-weight:700;flex:1">Caja #' + String(cajaActual.numero || 0).padStart(4, '0') + ' abierta</h3>' +
         '</div>' +
         '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:0.6rem">' +
-          'Abierta por ' + esc(cajaActual.abiertoPor || '-') + '</p>' +
+          'Abierta por ' + esc(cajaActual.abiertoPor || '-') +
+          (cajaActual.fecha ? ' - abierta el ' + esc(cajaActual.fecha) : '') + '</p>' +
+        /* Aviso de caja vieja. Cuando se olvidan de cerrarla, getCajaAbiertaIdLive solo mira
+           estado==='abierta' y le estampa a las ventas de HOY el cajaId de la caja de AYER:
+           entran a su arqueo (por eso el efectivo cierra) pero el dia de hoy aparece en
+           Estadisticas como "ventas sin caja", y el arqueo de ayer termina mezclando dos dias.
+           La pantalla no mostraba de que dia era la caja, asi que el olvido no se notaba
+           hasta el cierre, con el desastre ya hecho. */
+        ((typeof hoyAR === 'function' && cajaActual.fecha && cajaActual.fecha !== hoyAR())
+          ? '<p style="font-size:0.78rem;color:#EDB833;font-weight:600;margin-bottom:0.6rem">' +
+              '<i class="bi bi-exclamation-triangle"></i> Esta caja quedó abierta del ' +
+              esc(cajaActual.fecha) + ': todo lo que se venda hoy entra a SU arqueo.</p>'
+          : '') +
         fila('Fondo inicial', _pesos(cajaActual.montoInicial)) +
         fila('Ventas (' + t.count + ')', _pesos(t.bruto)) +
         fila('&nbsp;&nbsp;· en efectivo', _pesos(t.porMedio.efectivo)) +
@@ -483,14 +495,61 @@ function validarCierre() {
 
 async function confirmarCierre() {
   if (!cajaActual) return;
-  const t = window._cajaTotalesCierre || calcularTotalesCaja();
   const contado = parseInt(document.getElementById('cajaContado').value, 10) || 0;
-  const dif = contado - t.esperado;
   const retiro = parseInt(document.getElementById('cajaRetiro').value, 10) || 0;
+  /* Se vuelve a leer la caja JUSTO antes de escribir el cierre. Los totales se
+     congelan al abrir el modal, y contar la plata lleva minutos: si en el medio el
+     otro admin cobraba una venta en efectivo, esa venta se estampaba con esta
+     cajaId (la caja sigue abierta) pero el arqueo se escribia con el esperado
+     viejo. La caja marcaba "Sobra $X" por el monto exacto de esa venta, habia que
+     inventarle un motivo para poder cerrar, y la venta quedaba pegada a una caja
+     cerrada que no la cuenta y que tampoco aparece en "Ventas fuera de caja"
+     (tiene cajaId). Si entro algo, no se cierra: se refrescan los numeros del
+     modal, se le avisa, y decide el que esta contando. */
+  const _tAntes = window._cajaTotalesCierre || calcularTotalesCaja();
+  await cargarDatosCaja(cajaActual.docId);
+  const _tAhora = calcularTotalesCaja();
+  if (_tAhora.esperado !== _tAntes.esperado || _tAhora.count !== _tAntes.count) {
+    const _c = document.getElementById('cajaContado').value;
+    const _m = document.getElementById('cajaMotivo').value;
+    const _o = document.getElementById('cajaObs').value;
+    const _r = document.getElementById('cajaRetiro').value;
+    await openCierreModal();
+    document.getElementById('cajaContado').value = _c;
+    document.getElementById('cajaMotivo').value = _m;
+    document.getElementById('cajaObs').value = _o;
+    document.getElementById('cajaRetiro').value = _r;
+    onContadoInput();
+    renderCaja();
+    /* Con arqueo ciego no se puede soplar el esperado: la pantalla lo esconde a
+       proposito para que el que cuenta no acomode el numero. */
+    showAdminToast('Entraron ventas o movimientos mientras contabas' + (cajaCfg.arqueoCiego ? '' : ': ahora deberia haber ' + _pesos(_tAhora.esperado)) + '. Revisa la diferencia y volve a cerrar.', 'error');
+    return;
+  }
+  const t = _tAhora;
+  window._cajaTotalesCierre = t;
+  const dif = contado - t.esperado;
   if (retiro > contado) { showAdminToast('No podés retirar más de lo que contaste', 'error'); return; }
   const btn = document.getElementById('cajaCerrarBtn');
   btn.disabled = true;
   try {
+    /* Contar la plata lleva dos o tres minutos, y en el mostrador el otro admin puede
+       cobrar en el medio: esa venta se estampa con ESTA caja (config/cajaEstado todavia
+       la marca abierta) pero no entra en la foto que congelo openCierreModal. El efectivo
+       contado la incluye y el esperado no, asi que el arqueo gritaba "Sobra $X" y obligaba
+       a inventar un motivo; peor todavia, la venta quedaba colgada de una caja cerrada con
+       totales que no la cuentan y no aparece en ningun arqueo. Se relee antes de cerrar:
+       si algo se movio no se cierra, se rearma el resumen con los numeros nuevos. */
+    await cargarDatosCaja(cajaActual.docId);
+    const tAhora = calcularTotalesCaja();
+    if (tAhora.count !== t.count || tAhora.esperado !== t.esperado) {
+      const nuevas = tAhora.count - t.count;
+      showAdminToast(nuevas > 0
+        ? 'Entraron ' + nuevas + ' venta(s) mientras contabas. Revisa el esperado y volve a contar.'
+        : 'La caja cambio mientras contabas. Revisa el esperado y volve a contar.', 'error');
+      await openCierreModal();
+      return;
+    }
     /* Todo CONGELADO: si mañana editan una venta de hoy, este arqueo tiene que
        seguir diciendo lo que se contó hoy. Por eso no se recalcula al leer.
 

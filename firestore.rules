@@ -134,11 +134,16 @@ service cloud.firestore {
     }
     match /cuponesUsos/{doc} {
       allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
-      allow create: if validString(request.resource.data.codigo, 30)
-        && (
-          !('uid' in request.resource.data)
-          || (request.auth != null && request.resource.data.uid == request.auth.uid)
-        );
+      /* Sin exigir sesion alcanzaba con OMITIR el campo uid para escribir aca sin estar
+         logueado. Como /cupones se lee sin login, cualquiera podia listar los cupones con su
+         maxUsos desde la consola del navegador y hacer creates en loop: la Cloud Function
+         procesarUsoCupon cuenta cada uno y al llegar al maximo pone el cupon en activo:false,
+         asi que con 50 escrituras se mataba una promocion y los clientes de verdad se
+         encontraban con "cupon vencido". El canje de invitado no se pierde: comprar ya exige
+         sesion (requireLoginToBuy), asi que todo uso real trae uid. */
+      allow create: if isAuthUser()
+        && request.resource.data.uid == request.auth.uid
+        && validString(request.resource.data.codigo, 30);
     }
 
     /* ===== CONFIG =====
@@ -160,8 +165,19 @@ service cloud.firestore {
        defineSecret() y sacarlo de Firestore por completo. */
     match /config/{doc} {
       allow read: if doc != 'telegram' || isAdmin();
+      /* Los dos contadores tienen que seguir siendo escribibles por el cliente logueado
+         (el numero de pedido y el de cliente salen de una transaccion hecha en la tienda),
+         pero antes la regla no miraba el contenido: cualquiera con una cuenta de Google
+         podia hacer set({count:0}) y los pedidos web volvian a numerarse desde 1, pisando
+         numeros que ya existian en el panel, o dejar el contador en 999999999. Ahora solo
+         se acepta EXACTAMENTE el paso que hace la tienda: un unico campo count, numerico,
+         y siempre el anterior + 1 (o 1 si el documento todavia no existe). */
       allow write: if isAdmin()
-        || ((doc == 'pedidosCount' || doc == 'clientesAuthCount') && isAuthUser());
+        || ((doc == 'pedidosCount' || doc == 'clientesAuthCount')
+            && isAuthUser()
+            && request.resource.data.keys().hasOnly(['count'])
+            && request.resource.data.count is number
+            && request.resource.data.count == (resource == null ? 1 : resource.data.count + 1));
     }
 
     /* ===== CAJA / ARQUEO =====
@@ -190,8 +206,16 @@ service cloud.firestore {
          solo del lado del cliente y se saltea desde la consola).
          Ahora exigimos sesión y que clienteAuthUid sea el del que escribe, que es
          exactamente lo que resena.html ya manda. */
+      /* Ademas: si el token nacio atado a una cuenta, SOLO esa cuenta lo puede completar.
+         Antes alcanzaba con estampar el propio uid, que es lo que manda resena.html: como
+         `read` es publico, cualquiera lista los tokens pendientes y una sola cuenta podia
+         completar las 40 resenas abiertas con una estrella. Los tickets de mostrador sin
+         cuenta no traen el campo y siguen funcionando como antes. */
       allow update: if isAuthUser()
         && request.resource.data.clienteAuthUid == request.auth.uid
+        && (!('clienteAuthUid' in resource.data)
+            || resource.data.clienteAuthUid == null
+            || resource.data.clienteAuthUid == request.auth.uid)
         && resource.data.usado == false
         && request.resource.data.usado == true
         && request.resource.data.ventaNum == resource.data.ventaNum

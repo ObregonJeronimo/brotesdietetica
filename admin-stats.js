@@ -22,7 +22,13 @@
 
 const STATS_ESTADOS = {
   sin_actividad: { color:'#2d333b', etq:'Sin actividad',        desc:'No hubo ventas ni se abrió la caja.' },
-  sin_caja:      { color:'#6e7681', etq:'Ventas sin caja',      desc:'Se vendió, pero ese día no se abrió la caja: esas ventas quedaron fuera del arqueo.' },
+  sin_caja:      { color:'#6e7681', etq:'Ventas sin caja',      desc:'Se vendió, pero ese día no se abrió la caja: si la que quedó abierta es la del día anterior, estas ventas entraron a SU arqueo.' },
+  /* La leyenda afirmaba que estas ventas "quedaron fuera del arqueo" y muchas veces es
+     MENTIRA: cuando se olvidan de cerrar la caja, getCajaAbiertaIdLive le pone a las ventas
+     de hoy el cajaId de la caja de ayer y entran al arqueo de ayer. El calendario igual las
+     pinta como "sin caja" porque la caja se agrupa por c.fecha (dia de apertura) y las
+     ventas por su propia fecha. Arreglar la agrupacion es un cambio grande; mientras tanto
+     que el texto no afirme algo falso, que es lo que hace dudar del arqueo del dia anterior. */
   abierta:       { color:'#3b82f6', etq:'Caja abierta',         desc:'La caja se abrió y todavía no se cerró.' },
   exacta:        { color:'#5FA87A', etq:'Cerró exacta',         desc:'Lo contado coincidió con lo esperado.' },
   diferencia_ok: { color:'#EDB833', etq:'Diferencia chica',     desc:'Cerró con una diferencia dentro de la tolerancia configurada.' },
@@ -82,7 +88,17 @@ async function loadStats() {
     const s = await db.collection('config').doc('cajaConfig').get();
     if (s.exists && s.data().toleranciaDiferencia != null) _statsTolerancia = Number(s.data().toleranciaDiferencia);
   } catch (e) { /* queda el valor por defecto */ }
-  _statsDatos = await cargarDatosMes(_statsMes);
+  /* Token de peticion. statsMesNav escribe _statsMes y dispara loadStats() sin
+     esperar, asi que dos clicks rapidos en la flecha de mes dejaban dos cargas en
+     vuelo y pintaba la que terminaba ultima, que no es necesariamente la ultima
+     que se pidio (el mes que sale del cache local vuelve antes que el que va al
+     servidor). Quedaba el titulo de un mes con el calendario y los numeros de
+     otro. La respuesta que llega tarde ahora se descarta. */
+  const _req = (window._statsReq = (window._statsReq || 0) + 1);
+  const _mesPedido = _statsMes;
+  const _datos = await cargarDatosMes(_mesPedido);
+  if (_req !== window._statsReq || _statsMes !== _mesPedido) return;
+  _statsDatos = _datos;
   renderStats();
 }
 
@@ -121,14 +137,32 @@ async function cargarDatosMes(mes) {
 
 function agruparPorDia(d) {
   const dias = {};
-  const tocar = f => (dias[f] = dias[f] || { fecha:f, ventas:0, count:0, local:0, online:0, caja:null, movs:0 });
+  const tocar = f => (dias[f] = dias[f] || { fecha:f, ventas:0, count:0, local:0, online:0, caja:null, cajas:[], movs:0 });
   d.ventas.forEach(v => {
     if (!v._dia) return;
     const x = tocar(v._dia);
     x.ventas += v._neto; x.count++;
     if (v._online) x.online += v._neto; else x.local += v._neto;
   });
-  d.cajas.forEach(c => { if (c.fecha) tocar(c.fecha).caja = c; });
+  /* Un mismo dia puede tener DOS cajas: corte de turno, o una que se cerro por error y se
+     abrio otra a la tarde. Esto asignaba de a una, asi que la ultima que salia de la
+     consulta tapaba a la anterior, y entre dos documentos con la misma fecha el orden lo
+     decide el id: al azar. El dia podia quedar pintado de verde "cerro exacta" mientras el
+     faltante de $3.000 de la otra caja no aparecia en ninguna parte. Ahora se guardan todas
+     y en x.caja queda la PEOR, para que el color del dia y el detalle nunca escondan el
+     problema: una caja abierta gana (es lo que hay que ir a resolver) y, si las dos
+     cerraron, la de mayor diferencia. */
+  d.cajas.forEach(c => {
+    if (!c.fecha) return;
+    const x = tocar(c.fecha);
+    x.cajas.push(c);
+    const cAbierta = c.estado === 'abierta', yaAbierta = !!x.caja && x.caja.estado === 'abierta';
+    const peor = !x.caja
+      || (cAbierta && !yaAbierta)
+      || (cAbierta === yaAbierta
+          && Math.abs(Number(c.diferencia || 0)) > Math.abs(Number(x.caja.diferencia || 0)));
+    if (peor) x.caja = c;
+  });
   Object.values(dias).forEach(x => { x.estado = estadoDelDia(x); });
   return dias;
 }
@@ -386,8 +420,22 @@ function renderTopProductos(t) {
 async function renderComparativa(t) {
   const cont = document.getElementById('statsComparativa');
   if (!cont) return;
-  cont.innerHTML = '<span style="font-size:0.8rem;color:var(--text-dim)">Comparando con el mes anterior...</span>';
-  const prev = await cargarDatosMes(_mesSumar(_statsMes, -1));
+  const mesPrev = _mesSumar(_statsMes, -1);
+  /* renderStats() termina siempre aca, y statsVerDia() llama a renderStats(): tocar un
+     dia del calendario volvia a bajar el mes anterior COMPLETO del servidor (cuatro
+     consultas), asi que revisar los 30 dias del mes costaba 30 recargas y la tarjeta
+     parpadeaba en "Comparando..." para terminar mostrando el mismo numero. El mes previo
+     solo puede cambiar cuando se recarga el mes actual (loadStats reemplaza _statsDatos
+     por un objeto nuevo) o cuando se navega de mes, y las dos cosas se detectan con la
+     clave de abajo. */
+  let prev = (window._statsPrevCache
+    && window._statsPrevCache.mes === mesPrev
+    && window._statsPrevCache.base === _statsDatos) ? window._statsPrevCache.datos : null;
+  if (!prev) {
+    cont.innerHTML = '<span style="font-size:0.8rem;color:var(--text-dim)">Comparando con el mes anterior...</span>';
+    prev = await cargarDatosMes(mesPrev);
+    window._statsPrevCache = { mes: mesPrev, base: _statsDatos, datos: prev };
+  }
   const p = totalesMes(prev);
   const delta = (hoy, antes, etq, fmt) => {
     if (!antes && !hoy) return '';

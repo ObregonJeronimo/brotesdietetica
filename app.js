@@ -127,11 +127,29 @@ async function loadProductsFromFirebase(retries) {
             snap = await db.collection('productos').get();
             try { localStorage.setItem('brotes_cat_ts', String(Date.now())); } catch (e) {}
         }
-        productos = snap.docs.map(d => { const r=d.data(); return { id:d.id, nombre:r.nombre||'', nombreMostrado:r.nombreMostrado||null, gramaje:r.gramaje||null, precio:r.precio||0, descuento:Math.min(100,Math.max(0,r.descuento||0)), stock:r.stock||0, categoria:r.categoria||'', subcategoria:r.subcategoria||null, imagen:r.imagen||null, descripcion:r.descripcion||r.nombre||'', popular:r.popular||false, oculto:r.oculto===true, valoresNutricionales:r.valoresNutricionales||'', imagenesExtra:r.imagenesExtra||[] }; }).filter(p => !p.oculto);
+        productos = snap.docs.map(d => { const r=d.data(); return { id:d.id, nombre:r.nombre||'', nombreMostrado:r.nombreMostrado||null, gramaje:r.gramaje||null, precio:r.precio||0, descuento:Math.min(100,Math.max(0,r.descuento||0)), stock:r.stock||0, categoria:r.categoria||'', subcategoria:r.subcategoria||null, imagen:r.imagen||null, descripcion:r.descripcion||r.nombre||'', popular:r.popular||false, oculto:r.oculto===true, valoresNutricionales:r.valoresNutricionales||'', imagenesExtra:r.imagenesExtra||[],
+            /* gramajePadreId lo escribe el panel al asociar un gramaje, pero aca no se copiaba:
+               p.gramajePadreId quedaba undefined siempre, asi que el filtro de aplicarFiltros no
+               excluia al hijo (dos tarjetas de almendras en la grilla, una de 250g y otra de 1kg)
+               y el padre nunca mostraba los botones de gramaje. Todo el agrupado estaba muerto. */
+            gramajePadreId:r.gramajePadreId||null }; }).filter(p => !p.oculto);
         renderCategoryFilters(getCategoriasConSub(productos)); aplicarFiltros();
         _searchCache.clear();
         let carritoActualizado=false;
+        /* Si el producto ya no esta en el catalogo (lo ocultaron para re-etiquetar, o lo
+           borraron) hay que SACARLO del carrito. Ojo: `productos` ya viene filtrado por
+           !oculto en la linea de arriba, asi que un producto ocultado no aparece aca. El
+           carrito vive en localStorage y sobrevive dias: sin esta parte el item quedaba ahi
+           con el precio congelado del dia que se agrego, viajaba al pedido y el comercio
+           terminaba vendiendo al precio viejo algo que ya habia sacado de la tienda. El
+           guard de productos.length es para no vaciarle el carrito a nadie si la carga del
+           catalogo vino vacia por un error. */
+        const _fuera=[];
+        if(productos.length){
+            carrito=carrito.filter(item=>{const sigue=productos.some(p=>p.id===item.id);if(!sigue){_fuera.push(item.nombre||'un producto');carritoActualizado=true;}return sigue;});
+        }
         carrito=carrito.map(item=>{const prod=productos.find(p=>p.id===item.id);if(prod){const pf=precioFinal(prod);if(pf!==item.precio){carritoActualizado=true;return{...item,precio:pf,nombre:prod.nombreMostrado||prod.nombre};}}return item;});
+        if(_fuera.length)showToast(_fuera.join(', ')+(_fuera.length>1?' ya no están disponibles':' ya no está disponible')+' y se quitaron del carrito','error');
         if(carritoActualizado){saveCart();updateCartUI();}
         /* Scroll automático a productos SOLO si la URL lo pide (#productos).
            Antes las dos ramas del ternario eran 'productos', así que en toda
@@ -809,6 +827,14 @@ async function confirmCheckout(){
             const ids=Object.keys(porProd);
             try{
                 const snaps=await Promise.all(ids.map(id=>db.collection('productos').doc(id).get()));
+                /* Se aprovecha esta misma lectura fresca para comparar tambien el PRECIO.
+                   `productos` se baja una sola vez al cargar la pagina y el carrito vive en
+                   localStorage: el cliente que deja la pestaña abierta a la mañana y confirma
+                   a la tarde compraba a los precios de la mañana, y como el pedido quedaba
+                   internamente consistente nadie se enteraba de que el comercio cobro de
+                   menos. Si algun precio cambio se actualiza el carrito y se corta, para que
+                   el cliente vea el total nuevo ANTES de confirmar. */
+                const _cambios=[];
                 for(let k=0;k<ids.length;k++){
                     if(!snaps[k].exists)continue;
                     const prod=snaps[k].data(),disp=Number(prod.stock||0);
@@ -816,6 +842,20 @@ async function confirmCheckout(){
                         _faltante={nombre:prod.nombreMostrado||prod.nombre||'un producto',disponible:disp};
                         break;
                     }
+                    const _enCarrito=carrito.find(x=>x.id===ids[k]);
+                    const _pfFresco=precioFinal({precio:Number(prod.precio||0),descuento:Number(prod.descuento||0)});
+                    if(_enCarrito&&_pfFresco!==Number(_enCarrito.precio||0)){
+                        _cambios.push({id:ids[k],nombre:prod.nombreMostrado||prod.nombre||'un producto',precio:_pfFresco,precioOriginal:Number(prod.precio||0),descuento:Math.min(100,Math.max(0,Number(prod.descuento||0)))});
+                    }
+                }
+                if(!_faltante&&_cambios.length){
+                    const _porId={};_cambios.forEach(c=>{_porId[c.id]=c;});
+                    carrito=carrito.map(it=>_porId[it.id]?{...it,precio:_porId[it.id].precio,precioOriginal:_porId[it.id].precioOriginal,descuento:_porId[it.id].descuento}:it);
+                    saveCart();updateCartUI();updateCheckoutResumen();
+                    showToast('El precio de "'+_cambios[0].nombre+'" cambio'+(_cambios.length>1?' (y '+(_cambios.length-1)+' mas)':'')+'. Actualizamos el carrito, revisa el total antes de confirmar.','error');
+                    const b=document.getElementById('chkConfirmBtn');
+                    if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
+                    return;
                 }
             }catch(e){
                 /* Si no se pudo leer, se sigue: quien decide de verdad es el servidor */

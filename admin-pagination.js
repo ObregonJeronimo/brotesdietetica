@@ -14,6 +14,32 @@ renderTable = function(prods) {
     renderAdminPagination('sec-products', adminTablePage, totalPages, prods.length, 'table');
 };
 
+/* Al buscar o filtrar se vuelve a la pagina 1. Antes se quedaba en la pagina que ya
+   estaba abierta y solo se clampeaba hacia abajo: el admin mirando la pagina 5 del
+   catalogo escribia 'aceite', caian 3 paginas de resultados y veia la 3 (los ultimos
+   siete). Concluia que ese aceite no estaba cargado y lo creaba de nuevo, duplicado en
+   el catalogo publico con otro precio y otro stock.
+   El reset NO puede ir adentro de filterTable a secas, porque adminGoPage() la usa para
+   redibujar al cambiar de pagina y volveria siempre a la 1. Por eso se compara la firma
+   de los cuatro filtros y solo se resetea si alguno cambio; asi tampoco se pierde la
+   pagina cuando filterTable() se llama despues de guardar un producto. */
+const _origFilterTable = filterTable;
+let _firmaFiltrosTabla = null;
+filterTable = function () {
+    const firma = ['searchInput', 'filterCat', 'filterLista', 'filterVisibilidad']
+        .map(id => (document.getElementById(id) || {}).value || '').join('~|~');
+    if (firma !== _firmaFiltrosTabla) { _firmaFiltrosTabla = firma; adminTablePage = 1; }
+    _origFilterTable();
+};
+
+/* Stock: el buscador y el filtro de categoria son los unicos que llaman a
+   filterStockList(), asi que aca el reset puede ser directo. */
+const _origFilterStockList = filterStockList;
+filterStockList = function () {
+    adminStockPage = 1;
+    _origFilterStockList();
+};
+
 // Override renderStockList to add pagination
 const _origRenderStock = renderStockList;
 let stockSortDir = null;

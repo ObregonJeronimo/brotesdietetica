@@ -106,7 +106,18 @@ let _atajoPendiente = null;
 
 document.addEventListener('keydown', function (e) {
   if (_atajoPendiente) { clearTimeout(_atajoPendiente); _atajoPendiente = null; }
-  if (_atajosCapturando) { capturarTecla(e); return; }
+  if (_atajosCapturando) {
+    /* La captura quedaba armada hasta que alguien apretara una tecla o Escape: irse de
+       Configuracion con el mouse no la cancelaba. El admin tocaba 'Cambiar', se arrepentia,
+       se iba a Ventas y al escribir un precio el capturador se comia los digitos y le
+       reasignaba el atajo al primer numero libre. Ahora, si el editor no esta a la vista,
+       si hay un modal abierto o si el foco esta en un campo, la captura se cancela sola y
+       la tecla sigue su camino normal. */
+    const _ed = document.getElementById('atajosEditor');
+    if (_ed && _ed.offsetParent && !_enCampo(e.target) && !_hayModal()) { capturarTecla(e); return; }
+    _atajosCapturando = null;
+    renderAtajosEditor();
+  }
   if (e.ctrlKey || e.altKey || e.metaKey) return;
 
   if (e.key === 'Escape') {

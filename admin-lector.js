@@ -177,6 +177,22 @@ async function asignarCodigoA(prodId) {
   if (!p) return;
   if (p.codigoBarras && p.codigoBarras !== cod &&
       !confirm('"' + (p.nombreMostrado || p.nombre) + '" ya tiene el código ' + p.codigoBarras + '. ¿Reemplazarlo?')) return;
+  /* Se le pregunta a Firestore, no a allProducts: la lista en memoria se cargo al entrar al
+     panel y si el otro admin le asigno este codigo a otro producto desde la otra PC, aca
+     sigue figurando como libre. Sin este control quedaban dos productos con el mismo codigo
+     y el escaneo del mostrador metia en la venta el equivocado: mismo nombre, otro precio.
+     Es el mismo control que ya hace el modal de producto mas arriba. */
+  try {
+    const dup = await db.collection('productos').where('codigoBarras', '==', cod).limit(1).get();
+    if (!dup.empty && dup.docs[0].id !== prodId) {
+      const d = dup.docs[0].data() || {};
+      showAdminToast('Ese codigo ya es de "' + (d.nombreMostrado || d.nombre || 'otro producto') + '"', 'error');
+      return;
+    }
+  } catch (e) {
+    /* Si la consulta falla (sin red, reglas) no se bloquea la asignacion: queda como antes. */
+    console.warn('No se pudo verificar si el codigo ya existe:', e);
+  }
   try {
     await db.collection('productos').doc(prodId).update({ codigoBarras: cod });
     p.codigoBarras = cod;   /* espejo en memoria: el proximo escaneo entra de una */

@@ -37,7 +37,12 @@ const REWRITES = {
   '/politicas': '/politicas.html',
   '/mayoristas': '/mayoristas.html',
   '/resena': '/resena.html',
-  '/seed': '/seed.html',
+  /* El sembrador se llama setup-inicial.html desde que reemplazo a seed.html: este rewrite
+     apuntaba a un archivo que ya no existe, asi que /seed daba 404 en local.
+     FALTA TAMBIEN EN vercel.json: el bloque de headers con "source": "/seed(.*)" (noindex +
+     no-store) hay que pasarlo a "/setup-inicial(.*)", porque hoy la pagina de sembrado se
+     sirve sin esas cabeceras y un proxy o el navegador la pueden cachear. */
+  '/setup-inicial': '/setup-inicial.html',
 };
 
 http.createServer((req, res) => {

@@ -46,9 +46,13 @@ const NEGOCIO = {
   horario: 'Lun - Sáb: 9:00 - 20:00',
 
   /* --- Ecommerce --------------------------------------------------------- */
-  /* Umbrales de la barra de progreso de envío del carrito (en pesos) */
-  envioGratisDesde: 100000,
-  envioBonificadoDesde: 30000,
+  /* Los umbrales de envio NO viven aca. La barra de progreso del carrito y el
+     checkout leen config/pedidos de Firestore (defaults en app.js), y eso se edita
+     desde /admin -> Configuracion -> Pedidos y envios.
+     Aca habia dos claves, envioGratisDesde y envioBonificadoDesde, con un comentario
+     que decia que manejaban la barra del carrito: no las leia nadie, asi que se las
+     cambiaba, se hacia el deploy y no pasaba nada. Se sacaron para que no vuelva a
+     costar una tarde entender por que. */
 
   /* --- Desarrollador (footer "Desarrollado por") ------------------------- */
   dev: {

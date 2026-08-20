@@ -231,7 +231,14 @@
             const comentario=document.getElementById('rComentario').value.trim();
             if(!nombre){showToast('Escribi tu nombre');return;}
             if(!selectedStars){showToast('Selecciona las estrellas');return;}
-            if(!comentario){showToast('Escribí un comentario');return;}
+            /* El comentario se exige solo si la pregunta 1 esta activa en la config. Con la
+               pregunta 1 apagada desde el panel el campo se oculta (campo1Wrap en display:none)
+               pero esta validacion lo seguia pidiendo: el cliente ponia las estrellas, tocaba
+               'Enviar opinion' y le saltaba 'Escribí un comentario' sobre un campo que no veia,
+               asi que no habia forma de dejar la reseña y desde el panel no se notaba nada. */
+            const _campo1Wrap=document.getElementById('campo1Wrap');
+            const _pideComentario=!_campo1Wrap||_campo1Wrap.style.display!=='none';
+            if(_pideComentario&&!comentario){showToast('Escribí un comentario');return;}
             const btn=document.getElementById('submitBtn');
             btn.disabled=true;btn.textContent='Enviando...';
             try{
