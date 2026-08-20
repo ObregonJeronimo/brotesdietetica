@@ -57,8 +57,29 @@ let cajaMovs = [];
 let cajaVentas = [];
 let cajaVentasSueltas = [];
 let _movTipo = 'ingreso';
+let _movEditandoId = null;   /* null = alta; con id = se esta editando ese movimiento */
 
 const _pesos = n => '$' + Number(n || 0).toLocaleString('es-AR');
+
+/* esc() escapa <, > y &, pero NO las comillas, asi que no sirve para meter texto
+   del usuario dentro de un atributo: un detalle con comillas rompe el HTML. */
+const _attr = s => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+const _fechaHora = ts => (ts && ts.seconds)
+  ? new Date(ts.seconds * 1000).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  : '';
+/* Un solo formato de numero de venta en todo el sistema: si esto se escribe a
+   mano, el detalle de caja y el ticket del cliente muestran numeros distintos
+   para la misma venta. */
+const _nroVenta = v => (typeof NEGOCIO !== 'undefined' && NEGOCIO.nroVenta && (v.numero || v.nro))
+  ? NEGOCIO.nroVenta(v.numero || v.nro)
+  : '#' + String(v.numero || v.nro || '-');
+
+const _hora = ts => (ts && ts.seconds)
+  ? new Date(ts.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  : '';
 
 /* ============================ CARGA ============================ */
 
@@ -232,24 +253,45 @@ function renderCaja() {
     renderMovimientos();
 }
 
+/* El badge de editado. Muestra quien, cuando y el motivo si lo pusieron; el
+   motivo es opcional a proposito, pero el rastro de que se toco no lo es. */
+function _badgeEditado(m) {
+  if (!m.editado) return '';
+  const partes = [];
+  if (m.editadoPor) partes.push('por ' + m.editadoPor);
+  if (m.editadoEn && m.editadoEn.seconds) partes.push('el ' + _fechaHora(m.editadoEn));
+  const n = (m.ediciones && m.ediciones.length) || 1;
+  if (n > 1) partes.push('(' + n + ' ediciones)');
+  const motivo = m.motivoEdicion ? '\nMotivo: ' + m.motivoEdicion : '\nSin motivo indicado';
+  return ' <span class="badge-editado" title="' + _attr('Editado ' + partes.join(' ') + motivo) + '">EDITADO</span>';
+}
+
+/* Una fila de movimiento. `editable` agrega el boton de lapiz. En el detalle de
+   una caja CERRADA va en false: los totales de esa caja ya quedaron congelados,
+   y cambiarle el monto a un movimiento los dejaria mintiendo. */
+function _filaMovimiento(m, editable) {
+  const esIng = m.tipo === 'ingreso';
+  const etq = (CAJA_CONCEPTOS[m.tipo] && CAJA_CONCEPTOS[m.tipo][m.concepto]) || m.concepto || '-';
+  return '<tr>' +
+    '<td style="white-space:nowrap;color:var(--text-dim);font-size:0.8rem;padding:0.5rem 0.6rem">' + _hora(m.fecha) + '</td>' +
+    '<td style="padding:0.5rem 0.6rem"><span style="font-weight:600">' + esc(etq) + '</span>' + _badgeEditado(m) + '</td>' +
+    '<td style="color:var(--text-dim);font-size:0.85rem;padding:0.5rem 0.6rem">' + esc(m.detalle || '') + '</td>' +
+    '<td style="text-align:right;white-space:nowrap;font-weight:700;padding:0.5rem 0.6rem;color:' + (esIng ? '#5FA87A' : '#e54545') + '">' +
+      (esIng ? '+ ' : '− ') + _pesos(m.monto) + '</td>' +
+    (editable
+      ? '<td style="text-align:right;white-space:nowrap;padding:0.5rem 0.6rem">' +
+          '<button class="btn-icon" title="Editar este movimiento" onclick="openMovModalEdit(\'' + _attr(m.docId) + '\')">' +
+          '<i class="bi bi-pencil"></i></button></td>'
+      : '') +
+  '</tr>';
+}
+
 function renderMovimientos() {
   if (!cajaMovs.length) {
     return '<div class="card" style="padding:1.1rem"><p style="font-size:0.85rem;color:var(--text-dim)">' +
            'Todavía no hay movimientos en esta caja.</p></div>';
   }
-  const filas = cajaMovs.map(m => {
-    const esIng = m.tipo === 'ingreso';
-    const etq = (CAJA_CONCEPTOS[m.tipo] && CAJA_CONCEPTOS[m.tipo][m.concepto]) || m.concepto || '-';
-    const hora = m.fecha && m.fecha.seconds
-      ? new Date(m.fecha.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
-    return '<tr>' +
-      '<td style="white-space:nowrap;color:var(--text-dim);font-size:0.8rem">' + hora + '</td>' +
-      '<td><span style="font-weight:600">' + esc(etq) + '</span></td>' +
-      '<td style="color:var(--text-dim);font-size:0.85rem">' + esc(m.detalle || '') + '</td>' +
-      '<td style="text-align:right;white-space:nowrap;font-weight:700;color:' + (esIng ? '#5FA87A' : '#e54545') + '">' +
-        (esIng ? '+ ' : '− ') + _pesos(m.monto) + '</td>' +
-    '</tr>';
-  }).join('');
+  const filas = cajaMovs.map(m => _filaMovimiento(m, true)).join('');
   return '<div class="card" style="padding:0;overflow:hidden">' +
     '<div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border)"><h3 style="font-size:0.95rem;font-weight:700">Movimientos de esta caja</h3></div>' +
     '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">' +
@@ -277,6 +319,9 @@ async function renderHistorialCajas() {
     q.forEach(d => docs.push(Object.assign({ docId: d.id }, d.data())));
   } catch (e) { console.warn('historial cajas:', e); }
   const cerradas = docs.filter(c => c.estado === 'cerrada');
+  /* Se cachean para que el detalle y la impresion no vuelvan a consultar la caja:
+     ya la tenemos entera acá, y son los totales congelados, no cambian. */
+  _cajasHistorial = cerradas;
   if (!cerradas.length) {
     cont.innerHTML = '<p style="font-size:0.85rem;color:var(--text-dim)">Todavía no hay cajas cerradas.</p>';
     return;
@@ -296,14 +341,224 @@ async function renderHistorialCajas() {
       '<td style="font-size:0.8rem;color:var(--text-dim)">' + esc(c.motivoDiferencia || '') +
         (c.editadaPostCierre ? ' <span title="Se editó una venta de esta caja después de cerrarla" style="background:rgba(237,184,51,0.18);color:#EDB833;padding:1px 6px;border-radius:4px;font-size:0.68rem;font-weight:700">EDITADA</span>' : '') +
       '</td>' +
+      '<td style="text-align:right;white-space:nowrap;padding:0.4rem 0.6rem">' +
+        '<button class="btn btn-sm btn-secondary" style="width:auto" onclick="abrirMenuCaja(event,\'' + _attr(c.docId) + '\')">' +
+        'Acciones <i class="bi bi-chevron-down" style="font-size:0.7rem"></i></button></td>' +
     '</tr>';
   }).join('');
   cont.innerHTML = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.88rem">' +
     '<thead><tr style="text-align:left;color:var(--text-dim);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">' +
       '<th style="padding:0.5rem 0.6rem">Caja</th><th>Fecha</th><th style="text-align:right">Ventas</th>' +
       '<th style="text-align:right">Esperado</th><th style="text-align:right">Contado</th>' +
-      '<th style="text-align:right">Diferencia</th><th>Motivo</th></tr></thead>' +
+      '<th style="text-align:right">Diferencia</th><th>Motivo</th><th></th></tr></thead>' +
     '<tbody>' + filas + '</tbody></table></div>';
+}
+
+/* ============================ MENU "ACCIONES" ============================
+
+   Se monta en <body> con position:fixed en vez de dentro de la celda. La tabla
+   del historial vive en un contenedor con overflow-x:auto, y ahi adentro un menu
+   absolute queda recortado por el scroll horizontal: en pantallas angostas el
+   menu aparecia cortado o directamente invisible. */
+let _cajasHistorial = [];
+let _menuCajaAbierto = null;
+
+function cerrarMenuCaja() {
+  if (_menuCajaAbierto) { _menuCajaAbierto.remove(); _menuCajaAbierto = null; }
+  document.removeEventListener('mousedown', _menuCajaFuera, true);
+  document.removeEventListener('keydown', _menuCajaEsc, true);
+  window.removeEventListener('resize', cerrarMenuCaja);
+  /* true: los scroll de los contenedores internos no burbujean, hay que
+     escucharlos en fase de captura o el menu queda flotando lejos del boton. */
+  window.removeEventListener('scroll', cerrarMenuCaja, true);
+}
+function _menuCajaFuera(e) { if (_menuCajaAbierto && !_menuCajaAbierto.contains(e.target)) cerrarMenuCaja(); }
+function _menuCajaEsc(e) { if (e.key === 'Escape') cerrarMenuCaja(); }
+
+function abrirMenuCaja(ev, cajaId) {
+  ev.stopPropagation();
+  const yaEra = _menuCajaAbierto && _menuCajaAbierto.dataset.caja === cajaId;
+  cerrarMenuCaja();
+  if (yaEra) return;   /* segundo click en el mismo boton: cierra */
+
+  const menu = document.createElement('div');
+  menu.className = 'menu-acciones';
+  menu.dataset.caja = cajaId;
+  menu.innerHTML =
+    '<button type="button" data-act="detalle"><i class="bi bi-eye"></i> Ver detalles</button>' +
+    '<button type="button" data-act="export"><i class="bi bi-printer"></i> Imprimir y exportar</button>';
+  document.body.appendChild(menu);
+
+  const r = ev.currentTarget.getBoundingClientRect();
+  /* Se mide DESPUES de insertarlo: antes el alto es 0 y el menu se salia por abajo. */
+  const alto = menu.offsetHeight, ancho = menu.offsetWidth;
+  let top = r.bottom + 4;
+  if (top + alto > window.innerHeight - 8) top = Math.max(8, r.top - alto - 4);
+  menu.style.top = top + 'px';
+  menu.style.left = Math.max(8, Math.min(r.right - ancho, window.innerWidth - ancho - 8)) + 'px';
+
+  menu.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const act = b.dataset.act;
+    cerrarMenuCaja();
+    if (act === 'detalle') openCajaDetalle(cajaId);
+    else if (act === 'export') openCajaExportModal(cajaId);
+  });
+
+  _menuCajaAbierto = menu;
+  document.addEventListener('mousedown', _menuCajaFuera, true);
+  document.addEventListener('keydown', _menuCajaEsc, true);
+  window.addEventListener('resize', cerrarMenuCaja);
+  window.addEventListener('scroll', cerrarMenuCaja, true);
+}
+
+/* ============================ DETALLE DE UNA CAJA ============================
+
+   Todo lo que se muestra de una caja cerrada sale de los campos CONGELADOS del
+   documento (esperadoEfectivo, contadoEfectivo, ventasPorMedio...). No se
+   recalcula nada: si mañana editan una venta de aquel dia, este detalle tiene
+   que seguir diciendo lo que se conto aquel dia. Lo unico que se va a buscar
+   son los movimientos y las ventas, que son el respaldo de esos numeros. */
+
+let _cajaDetalle = null;   /* { caja, movs, ventas } de la ultima caja abierta */
+
+async function cargarDetalleCaja(cajaId) {
+  let caja = _cajasHistorial.find(c => c.docId === cajaId) || null;
+  if (!caja) {
+    const s = await db.collection('cajas').doc(cajaId).get();
+    if (!s.exists) throw new Error('La caja ya no existe');
+    caja = Object.assign({ docId: s.id }, s.data());
+  }
+  const [mv, vs, vm] = await Promise.all([
+    db.collection('cajas').doc(cajaId).collection('movimientos').get(),
+    db.collection('ventas').where('cajaId', '==', cajaId).get(),
+    db.collection('ventasMayoristas').where('cajaId', '==', cajaId).get()
+  ]);
+  const movs = [];
+  mv.forEach(d => movs.push(Object.assign({ docId: d.id }, d.data())));
+  movs.sort((a, b) => (a.fecha && a.fecha.seconds || 0) - (b.fecha && b.fecha.seconds || 0));
+  const ventas = [];
+  vs.forEach(d => ventas.push(Object.assign({ docId: d.id, _tipo: 'minorista' }, d.data())));
+  vm.forEach(d => ventas.push(Object.assign({ docId: d.id, _tipo: 'mayorista' }, d.data())));
+  ventas.sort((a, b) => (a.fecha && a.fecha.seconds || 0) - (b.fecha && b.fecha.seconds || 0));
+  return { caja, movs, ventas };
+}
+
+async function openCajaDetalle(cajaId) {
+  const body = document.getElementById('cajaDetalleBody');
+  if (!body) return;
+  body.innerHTML = '<p style="font-size:0.88rem;color:var(--text-dim)">Cargando...</p>';
+  document.getElementById('cajaDetalleModal').classList.add('show');
+  try {
+    _cajaDetalle = await cargarDetalleCaja(cajaId);
+    document.getElementById('cajaDetalleTitulo').innerHTML =
+      '<i class="bi bi-receipt-cutoff"></i> Caja #' + String(_cajaDetalle.caja.numero || 0).padStart(4, '0') +
+      ' <span style="font-weight:400;color:var(--text-dim);font-size:0.9rem">· ' + esc(_cajaDetalle.caja.fecha || '') + '</span>';
+    body.innerHTML = renderCajaDetalle(_cajaDetalle);
+  } catch (e) {
+    body.innerHTML = '<p style="font-size:0.88rem;color:var(--danger)">No se pudo cargar: ' + esc(e.message) + '</p>';
+  }
+}
+function closeCajaDetalleModal() { document.getElementById('cajaDetalleModal').classList.remove('show'); }
+
+function abrirExportDesdeDetalle() {
+  if (!_cajaDetalle) return;
+  closeCajaDetalleModal();
+  openCajaExportModal(_cajaDetalle.caja.docId);
+}
+
+function renderCajaDetalle(d) {
+  const c = d.caja;
+  const dif = Number(c.diferencia || 0);
+  const colorDif = dif === 0 ? '#5FA87A' : (dif > 0 ? '#EDB833' : '#e54545');
+  const etqDif = dif === 0 ? 'La caja cerró exacta' : (dif > 0 ? 'Sobró ' + _pesos(dif) : 'Faltó ' + _pesos(Math.abs(dif)));
+
+  const fila = (etq, val, fuerte) =>
+    '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.33rem 0;font-size:0.87rem">' +
+      '<span style="color:var(--text-dim)">' + etq + '</span>' +
+      '<span style="font-weight:' + (fuerte ? '700' : '600') + ';white-space:nowrap">' + val + '</span></div>';
+
+  const medios = c.ventasPorMedio || {};
+  const nombresMedio = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', cuenta_corriente: 'Fiado', otro: 'Otro' };
+  const filasMedio = Object.keys(nombresMedio)
+    .filter(k => Number(medios[k] || 0) !== 0)
+    .map(k => fila(nombresMedio[k], _pesos(medios[k]))).join('') ||
+    '<p style="font-size:0.83rem;color:var(--text-dim)">No hubo ventas en esta caja.</p>';
+
+  const movs = d.movs.length
+    ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">' +
+      '<tbody>' + d.movs.map(m => _filaMovimiento(m, false)).join('') + '</tbody></table></div>'
+    : '<p style="font-size:0.83rem;color:var(--text-dim)">Sin movimientos.</p>';
+
+  const ventas = d.ventas.length
+    ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.85rem">' +
+      '<tbody>' + d.ventas.map(v => {
+        const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+        return '<tr>' +
+          '<td style="padding:0.42rem 0.6rem;color:var(--text-dim);white-space:nowrap;font-size:0.8rem">' + _hora(v.fecha) + '</td>' +
+          '<td style="padding:0.42rem 0.6rem;white-space:nowrap">' + esc(_nroVenta(v)) + '</td>' +
+          '<td style="padding:0.42rem 0.6rem">' + esc(v.cliente || 'Consumidor final') +
+            (v._tipo === 'mayorista' ? ' <span style="font-size:0.68rem;color:var(--text-dim)">MAY</span>' : '') + '</td>' +
+          '<td style="padding:0.42rem 0.6rem;color:var(--text-dim);white-space:nowrap">' + esc(nombresMedio[medio] || medio) + '</td>' +
+          '<td style="padding:0.42rem 0.6rem;text-align:right;font-weight:600;white-space:nowrap">' + _pesos(v.total) + '</td>' +
+        '</tr>';
+      }).join('') + '</tbody></table></div>'
+    : '<p style="font-size:0.83rem;color:var(--text-dim)">No hay ventas asociadas a esta caja.</p>';
+
+  const bloque = (titulo, contenido) =>
+    '<div style="margin-top:1.1rem">' +
+      '<h4 style="font-size:0.82rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-dim);margin-bottom:0.5rem">' + titulo + '</h4>' +
+      contenido + '</div>';
+
+  return (
+    '<div style="background:rgba(255,255,255,0.04);border-left:3px solid ' + colorDif + ';border-radius:0 8px 8px 0;padding:0.75rem 0.95rem;margin-bottom:0.4rem">' +
+      '<div style="font-weight:700;color:' + colorDif + '">' + etqDif + '</div>' +
+      '<div style="font-size:0.78rem;color:var(--text-dim);margin-top:0.15rem">' +
+        'Esperado ' + _pesos(c.esperadoEfectivo) + ' · contado ' + _pesos(c.contadoEfectivo) + '</div>' +
+      (c.motivoDiferencia ? '<div style="font-size:0.82rem;margin-top:0.35rem">Motivo: ' + esc(c.motivoDiferencia) + '</div>' : '') +
+    '</div>' +
+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:1rem">' +
+      '<div class="card" style="padding:1rem">' +
+        '<h4 style="font-size:0.9rem;font-weight:700;margin-bottom:0.5rem">Apertura</h4>' +
+        fila('Fondo inicial', _pesos(c.montoInicial)) +
+        fila('Abrió', esc(c.abiertoPor || '-')) +
+        fila('Hora', _fechaHora(c.abiertoEn) || '-') +
+        (c.notaApertura ? '<div style="font-size:0.8rem;color:var(--text-dim);margin-top:0.4rem">' + esc(c.notaApertura) + '</div>' : '') +
+      '</div>' +
+      '<div class="card" style="padding:1rem">' +
+        '<h4 style="font-size:0.9rem;font-weight:700;margin-bottom:0.5rem">Cierre</h4>' +
+        fila('Cerró', esc(c.cerradoPor || '-')) +
+        fila('Hora', _fechaHora(c.cerradoEn) || '-') +
+        fila('Retiro final', _pesos(c.retiroFinal)) +
+        fila('Quedó en caja', _pesos(c.dejaEnCaja), true) +
+        (c.observaciones ? '<div style="font-size:0.8rem;color:var(--text-dim);margin-top:0.4rem">' + esc(c.observaciones) + '</div>' : '') +
+      '</div>' +
+    '</div>' +
+
+    bloque('Cómo se llegó al esperado en efectivo',
+      '<div class="card" style="padding:1rem">' +
+        fila('Fondo inicial', _pesos(c.montoInicial)) +
+        fila('+ Ventas en efectivo', _pesos(medios.efectivo)) +
+        fila('+ Ingresos', _pesos(c.totalIngresos)) +
+        fila('− Egresos', _pesos(c.totalEgresos)) +
+        '<div style="border-top:1px solid var(--border);margin-top:0.45rem;padding-top:0.45rem">' +
+          fila('<b>Debería haber</b>', '<b style="color:var(--accent)">' + _pesos(c.esperadoEfectivo) + '</b>', true) +
+          fila('<b>Se contó</b>', '<b>' + _pesos(c.contadoEfectivo) + '</b>', true) +
+        '</div>' +
+        '<p style="font-size:0.76rem;color:var(--text-dim);margin-top:0.5rem;line-height:1.5">' +
+          'Tarjeta, transferencia y fiado no entran acá: no pasaron por el cajón.</p>' +
+      '</div>') +
+
+    bloque('Ventas por medio de pago (' + (c.ventasCount || 0) + ' ventas · ' + _pesos(c.ventasBruto) + ')',
+      '<div class="card" style="padding:1rem">' + filasMedio +
+      (Number(c.ventasEnvio || 0) ? '<p style="font-size:0.76rem;color:var(--text-dim);margin-top:0.5rem">Incluye ' + _pesos(c.ventasEnvio) + ' de envíos cobrados.</p>' : '') +
+      '</div>') +
+
+    bloque('Movimientos (' + d.movs.length + ')', '<div class="card" style="padding:0.4rem">' + movs + '</div>') +
+    bloque('Ventas de esta caja (' + d.ventas.length + ')', '<div class="card" style="padding:0.4rem">' + ventas + '</div>')
+  );
 }
 
 /* ============================ ABRIR ============================ */
@@ -375,16 +630,53 @@ async function abrirCaja() {
 /* ============================ MOVIMIENTOS ============================ */
 
 function openMovModal(tipo) {
+  _movEditandoId = null;
   _movTipo = (tipo === 'egreso') ? 'egreso' : 'ingreso';
-  const sel = document.getElementById('movConcepto');
-  const conceptos = CAJA_CONCEPTOS[_movTipo];
-  sel.innerHTML = Object.keys(conceptos).map(k => '<option value="' + k + '">' + conceptos[k] + '</option>').join('');
+  _llenarConceptos(_movTipo);
   document.getElementById('movTitulo').textContent = _movTipo === 'ingreso' ? 'Registrar ingreso' : 'Registrar egreso';
   document.getElementById('movMonto').value = '';
   document.getElementById('movDetalle').value = '';
+  document.getElementById('movMotivo').value = '';
+  document.getElementById('movMotivoWrap').style.display = 'none';
   document.getElementById('movModal').classList.add('show');
   setTimeout(() => document.getElementById('movMonto').focus(), 60);
 }
+
+function _llenarConceptos(tipo) {
+  const sel = document.getElementById('movConcepto');
+  const conceptos = CAJA_CONCEPTOS[tipo];
+  sel.innerHTML = Object.keys(conceptos).map(k => '<option value="' + k + '">' + conceptos[k] + '</option>').join('');
+}
+
+/* Editar un movimiento ya cargado. Solo se puede mientras la caja sigue ABIERTA:
+   al cerrar, los totales quedan congelados en el documento, y cambiarle el monto
+   a un movimiento de una caja cerrada dejaria el arqueo diciendo un numero que ya
+   no se corresponde con su propio respaldo. Por eso en el detalle de una caja
+   cerrada los movimientos se ven pero no se editan.
+
+   No hay borrar a proposito: un movimiento que desaparece es plata que no se
+   puede rastrear. Se corrige y queda el rastro de que se corrigio. */
+function openMovModalEdit(movId) {
+  const m = cajaMovs.find(x => x.docId === movId);
+  if (!m) { showAdminToast('No se encontró ese movimiento', 'error'); return; }
+  if (!cajaActual || cajaActual.estado !== 'abierta') {
+    showAdminToast('Solo se pueden editar los movimientos de la caja abierta', 'error');
+    return;
+  }
+  _movEditandoId = movId;
+  _movTipo = m.tipo === 'egreso' ? 'egreso' : 'ingreso';
+  _llenarConceptos(_movTipo);
+  document.getElementById('movTitulo').textContent =
+    _movTipo === 'ingreso' ? 'Editar ingreso' : 'Editar egreso';
+  document.getElementById('movConcepto').value = m.concepto || '';
+  document.getElementById('movMonto').value = Number(m.monto || 0);
+  document.getElementById('movDetalle').value = m.detalle || '';
+  document.getElementById('movMotivo').value = '';
+  document.getElementById('movMotivoWrap').style.display = '';
+  document.getElementById('movModal').classList.add('show');
+  setTimeout(() => document.getElementById('movMonto').focus(), 60);
+}
+
 function closeMovModal() { document.getElementById('movModal').classList.remove('show'); }
 
 async function guardarMovimiento() {
@@ -409,12 +701,55 @@ async function guardarMovimiento() {
       await loadCaja();
       return;
     }
-    await db.collection('cajas').doc(cajaActual.docId).collection('movimientos').add({
+    const concepto = document.getElementById('movConcepto').value;
+    const quien = (auth.currentUser && auth.currentUser.email) || '-';
+    const movsCol = db.collection('cajas').doc(cajaActual.docId).collection('movimientos');
+
+    if (_movEditandoId) {
+      const antes = cajaMovs.find(x => x.docId === _movEditandoId);
+      if (!antes) { showAdminToast('Ese movimiento ya no existe', 'error'); closeMovModal(); await loadCaja(); return; }
+      const motivo = document.getElementById('movMotivo').value.trim();
+      const sinCambios = Number(antes.monto || 0) === monto &&
+                         (antes.detalle || '') === detalle &&
+                         (antes.concepto || '') === concepto;
+      if (sinCambios) { showAdminToast('No se modificó ningún dato', 'info'); closeMovModal(); return; }
+      /* Se guardan los valores anteriores en un array. serverTimestamp() no se
+         puede meter adentro de un array en Firestore, asi que la fecha de cada
+         edicion va con la del cliente; la de arriba (editadoEn) si es del server. */
+      await movsCol.doc(_movEditandoId).update({
+        concepto: concepto,
+        monto: monto,
+        detalle: detalle,
+        editado: true,
+        editadoPor: quien,
+        editadoEn: firebase.firestore.FieldValue.serverTimestamp(),
+        motivoEdicion: motivo || null,
+        ediciones: firebase.firestore.FieldValue.arrayUnion({
+          en: new Date(),
+          por: quien,
+          motivo: motivo || null,
+          conceptoAntes: antes.concepto || null,
+          montoAntes: Number(antes.monto || 0),
+          detalleAntes: antes.detalle || null
+        })
+      });
+      if (typeof logAction === 'function')
+        logAction('editar', 'Caja #' + cajaActual.numero + ': movimiento editado',
+          _pesos(antes.monto) + ' -> ' + _pesos(monto) + ' | ' + (antes.detalle || '') + ' -> ' + detalle +
+          (motivo ? ' | Motivo: ' + motivo : ' | Sin motivo'));
+      showAdminToast('Movimiento actualizado', 'success');
+      closeMovModal();
+      await cargarDatosCaja(cajaActual.docId);
+      renderCaja();
+      return;
+    }
+
+    await movsCol.add({
       tipo: _movTipo,
-      concepto: document.getElementById('movConcepto').value,
+      concepto: concepto,
       monto: monto,
       detalle: detalle,
-      usuario: (auth.currentUser && auth.currentUser.email) || '-',
+      usuario: quien,
       fecha: firebase.firestore.FieldValue.serverTimestamp()
     });
     if (typeof logAction === 'function')
@@ -628,6 +963,354 @@ async function adjuntarVentasSueltas() {
     await cargarVentasSueltas(cajaActual.fecha);
     renderCaja();
   } catch (e) { showAdminToast('Error: ' + e.message, 'error'); }
+}
+
+/* ============================ IMPRIMIR Y EXPORTAR ============================
+
+   buildArqueoHTML es la UNICA fuente del comprobante: la vista previa del modal y
+   lo que se manda a la impresora salen de la misma llamada. Si fueran dos
+   funciones distintas, la vista previa terminaria mintiendo apenas alguien toque
+   una de las dos.
+
+   Va con estilos inline y colores literales, sin variables CSS: se escribe en una
+   ventana nueva que no tiene el CSS del panel, y sobre papel blanco. */
+
+const _MEDIOS_NOMBRE = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', cuenta_corriente: 'Fiado (no cobrado)', otro: 'Otro' };
+
+function buildArqueoHTML(d) {
+  const c = d.caja;
+  const dif = Number(c.diferencia || 0);
+  const etqDif = dif === 0 ? 'CAJA EXACTA' : (dif > 0 ? 'SOBRANTE ' + _pesos(dif) : 'FALTANTE ' + _pesos(Math.abs(dif)));
+  const negocio = (typeof NEGOCIO !== 'undefined' && NEGOCIO.nombre) ? NEGOCIO.nombre : 'Brotes Dietética';
+  const medios = c.ventasPorMedio || {};
+
+  const f = (etq, val, fuerte) =>
+    '<tr><td style="padding:2px 0;color:#444">' + etq + '</td>' +
+    '<td style="padding:2px 0;text-align:right;white-space:nowrap;font-weight:' + (fuerte ? '700' : '500') + '">' + val + '</td></tr>';
+
+  const tabla = (cab, filas) =>
+    '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:4px">' +
+    '<thead><tr>' + cab.map((h, i) =>
+      '<th style="text-align:' + (i >= cab.length - 1 ? 'right' : 'left') + ';padding:3px 4px;border-bottom:1px solid #999;font-size:9px;text-transform:uppercase;letter-spacing:0.4px;color:#555">' + h + '</th>').join('') +
+    '</tr></thead><tbody>' + filas + '</tbody></table>';
+
+  const filasMov = d.movs.length ? d.movs.map(m => {
+    const etq = (CAJA_CONCEPTOS[m.tipo] && CAJA_CONCEPTOS[m.tipo][m.concepto]) || m.concepto || '-';
+    const signo = m.tipo === 'ingreso' ? '+ ' : '− ';
+    return '<tr>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + _hora(m.fecha) + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(etq) + (m.editado ? ' <b>(editado)</b>' : '') + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(m.detalle || '') + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">' + signo + _pesos(m.monto) + '</td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="4" style="padding:6px 4px;color:#777">Sin movimientos.</td></tr>';
+
+  const filasVta = d.ventas.length ? d.ventas.map(v => {
+    const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+    return '<tr>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + _hora(v.fecha) + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(_nroVenta(v)) + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(v.cliente || 'Consumidor final') + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(_MEDIOS_NOMBRE[medio] || medio) + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">' + _pesos(v.total) + '</td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="5" style="padding:6px 4px;color:#777">Sin ventas.</td></tr>';
+
+  return '' +
+  '<div style="font-family:Arial,Helvetica,sans-serif;color:#111;font-size:12px;line-height:1.45;max-width:180mm;margin:0 auto">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px">' +
+      '<div><div style="font-size:16px;font-weight:700">' + esc(negocio) + '</div>' +
+      '<div style="font-size:11px;color:#555">Arqueo de caja</div></div>' +
+      '<div style="text-align:right">' +
+        '<div style="font-size:15px;font-weight:700">Caja #' + String(c.numero || 0).padStart(4, '0') + '</div>' +
+        '<div style="font-size:11px;color:#555">' + esc(c.fecha || '') + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="display:flex;gap:12px;margin-bottom:10px">' +
+      '<div style="flex:1;border:1px solid #ccc;border-radius:5px;padding:7px 9px">' +
+        '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#555;margin-bottom:3px">Apertura</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+          f('Fondo inicial', _pesos(c.montoInicial)) + f('Abrió', esc(c.abiertoPor || '-')) + f('Hora', _fechaHora(c.abiertoEn) || '-') +
+        '</table></div>' +
+      '<div style="flex:1;border:1px solid #ccc;border-radius:5px;padding:7px 9px">' +
+        '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#555;margin-bottom:3px">Cierre</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+          f('Cerró', esc(c.cerradoPor || '-')) + f('Hora', _fechaHora(c.cerradoEn) || '-') +
+          f('Retiro final', _pesos(c.retiroFinal)) + f('Quedó en caja', _pesos(c.dejaEnCaja), true) +
+        '</table></div>' +
+    '</div>' +
+
+    '<div style="display:flex;gap:12px;margin-bottom:10px">' +
+      '<div style="flex:1;border:1px solid #ccc;border-radius:5px;padding:7px 9px">' +
+        '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#555;margin-bottom:3px">Efectivo esperado</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+          f('Fondo inicial', _pesos(c.montoInicial)) +
+          f('+ Ventas en efectivo', _pesos(medios.efectivo)) +
+          f('+ Ingresos', _pesos(c.totalIngresos)) +
+          f('− Egresos', _pesos(c.totalEgresos)) +
+          '<tr><td colspan="2" style="border-top:1px solid #999;padding-top:2px"></td></tr>' +
+          f('Debería haber', _pesos(c.esperadoEfectivo), true) +
+          f('Se contó', _pesos(c.contadoEfectivo), true) +
+        '</table>' +
+        '<div style="font-size:9px;color:#666;margin-top:4px">Tarjeta, transferencia y fiado no entran: no pasan por el cajón.</div>' +
+      '</div>' +
+      '<div style="flex:1;border:1px solid #ccc;border-radius:5px;padding:7px 9px">' +
+        '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#555;margin-bottom:3px">' +
+          'Ventas (' + (c.ventasCount || 0) + ')</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+          Object.keys(_MEDIOS_NOMBRE).filter(k => Number(medios[k] || 0) !== 0)
+            .map(k => f(_MEDIOS_NOMBRE[k], _pesos(medios[k]))).join('') +
+          '<tr><td colspan="2" style="border-top:1px solid #999;padding-top:2px"></td></tr>' +
+          f('Total facturado', _pesos(c.ventasBruto), true) +
+        '</table>' +
+        (Number(c.ventasEnvio || 0) ? '<div style="font-size:9px;color:#666;margin-top:4px">Incluye ' + _pesos(c.ventasEnvio) + ' de envíos cobrados.</div>' : '') +
+      '</div>' +
+    '</div>' +
+
+    '<div style="border:2px solid #111;border-radius:5px;padding:8px 10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">' +
+      '<div><div style="font-size:15px;font-weight:700">' + etqDif + '</div>' +
+      (c.motivoDiferencia ? '<div style="font-size:10px;color:#444;margin-top:2px">Motivo: ' + esc(c.motivoDiferencia) + '</div>' : '') + '</div>' +
+      '<div style="text-align:right;font-size:10px;color:#444">Esperado ' + _pesos(c.esperadoEfectivo) + '<br>Contado ' + _pesos(c.contadoEfectivo) + '</div>' +
+    '</div>' +
+
+    (c.observaciones ? '<div style="font-size:11px;margin-bottom:10px"><b>Observaciones:</b> ' + esc(c.observaciones) + '</div>' : '') +
+
+    '<div style="font-size:11px;font-weight:700;margin-top:12px">Movimientos (' + d.movs.length + ')</div>' +
+    tabla(['Hora', 'Concepto', 'Detalle', 'Monto'], filasMov) +
+
+    '<div style="font-size:11px;font-weight:700;margin-top:12px">Ventas (' + d.ventas.length + ')</div>' +
+    tabla(['Hora', 'N°', 'Cliente', 'Medio', 'Total'], filasVta) +
+
+    '<div style="margin-top:22px;display:flex;gap:30px;font-size:10px;color:#555">' +
+      '<div style="flex:1;border-top:1px solid #999;padding-top:3px">Firma de quien cierra</div>' +
+      '<div style="flex:1;border-top:1px solid #999;padding-top:3px">Firma de quien controla</div>' +
+    '</div>' +
+    '<div style="margin-top:8px;font-size:9px;color:#888">Emitido el ' + new Date().toLocaleString('es-AR') + '</div>' +
+  '</div>';
+}
+
+async function openCajaExportModal(cajaId) {
+  const prev = document.getElementById('cajaExportPreview');
+  if (!prev) return;
+  prev.innerHTML = '<p style="color:#555;font-size:13px">Cargando...</p>';
+  document.getElementById('cajaExportModal').classList.add('show');
+  try {
+    /* Se reusa lo que ya cargó el detalle si es la misma caja: son los mismos
+       datos congelados y evita tres consultas al abrir uno detrás del otro. */
+    if (!_cajaDetalle || _cajaDetalle.caja.docId !== cajaId) _cajaDetalle = await cargarDetalleCaja(cajaId);
+    prev.innerHTML = buildArqueoHTML(_cajaDetalle);
+  } catch (e) {
+    prev.innerHTML = '<p style="color:#b00;font-size:13px">No se pudo cargar: ' + esc(e.message) + '</p>';
+  }
+}
+function closeCajaExportModal() { document.getElementById('cajaExportModal').classList.remove('show'); }
+
+function _nombreArchivoArqueo(ext) {
+  const c = _cajaDetalle.caja;
+  return 'BROTES_arqueo_caja' + String(c.numero || 0).padStart(4, '0') + '_' + (c.fecha || '') + '.' + ext;
+}
+
+function imprimirArqueo() {
+  if (!_cajaDetalle) { showAdminToast('El arqueo todavía no terminó de cargar', 'error'); return; }
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) { showAdminToast('El navegador bloqueó la ventana de impresión. Permita las ventanas emergentes para este sitio.', 'error'); return; }
+  win.document.write('<html><head><title>Arqueo caja ' +
+    String(_cajaDetalle.caja.numero || 0).padStart(4, '0') + '</title><style>' +
+    '@page{margin:14mm;size:A4}html,body{margin:0;padding:0;background:#fff}' +
+    'table{page-break-inside:auto}tr{page-break-inside:avoid;break-inside:avoid}thead{display:table-header-group}' +
+    '</style></head><body>' + buildArqueoHTML(_cajaDetalle) + '</body></html>');
+  win.document.close();
+  win.focus();
+  /* Sin el respiro el navegador a veces imprime la pagina todavia sin maquetar. */
+  setTimeout(() => { win.print(); win.close(); }, 300);
+}
+
+function exportarArqueo() {
+  if (!_cajaDetalle) { showAdminToast('El arqueo todavía no terminó de cargar', 'error'); return; }
+  const fmt = document.getElementById('cajaExportFormato').value;
+  try {
+    if (fmt === 'csv') _exportarArqueoCSV();
+    else _exportarArqueoPDF();
+  } catch (e) {
+    showAdminToast('No se pudo exportar: ' + e.message, 'error');
+  }
+}
+
+function _bajarArchivo(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  /* Revocar en el mismo tick cancela la descarga en algunos navegadores. */
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function _exportarArqueoCSV() {
+  const d = _cajaDetalle, c = d.caja, medios = c.ventasPorMedio || {};
+  const filas = [];
+  const push = (a, b, cc, dd, ee) => filas.push([a, b, cc, dd, ee].map(x => x == null ? '' : String(x)));
+  push('ARQUEO DE CAJA'); push('Caja', String(c.numero || 0).padStart(4, '0')); push('Fecha', c.fecha || '');
+  push('Abrió', c.abiertoPor || ''); push('Cerró', c.cerradoPor || ''); push('');
+  push('Fondo inicial', c.montoInicial || 0);
+  push('Ventas en efectivo', medios.efectivo || 0);
+  push('Ingresos', c.totalIngresos || 0);
+  push('Egresos', c.totalEgresos || 0);
+  push('Esperado en efectivo', c.esperadoEfectivo || 0);
+  push('Contado', c.contadoEfectivo || 0);
+  push('Diferencia', c.diferencia || 0);
+  push('Motivo', c.motivoDiferencia || '');
+  push('Retiro final', c.retiroFinal || 0);
+  push('Quedó en caja', c.dejaEnCaja || 0);
+  push('Observaciones', c.observaciones || ''); push('');
+  push('VENTAS POR MEDIO');
+  Object.keys(_MEDIOS_NOMBRE).forEach(k => { if (Number(medios[k] || 0) !== 0) push(_MEDIOS_NOMBRE[k], medios[k]); });
+  push('Total facturado', c.ventasBruto || 0);
+  push('Envíos cobrados', c.ventasEnvio || 0); push('');
+  push('MOVIMIENTOS'); push('Hora', 'Tipo', 'Concepto', 'Detalle', 'Monto');
+  d.movs.forEach(m => push(_hora(m.fecha), m.tipo, (CAJA_CONCEPTOS[m.tipo] && CAJA_CONCEPTOS[m.tipo][m.concepto]) || m.concepto || '',
+    (m.detalle || '') + (m.editado ? ' [editado]' : ''), (m.tipo === 'egreso' ? -1 : 1) * Number(m.monto || 0)));
+  push('');
+  push('VENTAS'); push('Hora', 'Número', 'Cliente', 'Medio', 'Total');
+  d.ventas.forEach(v => {
+    const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+    push(_hora(v.fecha), _nroVenta(v), v.cliente || 'Consumidor final', _MEDIOS_NOMBRE[medio] || medio, Number(v.total || 0));
+  });
+
+  /* Se escapa a mano en vez de usar XLSX: son filas de largo distinto (secciones,
+     titulos, tablas) y sheet_to_csv las normaliza a una grilla rectangular. */
+  const csv = filas.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  /* El BOM es lo que hace que Excel en Windows abra los acentos bien. Y el
+     separador es ';' porque en configuracion regional es-AR la coma es decimal. */
+  _bajarArchivo(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), _nombreArchivoArqueo('csv'));
+  showAdminToast('CSV descargado', 'success');
+}
+
+function _exportarArqueoPDF() {
+  if (!window.jspdf || !window.jspdf.jsPDF) { showAdminToast('La librería de PDF no cargó. Recargue la página.', 'error'); return; }
+  const d = _cajaDetalle, c = d.caja, medios = c.ventasPorMedio || {};
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const M = 14, ancho = W - M * 2;
+  let y = M;
+
+  /* El PDF se dibuja con primitivas en vez de convertir el HTML: jsPDF necesita
+     html2canvas para eso y el panel no lo carga. Mismo contenido y mismo orden
+     que buildArqueoHTML; si cambia uno hay que tocar el otro. */
+  const salto = (alto) => { if (y + (alto || 6) > H - M) { doc.addPage(); y = M; return true; } return false; };
+  const txt = (s, x, opts) => doc.text(String(s == null ? '' : s), x, y, opts);
+  const par = (etq, val, bold) => {
+    salto();
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(70);
+    txt(etq, M + 2);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setTextColor(17);
+    txt(val, W - M - 2, { align: 'right' });
+    y += 5;
+  };
+
+  doc.setFillColor(17, 17, 17); doc.rect(0, 0, W, 13, 'F');
+  doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+  doc.text((typeof NEGOCIO !== 'undefined' && NEGOCIO.nombre) ? NEGOCIO.nombre : 'Brotes Dietética', M, 8.5);
+  doc.setFontSize(10);
+  doc.text('Arqueo caja #' + String(c.numero || 0).padStart(4, '0') + '  ·  ' + (c.fecha || ''), W - M, 8.5, { align: 'right' });
+  y = 20; doc.setTextColor(17);
+
+  const titulo = (t) => {
+    salto(10); y += 2;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(17);
+    txt(t, M); y += 2;
+    doc.setDrawColor(150); doc.line(M, y, W - M, y); y += 4;
+  };
+
+  titulo('Apertura y cierre');
+  par('Fondo inicial', _pesos(c.montoInicial));
+  par('Abrió', String(c.abiertoPor || '-') + '   ' + (_fechaHora(c.abiertoEn) || ''));
+  par('Cerró', String(c.cerradoPor || '-') + '   ' + (_fechaHora(c.cerradoEn) || ''));
+  par('Retiro final', _pesos(c.retiroFinal));
+  par('Quedó en caja', _pesos(c.dejaEnCaja), true);
+
+  titulo('Efectivo esperado');
+  par('Fondo inicial', _pesos(c.montoInicial));
+  par('+ Ventas en efectivo', _pesos(medios.efectivo));
+  par('+ Ingresos', _pesos(c.totalIngresos));
+  par('- Egresos', _pesos(c.totalEgresos));
+  par('Debería haber', _pesos(c.esperadoEfectivo), true);
+  par('Se contó', _pesos(c.contadoEfectivo), true);
+  const dif = Number(c.diferencia || 0);
+  par('Diferencia', (dif === 0 ? 'exacta' : (dif > 0 ? 'sobrante ' : 'faltante ') + _pesos(Math.abs(dif))), true);
+  if (c.motivoDiferencia) {
+    salto(); doc.setFont('helvetica', 'italic'); doc.setFontSize(8.5); doc.setTextColor(70);
+    doc.text(doc.splitTextToSize('Motivo: ' + c.motivoDiferencia, ancho - 4), M + 2, y);
+    y += 4 * doc.splitTextToSize('Motivo: ' + c.motivoDiferencia, ancho - 4).length;
+  }
+
+  titulo('Ventas (' + (c.ventasCount || 0) + ')');
+  Object.keys(_MEDIOS_NOMBRE).forEach(k => { if (Number(medios[k] || 0) !== 0) par(_MEDIOS_NOMBRE[k], _pesos(medios[k])); });
+  par('Total facturado', _pesos(c.ventasBruto), true);
+
+  /* Tablas: anchos en mm que suman `ancho`. La ultima columna va a la derecha. */
+  const tablaPDF = (cab, anchos, filas) => {
+    salto(12);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(85);
+    let x = M;
+    cab.forEach((h, i) => {
+      const der = i === cab.length - 1;
+      doc.text(h, der ? x + anchos[i] : x, y, der ? { align: 'right' } : undefined);
+      x += anchos[i];
+    });
+    y += 2; doc.setDrawColor(150); doc.line(M, y, W - M, y); y += 3.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(17);
+    filas.forEach(fila => {
+      if (salto(6)) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(17);
+      }
+      let cx = M;
+      fila.forEach((celda, i) => {
+        const der = i === fila.length - 1;
+        /* Se recorta al ancho de la columna: sin esto un detalle largo se pisa
+           con la columna de al lado y el PDF queda ilegible. */
+        const s = der ? String(celda) : doc.splitTextToSize(String(celda), anchos[i] - 2)[0] || '';
+        doc.text(s, der ? cx + anchos[i] : cx, y, der ? { align: 'right' } : undefined);
+        cx += anchos[i];
+      });
+      y += 5;
+    });
+    if (!filas.length) { salto(); doc.setTextColor(120); txt('Sin registros.', M + 2); y += 5; doc.setTextColor(17); }
+  };
+
+  titulo('Movimientos (' + d.movs.length + ')');
+  tablaPDF(['Hora', 'Concepto', 'Detalle', 'Monto'], [14, 42, ancho - 14 - 42 - 28, 28],
+    d.movs.map(m => [
+      _hora(m.fecha),
+      (CAJA_CONCEPTOS[m.tipo] && CAJA_CONCEPTOS[m.tipo][m.concepto]) || m.concepto || '-',
+      (m.detalle || '') + (m.editado ? ' (editado)' : ''),
+      (m.tipo === 'ingreso' ? '+ ' : '- ') + _pesos(m.monto)
+    ]));
+
+  titulo('Ventas (' + d.ventas.length + ')');
+  tablaPDF(['Hora', 'N°', 'Cliente', 'Medio', 'Total'], [14, 16, ancho - 14 - 16 - 32 - 28, 32, 28],
+    d.ventas.map(v => {
+      const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+      return [_hora(v.fecha), _nroVenta(v), v.cliente || 'Consumidor final',
+              _MEDIOS_NOMBRE[medio] || medio, _pesos(v.total)];
+    }));
+
+  salto(20); y += 10;
+  doc.setDrawColor(150);
+  doc.line(M, y, M + ancho / 2 - 8, y); doc.line(M + ancho / 2 + 8, y, W - M, y);
+  y += 4; doc.setFontSize(8); doc.setTextColor(85);
+  doc.text('Firma de quien cierra', M, y);
+  doc.text('Firma de quien controla', M + ancho / 2 + 8, y);
+
+  const total = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(140);
+    doc.text('Emitido el ' + new Date().toLocaleString('es-AR'), M, H - 7);
+    doc.text(p + ' / ' + total, W - M, H - 7, { align: 'right' });
+  }
+  doc.save(_nombreArchivoArqueo('pdf'));
+  showAdminToast('PDF descargado', 'success');
 }
 
 /* ============ API para el resto del panel ============ */
