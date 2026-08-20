@@ -61,11 +61,11 @@ const NEGOCIO = {
   /* --- Admins del panel /admin ------------------------------------------
      Esto SOLO controla lo que muestra la interfaz. La seguridad real está en
      firestore.rules → isAdmin(). Si agregás uno acá, agregalo también allá. */
-  ADMIN_EMAILS: [
-    'jeroobregon03@gmail.com',
-    'thiagowendler53@gmail.com',
-    'cecilialoreanaserafini@gmail.com',
-    'joacobrarda06@gmail.com',
+  /* Solo informativo. Quien entra al panel se decide en la coleccion /admins de
+     Firestore, y se maneja desde /admin -> Configuracion -> Quien puede entrar.
+     Esta lista no habilita ni bloquea a nadie: si la tocas, no pasa nada. */
+  ADMIN_EMAILS_INFORMATIVO: [
+    'jeroobregon03@gmail.com',   /* dueño, fijo en las reglas */
   ],
 };
 

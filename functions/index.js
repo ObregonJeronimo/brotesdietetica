@@ -4,17 +4,24 @@
  * - procesarUsoCupon:         incrementa usos del cupon y lo desactiva al llegar a maxUsos
  * - rateLimitPedidos:         borra el pedido si el mismo uid hizo mas de 5 en una hora
  * - sanitizarPedido:          limpia los campos de texto del pedido del lado del servidor
+ * - sincronizarClaimAdmin:    pone/saca el custom claim `admin` segun la coleccion /admins
+ *                             (Storage no puede leer Firestore, por eso hace falta el claim)
+ * - aplicarClaimAlIngresar:   aplica el claim al primer ingreso de un admin que se agrego
+ *                             antes de que tuviera cuenta de Google
  * - descontarStockPedido:     descuenta el stock del pedido web (el cliente no tiene
  *                             permiso de escritura sobre /productos, y no deberia)
  *
  * Requiere documento Firestore: config/telegram con campos `token` y `chatId`
  * (ese doc solo lo pueden leer los admins, ver firestore.rules).
  *
- * Las 5 son Gen 2 y estan todas en southamerica-east1, la misma region que
+ * Las de pedidos son Gen 2 y estan todas en southamerica-east1, la misma region que
  * Firestore. Requiere plan Blaze.
  */
 
-const {onDocumentCreated} = require('firebase-functions/v2/firestore');
+const {onDocumentCreated, onDocumentWritten} = require('firebase-functions/v2/firestore');
+/* Gen 1 solo para el disparador de creacion de usuario: Gen 2 no tiene triggers de Auth
+   (los blocking functions necesitan Identity Platform). Conviven sin problema. */
+const functionsV1 = require('firebase-functions/v1');
 const {logger} = require('firebase-functions');
 const admin = require('firebase-admin');
 
@@ -338,4 +345,80 @@ exports.descontarStockPedido = onDocumentCreated(
       logger.error('Tampoco se pudo marcar el error en el pedido:', e2);
     }
   }
+  });
+
+/**
+ * SINCRONIZA EL CUSTOM CLAIM `admin` CON LA COLECCION /admins
+ *
+ * Las reglas de Firestore resuelven quien es admin leyendo /admins, pero las de
+ * Storage NO pueden leer Firestore. Para que un admin nuevo pueda subir imagenes
+ * hace falta que la marca viaje en su token, y eso es un custom claim.
+ *
+ * Ojo con el caso que parece un detalle y no lo es: se puede agregar como admin a
+ * alguien que NUNCA inicio sesion. Ese usuario todavia no existe en Auth, asi que
+ * no hay a quien ponerle el claim. En ese caso se deja anotado en el documento y
+ * lo aplica aplicarClaimAlIngresar cuando la persona entra por primera vez.
+ */
+exports.sincronizarClaimAdmin = onDocumentWritten(
+  {
+    document: 'admins/{mail}',
+    region: 'southamerica-east1',
+    memory: '256MiB',
+    timeoutSeconds: 60
+  },
+  async (event) => {
+  const mail = event.params.mail;
+  const existeAhora = !!(event.data && event.data.after && event.data.after.exists);
+
+  let user = null;
+  try {
+    user = await admin.auth().getUserByEmail(mail);
+  } catch (e) {
+    if (existeAhora) {
+      /* Todavia no tiene cuenta. Queda pendiente y se resuelve al primer ingreso. */
+      logger.info('Admin agregado sin cuenta de Auth todavia: ' + mail);
+      try {
+        await db.collection('admins').doc(mail).set({ claimPendiente: true }, { merge: true });
+      } catch (e2) { logger.error('No se pudo marcar claimPendiente:', e2); }
+    }
+    return;
+  }
+
+  try {
+    const claims = Object.assign({}, user.customClaims || {});
+    if (existeAhora) claims.admin = true; else delete claims.admin;
+    await admin.auth().setCustomUserClaims(user.uid, claims);
+    /* Se invalidan los tokens vigentes. Al quitar un admin esto es lo que importa:
+       sin esto seguiria pudiendo subir imagenes hasta que su token venciera solo. */
+    await admin.auth().revokeRefreshTokens(user.uid);
+    if (existeAhora) {
+      await db.collection('admins').doc(mail).set(
+        { claimPendiente: false, claimAplicadoEn: new Date() }, { merge: true });
+    }
+    logger.info((existeAhora ? 'Claim admin puesto a ' : 'Claim admin quitado a ') + mail);
+  } catch (e) {
+    logger.error('Error sincronizando el claim de ' + mail + ':', e);
+  }
+  });
+
+/**
+ * Aplica el claim la primera vez que entra alguien que ya estaba en /admins.
+ * Cubre el caso de arriba: se lo agrego al panel antes de que tuviera cuenta.
+ */
+exports.aplicarClaimAlIngresar = functionsV1
+  .region('southamerica-east1')
+  .auth.user()
+  .onCreate(async (user) => {
+    const mail = (user.email || '').toLowerCase();
+    if (!mail) return;
+    try {
+      const snap = await db.collection('admins').doc(mail).get();
+      if (!snap.exists) return;
+      await admin.auth().setCustomUserClaims(user.uid, { admin: true });
+      await db.collection('admins').doc(mail).set(
+        { claimPendiente: false, claimAplicadoEn: new Date() }, { merge: true });
+      logger.info('Claim admin aplicado al primer ingreso de ' + mail);
+    } catch (e) {
+      logger.error('Error aplicando el claim al ingresar (' + mail + '):', e);
+    }
   });

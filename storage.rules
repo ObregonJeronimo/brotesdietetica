@@ -16,19 +16,28 @@ rules_version = '2';
  *
  * Desplegar con:  firebase deploy --only storage
  *
- * Los emails de admin están DUPLICADOS acá y en firestore.rules porque son
- * dos servicios distintos: Storage no puede leer las reglas de Firestore.
- * Si agregás un admin, tocá los dos archivos.
+ * SOBRE QUIEN ES ADMIN ACA:
+ * Storage no puede leer Firestore, asi que no puede consultar la coleccion
+ * /admins como hacen las reglas de Firestore. Se resuelve con un custom claim:
+ * la Cloud Function sincronizarClaimAdmin marca `admin:true` en el token de la
+ * persona cuando se la agrega desde el panel, y se lo saca cuando se la quita.
+ *
+ * Consecuencia practica: un admin nuevo que YA estaba logueado necesita cerrar
+ * sesion y volver a entrar para poder subir imagenes, porque el claim viaja en
+ * el token y el token se emite al iniciar sesion. El resto del panel le funciona
+ * al instante, porque eso lo resuelve Firestore leyendo /admins.
+ *
+ * El dueño queda fijo abajo como salida de emergencia, igual que en
+ * firestore.rules: si el claim no se llego a aplicar, alguien tiene que poder
+ * subir una imagen.
  */
 service firebase.storage {
   match /b/{bucket}/o {
 
     function isAdmin() {
       return request.auth != null && (
-        request.auth.token.email == 'jeroobregon03@gmail.com' ||
-        request.auth.token.email == 'thiagowendler53@gmail.com' ||
-        request.auth.token.email == 'cecilialoreanaserafini@gmail.com' ||
-        request.auth.token.email == 'joacobrarda06@gmail.com'
+        request.auth.token.admin == true ||
+        request.auth.token.email.lower() == 'jeroobregon03@gmail.com'
       );
     }
 

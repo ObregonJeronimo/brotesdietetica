@@ -179,9 +179,13 @@ function log(msg, cls){
   el.scrollTop = el.scrollHeight;
 }
 
+/* Este sembrador corre ANTES de que exista la coleccion /admins, asi que no puede
+   preguntarle a ella quien es admin: seria un huevo-y-gallina. Solo el dueño puede
+   sembrar, que es el unico que esta fijo en las reglas y el unico que va a poder
+   escribir de todos modos. */
+const MAIL_DUENIO_SETUP = 'jeroobregon03@gmail.com';
 function esAdmin(email){
-  const lista = (N && N.ADMIN_EMAILS) ? N.ADMIN_EMAILS : [];
-  return lista.indexOf(email) !== -1;
+  return (email || '').trim().toLowerCase() === MAIL_DUENIO_SETUP;
 }
 
 async function login(){

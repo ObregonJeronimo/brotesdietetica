@@ -41,14 +41,15 @@ Necesitás:
 - Node 18+ instalado (hay Node 24, ya verificado).
 - Firebase CLI: `npm i -g firebase-tools`
 
-Admins del panel definidos en este repo:
+Admins del panel:
 
 | Email | Rol |
 |---|---|
-| `jeroobregon03@gmail.com` | vos |
-| `thiagowendler53@gmail.com` | el dueño |
+| `jeroobregon03@gmail.com` | dueño del sistema, fijo en las reglas |
+| el resto | se agregan y se quitan desde el panel |
 
-> Los emails de admin están en **4 lugares** y tienen que coincidir. Ver [§13](#13-manejo-de-credenciales).
+> Ya **no** hay que tocar codigo para agregar un admin: se hace desde
+> **/admin -> Configuracion -> Quien puede entrar al panel**. Ver [§13](#13-manejo-de-credenciales).
 
 ---
 
@@ -433,21 +434,26 @@ probar la home y un pedido.
 
 Para agregar o quitar un admin hay que tocar **los cuatro** y volver a desplegar las reglas:
 
-| Lugar | Formato | Autoridad |
-|---|---|---|
-| `firestore.rules` → `isAdmin()` | email en texto | **REAL** — autoriza los datos |
-| `storage.rules` → `isAdmin()` | email en texto | **REAL** — autoriza las subidas |
-| `admin.html` → `_AH` | SHA-256, primeros 16 hex | **solo cosmético** |
-| `config-negocio.js` → `ADMIN_EMAILS` | email en texto | UI / documentación |
+**Ya no hay que tocar codigo para agregar un admin.** Se hace desde
+**/admin -> Configuracion -> Quien puede entrar al panel**: se escribe el mail de Google
+y listo.
 
-Hashes actuales, verificados:
+Como funciona por debajo:
 
-```
-jeroobregon03@gmail.com           -> 7a7f8cbeb22e2015
-thiagowendler53@gmail.com         -> 5b731af37421f947
-cecilialoreanaserafini@gmail.com  -> ef2e90396db1e4c7
-joacobrarda06@gmail.com           -> 499c08fa78dcee0e
-```
+| Donde | Que hace |
+|---|---|
+| Coleccion `/admins` en Firestore | **La lista de verdad.** Un documento por mail, el id es el mail en minusculas. |
+| `firestore.rules` -> `isAdmin()` | Lee `/admins` con `exists()`. Por eso un admin nuevo puede trabajar al instante. |
+| `storage.rules` -> `isAdmin()` | Mira el custom claim `admin`, porque **Storage no puede leer Firestore**. |
+| `sincronizarClaimAdmin` (Cloud Function) | Pone y saca ese claim cuando cambia `/admins`. |
+
+Dos cosas que conviene saber:
+
+- **Subir imagenes pide volver a entrar.** El claim viaja en el token de Google y el token se
+  emite al iniciar sesion. Todo el resto del panel le funciona al instante.
+- **El dueño (`jeroobregon03@gmail.com`) esta fijo en las dos reglas** y no se puede quitar desde
+  el panel. Es la salida de emergencia: si `/admins` quedara vacia, o alguien se sacara a si mismo,
+  sin eso nadie podria volver a entrar. Tampoco se puede uno borrar a si mismo.
 
 > **Ojo con esto:** tocar solo `ADMIN_EMAILS` en `config-negocio.js` no habilita a nadie.
 > Ese archivo es documentacion. Sin el hash en `_AH` la persona no pasa la pantalla de

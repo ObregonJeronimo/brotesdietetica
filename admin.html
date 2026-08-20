@@ -493,6 +493,28 @@
       muestra esta misma lista.</p>
     <div id="atajosEditor"></div>
   </div>
+
+  <div class="toolbar" style="margin:2rem 0 1.25rem">
+    <h3 style="font-size:1.05rem;font-weight:700;flex:1">Qui&eacute;n puede entrar al panel</h3>
+  </div>
+  <div class="card" style="max-width:720px;padding:1.5rem">
+    <p style="font-size:0.85rem;color:var(--text-dim);line-height:1.55;margin-bottom:1.1rem">
+      Solo estas cuentas de Google pueden abrir <b>/admin</b>. Escrib&iacute; el mail y listo:
+      entra al toque, no hay que tocar nada m&aacute;s.<br>
+      <span style="color:#EDB833">Para subir im&aacute;genes</span> hace falta que cierre sesi&oacute;n y vuelva a
+      entrar una vez &mdash; ese permiso viaja en la sesi&oacute;n de Google, no en el panel.
+    </p>
+    <div class="form-row" style="grid-template-columns:1fr auto;align-items:end;margin-bottom:1.25rem">
+      <div class="form-group" style="margin-bottom:0">
+        <label>Mail de Google</label>
+        <input type="email" class="form-input" id="nuevoAdminMail" placeholder="nombre@gmail.com"
+               autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarAdmin();}">
+      </div>
+      <button class="btn btn-primary" style="width:auto" id="btnAgregarAdmin" onclick="agregarAdmin()">
+        <i class="bi bi-person-plus"></i> Agregar</button>
+    </div>
+    <div id="listaAdmins"></div>
+  </div>
 </div><div class="section-content" id="sec-editor"><div class="editor-layout"><div class="editor-panel"><div class="toolbar" style="margin-bottom:1rem"><h3 style="font-size:1rem;font-weight:700;flex:1">Editor Web</h3><button class="btn btn-secondary btn-sm" style="width:auto" onclick="refreshEditorPreview()"><i class="bi bi-arrow-clockwise"></i></button><button class="btn btn-primary" style="width:auto" onclick="saveSiteContent()" id="saveSiteBtn"><i class="bi bi-check-lg"></i> Guardar</button></div><div class="editor-scroll"><div class="editor-section"><h4 class="editor-title"><i class="bi bi-house"></i> Hero</h4><div class="form-group"><label>Imagen de fondo</label><div class="img-upload-row"><img id="sc_heroImgPreview" src="" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_heroImgFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_heroImgFile" accept="image/*" onchange="previewEditorImg(this,'heroImg')"></div></div><div class="form-group"><label>Badge</label><input type="text" class="form-input" id="sc_heroBadge"></div><div class="form-row"><div class="form-group"><label>Titulo linea 1</label><input type="text" class="form-input" id="sc_heroTitle1"></div><div class="form-group"><label>Titulo linea 2</label><input type="text" class="form-input" id="sc_heroTitle2"></div></div><div class="form-group"><label>Subtitulo</label><textarea class="form-input" id="sc_heroSubtitle" rows="2"></textarea></div><div class="form-row"><div class="form-group"><label>Stat 1 num</label><input type="text" class="form-input" id="sc_stat1Num"></div><div class="form-group"><label>Stat 1 txt</label><input type="text" class="form-input" id="sc_stat1Label"></div><div class="form-group"><label>Stat 2 num</label><input type="text" class="form-input" id="sc_stat2Num"></div><div class="form-group"><label>Stat 2 txt</label><input type="text" class="form-input" id="sc_stat2Label"></div></div></div><div class="editor-section"><h4 class="editor-title"><i class="bi bi-people"></i> Nosotros</h4><div class="form-row"><div class="form-group"><label>Tag</label><input type="text" class="form-input" id="sc_nosotrosTag"></div><div class="form-group"><label>Titulo</label><input type="text" class="form-input" id="sc_nosotrosTitulo"></div></div><div class="form-group"><label>Texto</label><textarea class="form-input" id="sc_nosotrosTexto" rows="2"></textarea></div><div class="form-row"><div class="form-group"><label>Badge 1</label><input type="text" class="form-input" id="sc_badge1"></div><div class="form-group"><label>Badge 2</label><input type="text" class="form-input" id="sc_badge2"></div></div><div class="form-row"><div class="form-group"><label>Card 1 titulo</label><input type="text" class="form-input" id="sc_card1t"></div><div class="form-group"><label>Card 1 texto</label><input type="text" class="form-input" id="sc_card1p"></div></div><div class="form-row"><div class="form-group"><label>Card 2 titulo</label><input type="text" class="form-input" id="sc_card2t"></div><div class="form-group"><label>Card 2 texto</label><input type="text" class="form-input" id="sc_card2p"></div></div><div class="form-row"><div class="form-group"><label>Card 3 titulo</label><input type="text" class="form-input" id="sc_card3t"></div><div class="form-group"><label>Card 3 texto</label><input type="text" class="form-input" id="sc_card3p"></div></div><div class="form-row"><div class="form-group"><label>Card 4 titulo</label><input type="text" class="form-input" id="sc_card4t"></div><div class="form-group"><label>Card 4 texto</label><input type="text" class="form-input" id="sc_card4p"></div></div></div><div class="editor-section"><h4 class="editor-title"><i class="bi bi-megaphone"></i> CTA</h4><div class="form-group"><label>Imagen de fondo</label><div class="img-upload-row"><img id="sc_ctaImgPreview" src="" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_ctaImgFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_ctaImgFile" accept="image/*" onchange="previewEditorImg(this,'ctaImg')"></div></div><div class="form-group"><label>Titulo</label><input type="text" class="form-input" id="sc_ctaTitulo"></div><div class="form-group"><label>Texto</label><textarea class="form-input" id="sc_ctaTexto" rows="2"></textarea></div></div><div class="editor-section"><h4 class="editor-title"><i class="bi bi-image"></i> Logos</h4><div class="form-group"><label>Logo principal</label><div class="img-upload-row"><img id="sc_logoIconPreview" src="img/logo-brotes.svg" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_logoIconFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_logoIconFile" accept="image/*" onchange="previewEditorImg(this,'logoIcon')"></div></div><div class="form-group"><label>Logo principal 2</label><div class="img-upload-row"><img id="sc_logoTextPreview" src="img/logo-brotes-dark.svg" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_logoTextFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_logoTextFile" accept="image/*" onchange="previewEditorImg(this,'logoText')"></div></div><div class="form-group"><label>Logo footer (aparece al final)</label><div class="img-upload-row"><img id="sc_logoFooterPreview" src="img/logo-brotes-light.svg" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_logoFooterFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_logoFooterFile" accept="image/*" onchange="previewEditorImg(this,'logoFooter')"></div></div></div><div class="editor-section"><h4 class="editor-title"><i class="bi bi-box-arrow-down"></i> Footer</h4><div class="form-group"><label>Descripcion</label><textarea class="form-input" id="sc_footerDesc" rows="2"></textarea></div><div class="form-row"><div class="form-group"><label>Instagram URL</label><input type="text" class="form-input" id="sc_instagram"></div><div class="form-group"><label>WhatsApp numero</label><input type="text" class="form-input" id="sc_whatsapp"></div></div><div class="form-group"><label>Email</label><input type="text" class="form-input" id="sc_email"></div></div></div></div></div><div class="editor-preview"><iframe id="editorIframe" src="/"></iframe></div></div></div>
     </div></div></div>
     <div class="modal-overlay" id="productModal"><div class="modal-box"><div class="modal-header"><h3 id="modalTitle">Nuevo Producto</h3><button class="modal-close" onclick="closeModal()"><i class="bi bi-x-lg"></i></button></div><form id="productForm" onsubmit="saveProduct(event)"><div id="prodImgCarousel" style="position:relative;margin-bottom:0.75rem">
@@ -600,17 +622,29 @@ function deltasDeItems(items,signo){
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
         async function loginWithGoogle(){const btn=document.getElementById('googleLoginBtn');const err=document.getElementById('loginError');if(btn)btn.disabled=true;if(err)err.style.display='none';try{const p=new firebase.auth.GoogleAuthProvider();await firebase.auth().signInWithPopup(p);}catch(er){if(er.code!=='auth/popup-closed-by-user'){if(err){err.textContent='Error al iniciar sesión.';err.style.display='block';}}if(btn)btn.disabled=false;}}
         let auth,storage;try{auth=firebase.auth();storage=firebase.storage();}catch(_e){console.warn('Firebase init parcial:',_e);}let allProducts=[],editingId=null,selectedImageFile=null,existingImageUrl=null,listasData=[],editingListaId=null;
-        /* SHA-256 (primeros 16 hex) de los mails habilitados. Esto solo abre la pantalla:
-           lo que autoriza de verdad son isAdmin() en firestore.rules y en storage.rules.
-           Agregar un admin son CUATRO lugares —los dos rules, este array y ADMIN_EMAILS en
-           config-negocio.js— y hay que redesplegar las reglas. Con solo tocar
-           config-negocio.js la persona no pasa ni el login. */
-        const _AH=[
-            '7a7f8cbeb22e2015',  /* jeroobregon03@gmail.com */
-            '5b731af37421f947',  /* thiagowendler53@gmail.com */
-            'ef2e90396db1e4c7',  /* cecilialoreanaserafini@gmail.com */
-            '499c08fa78dcee0e'   /* joacobrarda06@gmail.com */
-        ];async function _ch(e){const d=new TextEncoder().encode(e);const h=await crypto.subtle.digest('SHA-256',d);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('').substring(0,16);}async function isAllowedEmail(email){const h=await _ch(email);return _AH.includes(h);}
+        /* Aca habia una lista de hashes SHA-256 de los mails habilitados. Se fue: los
+           admins viven en la coleccion /admins y se agregan desde el panel. */
+        /* El duenio queda fijo tambien aca: es la salida de emergencia si la coleccion
+           /admins quedara vacia o Firestore no respondiera. Coincide con esDuenio() de
+           firestore.rules y con isAdmin() de storage.rules. */
+        const MAIL_DUENIO='jeroobregon03@gmail.com';
+        /* Quien entra al panel se resuelve leyendo /admins/{mail}. Las reglas permiten leer
+           SOLO tu propio documento, asi que esta consulta no le sirve a nadie para averiguar
+           quienes son los admins.
+           Antes esto era una lista de hashes escrita en el codigo, y agregar a alguien eran
+           cuatro archivos y dos deploys. Ahora se hace desde Configuracion -> Admins. */
+        async function isAllowedEmail(email){
+            const mail=(email||'').trim().toLowerCase();
+            if(!mail)return false;
+            if(mail===MAIL_DUENIO)return true;
+            try{
+                const snap=await db.collection('admins').doc(mail).get();
+                return snap.exists;
+            }catch(e){
+                console.warn('No se pudo verificar el admin:',e);
+                return false;
+            }
+        }
         function _initAuth(){
             if(!firebase.auth){setTimeout(_initAuth,100);return;}
             try{if(!auth)auth=firebase.auth();if(!storage)storage=firebase.storage();}catch(e){}
@@ -619,7 +653,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         _initAuth();
         function logout(){auth.signOut();}
         function toggleSidebarVentas(){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(!sub)return;const open=sub.classList.toggle('open');if(chev)chev.style.transform=open?'rotate(90deg)':'rotate(0deg)';}
-        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')loadCaja();if(sec==='stats')loadStats();document.getElementById('adminSidebar').classList.remove('open');}
+        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')loadCaja();if(sec==='config')loadAdmins();if(sec==='stats')loadStats();document.getElementById('adminSidebar').classList.remove('open');}
         /* Visor de imagen. Se abre desde la miniatura de la tabla y no deja tocar nada
            de atras hasta cerrarlo: el fondo tapa la pantalla completa, asi que un click
            afuera cae en el propio fondo y cierra, en vez de apretar el boton que estaba
@@ -3916,6 +3950,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <script src="admin-stats.js"></script>
     <script src="admin-atajos.js"></script>
     <script src="admin-lector.js"></script>
+    <script src="admin-admins.js"></script>
 
     <div class="visor" id="visorImagen" onclick="if(event.target===this)cerrarImagen()">
       <div class="visor-caja" role="dialog" aria-modal="true" aria-label="Imagen del producto">

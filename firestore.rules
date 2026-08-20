@@ -4,20 +4,51 @@ service cloud.firestore {
 
     /* ==========================================================================
        ADMINS DEL PANEL
-       Para agregar/quitar un admin hay que tocar DOS lugares y volver a
-       desplegar las reglas (firebase deploy --only firestore:rules):
-         1) esta funcion isAdmin()
-         2) la constante ADMIN_EMAILS en config-negocio.js (control de la UI)
-       Esta lista es la que MANDA: sin estar aca, el panel no puede escribir
-       nada aunque la UI se muestre.
+       Los admins ya NO estan escritos aca: viven en la coleccion /admins, un
+       documento por mail, y se agregan desde el panel (Configuracion -> Admins).
+       Antes agregar a alguien eran cuatro archivos y dos deploys, y era facil
+       tocar solo uno: la persona veia la pantalla y no podia escribir nada, o
+       directamente no pasaba el login.
+
+       EL DUEÑO QUEDA FIJO ACA A PROPOSITO. Es la salida de emergencia: si alguien
+       borra todos los documentos de /admins, o se equivoca y se saca a si mismo,
+       sin esto nadie podria volver a entrar a arreglarlo. No se puede quitar
+       desde el panel ni borrar su documento.
        ========================================================================== */
+    function esDuenio() {
+      return request.auth != null
+        && request.auth.token.email.lower() == 'jeroobregon03@gmail.com';
+    }
+
+    function mailPropio() {
+      return request.auth != null ? request.auth.token.email.lower() : '';
+    }
+
     function isAdmin() {
-      return request.auth != null && (
-        request.auth.token.email == 'jeroobregon03@gmail.com' ||
-        request.auth.token.email == 'thiagowendler53@gmail.com' ||
-        request.auth.token.email == 'cecilialoreanaserafini@gmail.com' ||
-        request.auth.token.email == 'joacobrarda06@gmail.com'
-      );
+      return esDuenio()
+        || (request.auth != null
+            && exists(/databases/$(database)/documents/admins/$(mailPropio())));
+    }
+
+    /* ===== ADMINS =====
+       El id del documento es el mail en minusculas. `get` esta abierto solo al
+       propio mail: asi el panel puede preguntar "¿soy admin?" sin que un cliente
+       logueado pueda enumerar quienes son. Listar la coleccion completa, en
+       cambio, sigue siendo solo para admins. */
+    match /admins/{mail} {
+      allow get: if request.auth != null && mailPropio() == mail;
+      allow list: if isAdmin();
+      /* Se exige el mail en minusculas para que el id coincida siempre con lo que
+         devuelve el token, que es como se resuelve isAdmin(). */
+      allow create, update: if isAdmin()
+        && mail == mail.lower()
+        && mail.matches('^[^@/]+@[^@/]+[.][^@/]+$')
+        && mail != 'jeroobregon03@gmail.com';
+      /* Nadie puede borrar al dueño, ni borrarse a si mismo (evita quedar afuera
+         con un click). */
+      allow delete: if isAdmin()
+        && mail != 'jeroobregon03@gmail.com'
+        && mailPropio() != mail;
     }
 
     function isAuthUser() {
