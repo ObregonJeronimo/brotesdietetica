@@ -106,7 +106,27 @@ async function loadProductsFromFirebase(retries) {
     if (retries === undefined) retries = 2;
     const loading = document.getElementById('productsLoading'); if (loading) loading.classList.add('show');
     try {
-        const snap = await db.collection('productos').get();
+        /* Se sirve del cache si la ultima bajada fue hace poco.
+           Cada visita hacia un get() de la coleccion entera: con 3.000 productos son
+           3.000 lecturas por persona, y navegar entre categorias las repetia. Con esto,
+           moverse por la tienda durante los proximos minutos sale del cache y no cuesta
+           lecturas.
+           La ventana es corta a proposito: si el comercio cambia un precio, lo peor que
+           puede pasar es que alguien que ya estaba navegando vea el anterior por unos
+           minutos. Mas largo empezaria a mostrar precios que no son. */
+        const CACHE_MS = 3 * 60 * 1000;
+        let snap = null;
+        const desde = Number(localStorage.getItem('brotes_cat_ts') || 0);
+        if (Date.now() - desde < CACHE_MS) {
+            try {
+                const c = await db.collection('productos').get({ source: 'cache' });
+                if (!c.empty) snap = c;
+            } catch (e) { /* sin cache disponible: se pide al servidor */ }
+        }
+        if (!snap) {
+            snap = await db.collection('productos').get();
+            try { localStorage.setItem('brotes_cat_ts', String(Date.now())); } catch (e) {}
+        }
         productos = snap.docs.map(d => { const r=d.data(); return { id:d.id, nombre:r.nombre||'', nombreMostrado:r.nombreMostrado||null, gramaje:r.gramaje||null, precio:r.precio||0, descuento:Math.min(100,Math.max(0,r.descuento||0)), stock:r.stock||0, categoria:r.categoria||'', subcategoria:r.subcategoria||null, imagen:r.imagen||null, descripcion:r.descripcion||r.nombre||'', popular:r.popular||false, oculto:r.oculto===true, valoresNutricionales:r.valoresNutricionales||'', imagenesExtra:r.imagenesExtra||[] }; }).filter(p => !p.oculto);
         renderCategoryFilters(getCategoriasConSub(productos)); aplicarFiltros();
         _searchCache.clear();

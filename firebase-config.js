@@ -57,6 +57,29 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+/* Cache en disco (IndexedDB).
+   Sin esto, CADA visita a la tienda vuelve a bajar el catalogo completo desde
+   Firestore: con 3.000 productos son 3.000 lecturas por persona que entra, y en
+   Blaze eso se paga. Con el cache, la segunda vuelta sale de la maquina del
+   visitante y no cuesta nada.
+
+   Hay que llamarlo ANTES de cualquier otra operacion de Firestore, por eso esta
+   aca y no en app.js.
+
+   Se ignoran los dos errores esperables en vez de tirar la pagina:
+     failed-precondition -> hay otra pestaña con la tienda abierta. IndexedDB no se
+                            comparte entre pestañas, asi que gana la primera y las
+                            demas siguen andando sin cache.
+     unimplemented       -> el navegador no lo soporta (modo privado de algunos, o
+                            Safari viejo). Tambien sigue andando sin cache. */
+if (db.enablePersistence) {
+    db.enablePersistence({ synchronizeTabs: true }).catch(function (e) {
+        if (e && e.code !== 'failed-precondition' && e.code !== 'unimplemented') {
+            console.warn('Cache local no disponible:', e);
+        }
+    });
+}
+
 /* App Check — protección contra abuso (bots llenando pedidos basura).
    Es la CLAVE DE SITIO de reCAPTCHA v3, es pública. La clave secreta se pega
    en la consola de Firebase, nunca acá. Ver SETUP.md paso 5. */
