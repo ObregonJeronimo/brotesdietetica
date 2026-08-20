@@ -1068,7 +1068,53 @@ window.filterByCategory=filterByCategory;window.filterBySubCategory=filterBySubC
    de Firestore y normalmente es identica, asi que no se ve ningun salto.
    Solo hay contenido publico aca dentro: ningun dato de cliente. */
 const _SC_CACHE = 'brotes_siteContent';
-function _aplicarSiteContent(d){ if(!d) return;const s=(id,val)=>{const el=document.querySelector(id);if(el&&val)el.textContent=val;};s('.hero-badge span',d.heroBadge);const tl=document.querySelectorAll('.title-line');if(tl[0]&&d.heroTitle1)tl[0].textContent=d.heroTitle1;const th=document.querySelectorAll('.title-highlight');if(th[0]&&d.heroTitle2)th[0].textContent=d.heroTitle2;s('.hero-subtitle',d.heroSubtitle);const stats=document.querySelectorAll('.stat-item');if(stats[0]&&d.stat1Num){stats[0].querySelector('.stat-number').textContent=d.stat1Num;stats[0].querySelector('.stat-label').textContent=d.stat1Label||'';}if(stats[1]&&d.stat2Num){stats[1].querySelector('.stat-number').textContent=d.stat2Num;stats[1].querySelector('.stat-label').textContent=d.stat2Label||'';}s('.why-us-section .section-tag',d.nosotrosTag);s('.why-us-section .section-title',d.nosotrosTitulo);s('.why-us-text',d.nosotrosTexto);const badges=document.querySelectorAll('.trust-badge span');if(badges[0]&&d.badge1)badges[0].textContent=d.badge1;if(badges[1]&&d.badge2)badges[1].textContent=d.badge2;const cards=document.querySelectorAll('.feature-card');if(cards[0]){if(d.card1t)cards[0].querySelector('h4').textContent=d.card1t;if(d.card1p)cards[0].querySelector('p').textContent=d.card1p;}if(cards[1]){if(d.card2t)cards[1].querySelector('h4').textContent=d.card2t;if(d.card2p)cards[1].querySelector('p').textContent=d.card2p;}if(cards[2]){if(d.card3t)cards[2].querySelector('h4').textContent=d.card3t;if(d.card3p)cards[2].querySelector('p').textContent=d.card3p;}if(cards[3]){if(d.card4t)cards[3].querySelector('h4').textContent=d.card4t;if(d.card4p)cards[3].querySelector('p').textContent=d.card4p;}s('.cta-title',d.ctaTitulo);s('.cta-text',d.ctaTexto);s('.footer-description',d.footerDesc);if(d.instagram){const ig=document.querySelector('.social-links a[aria-label="Instagram"]');if(ig)ig.href=d.instagram;}if(d.whatsapp){const _num=String(d.whatsapp).replace(/[^0-9]/g,'');if(_num.length>=8){/* El mismo numero para los botones Y para el pedido: si divergen, el comercio ve los botones bien y no le entran las ventas. */WHATSAPP_NUMBER=_num;const wa=document.querySelectorAll('a[href*="wa.me"]:not(.wa-dev)');wa.forEach(a=>{a.href=a.href.replace(/wa\.me\/[0-9]+/,'wa.me/'+_num);});}}if(d.email){const em=document.querySelector('.social-links a[aria-label="Email"]');if(em)em.href='mailto:'+d.email;}if(d.heroImg&&d.heroImg.startsWith('http')){const ho=document.querySelector('.hero-overlay');if(ho){const heroOptim=optImg(d.heroImg,1600);const pre=new Image();pre.fetchPriority='high';pre.onload=()=>{ho.style.backgroundImage='url('+heroOptim+')';ho.style.backgroundSize='cover';ho.style.backgroundPosition='center';ho.style.opacity='0.45';};pre.onerror=()=>{ho.style.backgroundImage='url('+d.heroImg+')';ho.style.backgroundSize='cover';ho.style.backgroundPosition='center';ho.style.opacity='0.45';};pre.src=heroOptim;}}else{const ho=document.querySelector('.hero-overlay');if(ho)ho.style.opacity='0.45';}if(d.ctaImg&&d.ctaImg.startsWith('http')){const cta=document.querySelector('.cta-background');if(cta){const st=document.createElement('style');st.textContent='.cta-background::before{background-image:url('+d.ctaImg+')!important}';document.head.appendChild(st);}}if(d.logoIcon&&d.logoIcon.startsWith('http')){const li=document.querySelector('.logo-img');if(li)li.src=d.logoIcon;}if(d.logoText&&d.logoText.startsWith('http')){const lt=document.querySelector('.brand-text-img');if(lt)lt.src=d.logoText;}if(d.logoFooter&&d.logoFooter.startsWith('http')){const lf=document.querySelector('.footer-brand img');if(lf)lf.src=d.logoFooter;}}
+/**
+ * Una URL de imagen de verdad, no cualquier cosa que empiece con http.
+ * ---------------------------------------------------------------------------
+ * En config/siteContent quedaron guardados heroImg y ctaImg apuntando a
+ * "https://<dominio>/admin": basura de la epoca en que guardar el Editor Web leia
+ * el src de un <img> vacio, y un src vacio resuelve a la URL de la PROPIA pagina.
+ * El bug de escritura ya esta arreglado, pero el valor malo sigue en la base, y
+ * un `startsWith('http')` lo acepta igual. Consecuencia hoy, en produccion: el
+ * navegador se descarga el panel de administracion TRES veces (~208 KB, el pedazo
+ * mas grande de la pagina) para intentar usar un documento HTML como foto de
+ * fondo, y el cliente ve el hero sin imagen.
+ *
+ * Se valida en la tienda y no se limpia la base a mano para que quede curado para
+ * todos los visitantes en el momento del deploy, y tambien contra lo que se
+ * escriba mal en el futuro, venga de donde venga.
+ */
+function esUrlImagen(u) {
+    if (!u || typeof u !== 'string') return false;
+    var v = u.trim();
+    if (!v) return false;
+    /* Un archivo del propio repo. Relativo a proposito: sirve en cualquier dominio. */
+    if (/^\.?\/?img\//i.test(v)) return true;
+    if (!/^https?:\/\//i.test(v)) return false;
+    /* Lo que sube el Editor Web va a Firebase Storage. */
+    if (/(firebasestorage\.googleapis\.com|\.firebasestorage\.app|storage\.googleapis\.com)/i.test(v)) return true;
+    /* O al menos que el path termine en un archivo de imagen. Descarta "/admin". */
+    return /\.(jpe?g|png|webp|avif|gif|svg)(\?|#|$)/i.test(v);
+}
+
+/**
+ * Un logo del repo guardado con URL absoluta del dominio de hoy deja de cargar el
+ * dia que el cliente se muda a su propio dominio. Se pasa a ruta relativa, que
+ * muestra exactamente el mismo archivo y sobrevive a la mudanza.
+ */
+function urlImagenPortable(u) {
+    if (!esUrlImagen(u)) return null;
+    try {
+        var p = new URL(u, location.href);
+        if (p.origin === location.origin && /^\/img\//i.test(p.pathname)) return p.pathname.slice(1);
+    } catch (e) { /* no era una URL absoluta: se deja como vino */ }
+    return u;
+}
+
+function _aplicarSiteContent(d){ if(!d) return;const s=(id,val)=>{const el=document.querySelector(id);if(el&&val)el.textContent=val;};s('.hero-badge span',d.heroBadge);const tl=document.querySelectorAll('.title-line');if(tl[0]&&d.heroTitle1)tl[0].textContent=d.heroTitle1;const th=document.querySelectorAll('.title-highlight');if(th[0]&&d.heroTitle2)th[0].textContent=d.heroTitle2;s('.hero-subtitle',d.heroSubtitle);const stats=document.querySelectorAll('.stat-item');if(stats[0]&&d.stat1Num){stats[0].querySelector('.stat-number').textContent=d.stat1Num;stats[0].querySelector('.stat-label').textContent=d.stat1Label||'';}if(stats[1]&&d.stat2Num){stats[1].querySelector('.stat-number').textContent=d.stat2Num;stats[1].querySelector('.stat-label').textContent=d.stat2Label||'';}s('.why-us-section .section-tag',d.nosotrosTag);s('.why-us-section .section-title',d.nosotrosTitulo);s('.why-us-text',d.nosotrosTexto);const badges=document.querySelectorAll('.trust-badge span');if(badges[0]&&d.badge1)badges[0].textContent=d.badge1;if(badges[1]&&d.badge2)badges[1].textContent=d.badge2;const cards=document.querySelectorAll('.feature-card');if(cards[0]){if(d.card1t)cards[0].querySelector('h4').textContent=d.card1t;if(d.card1p)cards[0].querySelector('p').textContent=d.card1p;}if(cards[1]){if(d.card2t)cards[1].querySelector('h4').textContent=d.card2t;if(d.card2p)cards[1].querySelector('p').textContent=d.card2p;}if(cards[2]){if(d.card3t)cards[2].querySelector('h4').textContent=d.card3t;if(d.card3p)cards[2].querySelector('p').textContent=d.card3p;}if(cards[3]){if(d.card4t)cards[3].querySelector('h4').textContent=d.card4t;if(d.card4p)cards[3].querySelector('p').textContent=d.card4p;}s('.cta-title',d.ctaTitulo);s('.cta-text',d.ctaTexto);s('.footer-description',d.footerDesc);if(d.instagram){const ig=document.querySelector('.social-links a[aria-label="Instagram"]');if(ig)ig.href=d.instagram;}if(d.whatsapp){const _num=String(d.whatsapp).replace(/[^0-9]/g,'');if(_num.length>=8){/* El mismo numero para los botones Y para el pedido: si divergen, el comercio ve los botones bien y no le entran las ventas. */WHATSAPP_NUMBER=_num;const wa=document.querySelectorAll('a[href*="wa.me"]:not(.wa-dev)');wa.forEach(a=>{a.href=a.href.replace(/wa\.me\/[0-9]+/,'wa.me/'+_num);});}}if(d.email){const em=document.querySelector('.social-links a[aria-label="Email"]');if(em)em.href='mailto:'+d.email;}/* El telefono que se muestra tambien sale del panel. Sin esto, cambiar el numero
+   en el Editor Web arreglaba los links de WhatsApp pero el texto seguia mostrando el
+   viejo: el cliente leia un numero y el boton lo mandaba a otro. */
+if(d.telefonoDisplay){document.querySelectorAll('[data-negocio="telefonoDisplay"]').forEach(el=>{el.textContent=d.telefonoDisplay;});if(typeof NEGOCIO!=='undefined')NEGOCIO.telefonoDisplay=d.telefonoDisplay;}if(esUrlImagen(d.heroImg)){const ho=document.querySelector('.hero-overlay');if(ho){const heroOptim=optImg(d.heroImg,1600);const pre=new Image();pre.fetchPriority='high';pre.onload=()=>{ho.style.backgroundImage='url('+heroOptim+')';ho.style.backgroundSize='cover';ho.style.backgroundPosition='center';ho.style.opacity='0.45';};pre.onerror=()=>{ho.style.backgroundImage='url('+d.heroImg+')';ho.style.backgroundSize='cover';ho.style.backgroundPosition='center';ho.style.opacity='0.45';};pre.src=heroOptim;}}else{const ho=document.querySelector('.hero-overlay');if(ho)ho.style.opacity='0.45';}if(esUrlImagen(d.ctaImg)){const cta=document.querySelector('.cta-background');if(cta){const st=document.createElement('style');st.textContent='.cta-background::before{background-image:url('+d.ctaImg+')!important}';document.head.appendChild(st);}}if(esUrlImagen(d.logoIcon)){const li=document.querySelector('.logo-img');if(li)li.src=urlImagenPortable(d.logoIcon);}if(esUrlImagen(d.logoText)){const lt=document.querySelector('.brand-text-img');if(lt)lt.src=urlImagenPortable(d.logoText);}if(esUrlImagen(d.logoFooter)){const lf=document.querySelector('.footer-brand img');if(lf)lf.src=urlImagenPortable(d.logoFooter);}}
 async function loadSiteContent(){
     try{ _aplicarSiteContent(JSON.parse(localStorage.getItem(_SC_CACHE)||'null')); }catch(e){}
     try{

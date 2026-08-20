@@ -57,8 +57,14 @@ const NEGOCIO = {
   /* --- Desarrollador (footer "Desarrollado por") ------------------------- */
   dev: {
     nombre: 'Deft Software Solutions',
-    whatsapp: '5493512067970',
-    telefonoDisplay: '+54 9 351 206-7970',
+    /* Contacto comercial de Deft. Cambiar SOLO aca: el pie del sitio y la pagina de
+       politicas lo leen de este objeto, no lo tienen escrito. */
+    contacto: 'Joaco Brarda Melchionna',
+    whatsapp: '5493512333009',
+    telefonoDisplay: '+54 9 3512 33-3009',
+    /* Para los links tel:. Faltaba, y sin esto data-negocio-href="devTelLink"
+       escribia tel:undefined. */
+    telefonoLink: '+5493512333009',
     web: '',
   },
 
@@ -91,11 +97,19 @@ NEGOCIO.waDevLink = function (texto) {
  */
 NEGOCIO.hidratarDOM = function (root) {
   const scope = root || document;
-  const valor = (clave) => {
+  /* El elemento se pasa para que un link de WhatsApp pueda traer su propio mensaje en
+     data-negocio-msg. El numero es un dato del negocio y va en este archivo; el texto
+     del mensaje es copy de esa pantalla en particular y va en el HTML, al lado del
+     boton que lo usa. Antes el mensaje del boton del desarrollador estaba escrito aca
+     adentro y los del comercio directamente en el href, con el numero pegado: si el
+     comercio cambiaba de telefono, esos botones seguian mandando al viejo. */
+  const valor = (clave, el) => {
+    const msg = el && el.getAttribute('data-negocio-msg');
     switch (clave) {
-      case 'waLink': return NEGOCIO.waLink();
-      case 'waDevLink': return NEGOCIO.waDevLink('Hola! Me gustaría hacer un sistema');
+      case 'waLink': return NEGOCIO.waLink(msg || '');
+      case 'waDevLink': return NEGOCIO.waDevLink(msg || 'Hola! Me gustaría hacer un sistema');
       case 'telLink': return 'tel:' + NEGOCIO.telefonoLink;
+      case 'devTelLink': return 'tel:' + NEGOCIO.dev.telefonoLink;
       case 'mailLink': return 'mailto:' + NEGOCIO.email;
       case 'devTelefono': return NEGOCIO.dev.telefonoDisplay;
       case 'devNombre': return NEGOCIO.dev.nombre;
@@ -103,11 +117,11 @@ NEGOCIO.hidratarDOM = function (root) {
     }
   };
   scope.querySelectorAll('[data-negocio]').forEach(el => {
-    const v = valor(el.getAttribute('data-negocio'));
+    const v = valor(el.getAttribute('data-negocio'), el);
     if (v != null) el.textContent = v;
   });
   scope.querySelectorAll('[data-negocio-href]').forEach(el => {
-    const v = valor(el.getAttribute('data-negocio-href'));
+    const v = valor(el.getAttribute('data-negocio-href'), el);
     if (v != null) el.setAttribute('href', v);
   });
 };
@@ -138,4 +152,81 @@ NEGOCIO.nroVenta = function (n) {
   return '#' + String(Number(n) || 0).padStart(6, '0');
 };
 
-document.addEventListener('DOMContentLoaded', () => NEGOCIO.hidratarDOM());
+/**
+ * Lo que el comercio cambia desde el panel gana sobre lo de arriba.
+ * ---------------------------------------------------------------------------
+ * Los datos de contacto se pueden editar desde /admin -> Editor Web, y eso queda
+ * en Firestore (config/siteContent). index.html ya lo aplica porque carga el SDK
+ * de Firebase, pero mayoristas.html y politicas.html cargan SOLO este archivo:
+ * el comercio cambiaba su WhatsApp en el panel y la pagina de mayoristas seguia
+ * mandando los pedidos al numero viejo, sin que nadie se enterara hasta que
+ * alguien reclamara una consulta que nunca llego.
+ *
+ * Se lee por la API REST y no con el SDK a proposito: son dos paginas estaticas y
+ * sumarles ~400 KB de SDK por un telefono no se justifica. config/siteContent es
+ * de lectura publica (firestore.rules -> match /config/{doc} allow read), asi que
+ * una sola peticion sin autenticar alcanza. El id del proyecto no es secreto: ya
+ * esta a la vista en firebase-config.js, que se sirve en la tienda.
+ *
+ * Primero se pinta con los valores de arriba, para que la pagina no espere a la
+ * red; si el panel tiene otro valor, se repinta un instante despues. Si la
+ * peticion falla, queda lo de arriba y no se rompe nada.
+ */
+NEGOCIO._PROYECTO = 'brotesdietetica-2f78e';
+
+NEGOCIO.aplicarContenidoDelPanel = function () {
+  if (typeof fetch !== 'function') return Promise.resolve(false);
+  const url = 'https://firestore.googleapis.com/v1/projects/' + NEGOCIO._PROYECTO +
+              '/databases/(default)/documents/config/siteContent';
+  return fetch(url)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      const f = j && j.fields;
+      if (!f) return false;
+      const txt = (k) => (f[k] && typeof f[k].stringValue === 'string' ? f[k].stringValue.trim() : '');
+
+      /* WhatsApp: en el panel se guarda como digitos. Se valida el largo porque un
+         numero a medio escribir mandaria los pedidos a la nada. */
+      const wa = txt('whatsapp').replace(/[^0-9]/g, '');
+      if (wa.length >= 8 && wa !== NEGOCIO.whatsapp) {
+        NEGOCIO.whatsapp = wa;
+        /* El link tel: sale de los digitos y siempre queda bien. */
+        NEGOCIO.telefonoLink = '+' + wa;
+      }
+      /* Como se MUESTRA el telefono lo escribe el comercio en el panel, en su propio
+         campo. Antes esto lo armaba con un regex a partir de los digitos, y ese regex
+         mentia: 5493516872770 salia "+54 9 351 6872770" (sin separar el final) y un
+         numero de Buenos Aires salia "+54 1 155...". Los codigos de area argentinos
+         van de 2 a 4 digitos y no se distinguen mirando el numero, asi que no hay
+         formula: lo sabe quien tiene el telefono. */
+      const disp = txt('telefonoDisplay');
+      if (disp) NEGOCIO.telefonoDisplay = disp;
+      else if (wa.length >= 8 && wa !== NEGOCIO.whatsapp) NEGOCIO.telefonoDisplay = '+' + wa;
+
+      const mail = txt('email');
+      if (mail && mail.indexOf('@') > 0) NEGOCIO.email = mail;
+
+      /* En el panel Instagram se guarda como URL completa; aca arriba esta como
+         usuario. Se acepta cualquiera de las dos formas. */
+      const ig = txt('instagram');
+      if (ig) {
+        if (/^https?:\/\//i.test(ig)) {
+          NEGOCIO.instagramUrl = ig;
+          const u = ig.replace(/\/+$/, '').split('/').pop();
+          if (u) NEGOCIO.instagram = u;
+        } else {
+          NEGOCIO.instagram = ig.replace(/^@/, '');
+          NEGOCIO.instagramUrl = 'https://instagram.com/' + NEGOCIO.instagram;
+        }
+      }
+
+      NEGOCIO.hidratarDOM();
+      return true;
+    })
+    .catch(() => false);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  NEGOCIO.hidratarDOM();
+  NEGOCIO.aplicarContenidoDelPanel();
+});
