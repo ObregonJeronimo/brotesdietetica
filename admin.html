@@ -871,6 +871,53 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 ?NEGOCIO.nroVenta(n).slice(1)
                 :String(Number(n)||0).padStart(6,'0');
         }
+        /* ------------------------------------------------------------- ganancia real
+           Cuanto se gano de verdad con una venta. Estaba calculado a mano en dos
+           lugares y de dos formas distintas, las dos mal:
+
+           1) En ventas se hacia (precio - costo) * cantidad. Pero una venta guarda
+              `precio` de LISTA y el `descuento` del item al lado (mirar como se arma
+              items:ventaItems.map: subtotal usa precio*(1-descuento/100)). Asi que un
+              producto vendido al 20% off mostraba el margen del precio lleno. Ademas
+              no restaba el descuento general de la venta (descuentoMonto), con lo que
+              una venta con 10% off encima quedaba mas inflada todavia.
+
+           2) En pedidos web se hacia (precio*(1-descuento/100) - costo). Ahi el
+              descuento se aplicaba DOS veces, porque la tienda guarda `precio` ya
+              neteado y deja el porcentaje al lado como dato (app.js: precioFinal).
+              Un producto de $1000 con 20% off que se cobro $800 se computaba $640.
+              Y peor: los items de un pedido web NO traen `costo`, asi que el costo
+              era SIEMPRE cero y el numero mostrado era la facturacion entera
+              disfrazada de ganancia. Un cliente que gasto $500.000 aparecia con
+              "+$500.000 ganado", y con eso el comercio decide precios y a quien
+              atender mejor.
+
+           Tomar (precioOriginal || precio) como base y aplicarle el descuento sirve
+           para las dos convenciones, porque solo la tienda escribe precioOriginal.
+           El envio no entra: es flete, no margen. */
+        function _precioCobradoItem(i){
+            const base=Number((i.precioOriginal!=null?i.precioOriginal:i.precio)||0);
+            const dsc=Math.min(100,Math.max(0,Number(i.descuento||0)));
+            return Math.round(base*(1-dsc/100));
+        }
+        /** {ganancia, completa} — completa=false si de algun item no se supo el costo. */
+        function gananciaDe(doc,buscarCosto){
+            let total=0,completa=true;
+            (doc&&doc.items||[]).forEach(function(i){
+                let costo=(i.costo!=null)?Number(i.costo):null;
+                if(costo==null&&buscarCosto){
+                    const p=(typeof allProducts!=='undefined'&&allProducts.find)?allProducts.find(x=>x.id===i.id):null;
+                    if(p&&Number(p.costo||0)>0)costo=Number(p.costo);
+                }
+                /* Costo cero casi nunca es un producto regalado: es el dato sin cargar.
+                   Se dice que no se sabe en vez de inventar una ganancia del 100%. */
+                if(costo==null||!(costo>0)){completa=false;costo=0;}
+                total+=(_precioCobradoItem(i)-costo)*Number(i.cantidad||1);
+            });
+            /* El descuento general de la venta sale del bolsillo del comercio. */
+            total-=Number(doc&&doc.descuentoMonto||0);
+            return {ganancia:Math.round(total),completa:completa};
+        }
         async function loadProducts(){try{await loadCategorias();const snap=await db.collection('productos').get();allProducts=snap.docs.map(d=>{const r=d.data();return{id:d.id,...r,porcentajeMayorista:r.porcentajeMayorista||0,precioMayorista:r.precioMayorista||0};});filterTable();updateStats();updateCategoryFilter();renderStockList();renderListaFilterSelect();}catch(e){console.error(e);showAdminToast('Error al cargar','error');}}
         function renderTable(prods){const tb=document.getElementById('productsTableBody');const thr=getLowStockThreshold();if(!prods.length){tb.innerHTML='<tr><td colspan="8"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Sin productos</p></div></td></tr>';return;}tb.innerHTML=prods.map(p=>{let sc='stock-ok',sv=p.stock||0;if(sv===0)sc='stock-out';else if(sv<thr)sc='stock-low';const img=p.imagen||'img/default-product.svg';const sub=p.subcategoria?' / '+esc(p.subcategoria):'';const sn=(p.nombre||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');const costo=p.costo||0;const pct=p.porcentaje||0;const precio=p.precio||0;const star=p.popular?'bi-star-fill':'bi-star';const starColor=p.popular?'color:#e6a23c':'';const oculto=p.oculto===true;const eyeIcon=oculto?'bi-eye-slash-fill':'bi-eye';const eyeColor=oculto?'color:#f56c6c':'';const eyeTitle=oculto?'Oculto del catalogo (click para mostrar)':'Visible en catalogo (click para ocultar)';const rowStyle=oculto?' style="opacity:0.55"':'';const hiddenTag=oculto?' <span style="font-size:0.68rem;background:#5a2d2d;color:#f56c6c;padding:1px 6px;border-radius:3px;margin-left:4px;vertical-align:middle">OCULTO</span>':'';return'<tr'+rowStyle+'><td><img src="'+esc(img)+'" class="product-img-cell product-img-zoom" onclick="verImagen(\''+esc(img)+'\',\''+esc((p.nombreMostrado||p.nombre||'').replace(/'/g,"")) +'\')" title="Ver la imagen en grande" onerror="this.src=\'img/default-product.svg\'"></td><td><strong>'+esc(p.nombre||'\u2014')+'</strong>'+hiddenTag+'</td><td><span class="cat-badge">'+esc(p.categoria||'\u2014')+sub+'</span></td><td class="price-cell" style="color:var(--text-dim);font-size:0.82rem">$'+costo.toLocaleString('es-AR')+'</td><td style="text-align:left;font-size:0.82rem;color:var(--text-dim);font-family:var(--mono)">'+pct+'%</td><td class="price-cell">$'+precio.toLocaleString('es-AR')+'</td><td style="text-align:center">'+((p.descuento||0)>0?'<span style="background:linear-gradient(135deg,#e6a23c,#d97706);color:#fff;font-weight:700;font-size:0.72rem;padding:2px 7px;border-radius:5px">'+(p.descuento||0)+'%</span>':'<span style="color:var(--text-dim);font-size:0.8rem">0%</span>')+'</td><td><span class="stock-badge '+sc+'">'+sv+'</span></td><td><div class="actions-cell"><button class="btn-icon" onclick="togglePopular(\''+p.id+'\')" title="Popular" style="'+starColor+'"><i class="bi '+star+'"></i></button><button class="btn-icon" onclick="toggleOculto(\''+p.id+'\')" title="'+eyeTitle+'" style="'+eyeColor+'"><i class="bi '+eyeIcon+'"></i></button>'+(p.envasadoPropio?'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Envasado propio (click para desmarcar)" style="color:#a78bfa"><i class="bi bi-bag-check-fill"></i></button>':'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Marcar como envasado propio"><i class="bi bi-bag-check"></i></button>')+(p.gramajePadreId?'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Gramaje asociado (click para gestionar)" style="color:#4a9eff"><i class="bi bi-stack"></i></button>':'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Asociar gramajes"><i class="bi bi-stack"></i></button>')+'<button class="btn-icon" onclick="editProduct(\''+p.id+'\')"><i class="bi bi-pencil"></i></button><button class="btn-icon delete" onclick="deleteProduct(\''+p.id+'\',\''+sn+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';}).join('');}
         function getLowStockThreshold(){return parseInt(localStorage.getItem('brotesLowStockThr'))||10;}
@@ -1909,6 +1956,13 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                             _lbl='Revisar precio';
                         }
                         cards+='<span style="background:#3a1a1a;color:#f56c6c;border:1px solid #6a2a2a;border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="'+esc(_tit)+'"><i class="bi bi-cash-coin"></i> '+_lbl+'</span>';
+                    }
+                    /* Lo marca rateLimitPedidos cuando la misma cuenta hizo mas de 5
+                       pedidos en una hora. Antes esos pedidos se BORRABAN y el comercio
+                       nunca se enteraba de que habian existido; ahora quedan, pero si no
+                       se ven en el tablero es lo mismo que borrarlos. */
+                    if(p.bloqueadoPorLimite){
+                        cards+='<span style="background:#3a2a1a;color:#e6a23c;border:1px solid #6a4a2a;border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="'+esc(String(p.motivoBloqueo||'Demasiados pedidos seguidos desde la misma cuenta.'))+' No se le descontó stock. Revisalo antes de prepararlo."><i class="bi bi-hourglass-split"></i> Revisar: muchos seguidos</span>';
                     }
                     if(p.stockError){
                         cards+='<span style="background:#3a1a1a;color:#f56c6c;border:1px solid #6a2a2a;border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="No se pudo descontar el stock: '+esc(String(p.stockError))+'"><i class="bi bi-x-octagon"></i> Sin descontar</span>';
@@ -4210,7 +4264,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                         const cl=clientesAuthData.find(x=>x.uid===v.clienteAuthUid);
                         if(cl){
                             cl._totalVentas=(cl._totalVentas||0)+(v.total||0);
-                            const ganancia=(v.items||[]).reduce(function(s,i){return s+(((i.precio||0)-(i.costo||0))*(i.cantidad||1));},0);
+                            const ganancia=gananciaDe(v,false).ganancia;
                             cl._totalGanado=(cl._totalGanado||0)+Math.round(ganancia);
                             /* Por mes */
                             const fd=v.fecha instanceof Date?v.fecha:(v.fecha?.toDate?v.fecha.toDate():new Date(v.fecha));
@@ -4502,21 +4556,29 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                     const p=d.data();
                     const fecha=p.creadoEn?.toDate?p.creadoEn.toDate().toLocaleDateString('es-AR'):'—';
                     const estadoColor={pendiente:'#e6a817',confirmado:'#67c23a',entregado:'#a78bfa'}[p.estado]||'var(--text-dim)';
-                    const ganancia=(p.items||[]).reduce((s,i)=>{
-                        const precioDsc=Math.round((i.precio||0)*(1-(i.descuento||0)/100));
-                        const costoU=i.costo||0;
-                        return s+(precioDsc-costoU)*(i.cantidad||1);
-                    },0);
-                    totalGanado+=ganancia;
+                    const _g=gananciaDe(p,true);
+                    const ganancia=_g.ganancia;
+                    if(_g.completa)totalGanado+=ganancia;
                     return '<div style="padding:0.5rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'+
                         '<div><div style="font-size:0.82rem;font-weight:600">#'+nroPed(p.numero||0)+' <span style="color:'+estadoColor+';font-size:0.72rem">'+(p.estado||'—')+'</span></div>'+
                         '<div style="font-size:0.75rem;color:var(--text-dim)">'+fecha+' · '+(p.items||[]).length+' items</div></div>'+
                         '<div style="text-align:right"><div style="font-weight:700;color:var(--accent-light)">$'+(p.total||0).toLocaleString('es-AR')+'</div>'+
-                        '<div style="font-size:0.72rem;color:#e6a817">+$'+ganancia.toLocaleString('es-AR')+'</div></div></div>';
+                        (_g.completa
+                            ?'<div style="font-size:0.72rem;color:#e6a817" title="Ganancia estimada con el costo de hoy">+$'+ganancia.toLocaleString('es-AR')+'</div>'
+                            :'<div style="font-size:0.72rem;color:var(--text-dim)" title="No se puede calcular la ganancia: falta el costo de algún producto de este pedido">sin costo</div>')+'</div></div>';
                 }).join('');
-                /* Actualizar stat TOTAL GANADO */
+                /* El stat ya venia con lo ganado en VENTAS, que es el dato bueno porque
+                   una venta si guarda el costo de cada item. Antes esto lo PISABA con la
+                   suma de los pedidos, o sea que el mismo cliente mostraba un numero en
+                   la lista y otro distinto al abrirlo. Ahora solo se suma lo de los
+                   pedidos cuyo costo se pudo saber entero, y se aclara en el titulo. */
                 const tgEl=document.getElementById('caModalGanado');
-                if(tgEl)tgEl.textContent='$'+totalGanado.toLocaleString('es-AR');
+                if(tgEl&&totalGanado>0){
+                    const base=Number(cl._totalGanado||0);
+                    tgEl.textContent='$'+(base+totalGanado).toLocaleString('es-AR');
+                    tgEl.title='Ventas: $'+base.toLocaleString('es-AR')+
+                               ' + pedidos web con costo conocido: $'+totalGanado.toLocaleString('es-AR');
+                }
             }catch(e){
                 /* Fallback sin orderBy */
                 const pedSnap=await db.collection('pedidos').where('clienteAuthUid','==',uid).get().catch(()=>({docs:[]}));

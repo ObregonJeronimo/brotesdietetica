@@ -195,9 +195,32 @@ exports.rateLimitPedidos = onDocumentCreated(
 
     const LIMITE = 5;
     if (snap.size > LIMITE) {
-      logger.warn(`Rate limit: UID ${uid} hizo ${snap.size} pedidos en la ultima hora. Eliminando el excedente.`);
-      /* Eliminar el pedido recién creado */
-      await db.collection('pedidos').doc(event.params.pedidoId).delete();
+      logger.warn(`Rate limit: UID ${uid} hizo ${snap.size} pedidos en la ultima hora. Se marca el pedido.`);
+      /* Antes esto BORRABA el pedido, y eso hacia dos daños.
+
+         El primero es una carrera: descontarStockPedido escucha la creacion del
+         mismo documento y corre en paralelo, sin orden garantizado. Si su
+         transaccion ya habia commiteado, el stock de todos los productos quedaba
+         descontado y el documento que lo justificaba desaparecia: sin pedido, sin
+         venta, sin nada que auditar. El comercio veia faltar stock y ningun
+         movimiento que lo explicara. En el orden inverso, el t.update final de
+         descontarStockPedido explotaba con NOT_FOUND y revertia todo, dejando
+         solo un error en los logs.
+
+         El segundo es de trato: el que pasa el limite no es necesariamente un
+         bot. Alcanza un cliente indeciso que confirma y reintenta seis veces en
+         una hora, o una familia desde la misma cuenta. A esa persona se le
+         borraba el pedido en silencio, sin un mensaje, sin nada.
+
+         Marcarlo resuelve las dos cosas: el documento sigue existiendo, asi que
+         el stock descontado tiene quien lo justifique y el comercio decide si lo
+         atiende o lo descarta. Y no cuesta mas: el documento ya se escribio, esto
+         es un update. */
+      await db.collection('pedidos').doc(event.params.pedidoId).update({
+        bloqueadoPorLimite: true,
+        pedidosEnLaHora: snap.size,
+        motivoBloqueo: `Se hicieron ${snap.size} pedidos en una hora desde la misma cuenta (el limite es ${LIMITE}).`
+      }).catch((e) => logger.error('No se pudo marcar el pedido:', e));
     }
   } catch (e) {
     logger.error('Error en rateLimitPedidos:', e);
@@ -264,6 +287,14 @@ exports.descontarStockPedido = onDocumentCreated(
   const data = snap && snap.data();
   if (!data || data.origen !== 'web') return;
   if (data.stockDescontado === true) return;   /* idempotente: no descontar dos veces */
+  /* Si rateLimitPedidos alcanzo a marcarlo antes, no se le descuenta stock a un
+     pedido que el comercio todavia no decidio si acepta. Corren en paralelo, asi
+     que esto no siempre llega a tiempo; por eso el pedido ya no se borra: aunque
+     el stock se descuente, queda el documento que lo explica. */
+  if (data.bloqueadoPorLimite === true) {
+    logger.info('Pedido marcado por limite, no se descuenta stock:', event.params.pedidoId);
+    return;
+  }
 
   try {
     const cfg = await db.collection('config').doc('pedidos').get();
