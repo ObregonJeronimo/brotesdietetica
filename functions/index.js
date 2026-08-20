@@ -368,7 +368,17 @@ exports.sincronizarClaimAdmin = onDocumentWritten(
   },
   async (event) => {
   const mail = event.params.mail;
+  const existiaAntes = !!(event.data && event.data.before && event.data.before.exists);
   const existeAhora = !!(event.data && event.data.after && event.data.after.exists);
+
+  /* CORTE DEL BUCLE. Esta funcion escribe en el MISMO documento que la dispara
+     (claimPendiente y claimAplicadoEn), asi que cada una de esas escrituras la volvia
+     a disparar: se quedaba girando sola, poniendo el mismo claim una y otra vez y
+     facturando invocaciones para siempre.
+     Lo unico que hay que sincronizar es cuando el documento APARECE (se agrego un
+     admin) o DESAPARECE (se lo quito). Un update —que es lo que hace esta funcion, y
+     tambien cualquier retoque de los campos de control— no cambia nada de eso. */
+  if (existiaAntes === existeAhora) return;
 
   let user = null;
   try {
