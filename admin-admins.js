@@ -24,14 +24,10 @@
 
 let _admins = [];
 
-/* Los que estaban escritos en el código antes de esta pantalla. Solo se usan para
-   ofrecer la importación una vez; después de eso esta lista no hace nada y se puede
-   borrar. El dueño no está porque no necesita documento. */
-const ADMINS_HEREDADOS = [
-  'thiagowendler53@gmail.com',
-  'cecilialoreanaserafini@gmail.com',
-  'joacobrarda06@gmail.com'
-];
+/* Ya no hay admins "heredados": los que estaban escritos en el codigo se
+   agregaron desde esta pantalla y ahora viven en la coleccion /admins, que es la
+   unica fuente. Se quita la lista para que no queden mails sueltos en el codigo. */
+const ADMINS_HEREDADOS = [];
 
 async function loadAdmins() {
   const cont = document.getElementById('listaAdmins');
@@ -62,7 +58,7 @@ function renderAdmins() {
       '<i class="bi bi-person-circle" style="font-size:1.15rem;color:var(--text-dim);flex:0 0 auto"></i>' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:0.9rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-          esc(mail) + (soyYo ? ' <span style="font-weight:400;color:var(--text-dim);font-size:0.8rem">(vos)</span>' : '') +
+          esc(mail) + (soyYo ? ' <span style="font-weight:400;color:var(--text-dim);font-size:0.8rem">(su cuenta)</span>' : '') +
         '</div>' +
         (extra ? '<div style="font-size:0.76rem;color:var(--text-dim);line-height:1.4">' + extra + '</div>' : '') +
       '</div>' +
@@ -93,15 +89,15 @@ function renderAdmins() {
         '<i class="bi bi-box-arrow-in-down"></i> Agregar a los ' + ADMINS_HEREDADOS.length + '</button>' +
       '</div>';
   }
-  html += fila(MAIL_DUENIO, true, 'Siempre tiene acceso. No se puede quitar.');
+  html += fila(MAIL_DUENIO, true, 'Acceso permanente. No puede quitarse.');
   _admins.forEach(a => {
     if (a.mail === MAIL_DUENIO) return;   /* por si quedó un documento viejo */
     const pend = a.claimPendiente === true;
     const nota = pend
-      ? 'Todav&iacute;a no inici&oacute; sesi&oacute;n. Va a poder subir im&aacute;genes desde su primer ingreso.'
+      ? 'A&uacute;n no inici&oacute; sesi&oacute;n. Podr&aacute; subir im&aacute;genes desde su primer ingreso.'
       : (a.claimAplicadoEn
           ? 'Acceso completo.'
-          : 'Si ya estaba logueado, tiene que volver a entrar para subir im&aacute;genes.');
+          : 'Si ya ten&iacute;a la sesi&oacute;n iniciada, debe volver a ingresar para subir im&aacute;genes.');
     html += fila(a.mail, false, nota);
   });
   cont.innerHTML = html;
@@ -121,15 +117,15 @@ async function agregarAdmin() {
   const btn = document.getElementById('btnAgregarAdmin');
   const mail = (inp.value || '').trim().toLowerCase();
 
-  if (!mail) { showAdminToast('Escribí un mail', 'error'); inp.focus(); return; }
-  if (!_mailValido(mail)) { showAdminToast('Ese mail no parece válido', 'error'); inp.focus(); return; }
-  if (mail === MAIL_DUENIO) { showAdminToast('El dueño ya tiene acceso siempre', 'error'); return; }
-  if (_admins.some(a => a.mail === mail)) { showAdminToast('Ese mail ya tiene acceso', 'error'); return; }
+  if (!mail) { showAdminToast('Ingrese un correo electr\u00f3nico', 'error'); inp.focus(); return; }
+  if (!_mailValido(mail)) { showAdminToast('El correo electr\u00f3nico no es v\u00e1lido', 'error'); inp.focus(); return; }
+  if (mail === MAIL_DUENIO) { showAdminToast('El due\u00f1o ya tiene acceso permanente', 'error'); return; }
+  if (_admins.some(a => a.mail === mail)) { showAdminToast('Ese correo ya tiene acceso', 'error'); return; }
   /* Cuentas que no son de Google no van a poder entrar, porque el login es solo con
      Google. Se avisa en vez de dejar un documento que no sirve para nada. */
   if (!/@(gmail\.com|googlemail\.com)$/.test(mail) &&
-      !confirm('"' + mail + '" no es un Gmail.\n\nAl panel se entra solo con una cuenta de Google. ' +
-               'Si ese mail no está asociado a una cuenta de Google, no va a poder entrar.\n\n¿Agregarlo igual?')) return;
+      !confirm('"' + mail + '" no es una cuenta de Gmail.\n\nAl panel se ingresa \u00fanicamente con una cuenta de Google. ' +
+               'Si ese correo no est\u00e1 asociado a una cuenta de Google, no podr\u00e1 ingresar.\n\n\u00bfAgregarlo de todos modos?')) return;
 
   btn.disabled = true;
   try {
@@ -139,7 +135,7 @@ async function agregarAdmin() {
       claimPendiente: true
     });
     if (typeof logAction === 'function') logAction('crear', 'Admin agregado: ' + mail, 'Acceso al panel');
-    showAdminToast('Listo. ' + mail + ' ya puede entrar.', 'success');
+    showAdminToast('Listo. ' + mail + ' ya puede ingresar.', 'success');
     inp.value = '';
     await loadAdmins();
   } catch (e) {
@@ -151,10 +147,10 @@ async function agregarAdmin() {
 
 async function quitarAdmin(mail) {
   const yo = (auth.currentUser && auth.currentUser.email || '').toLowerCase();
-  if (mail === MAIL_DUENIO) { showAdminToast('Al dueño no se le puede quitar el acceso', 'error'); return; }
-  if (mail === yo) { showAdminToast('No podés quitarte el acceso a vos mismo', 'error'); return; }
-  if (!confirm('Quitarle el acceso al panel a "' + mail + '"?\n\nDeja de poder entrar en el momento. ' +
-               'Los datos que cargó quedan como están.')) return;
+  if (mail === MAIL_DUENIO) { showAdminToast('No puede quitarse el acceso al due\u00f1o', 'error'); return; }
+  if (mail === yo) { showAdminToast('No puede quitarse el acceso a s\u00ed mismo', 'error'); return; }
+  if (!confirm('Quitarle el acceso al panel a "' + mail + '"?\n\nPierde el acceso de inmediato. ' +
+               'Los datos que carg\u00f3 se conservan.')) return;
   try {
     await db.collection('admins').doc(mail).delete();
     if (typeof logAction === 'function') logAction('eliminar', 'Admin quitado: ' + mail, 'Acceso al panel revocado');

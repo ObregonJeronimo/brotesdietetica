@@ -27,7 +27,7 @@ const ATAJOS_ACCIONES = {
   nuevoProducto:{ def:'p', grupo:'Acciones', etq:'Nuevo producto',
                   desc:'Abre el formulario para cargar un producto al catálogo.' },
   buscar:       { def:'/', grupo:'Acciones', etq:'Buscar',
-                  desc:'Pone el cursor en el buscador de la pantalla actual.' },
+                  desc:'Coloca el cursor en el buscador de la pantalla actual.' },
   /* --- caja --- */
   cajaIngreso:  { def:'i', grupo:'Caja', etq:'Registrar ingreso',
                   desc:'Plata que entra al cajón y no es una venta. Necesita la caja abierta.' },
@@ -177,7 +177,7 @@ function ejecutarAtajo(accion) {
     }
     case 'cajaIngreso':
     case 'cajaEgreso':
-      if (!_cajaAbiertaEnPantalla()) { _aviso('Primero abrí la caja'); if (_existe('switchSection')) switchSection('caja'); break; }
+      if (!_cajaAbiertaEnPantalla()) { _aviso('Primero abra la caja'); if (_existe('switchSection')) switchSection('caja'); break; }
       if (_existe('openMovModal')) openMovModal(accion === 'cajaIngreso' ? 'ingreso' : 'egreso');
       break;
     case 'cajaCerrar':
@@ -275,7 +275,7 @@ function capturarTecla(e) {
   const t = _normTecla(e.key);
   /* Una tecla muerta o un modificador solo no sirven como atajo */
   if (typeof t !== 'string' || t.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) {
-    if (typeof showAdminToast === 'function') showAdminToast('Elegí una tecla simple, sin Ctrl ni Alt', 'error');
+    if (typeof showAdminToast === 'function') showAdminToast('Elija una tecla simple, sin Ctrl ni Alt', 'error');
     return;
   }
   if (ATAJOS_RESERVADOS[t]) {

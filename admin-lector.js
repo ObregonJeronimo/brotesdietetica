@@ -118,8 +118,8 @@ function procesarCodigoLeido(cod) {
      mostrador y alguien apoya algo sobre el gatillo. Se avisa y no se toca nada. */
   if (document.querySelector('.modal-overlay.show')) {
     showAdminToast(prod
-      ? ('Código de "' + (prod.nombreMostrado || prod.nombre) + '". Cerrá esta ventana para usarlo.')
-      : 'Código desconocido. Cerrá esta ventana para asignarlo.', 'error');
+      ? ('Código de "' + (prod.nombreMostrado || prod.nombre) + '". Cierre esta ventana para usarlo.')
+      : 'Código desconocido. Cierre esta ventana para asignarlo.', 'error');
     return;
   }
 

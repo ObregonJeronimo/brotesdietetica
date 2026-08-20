@@ -314,7 +314,7 @@ function renderCalendario(t) {
     '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px">' + celdas + '</div>' +
     '<p style="font-size:0.74rem;color:var(--text-dim);margin:0.9rem 0 0.6rem;line-height:1.5">' +
       'El <b>color</b> dice cómo cerró la caja ese día. La <b>barrita de abajo</b> es cuánto se vendió, ' +
-      'comparado con el mejor día del mes. Tocá un día para ver el detalle.</p>' +
+      'comparado con el mejor día del mes. Haga clic en un día para ver el detalle.</p>' +
     '<div style="display:grid;gap:0.4rem;border-top:1px solid var(--border);padding-top:0.75rem">' + leyenda + '</div>');
 }
 

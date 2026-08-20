@@ -173,8 +173,8 @@ function renderCaja() {
         '<i class="bi bi-lock" style="font-size:2rem;line-height:1;display:block;margin-bottom:0.6rem;color:var(--text-dim)"></i>' +
         '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.35rem">No hay caja abierta</h3>' +
         '<p style="font-size:0.88rem;color:var(--text-dim);margin-bottom:1.1rem;line-height:1.55">' +
-          'Abrí la caja al empezar el día. Las ventas del local que registres con la caja cerrada ' +
-          'quedan fuera del arqueo, pero después las podés adjuntar.</p>' +
+          'Abra la caja al empezar el día. Las ventas del local registradas con la caja cerrada ' +
+          'quedan fuera del arqueo, pero pueden adjuntarse después.</p>' +
         '<button class="btn btn-primary" style="width:auto" onclick="openAbrirCajaModal()">' +
           '<i class="bi bi-unlock"></i> Abrir caja</button>' +
       '</div>';
@@ -324,7 +324,7 @@ function closeAbrirCajaModal() { document.getElementById('abrirCajaModal').class
 async function abrirCaja() {
   const btn = document.getElementById('cajaAbrirBtn');
   const monto = montoAR(document.getElementById('cajaMontoInicial').value);
-  if (monto < 0) { showAdminToast('Poné un fondo inicial válido', 'error'); return; }
+  if (monto < 0) { showAdminToast('Ingrese un fondo inicial válido', 'error'); return; }
   btn.disabled = true;
   try {
     /* Con dos admins, dos pestañas pueden abrir a la vez. Firestore no tiene
@@ -365,7 +365,7 @@ async function abrirCaja() {
       await loadCaja();
     } catch (err) {
       console.warn('La caja abrio pero no se pudo refrescar:', err);
-      showAdminToast('La caja se abrió. No se pudo actualizar la pantalla: recargá para verla.', 'info');
+      showAdminToast('La caja se abrió. No se pudo actualizar la pantalla: recargue para verla.', 'info');
     }
   } catch (e) {
     showAdminToast('Error al abrir: ' + e.message, 'error');
@@ -391,10 +391,10 @@ async function guardarMovimiento() {
   if (!cajaActual) { showAdminToast('No hay caja abierta', 'error'); return; }
   const monto = montoAR(document.getElementById('movMonto').value);
   const detalle = document.getElementById('movDetalle').value.trim();
-  if (monto <= 0) { showAdminToast('Poné un monto mayor a cero', 'error'); return; }
+  if (monto <= 0) { showAdminToast('Ingrese un monto mayor a cero', 'error'); return; }
   /* El detalle es obligatorio a propósito: un movimiento sin explicación es
      exactamente lo que después nadie puede justificar en el arqueo. */
-  if (detalle.length < 3) { showAdminToast('Escribí un detalle (mínimo 3 letras)', 'error'); return; }
+  if (detalle.length < 3) { showAdminToast('Ingrese un detalle (mínimo 3 letras)', 'error'); return; }
   const btn = document.getElementById('movGuardarBtn');
   btn.disabled = true;
   try {
@@ -530,13 +530,13 @@ async function confirmarCierre() {
     renderCaja();
     /* Con arqueo ciego no se puede soplar el esperado: la pantalla lo esconde a
        proposito para que el que cuenta no acomode el numero. */
-    showAdminToast('Entraron ventas o movimientos mientras contabas' + (cajaCfg.arqueoCiego ? '' : ': ahora deberia haber ' + _pesos(_tAhora.esperado)) + '. Revisa la diferencia y volve a cerrar.', 'error');
+    showAdminToast('Entraron ventas o movimientos mientras contabas' + (cajaCfg.arqueoCiego ? '' : ': ahora deberia haber ' + _pesos(_tAhora.esperado)) + '. Revise la diferencia y vuelva a cerrar.', 'error');
     return;
   }
   const t = _tAhora;
   window._cajaTotalesCierre = t;
   const dif = contado - t.esperado;
-  if (retiro > contado) { showAdminToast('No podés retirar más de lo que contaste', 'error'); return; }
+  if (retiro > contado) { showAdminToast('No puede retirar más de lo contado', 'error'); return; }
   const btn = document.getElementById('cajaCerrarBtn');
   btn.disabled = true;
   try {
@@ -552,8 +552,8 @@ async function confirmarCierre() {
     if (tAhora.count !== t.count || tAhora.esperado !== t.esperado) {
       const nuevas = tAhora.count - t.count;
       showAdminToast(nuevas > 0
-        ? 'Entraron ' + nuevas + ' venta(s) mientras contabas. Revisa el esperado y volve a contar.'
-        : 'La caja cambio mientras contabas. Revisa el esperado y volve a contar.', 'error');
+        ? 'Entraron ' + nuevas + ' venta(s) mientras contaba. Revise el esperado y vuelva a contar.'
+        : 'La caja cambió mientras contaba. Revise el esperado y vuelva a contar.', 'error');
       await openCierreModal();
       return;
     }
@@ -598,11 +598,11 @@ async function confirmarCierre() {
       await loadCaja();
     } catch (err) {
       console.warn('La caja cerro pero no se pudo refrescar:', err);
-      showAdminToast('La caja se cerró. No se pudo actualizar la pantalla: recargá para verla.', 'info');
+      showAdminToast('La caja se cerró. No se pudo actualizar la pantalla: recargue para verla.', 'info');
     }
   } catch (e) {
     if (e && e.message === 'cerrada-por-otro') {
-      showAdminToast('Esta caja ya la cerró alguien más. Actualizamos la pantalla.', 'error');
+      showAdminToast('Esta caja ya la cerró alguien más. Se actualizó la pantalla.', 'error');
       closeCierreModal();
       await loadCaja();
       return;

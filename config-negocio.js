@@ -74,9 +74,13 @@ const NEGOCIO = {
   /* Solo informativo. Quien entra al panel se decide en la coleccion /admins de
      Firestore, y se maneja desde /admin -> Configuracion -> Quien puede entrar.
      Esta lista no habilita ni bloquea a nadie: si la tocas, no pasa nada. */
-  ADMIN_EMAILS_INFORMATIVO: [
-    'jeroobregon03@gmail.com',   /* dueño, fijo en las reglas */
-  ],
+  /* El dueño. El panel lo lee de aca (admin.html -> MAIL_DUENIO) para no tenerlo
+     repetido en el codigo de la interfaz.
+     OJO: figura ADEMAS en firestore.rules y storage.rules, y eso no se puede
+     evitar: las reglas se evaluan en el servidor y no pueden leer este archivo.
+     Ese literal es la salida de emergencia si la coleccion /admins quedara vacia
+     o inaccesible. Si cambia el dueño, hay que tocar los TRES lugares. */
+  mailDuenio: 'jeroobregon03@gmail.com',
 };
 
 /* Helpers para armar links de WhatsApp sin repetir el número por todo el código */
