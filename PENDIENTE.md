@@ -1,39 +1,66 @@
 # Brotes Dietética — Estado y pendientes
 
-**Código:** terminado y desplegado.
-**Infraestructura:** lista (reglas, índices, Storage, Cloud Functions, bot de Telegram, datos iniciales).
-**Lo único que queda:** cinco cosas que solo puede hacer una persona, listadas acá abajo.
+**Código:** terminado y desplegado. Producción verificada byte a byte contra el build local.
+**Infraestructura:** lista — reglas de Firestore y Storage, índices, 7 Cloud Functions, bot de
+Telegram, datos iniciales.
+**Lo único que queda:** tres cosas, y dos de ellas son de credenciales sobre tus cuentas.
 
 ---
 
 ## Lo que falta, y solo lo podés hacer vos
 
-**1. Rotar el token del bot de Telegram.**
-Estuvo un rato legible sin login por una regla de Firestore. Ya está cerrada, pero el
-token viejo hay que darlo de baja igual: escribile `/revoke` a
-[@BotFather](https://t.me/BotFather), pedí uno nuevo, y pegalo en `config/telegram`
-desde la consola de Firebase.
+**1. Importar los admins.** Entrá a **/admin → Configuración → Quién puede entrar al panel**
+y tocá el botón que dice **Agregar a los 3**. Es un click.
 
-**2. Revocar el token de GitHub** que pegaste en el chat.
+> Hace falta porque los admins pasaron de estar escritos en el código a vivir en la base, y el
+> deploy de las reglas dejó a Thiago, Cecilia y Joaco sin documento. Vos entrás igual: estás fijo
+> en las reglas como salida de emergencia. El botón desaparece solo en cuanto lo uses.
+
+**2. Rotar el token del bot de Telegram.**
+Estuvo un rato legible sin login por una regla de Firestore. Ya está cerrada, pero el token viejo
+hay que darlo de baja igual: `/revoke` a [@BotFather](https://t.me/BotFather), pedí uno nuevo, y
+pegalo en `config/telegram` desde la consola de Firebase.
+
+**3. Revocar el token de GitHub** que pegaste en el chat.
 Cualquiera que lea esa conversación puede escribir en el repo.
 GitHub → Settings → Developer settings → Personal access tokens → Delete.
 
-**3. Limpiar el remoto de YERCO**, que quedó apuntando con credenciales embebidas:
+### Y una prueba que yo no puedo hacer
+
+Un pedido web **desde una cuenta de Google que no sea admin**. Anotá el stock de un producto,
+compralo desde la tienda, y confirmá dos cosas: que el pedido queda con número correlativo (no 1)
+y que el stock baja. Para verlo sin esperar:
 
 ```bash
-git -C "C:/Users/Usuario/Documents/YERCO" remote set-url origin https://github.com/ObregonJeronimo/YERCO.git
+firebase functions:log --only descontarStockPedido
 ```
 
-**4. Probar el login con Google en un celular de verdad.**
-El proxy de `/__/auth/` existe justamente porque los celulares bloquean cookies de
-terceros. Anda en escritorio; en móvil hay que verlo una vez.
+> Por qué importa: el bug más grave que aparecería ahí ya está arreglado, pero se había escapado
+> justamente porque el checkout siempre se probó con una cuenta de admin, que tiene permisos que
+> un cliente no tiene. Vale cerrarlo con una cuenta común.
 
-**5. App Check** (opcional, gratis).
-Evita que alguien use tus credenciales de Firebase desde afuera. Está explicado en el
-PASO 7, más abajo.
+### Opcional
 
-Aparte: el texto de la insignia del hero ("Dietética de barrio · Córdoba") se cambia
-desde **/admin → Editor Web**, no tocando código.
+**App Check** (gratis) evita que alguien use tus credenciales de Firebase desde afuera. Está en el
+PASO 7 más abajo.
+
+El texto de la insignia del hero se cambia desde **/admin → Editor Web**, no tocando código.
+
+---
+
+## Cómo agregar un admin
+
+**/admin → Configuración → Quién puede entrar al panel.** Escribís el mail de Google y entra.
+Ya no hay que tocar código ni desplegar nada.
+
+Dos cosas que conviene saber:
+
+- **Para subir imágenes** la persona necesita cerrar sesión y volver a entrar una vez. Ese permiso
+  viaja en la sesión de Google, no en el panel — Storage no puede consultar la base, así que se
+  resuelve con una marca en el token, y el token se emite al iniciar sesión. Todo el resto del
+  panel le funciona al instante.
+- **A vos no se te puede quitar el acceso**, y nadie puede borrarse a sí mismo. Si la lista quedara
+  vacía por un error, vos seguís entrando y podés rearmarla.
 
 ---
 
@@ -43,68 +70,86 @@ Todo esto se maneja desde `/admin` y no necesita configuración.
 
 ### Caja
 
-El ciclo del día: se abre con un fondo inicial, se registran los ingresos y egresos
-que no son ventas (siempre con un detalle, para que la caja cierre), y al final se
-cuenta el efectivo y queda el arqueo.
+El ciclo del día: se abre con un fondo inicial, se registran los ingresos y egresos que no son
+ventas (siempre con un detalle, para que la caja cierre), y al final se cuenta el efectivo y queda
+el arqueo.
 
-> Al esperado en efectivo **solo suman las ventas cobradas en efectivo**. Tarjeta y
-> transferencia no pasan por el cajón, y el fiado todavía no se cobró. El arqueo, en
-> cambio, sí cuenta el envío, porque ese flete entró a la caja. Las estadísticas
-> hacen lo contrario, porque el flete no es mercadería vendida.
+> Al esperado en efectivo **solo suman las ventas cobradas en efectivo**. Tarjeta y transferencia
+> no pasan por el cajón, y el fiado todavía no se cobró. El arqueo, en cambio, sí cuenta el envío,
+> porque ese flete entró a la caja. Las estadísticas hacen lo contrario, porque el flete no es
+> mercadería vendida.
 
-Los totales quedan **congelados** al cerrar: si mañana se edita una venta vieja, el
-arqueo de aquel día sigue diciendo lo que se contó aquel día.
+Los totales quedan **congelados** al cerrar: si mañana se edita una venta vieja, el arqueo de aquel
+día sigue diciendo lo que se contó aquel día.
 
-Si se registró una venta con la caja cerrada, el panel la muestra aparte como "venta
-fuera de caja" y se puede adjuntar, en vez de que desaparezca del arqueo.
+Si se registró una venta con la caja cerrada, el panel la muestra aparte como "venta fuera de caja"
+y se puede adjuntar. Y si el otro admin cerró la caja mientras vos cargabas un movimiento, se avisa
+y no se guarda: esa plata no aparecería en ningún cierre.
 
 ### Estadísticas
 
-Un mes por vez. El calendario usa el **color** de cada día para decir cómo cerró la
-caja —la leyenda con los seis estados está debajo del calendario— y la **barrita de
-abajo** para cuánto se vendió comparado con el mejor día del mes. Tocando un día se
-ve su detalle.
+Un mes por vez. El **color** de cada día del calendario dice cómo cerró la caja —la leyenda con los
+seis estados está debajo— y la **barrita** cuánto se vendió comparado con el mejor día del mes.
+Tocando un día se ve su detalle.
 
-Separa siempre local de online, muestra medios de pago, lo más vendido, cómo viene la
-tienda web (pedidos recibidos, confirmados, sin resolver) y compara contra el mes
-anterior.
+Separa local de online, muestra medios de pago, lo más vendido, cómo viene la tienda web y compara
+contra el mes anterior.
 
 ### Stock
 
-Ahora baja solo también en las ventas del mostrador, no solo en los pedidos web, y
-vuelve a subir si se elimina la venta. Se puede apagar desde **Configuración** si
-preferís llevarlo a mano.
+Baja solo en las ventas del mostrador y en los pedidos web, y vuelve a subir si se elimina la
+venta. Se puede apagar desde **Configuración**.
 
-El stock puede quedar en negativo: no es un error, avisa que se vendió más de lo que
-el sistema creía tener y que hay que recontar.
+El stock puede quedar en negativo: no es un error, avisa que se vendió más de lo que el sistema
+creía tener y que hay que recontar.
+
+> Si el otro admin vende mientras tenés un producto abierto para editarlo, guardar **ya no** pisa
+> esas ventas. Y en la sección Stock, si el número cambió por atrás, se pregunta antes de escribir.
 
 ### Atajos de teclado
 
-`v` nueva venta · `m` mayorista · `p` producto · `/` buscar · `i` ingreso ·
-`e` egreso · `x` cerrar caja · números para cambiar de pantalla.
+`v` nueva venta · `m` mayorista · `p` producto · `/` buscar · `i` ingreso · `e` egreso ·
+`x` cerrar caja · números para cambiar de pantalla.
 
-`?` muestra la lista completa desde cualquier pantalla. Se cambian desde
-**Configuración**. No se disparan mientras escribís ni con una ventana abierta.
+`?` muestra la lista completa desde cualquier pantalla. Se cambian desde **Configuración**. No se
+disparan mientras escribís ni con una ventana abierta.
 
 ### Lector de códigos de barras
 
 Se enchufa y anda: para el navegador es un teclado, no hay nada que instalar.
 
-Como el catálogo arranca sin ningún código cargado, **aprende usándolo**: la primera
-vez que escaneás algo desconocido, el panel pregunta de qué producto es y lo guarda.
-De la segunda vez en adelante ese producto entra de una.
+Como el catálogo arranca sin ningún código cargado, **aprende usándolo**: la primera vez que
+escaneás algo desconocido el panel pregunta de qué producto es y lo guarda. De la segunda vez en
+adelante entra de una.
 
-Lo que se vende suelto no tiene código de fábrica y no lo va a tener: eso se sigue
-buscando por nombre. El lector ayuda con lo envasado, no reemplaza al buscador.
+Lo que se vende suelto no tiene código de fábrica y no lo va a tener: eso se sigue buscando por
+nombre.
 
 ### Formatos de papel
 
-El ticket del mostrador (etiqueta adhesiva grande) y el de pedido web (térmica de
-rollo continuo) tienen cada uno su tamaño, configurables en **Factura**.
+El ticket del mostrador (etiqueta adhesiva grande) y el de pedido web (térmica de rollo) tienen
+cada uno su tamaño, configurables en **Factura**.
 
-> **A qué impresora sale no lo elige el navegador.** Eso se elige en la ventana de
-> impresión de Windows, y conviene dejar cada una como predeterminada según el caso.
-> Acá solo se define el tamaño del papel, para que el ticket salga bien cortado.
+> **A qué impresora sale no lo elige el navegador.** Eso se elige en la ventana de impresión de
+> Windows. Acá solo se define el tamaño del papel.
+
+---
+
+## Dos cosas que conviene tener presentes al mantenerlo
+
+**`index.html` carga `app.min.js`, no `app.js`.** Los cambios a la tienda solo se ven después de:
+
+```bash
+npm run build
+```
+
+Vercel lo corre en cada deploy, así que producción siempre queda bien. Pero si probás en local y no
+reconstruís, estás mirando el archivo viejo.
+
+**Las secciones Ventas e Historial están acotadas.** Ventas trae solo el mes elegido; con "Todos los
+meses" son las 500 más recientes. Historial son los últimos 500 movimientos. Los dos avisan en
+pantalla cuando están acotados. Es a propósito: traerlas completas eran 20.000 lecturas por click,
+y en Blaze eso se paga.
 
 ---
 
