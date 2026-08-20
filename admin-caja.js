@@ -323,8 +323,8 @@ function closeAbrirCajaModal() { document.getElementById('abrirCajaModal').class
 
 async function abrirCaja() {
   const btn = document.getElementById('cajaAbrirBtn');
-  const monto = parseInt(document.getElementById('cajaMontoInicial').value, 10);
-  if (!Number.isFinite(monto) || monto < 0) { showAdminToast('Poné un fondo inicial válido', 'error'); return; }
+  const monto = montoAR(document.getElementById('cajaMontoInicial').value);
+  if (monto < 0) { showAdminToast('Poné un fondo inicial válido', 'error'); return; }
   btn.disabled = true;
   try {
     /* Con dos admins, dos pestañas pueden abrir a la vez. Firestore no tiene
@@ -382,9 +382,9 @@ function closeMovModal() { document.getElementById('movModal').classList.remove(
 
 async function guardarMovimiento() {
   if (!cajaActual) { showAdminToast('No hay caja abierta', 'error'); return; }
-  const monto = parseInt(document.getElementById('movMonto').value, 10);
+  const monto = montoAR(document.getElementById('movMonto').value);
   const detalle = document.getElementById('movDetalle').value.trim();
-  if (!Number.isFinite(monto) || monto <= 0) { showAdminToast('Poné un monto mayor a cero', 'error'); return; }
+  if (monto <= 0) { showAdminToast('Poné un monto mayor a cero', 'error'); return; }
   /* El detalle es obligatorio a propósito: un movimiento sin explicación es
      exactamente lo que después nadie puede justificar en el arqueo. */
   if (detalle.length < 3) { showAdminToast('Escribí un detalle (mínimo 3 letras)', 'error'); return; }
@@ -469,7 +469,7 @@ function onContadoInput() {
   const box = document.getElementById('cierreDiferencia');
   const wrap = document.getElementById('cajaMotivoWrap');
   if (val === '') { box.innerHTML = ''; wrap.style.display = 'none'; document.getElementById('cajaCerrarBtn').disabled = true; return; }
-  const contado = parseInt(val, 10) || 0;
+  const contado = montoAR(val);
   const dif = contado - t.esperado;
   const tol = Number(cajaCfg.toleranciaDiferencia) || 0;
   const color = dif === 0 ? '#5FA87A' : (Math.abs(dif) <= tol ? '#EDB833' : '#e54545');
@@ -487,7 +487,7 @@ function validarCierre() {
   const t = window._cajaTotalesCierre;
   const val = document.getElementById('cajaContado').value;
   if (!t || val === '') { document.getElementById('cajaCerrarBtn').disabled = true; return; }
-  const dif = (parseInt(val, 10) || 0) - t.esperado;
+  const dif = montoAR(val) - t.esperado;
   const exige = !!cajaCfg.exigirMotivoSiDifiere;
   const motivo = document.getElementById('cajaMotivo').value.trim();
   document.getElementById('cajaCerrarBtn').disabled = (dif !== 0 && exige && motivo.length < 3);
@@ -495,8 +495,8 @@ function validarCierre() {
 
 async function confirmarCierre() {
   if (!cajaActual) return;
-  const contado = parseInt(document.getElementById('cajaContado').value, 10) || 0;
-  const retiro = parseInt(document.getElementById('cajaRetiro').value, 10) || 0;
+  const contado = montoAR(document.getElementById('cajaContado').value);
+  const retiro = montoAR(document.getElementById('cajaRetiro').value);
   /* Se vuelve a leer la caja JUSTO antes de escribir el cierre. Los totales se
      congelan al abrir el modal, y contar la plata lleva minutos: si en el medio el
      otro admin cobraba una venta en efectivo, esa venta se estampaba con esta
