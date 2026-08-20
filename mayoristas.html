@@ -330,7 +330,7 @@
         <div class="info-card">
             <i class="bi bi-truck card-icon"></i>
             <h4>Envíos</h4>
-            <p>Rivera Indarte y alrededores</p>
+            <p data-negocio="zonaEnvio">Rivera Indarte y alrededores</p>
             <span>Coordinar en cada pedido</span>
         </div>
         <div class="info-card">
@@ -396,9 +396,13 @@
 
 <footer class="page-footer">
     <p><a href="/">Brotes Dietética</a> · <a href="/politicas">Políticas y privacidad</a></p>
-    <p style="margin-top:0.4rem">Cordoba, Córdoba · brotesdietetica@gmail.com</p>
+    <p style="margin-top:0.4rem"><span data-negocio="ciudad">Cordoba</span>, Córdoba · <span data-negocio="email">brotesdietetica@gmail.com</span></p>
 </footer>
 
+<!-- Los datos del comercio salen de un solo lugar. Esta pagina los tenia escritos a
+     mano: si el cliente cambiaba de telefono, seguia recibiendo los pedidos
+     mayoristas en el numero viejo y nadie se enteraba hasta que alguien reclamara. -->
+<script src="config-negocio.js"></script>
 <script>
 function abrirWA() {
     const nombre = document.getElementById('f-nombre').value.trim();
@@ -420,7 +424,10 @@ function abrirWA() {
     if (interes) msg += `*Productos de interés:* ${interes}\n`;
     msg += `\nQuedo esperando la lista de precios y los detalles. ¡Gracias!`;
 
-    const url = 'https://wa.me/5493516872770?text=' + encodeURIComponent(msg);
+    /* El numero sale de config-negocio.js, igual que en el resto del sitio. El literal
+       queda solo como respaldo si el script no cargara. */
+    const _wa = (typeof NEGOCIO !== 'undefined' && NEGOCIO.whatsapp) ? NEGOCIO.whatsapp : '5493516872770';
+    const url = 'https://wa.me/' + _wa + '?text=' + encodeURIComponent(msg);
     window.open(url, '_blank');
 }
 </script>
