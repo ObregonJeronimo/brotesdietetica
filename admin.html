@@ -600,7 +600,17 @@ function deltasDeItems(items,signo){
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
         async function loginWithGoogle(){const btn=document.getElementById('googleLoginBtn');const err=document.getElementById('loginError');if(btn)btn.disabled=true;if(err)err.style.display='none';try{const p=new firebase.auth.GoogleAuthProvider();await firebase.auth().signInWithPopup(p);}catch(er){if(er.code!=='auth/popup-closed-by-user'){if(err){err.textContent='Error al iniciar sesión.';err.style.display='block';}}if(btn)btn.disabled=false;}}
         let auth,storage;try{auth=firebase.auth();storage=firebase.storage();}catch(_e){console.warn('Firebase init parcial:',_e);}let allProducts=[],editingId=null,selectedImageFile=null,existingImageUrl=null,listasData=[],editingListaId=null;
-        const _AH=['7a7f8cbeb22e2015','5b731af37421f947'];async function _ch(e){const d=new TextEncoder().encode(e);const h=await crypto.subtle.digest('SHA-256',d);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('').substring(0,16);}async function isAllowedEmail(email){const h=await _ch(email);return _AH.includes(h);}
+        /* SHA-256 (primeros 16 hex) de los mails habilitados. Esto solo abre la pantalla:
+           lo que autoriza de verdad son isAdmin() en firestore.rules y en storage.rules.
+           Agregar un admin son CUATRO lugares —los dos rules, este array y ADMIN_EMAILS en
+           config-negocio.js— y hay que redesplegar las reglas. Con solo tocar
+           config-negocio.js la persona no pasa ni el login. */
+        const _AH=[
+            '7a7f8cbeb22e2015',  /* jeroobregon03@gmail.com */
+            '5b731af37421f947',  /* thiagowendler53@gmail.com */
+            'ef2e90396db1e4c7',  /* cecilialoreanaserafini@gmail.com */
+            '499c08fa78dcee0e'   /* joacobrarda06@gmail.com */
+        ];async function _ch(e){const d=new TextEncoder().encode(e);const h=await crypto.subtle.digest('SHA-256',d);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('').substring(0,16);}async function isAllowedEmail(email){const h=await _ch(email);return _AH.includes(h);}
         function _initAuth(){
             if(!firebase.auth){setTimeout(_initAuth,100);return;}
             try{if(!auth)auth=firebase.auth();if(!storage)storage=firebase.storage();}catch(e){}

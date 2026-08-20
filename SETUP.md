@@ -443,9 +443,16 @@ Para agregar o quitar un admin hay que tocar **los cuatro** y volver a desplegar
 Hashes actuales, verificados:
 
 ```
-jeroobregon03@gmail.com     -> 7a7f8cbeb22e2015
-thiagowendler53@gmail.com   -> 5b731af37421f947
+jeroobregon03@gmail.com           -> 7a7f8cbeb22e2015
+thiagowendler53@gmail.com         -> 5b731af37421f947
+cecilialoreanaserafini@gmail.com  -> ef2e90396db1e4c7
+joacobrarda06@gmail.com           -> 499c08fa78dcee0e
 ```
+
+> **Ojo con esto:** tocar solo `ADMIN_EMAILS` en `config-negocio.js` no habilita a nadie.
+> Ese archivo es documentacion. Sin el hash en `_AH` la persona no pasa la pantalla de
+> login, y sin el mail en los dos `isAdmin()` no puede escribir nada aunque entre.
+> Son cuatro lugares y despues hay que redesplegar las reglas.
 
 Para generar uno nuevo:
 
