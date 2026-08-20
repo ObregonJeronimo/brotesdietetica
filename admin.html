@@ -322,7 +322,7 @@
     </div>
     <div class="section-content" id="sec-insumos"><div style="max-width:900px"><div class="toolbar"><h3 style="font-size:1rem;color:var(--text-main);margin:0 1rem 0 0;display:flex;align-items:center;gap:0.5rem"><i class="bi bi-tools"></i> Insumos</h3><button class="btn btn-primary" style="width:auto" onclick="openInsumoModal()"><i class="bi bi-plus-lg"></i> Nuevo</button><div class="search-box" style="flex:1;min-width:180px;max-width:280px"><i class="bi bi-search"></i><input type="text" placeholder="Buscar..." id="insumoSearch" oninput="renderInsumos()"></div><button class="btn btn-secondary" style="width:auto" onclick="loadInsumos()"><i class="bi bi-arrow-clockwise"></i></button></div><div class="table-wrap"><div class="table-scroll"><table><thead><tr><th>Nombre</th><th style="text-align:right">Stock</th><th style="text-align:right">Mínimo</th><th style="text-align:center">Acciones</th></tr></thead><tbody id="insumosTableBody"><tr><td colspan="4"><div class="empty-state"><i class="bi bi-tools"></i><p>Cargando insumos...</p></div></td></tr></tbody></table></div></div></div></div>
     <div class="section-content" id="sec-ventas"><div style="margin-bottom:1rem"><div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.45rem">Estos numeros son de: <b id="vtStatPeriodo" style="color:var(--text-main)">-</b></div><div style="display:flex;gap:0.5rem;flex-wrap:wrap"><div style="flex:1;min-width:130px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Ventas</div><strong style="font-size:1.2rem;color:var(--accent-light)" id="vtStatTotal">0</strong></div><div style="flex:1;min-width:130px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Facturado</div><strong style="font-size:1.2rem;color:#67c23a" id="vtStatTotal$">$0</strong><div id="vtStatEnvios" style="font-size:0.66rem;color:var(--text-dim);margin-top:2px"></div></div><div style="flex:1;min-width:130px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Ticket promedio</div><strong style="font-size:1.2rem;color:#e6a817" id="vtStatProm">$0</strong></div><div style="flex:1;min-width:130px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Fiado sin cobrar</div><strong style="font-size:1.2rem;color:#e07b7b" id="vtStatFiado">$0</strong></div></div></div><div class="toolbar" style="flex-wrap:wrap"><button class="btn btn-primary" style="width:auto" onclick="openVentaModal()"><i class="bi bi-plus-lg"></i> Nueva Venta</button><select class="form-input" id="ventaMesFiltro" style="width:auto;min-width:170px;font-weight:600;background:#1e3a5f;color:#fff;border-color:#1e3a5f" onchange="onCambiaMesVentas()"><option value="">Todos los meses</option></select><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar venta..." id="ventaSearch" oninput="filterVentas()"></div><button class="btn btn-secondary" style="width:auto" onclick="loadVentas()"><i class="bi bi-arrow-clockwise"></i></button></div><div id="ventasList" class="hist-list"><div class="empty-state" style="padding:2rem"><p>Cargando ventas...</p></div></div><div class="price-pager" id="ventasPager"></div></div>
-    <div class="section-content" id="sec-clientes"><div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap"><div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Total Clientes</div><strong style="font-size:1.2rem;color:var(--accent-light)" id="clStatTotal">0</strong></div><div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Con Ventas</div><strong style="font-size:1.2rem;color:#67c23a" id="clStatConVentas">0</strong></div><div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Total Facturado</div><strong style="font-size:1.2rem;color:var(--accent-light)" id="clStatFacturado">$0</strong></div><div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Promedio x Cliente</div><strong style="font-size:1.2rem;color:#e6a817" id="clStatPromedio">$0</strong></div></div><div class="toolbar"><button class="btn btn-primary" style="width:auto" onclick="openClienteModal()"><i class="bi bi-plus-lg"></i> Nuevo Cliente</button><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar cliente..." id="clienteSearch" oninput="filterClientes()"></div><button class="btn btn-secondary" style="width:auto" id="clSortBtn" onclick="toggleClienteSort()"><i class="bi bi-sort-numeric-down"></i> Ventas</button></div><div id="clientesList" class="hist-list"><div class="empty-state" style="padding:2rem"><p>Cargando clientes...</p></div></div></div>
+    <div class="section-content" id="sec-clientes"><div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap"><div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Total Clientes</div><strong style="font-size:1.2rem;color:var(--accent-light)" id="clStatTotal">0</strong></div><div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Con Ventas</div><strong style="font-size:1.2rem;color:#67c23a" id="clStatConVentas">0</strong></div><div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Facturado (12 meses)</div><strong style="font-size:1.2rem;color:var(--accent-light)" id="clStatFacturado">$0</strong></div><div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Promedio x cliente (12 meses)</div><strong style="font-size:1.2rem;color:#e6a817" id="clStatPromedio">$0</strong></div></div><div class="toolbar"><button class="btn btn-primary" style="width:auto" onclick="openClienteModal()"><i class="bi bi-plus-lg"></i> Nuevo Cliente</button><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar cliente..." id="clienteSearch" oninput="filterClientes()"></div><button class="btn btn-secondary" style="width:auto" id="clSortBtn" onclick="toggleClienteSort()"><i class="bi bi-sort-numeric-down"></i> Ventas</button></div><div id="clientesList" class="hist-list"><div class="empty-state" style="padding:2rem"><p>Cargando clientes...</p></div></div></div>
     <div class="section-content" id="sec-ventasMay">
       <div style="margin-bottom:1rem"><div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.45rem">Estos numeros son de: <b id="vtMayStatPeriodo" style="color:var(--text-main)">-</b></div><div style="display:flex;gap:0.5rem;flex-wrap:wrap"><div style="flex:1;min-width:130px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Ventas mayoristas</div><strong style="font-size:1.2rem;color:#a78bfa" id="vtMayStatTotal">0</strong></div><div style="flex:1;min-width:130px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Facturado</div><strong style="font-size:1.2rem;color:#67c23a" id="vtMayStatTotal$">$0</strong><div id="vtMayStatEnvios" style="font-size:0.66rem;color:var(--text-dim);margin-top:2px"></div></div><div style="flex:1;min-width:130px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Ticket promedio</div><strong style="font-size:1.2rem;color:#e6a817" id="vtMayStatProm">$0</strong></div><div style="flex:1;min-width:130px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Fiado sin cobrar</div><strong style="font-size:1.2rem;color:#e07b7b" id="vtMayStatFiado">$0</strong></div></div></div>
       <div class="toolbar" style="flex-wrap:wrap">
@@ -375,8 +375,8 @@
     <div class="section-content" id="sec-clientesAuth">
       <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
         <div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Total clientes</div><strong style="font-size:1.2rem;color:var(--accent-light)" id="caStatTotal">0</strong></div>
-        <div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Total ventas</div><strong style="font-size:1.2rem;color:#67c23a" id="caStatVentas">$0</strong></div>
-        <div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Total ganado</div><strong style="font-size:1.2rem;color:#e6a817" id="caStatGanado">$0</strong></div>
+        <div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Ventas (12 meses)</div><strong style="font-size:1.2rem;color:#67c23a" id="caStatVentas">$0</strong></div>
+        <div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Ganado (12 meses)</div><strong style="font-size:1.2rem;color:#e6a817" id="caStatGanado">$0</strong></div>
       </div>
       <div class="toolbar" style="margin-bottom:1rem;flex-wrap:wrap">
         <select class="form-input" id="caAuthMesFiltro" style="width:auto;min-width:170px;font-weight:600;background:#1e3a5f;color:#fff;border-color:#1e3a5f" onchange="filterClientesAuth()"><option value="">Todos los meses</option></select>
@@ -1733,6 +1733,8 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
 
 
         let _pedidosUnsubscribe=null;
+        /* true cuando el listener llego al tope de 300: hay pedidos mas viejos que no se ven. */
+        let _pedidosTope=false;
         /* El segundo argumento en true deja el filtro en "Todos los meses". Sin el,
            _buildMesOptions preselecciona el mes actual, y un pedido pendiente de fin del mes
            pasado desaparecia del tablero el dia 1: seguia sin entregar y nadie lo veia.
@@ -1749,8 +1751,16 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
             }
             /* Cancelar listener anterior si existe */
             if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}
-            _pedidosUnsubscribe=db.collection('pedidos').orderBy('creadoEn','desc').onSnapshot(function(snap){
+            /* Acotado a 300. Era un listener en TIEMPO REAL sobre la coleccion completa: cada
+               vez que cambiaba un pedido se volvia a bajar todo, y los pedidos se acumulan
+               para siempre. Con tres años de historia eso es miles de lecturas por cada
+               cambio de estado, y el tablero solo muestra los recientes.
+               300 es como medio año de pedidos en este comercio. Si alguna vez se llena, el
+               tablero avisa: un pedido pendiente que quede afuera del tope es justo el que
+               nadie quiere perder de vista. */
+            _pedidosUnsubscribe=db.collection('pedidos').orderBy('creadoEn','desc').limit(300).onSnapshot(function(snap){
                 pedidosData=snap.docs.map(function(d){var r=d.data();return{...r,docId:d.id,creadoEn:r.creadoEn?r.creadoEn.toDate?r.creadoEn.toDate():new Date(r.creadoEn):new Date()};});
+                _pedidosTope=(pedidosData.length>=300);
                 renderPedidos();
             },function(e){
                 ['pendiente','confirmado','entregado'].forEach(function(est){
@@ -1773,6 +1783,19 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
                 var est=p.estado||'pendiente';
                 if(grupos[est])grupos[est].push(p);
             });
+            /* Si el listener llego al tope, se dice. Un pedido pendiente viejo que quede
+               afuera es justo el que nadie quiere perder de vista, y sin aviso el tablero
+               parece completo. */
+            var _avisoPed=document.getElementById('pedidosAvisoTope');
+            if(!_avisoPed){
+                _avisoPed=document.createElement('div');
+                _avisoPed.id='pedidosAvisoTope';
+                _avisoPed.style.cssText='grid-column:1/-1;background:rgba(237,184,51,0.1);border:1px solid rgba(237,184,51,0.3);border-radius:8px;padding:0.6rem 0.85rem;margin-bottom:0.5rem;font-size:0.8rem;color:var(--text-dim);line-height:1.5';
+                _avisoPed.innerHTML='<i class="bi bi-info-circle"></i> Se muestran los <b>300 pedidos m&aacute;s recientes</b>. Si falta uno viejo, busc&aacute;lo por su n&uacute;mero en Ventas.';
+                var _kb=document.getElementById('pedidosKanban');
+                if(_kb)_kb.insertBefore(_avisoPed,_kb.firstChild);
+            }
+            _avisoPed.style.display=_pedidosTope?'':'none';
             ['pendiente','confirmado','entregado'].forEach(function(est){
                 var zone=document.getElementById('kdrop-'+est);
                 var count=document.getElementById('kcount-'+est);
@@ -2348,7 +2371,14 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
         let _clienteDesde=null;
         function openNuevoClienteDesde(desde){_clienteDesde=desde;openClienteModal();}
 
-        async function loadClientes(){try{const snap=await db.collection('clientes').orderBy('nombre').get();allClientes=snap.docs.map(d=>({id:d.id,...d.data(),ventasCount:0,ventasTotal:0}));const vSnap=await db.collection('ventas').get();vSnap.docs.forEach(d=>{const v=d.data();if(v.clienteId){const cl=allClientes.find(c=>c.id===v.clienteId);if(cl){cl.ventasCount++;/* neto, sin el envio: lo que gasto el cliente en mercaderia. Con el flete adentro, los clientes de barrios lejanos parecian comprar mas */cl.ventasTotal+=netoVenta(v);}}});updateClienteStats();filterClientes();}catch(e){document.getElementById('clientesList').innerHTML='<div class="empty-state" style="padding:2rem"><p>Error: '+e.message+'</p></div>';}}
+        async function loadClientes(){try{const snap=await db.collection('clientes').orderBy('nombre').get();allClientes=snap.docs.map(d=>({id:d.id,...d.data(),ventasCount:0,ventasTotal:0}));/* Acotado a los ultimos 12 meses. Antes leia TODA la coleccion ventas cada vez
+               que se abria Clientes, solo para sumar cuanto gasto cada uno: con tres años de
+               historia son 20.000 lecturas por click, y en Blaze eso se paga.
+               Doce meses ademas es mas util que "de toda la vida" para decidir a quien
+               atender mejor, y la etiqueta de la pantalla lo dice para que el numero no
+               mienta. El rango va sobre `fecha`, un solo campo, sin indice compuesto. */
+            const _desde12=new Date(); _desde12.setMonth(_desde12.getMonth()-12);
+            const vSnap=await db.collection('ventas').where('fecha','>=',_desde12).get();vSnap.docs.forEach(d=>{const v=d.data();if(v.clienteId){const cl=allClientes.find(c=>c.id===v.clienteId);if(cl){cl.ventasCount++;/* neto, sin el envio: lo que gasto el cliente en mercaderia. Con el flete adentro, los clientes de barrios lejanos parecian comprar mas */cl.ventasTotal+=netoVenta(v);}}});updateClienteStats();filterClientes();}catch(e){document.getElementById('clientesList').innerHTML='<div class="empty-state" style="padding:2rem"><p>Error: '+e.message+'</p></div>';}}
         let clSortDir=null;
         function toggleClienteSort(){if(!clSortDir)clSortDir='desc';else if(clSortDir==='desc')clSortDir='asc';else clSortDir=null;const btn=document.getElementById('clSortBtn');if(clSortDir==='desc')btn.innerHTML='<i class="bi bi-sort-numeric-down"></i> Mayor ventas';else if(clSortDir==='asc')btn.innerHTML='<i class="bi bi-sort-numeric-up"></i> Menor ventas';else btn.innerHTML='<i class="bi bi-sort-numeric-down"></i> Ventas';filterClientes();}
         function updateClienteStats(){document.getElementById('clStatTotal').textContent=allClientes.length;const conVentas=allClientes.filter(c=>c.ventasCount>0);document.getElementById('clStatConVentas').textContent=conVentas.length;const totalFact=allClientes.reduce((s,c)=>s+c.ventasTotal,0);document.getElementById('clStatFacturado').textContent='$'+totalFact.toLocaleString('es-AR');const prom=conVentas.length?Math.round(totalFact/conVentas.length):0;document.getElementById('clStatPromedio').textContent='$'+prom.toLocaleString('es-AR');}
@@ -4013,7 +4043,11 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                 }
                 clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data(),_totalVentas:0}));
                 /* Calcular ventas por cliente Auth */
-                const ventSnap=await db.collection('ventas').get();
+                /* Mismo criterio que Clientes: solo los ultimos 12 meses. Esta pantalla
+                   hacia su propia lectura completa de ventas, asi que entre las dos se leia
+                   la coleccion entera dos veces. */
+                const _desdeCA=new Date(); _desdeCA.setMonth(_desdeCA.getMonth()-12);
+                const ventSnap=await db.collection('ventas').where('fecha','>=',_desdeCA).get();
                 ventSnap.docs.forEach(d=>{
                     const v=d.data();
                     if(v.clienteAuthUid){
