@@ -1756,6 +1756,23 @@ const _fcTb=document.getElementById('fcTermicaAlto');if(_fcTb)_fcTb.value=factur
                     cards+='<span class="kcard-nro">'+nro+'</span>';
                     cards+='<span class="kcard-total">'+total+'</span>';
                     cards+=cuponBadge;
+                    /* Avisos que escribe descontarStockPedido y hasta ahora no se veian en
+                       ningun lado: quedaban en el documento y el comercio preparaba el pedido
+                       sin saber. `stockFaltante` es que no habia unidades suficientes al
+                       descontar; `revisarPrecio` es que se cobro menos de la mitad de lo que
+                       vale hoy, que puede ser un cambio de precios o alguien tocando el
+                       carrito desde la consola; `stockError` es que la funcion no pudo
+                       descontar nada. */
+                    if(p.stockFaltante&&p.stockFaltante.length){
+                        var _f=p.stockFaltante.map(function(x){return esc(x.nombre)+' (pidio '+x.pedido+', habia '+x.disponible+')';}).join(', ');
+                        cards+='<span style="background:#3a2a1a;color:#e6a23c;border:1px solid #6a4a2a;border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="'+_f+'"><i class="bi bi-exclamation-triangle"></i> Falto stock</span>';
+                    }
+                    if(p.revisarPrecio){
+                        cards+='<span style="background:#3a1a1a;color:#f56c6c;border:1px solid #6a2a2a;border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="Se cobro mucho menos de lo que valen hoy estos productos. Revisa los precios antes de entregar."><i class="bi bi-cash-coin"></i> Revisar precio</span>';
+                    }
+                    if(p.stockError){
+                        cards+='<span style="background:#3a1a1a;color:#f56c6c;border:1px solid #6a2a2a;border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="No se pudo descontar el stock: '+esc(String(p.stockError))+'"><i class="bi bi-x-octagon"></i> Sin descontar</span>';
+                    }
                     cards+='</div>';
                     cards+='<div style="font-size:0.8rem;font-weight:600;color:var(--text-main);margin:2px 0">'+esc(p.clienteWeb||p.cliente||'—')+'</div>';
                     if(p.clienteAuthUid){cards+='<div style="font-size:0.72rem;color:var(--accent-light)">'+(p.clienteEmail||p.clienteId?'#'+esc(p.clienteId||'')+' · '+esc(p.clienteEmail||''):'')+'</div>';}
