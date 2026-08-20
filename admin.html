@@ -1745,9 +1745,8 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
         let fcQrFileData=null;let facturaConfig={nombre:'BROTES DIETETICA',direccion:'Manuel de Falla, Cordoba',telefono:'351 687 2770',email:'brotesdietetica@gmail.com',cuit:'',pie:'Gracias por su compra!',logo:'img/logo-brotes-light.svg',qr:'',agradecimiento:'Gracias por elegirnos',subtitulo:'En Brotes creemos que alimentarse bien no deberia ser un lujo.',instagram:'@brotesdietetica',whatsapp:'351-6872770',slogan:'Brotes, la dietetica a tu casa.',termicaAncho:80,etiquetaAncho:100,etiquetaAlto:150,termicaAlto:0};
         async function loadFacturaConfig(){try{const snap=await db.collection('config').doc('factura').get();if(snap.exists)Object.assign(facturaConfig,snap.data());}catch(e){}}
         
-        
-        
-        async 
+        /* Aca estaban openFacturaConfig / saveFacturaConfig / previewFacturaLogo, la
+           pantalla de factura a la que no se podia llegar. */
         function showFactura(docId){currentFacturaId=docId;const html=buildFacturaA4HTML(docId);if(!html)return;document.getElementById('facturaContent').innerHTML=html;document.getElementById('facturaModal').classList.add('show');}
         function closeFacturaModal(){document.getElementById('facturaModal').classList.remove('show');}
         function printFactura(formato){const isTermica=(formato==='termica'||formato==='etiqueta');const fcFmt=facturaConfig||{};let content;if(isTermica){const v=ventasData.find(x=>x.docId===currentFacturaId);if(!v)return;const fc=facturaConfig;const fecha=v.fecha.toLocaleDateString('es-AR');const nro=nroVta(v.numero||0);const tipoFactura=document.getElementById('facturaTypeSelect')?.value||'nuevo';const usarQrResena=tipoFactura==='nuevo';/* El dominio no puede ir escrito a mano. El panel se sirve del mismo origen que la
