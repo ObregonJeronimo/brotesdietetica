@@ -193,7 +193,7 @@ function renderCaja() {
   if (!cont) return;
   if (!cajaActual) {
     cont.innerHTML =
-      '<div class="card" style="padding:2rem;text-align:center;max-width:560px">' +
+      '<div class="card" style="padding:2rem;text-align:center;max-width:560px;margin:0 auto">' +
         '<i class="bi bi-lock" style="font-size:2rem;line-height:1;display:block;margin-bottom:0.6rem;color:var(--text-dim)"></i>' +
         '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.35rem">No hay caja abierta</h3>' +
         '<p style="font-size:0.88rem;color:var(--text-dim);margin-bottom:1.1rem;line-height:1.55">' +
