@@ -165,7 +165,12 @@
         .sidebar-toggle{background:none;border:none;color:var(--text);font-size:1.4rem;cursor:pointer;display:none;padding:0.2rem}
         .admin-main{flex:1;padding:2rem;min-width:0;overflow-x:auto}
         @media(max-width:768px){.sidebar{position:fixed;left:-260px;top:57px;z-index:150;width:250px;transition:left 0.3s;box-shadow:none}.sidebar.open{left:0;box-shadow:4px 0 20px rgba(0,0,0,0.4)}.sidebar-toggle{display:block}.admin-main{padding:0.5rem}.toolbar{display:grid;grid-template-columns:1fr 1fr;gap:0.4rem}.search-box{grid-column:1/-1}.toolbar .form-input{font-size:0.8rem;padding:0.4rem 0.6rem;grid-column:1/-1}.toolbar .btn{font-size:0.75rem;padding:0.4rem 0.5rem;width:100%}.form-row{grid-template-columns:1fr}.stats-row{grid-template-columns:1fr 1fr}.stats-row .stat-card{padding:0.75rem}.modal-box{padding:1rem;margin:0.5rem;max-height:95vh;border-radius:12px}.modal-header{margin-bottom:1rem}.form-row[style*="1fr 1fr 1fr 1fr"]{grid-template-columns:1fr 1fr!important}.actions-cell{gap:2px}.btn-icon{padding:5px}.product-img-cell{width:32px;height:32px}th,td{padding:0.4rem 0.3rem;font-size:0.72rem}th{font-size:0.62rem;letter-spacing:0.5px}.cat-badge{font-size:0.65rem;padding:2px 5px}.stock-badge{font-size:0.7rem;padding:2px 6px}.price-cell{font-size:0.72rem!important}.venta-modal-body .form-row{grid-template-columns:1fr!important}.sidebar-item[onclick*="editor"]{display:none}.stock-row{gap:0.5rem;padding:0.5rem}.stock-row img{width:32px;height:32px}.stock-row-info strong{font-size:0.8rem}.cliente-card{padding:8px;gap:8px}.cliente-name{font-size:0.82rem}.cliente-detail{font-size:0.7rem}}
-        .stock-row{display:flex;align-items:center;gap:1rem;padding:0.75rem 1rem;background:var(--bg-input);border-radius:var(--radius);margin-bottom:0.5rem}.stock-row img{width:40px;height:40px;border-radius:6px;object-fit:cover}.stock-row-info{flex:1;min-width:0}.stock-row-info strong{font-size:0.88rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stock-row-info small{color:var(--text-dim);font-size:0.75rem}.stock-input{width:70px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.5rem;color:var(--text);font-family:var(--mono);font-size:0.9rem;text-align:center;outline:none}.stock-input:focus{border-color:var(--accent)}.stock-save{background:var(--accent);color:white;border:none;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.8rem;cursor:pointer;font-weight:600;transition:all 0.2s}.stock-save:hover{background:var(--accent-light)}
+        .stock-row{display:flex;align-items:center;gap:1rem;padding:0.75rem 1rem;background:var(--bg-input);border-radius:var(--radius);margin-bottom:0.5rem}.stock-row img{width:40px;height:40px;border-radius:6px;object-fit:cover}.stock-row-info{flex:1;min-width:0}.stock-row-info strong{font-size:0.88rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stock-row-info small{color:var(--text-dim);font-size:0.75rem}.stock-sin-guardar{display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;background:rgba(237,184,51,0.12);border:1px solid rgba(237,184,51,0.35);color:#EDB833;border-radius:var(--radius);padding:0.7rem 0.9rem;margin-bottom:0.75rem;font-size:0.85rem}
+        .stock-sin-guardar[hidden]{display:none}
+        .stock-row.sin-guardar{outline:1px solid rgba(237,184,51,0.55)}
+        .stock-row.sin-guardar .stock-input{border-color:#EDB833;color:#EDB833}
+        .stock-chip-sg{font-size:0.62rem;font-weight:700;color:#EDB833;background:rgba(237,184,51,0.18);padding:1px 6px;border-radius:8px;white-space:nowrap;margin-left:6px}
+        .stock-input{width:70px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.5rem;color:var(--text);font-family:var(--mono);font-size:0.9rem;text-align:center;outline:none}.stock-input:focus{border-color:var(--accent)}.stock-save{background:var(--accent);color:white;border:none;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.8rem;cursor:pointer;font-weight:600;transition:all 0.2s}.stock-save:hover{background:var(--accent-light)}
         .admin-topbar-logo{height:36px;width:auto;}
         @media(max-width:768px){.topbar{padding:0.75rem 1rem}.admin-topbar-logo{height:28px}.user-badge{display:none}.topbar-right .btn{font-size:0.75rem;padding:0.3rem 0.6rem}}
         .editor-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}.editor-title{font-size:0.85rem;font-weight:700;color:var(--accent-light);margin-bottom:1rem;display:flex;align-items:center;gap:8px}
@@ -419,7 +424,7 @@
     <div class="admin-main">
     <div class="section-content active" id="sec-products"><div id="listasPanel" style="margin-bottom:1.5rem"><div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem"><span style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-weight:600">Listas de proveedores</span><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem" onclick="openCrearListaModal()"><i class="bi bi-plus-lg"></i> Nueva</button><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem;background:#2d4a6b;border-color:#2d4a6b;color:#fff" onclick="openReasignarListaModal()"><i class="bi bi-shuffle"></i> Reasignar lista</button></div><div id="listasCards" style="display:flex;gap:0.5rem;flex-wrap:wrap"><span style="color:var(--text-dim);font-size:0.85rem">Cargando...</span></div></div><div class="stats-row" id="productsStatsRow"><div class="stat-card"><div class="stat-label">Total Productos</div><div class="stat-value" id="statTotal">0</div></div><div class="stat-card"><div class="stat-label">Categorias</div><div class="stat-value" id="statCats">0</div></div><div class="stat-card"><div class="stat-label">Sin Stock <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('outstock')">?</span><div class="stat-tooltip" id="tooltipOutstock"></div></div><div class="stat-value" style="color:var(--danger)" id="statOutStock">0</div></div><div class="stat-card"><div class="stat-label">Stock Bajo <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('lowstock')">?</span><div class="stat-tooltip" id="tooltipLowstock"></div></div><div class="stat-value" style="color:var(--warning)" id="statLowStock">0</div><div class="stock-threshold-row"><label>Limite:</label><input type="number" class="threshold-input" id="lowStockThreshold" value="10" min="1" max="999" onchange="saveLowStockThreshold()"></div></div><div class="stat-card"><div class="stat-label">Sin Categoria <span class="stat-tooltip-trigger" onclick="openNoCatModal()">?</span></div><div class="stat-value" style="color:#9b59b6" id="statNoCat">0</div></div></div><div class="toolbar" style="margin-bottom:0.6rem"><div class="search-box" style="flex:1;min-width:180px"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto..." id="searchInput" oninput="filterTable()"></div><select class="form-input" style="width:auto;min-width:150px" id="filterCat" onchange="filterTable()"><option value="">Todas las categor&iacute;as</option></select><select class="form-input" style="width:auto;min-width:150px" id="filterLista" onchange="filterTable()"><option value="">Todas las listas</option></select><select class="form-input" style="width:auto;min-width:130px" id="filterVisibilidad" onchange="filterTable()" title="Filtrar por visibilidad en el cat&aacute;logo"><option value="">Visibles y ocultos</option><option value="visibles">Solo visibles</option><option value="ocultos">Solo ocultos</option></select><button class="btn btn-secondary" style="width:auto;padding:6px 10px" onclick="openCatManager()" title="Administrar categor&iacute;as y subcategor&iacute;as"><i class="bi bi-tags"></i></button></div><div class="toolbar" style="margin-bottom:1rem"><button class="btn btn-primary" style="width:auto" onclick="openModal()"><i class="bi bi-plus-lg"></i> Nuevo producto</button><div class="tb-menu" id="tbPrecios"><button class="btn btn-secondary tb-tog" style="width:auto" onclick="tbToggle('tbPrecios')"><i class="bi bi-tag"></i> Precios <i class="bi bi-chevron-down"></i></button><div class="tb-pop"><button type="button" class="tb-it" onclick="tbCerrar();openPriceModal(&quot;all&quot;)"><i class="bi bi-percent"></i><span style="flex:1"><b>Cambiar costos por porcentaje</b><span>Aumenta o reduce el costo de varios productos a la vez.</span></span></button><button type="button" class="tb-it" onclick="tbCerrar();openRoundModal(&quot;all&quot;)"><i class="bi bi-arrows-angle-contract"></i><span style="flex:1"><b>Redondear precios</b><span>Redondea los precios a valores parejos. Se usa despu&eacute;s de un aumento.</span></span></button><div class="tb-sep"></div><button type="button" class="tb-it" onclick="tbCerrar();openDescuentoModal()"><i class="bi bi-tag-fill"></i><span style="flex:1"><b>Aplicar descuentos</b><span>La cinta de -X% OFF que ve el cliente en la tienda.</span></span></button></div></div><div class="tb-menu" id="tbExcel"><button class="btn btn-secondary tb-tog" style="width:auto" onclick="tbToggle('tbExcel')"><i class="bi bi-file-earmark-spreadsheet"></i> Excel <i class="bi bi-chevron-down"></i></button><div class="tb-pop"><div class="tb-rot">Traer del proveedor</div><button type="button" class="tb-it" onclick="tbCerrar();switchSection(&quot;excel&quot;)"><i class="bi bi-box-arrow-in-down"></i><span style="flex:1"><b>Actualizar costos</b><span>Toma la lista del proveedor y actualiza los costos por nombre.</span></span></button><button type="button" class="tb-it" onclick="tbCerrar();switchSection(&quot;excelNew&quot;)"><i class="bi bi-file-earmark-plus"></i><span style="flex:1"><b>Cargar productos nuevos</b><span>Da de alta los que todav&iacute;a no est&aacute;n en el cat&aacute;logo.</span></span></button><div class="tb-sep"></div><div class="tb-rot">Sacar del sistema</div><button type="button" class="tb-it" onclick="tbCerrar();exportCostosExcel()"><i class="bi bi-box-arrow-up"></i><span style="flex:1"><b>Bajar planilla de costos</b><span>Todo el cat&aacute;logo en Excel, para revisar o mandar al proveedor.</span></span></button></div></div><div class="tb-menu" id="tbPdf"><button class="btn btn-secondary tb-tog" style="width:auto" onclick="tbToggle('tbPdf')"><i class="bi bi-file-earmark-pdf"></i> Cat&aacute;logos <i class="bi bi-chevron-down"></i></button><div class="tb-pop derecha"><button type="button" class="tb-it" onclick="tbCerrar();exportCatalogoPDF()"><i class="bi bi-people"></i><span style="flex:1"><b>Cat&aacute;logo para clientes</b><span>Precios de venta al p&uacute;blico, listo para mandar por WhatsApp.</span></span></button><button type="button" class="tb-it" onclick="tbCerrar();openMayoristaPdfModal()"><i class="bi bi-buildings"></i><span style="flex:1"><b>Cat&aacute;logo mayorista</b><span>Con el porcentaje que le pongas a cada cliente mayorista.</span></span></button><div class="tb-sep" id="tbSepSemanal"></div><div id="tbSemanalWrap"><button type="button" class="tb-it" onclick="tbCerrar();openWeeklyPdfModal()"><i class="bi bi-calendar-week"></i><span style="flex:1"><b>Planilla semanal</b><span>Para las listas que cambian de precio todas las semanas.</span></span></button></div></div></div></div><div class="table-wrap"><div class="table-scroll"><table><thead><tr><th onclick="sortTableBy('imagen')" style="cursor:pointer">Img <i class="bi bi-arrow-down-up" id="sortIconImagen" style="font-size:0.6rem;opacity:0.4"></i></th><th>Nombre</th><th>Cat / Sub</th><th onclick="sortTableBy('costo')">Costo <i class="bi bi-arrow-down-up" id="sortIconCosto" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('porcentaje')">Porcentaje(%) <i class="bi bi-arrow-down-up" id="sortIconPct" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('precio')">Precio <i class="bi bi-arrow-down-up" id="sortIconPrecio" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('descuento')" style="cursor:pointer">Desc% <i class="bi bi-arrow-down-up" id="sortIconDesc" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('stock')">Stock <i class="bi bi-arrow-down-up" id="sortIconStock" style="font-size:0.6rem;opacity:0.4"></i></th><th>Acciones</th></tr></thead><tbody id="productsTableBody"><tr><td colspan="9"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Cargando...</p></div></td></tr></tbody></table></div></div></div>
     
-        <div class="section-content" id="sec-stock"><div class="toolbar"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto para agregar stock..." id="stockSearch" oninput="filterStockList()"></div><select class="form-input" style="width:auto;min-width:160px" id="stockFilterCat" onchange="filterStockList()"><option value="">Todas</option></select><button class="btn btn-secondary" style="width:auto" id="stockSortBtn" onclick="toggleStockSort()"><i class="bi bi-sort-numeric-down"></i> Ordenar stock</button></div><div class="stock-masivo"><label class="stock-masivo-lbl"><input type="checkbox" id="stockSelTodos" onchange="stockSeleccionarTodos(this.checked)"><span id="stockSelTodosTxt">Seleccionar todos los que se est&aacute;n viendo</span></label><span class="stock-masivo-cuenta" id="stockSelCuenta"></span><div class="stock-masivo-acc"><input type="number" class="form-input" id="stockMasivoCant" placeholder="Cantidad" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarStockMasivo();}"><button class="btn btn-primary" style="width:auto" id="stockMasivoBtn" onclick="agregarStockMasivo()" disabled><i class="bi bi-plus-lg"></i> Agregar al stock</button><button class="btn btn-secondary" style="width:auto" id="stockMasivoLimpiar" onclick="stockLimpiarSeleccion()" hidden>Limpiar</button></div></div><div id="stockList"></div></div>
+        <div class="section-content" id="sec-stock"><div class="toolbar"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto para agregar stock..." id="stockSearch" oninput="filterStockList()"></div><select class="form-input" style="width:auto;min-width:160px" id="stockFilterCat" onchange="filterStockList()"><option value="">Todas</option></select><button class="btn btn-secondary" style="width:auto" id="stockSortBtn" onclick="toggleStockSort()"><i class="bi bi-sort-numeric-down"></i> Ordenar stock</button></div><div class="stock-masivo"><label class="stock-masivo-lbl"><input type="checkbox" id="stockSelTodos" onchange="stockSeleccionarTodos(this.checked)"><span id="stockSelTodosTxt">Seleccionar todos los que se est&aacute;n viendo</span></label><span class="stock-masivo-cuenta" id="stockSelCuenta"></span><div class="stock-masivo-acc"><input type="number" class="form-input" id="stockMasivoCant" placeholder="Cantidad" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarStockMasivo();}"><button class="btn btn-primary" style="width:auto" id="stockMasivoBtn" onclick="agregarStockMasivo()" disabled><i class="bi bi-plus-lg"></i> Agregar al stock</button><button class="btn btn-secondary" style="width:auto" id="stockMasivoLimpiar" onclick="stockLimpiarSeleccion()" hidden>Limpiar</button></div></div><div class="stock-sin-guardar" id="stockSinGuardar" hidden><i class="bi bi-exclamation-triangle"></i><span id="stockSinGuardarTxt" style="flex:1"></span><button class="btn btn-sm btn-primary" style="width:auto" onclick="guardarStockPendiente()" id="stockGuardarTodosBtn"><i class="bi bi-check-lg"></i> Guardar cambios</button><button class="btn btn-sm btn-secondary" style="width:auto" onclick="descartarStockPendiente()">Descartar</button></div><div id="stockList"></div></div>
     <div class="section-content" id="sec-cupones">
       <div class="toolbar" style="margin-bottom:1rem">
         <button class="btn btn-primary" style="width:auto" onclick="openCuponModal()"><i class="bi bi-plus-lg"></i> Nuevo cupón</button>
@@ -1552,7 +1557,143 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function selectPadreSugerencia(id){const p=allProducts.find(x=>x.id===id);if(!p)return;window._padreModalSeleccionado=p;document.querySelectorAll('.padre-sugerencia-row').forEach(el=>el.classList.toggle('selected',el.getAttribute('data-id')===id));document.getElementById('padreModalConfirmBtn').disabled=false;document.getElementById('padreModalConfirmBtn').innerHTML='<i class="bi bi-link-45deg"></i> Conectar como hijo de "'+esc(p.nombre)+'"';}
         async function confirmarPadre(){const hijo=window._padreModalHijo;const padre=window._padreModalSeleccionado;if(!hijo||!padre){showAdminToast('Seleccioná un producto padre','error');return;}const btn=document.getElementById('padreModalConfirmBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Conectando...';try{const padreActual=allProducts.find(x=>x.id===hijo.padreId);const padreNombreOld=padreActual?padreActual.nombre:null;const update={envasadoPropio:true,padreId:padre.id,padreNombre:padre.nombre};await db.collection('productos').doc(hijo.id).update(update);hijo.envasadoPropio=true;hijo.padreId=padre.id;hijo.padreNombre=padre.nombre;logAction('editar','Conectado como envasado propio: '+hijo.nombre,'Padre: '+padre.nombre+(padreNombreOld?' (antes: '+padreNombreOld+')':'')+' | Excluido del PDF Semanal');showAdminToast(hijo.nombre+' conectado como hijo de '+padre.nombre,'success');closePadreModal();filterTable();}catch(e){showAdminToast('Error: '+e.message,'error');btn.disabled=false;btn.innerHTML='<i class="bi bi-link-45deg"></i> Conectar como hijo';}}
         async function desconectarPadre(){const hijo=window._padreModalHijo;if(!hijo)return;if(!confirm('Desconectar "'+hijo.nombre+'" de su producto padre? El producto va a quedar como producto normal del PDF Semanal.'))return;const btn=document.getElementById('padreModalDesconectarBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Desconectando...';try{const padreActual=allProducts.find(x=>x.id===hijo.padreId);const padreNombreOld=hijo.padreNombre||(padreActual?padreActual.nombre:null)||'-';await db.collection('productos').doc(hijo.id).update({envasadoPropio:false,padreId:firebase.firestore.FieldValue.delete(),padreNombre:firebase.firestore.FieldValue.delete()});hijo.envasadoPropio=false;delete hijo.padreId;delete hijo.padreNombre;logAction('editar','Desconectado envasado propio: '+hijo.nombre,'Antes era hijo de: '+padreNombreOld);showAdminToast(hijo.nombre+' desconectado','success');closePadreModal();filterTable();}catch(e){showAdminToast('Error: '+e.message,'error');btn.disabled=false;btn.innerHTML='<i class="bi bi-x-lg"></i> Desconectar de padre actual';}}
-        function renderStockList(){const c=document.getElementById('stockList');if(!c)return;const q=(document.getElementById('stockSearch')?.value||'').toLowerCase();const cat=document.getElementById('stockFilterCat')?.value||'';let f=allProducts.slice();if(q)f=f.filter(p=>(p.nombre||'').toLowerCase().includes(q));if(cat)f=f.filter(p=>p.categoria===cat);if(window._stockSortDir==='desc')f.sort((a,b)=>(b.stock||0)-(a.stock||0));else if(window._stockSortDir==='asc')f.sort((a,b)=>(a.stock||0)-(b.stock||0));if(!f.length){c.innerHTML='<div class="empty-state" style="padding:2rem"><p>No hay productos</p></div>';_stockVisibles=[];pintarSeleccionStock();return;}_stockVisibles=f.map(p=>p.id);c.innerHTML=f.map(p=>{const img=p.imagen||'img/default-product.svg';return'<div class="stock-row"><input type="checkbox" class="stock-chk" '+(_stockSel.has(p.id)?'checked':'')+' onchange="stockAlternar(\''+p.id+'\',this.checked)" title="Seleccionar"><img src="'+img+'" onerror="this.src=\'img/default-product.svg\'"><div class="stock-row-info"><strong>'+p.nombre+'</strong><small>'+(p.categoria||'')+(p.subcategoria?' / '+p.subcategoria:'')+'</small></div><input type="number" class="stock-input" id="stock-'+p.id+'" value="'+(p.stock||0)+'" min="0"><button class="stock-save" onclick="saveStock(\''+p.id+'\')"><i class="bi bi-check-lg"></i></button></div>';}).join('');pintarSeleccionStock();}
+        /* ===== LISTA DE STOCK =====
+           Filtra, ordena, pagina y dibuja. El paginado se hace ACA y no en
+           admin-pagination.js: ese archivo tenia una copia entera de esta funcion que
+           tapaba a la original y se habia quedado sin el checkbox de seleccion.
+
+           _stockVisibles son TODOS los que pasan el filtro, no solo los de la pagina:
+           "seleccionar todos los visibles" tiene que alcanzar al resultado completo de
+           la busqueda, si no habria que ir pagina por pagina. */
+        function renderStockList(){
+            const c=document.getElementById('stockList'); if(!c)return;
+            const q=(document.getElementById('stockSearch')?.value||'').toLowerCase();
+            const cat=document.getElementById('stockFilterCat')?.value||'';
+            let f=allProducts.slice();
+            if(q)f=f.filter(p=>(p.nombre||'').toLowerCase().includes(q));
+            if(cat)f=f.filter(p=>p.categoria===cat);
+            if(window._stockSortDir==='desc')f.sort((a,b)=>(b.stock||0)-(a.stock||0));
+            else if(window._stockSortDir==='asc')f.sort((a,b)=>(a.stock||0)-(b.stock||0));
+
+            _stockVisibles=f.map(p=>p.id);
+
+            if(!f.length){
+                c.innerHTML='<div class="empty-state" style="padding:2rem"><p>No hay productos</p></div>';
+                if(typeof removePagination==='function')removePagination('sec-stock');
+                pintarSeleccionStock(); pintarStockSinGuardar(); return;
+            }
+
+            let items=f, totalPag=1;
+            const porPag=(typeof ADMIN_PER_PAGE!=='undefined')?ADMIN_PER_PAGE:0;
+            if(porPag){
+                totalPag=Math.ceil(f.length/porPag);
+                if(adminStockPage>totalPag)adminStockPage=totalPag||1;
+                items=f.slice((adminStockPage-1)*porPag,adminStockPage*porPag);
+            }
+
+            c.innerHTML=items.map(p=>{
+                const img=p.imagen||'img/default-product.svg';
+                /* Si el valor se edito y todavia no se guardo, se vuelve a pintar lo
+                   escrito y no lo que hay en la base: cambiar de pagina o filtrar no
+                   puede borrar en silencio lo que la persona tipeo. */
+                const pend=_stockDirty.has(p.id);
+                const val=pend?_stockDirty.get(p.id):Number(p.stock||0);
+                return '<div class="stock-row'+(pend?' sin-guardar':'')+'" data-id="'+_attrHtml(p.id)+'">'+
+                    '<input type="checkbox" class="stock-chk" '+(_stockSel.has(p.id)?'checked':'')+
+                        ' onchange="stockAlternar(\''+_attrHtml(p.id)+'\',this.checked)" title="Seleccionar">'+
+                    '<img src="'+_attrHtml(img)+'" onerror="this.src=\'img/default-product.svg\'">'+
+                    '<div class="stock-row-info"><strong>'+esc(p.nombre||'')+
+                        (pend?'<span class="stock-chip-sg">SIN GUARDAR</span>':'')+'</strong>'+
+                        '<small>'+esc((p.categoria||'')+(p.subcategoria?' / '+p.subcategoria:''))+'</small></div>'+
+                    '<input type="number" class="stock-input" id="stock-'+_attrHtml(p.id)+'" value="'+val+'" min="0"'+
+                        ' oninput="stockCambio(\''+_attrHtml(p.id)+'\',this)"'+
+                        ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();saveStock(\''+_attrHtml(p.id)+'\');}">'+
+                    '<button class="stock-save" onclick="saveStock(\''+_attrHtml(p.id)+'\')" title="Guardar este producto">'+
+                        '<i class="bi bi-check-lg"></i></button>'+
+                '</div>';
+            }).join('');
+
+            if(porPag&&typeof renderAdminPagination==='function')
+                renderAdminPagination('sec-stock',adminStockPage,totalPag,f.length,'stock');
+            pintarSeleccionStock();
+            pintarStockSinGuardar();
+        }
+
+        /* ===== CAMBIOS SIN GUARDAR =====
+           El stock se escribia en el campo y solo se guardaba apretando el tilde de la
+           fila. Si te olvidabas, no habia ninguna senal: la pantalla mostraba 9, la base
+           seguia en 7 y no se notaba hasta que el numero no cerraba. */
+        let _stockDirty=new Map();   /* id -> valor escrito y sin guardar */
+
+        function stockCambio(id,inp){
+            const p=allProducts.find(x=>x.id===id);
+            const orig=Number((p&&p.stock)||0);
+            const val=parseInt(inp.value,10);
+            const fila=inp.closest('.stock-row');
+            const sucio=Number.isFinite(val)&&val!==orig;
+            if(sucio)_stockDirty.set(id,val); else _stockDirty.delete(id);
+            if(fila){
+                fila.classList.toggle('sin-guardar',sucio);
+                const nom=fila.querySelector('.stock-row-info strong');
+                if(nom){
+                    const chip=nom.querySelector('.stock-chip-sg');
+                    if(sucio&&!chip){const s=document.createElement('span');s.className='stock-chip-sg';s.textContent='SIN GUARDAR';nom.appendChild(s);}
+                    else if(!sucio&&chip)chip.remove();
+                }
+            }
+            pintarStockSinGuardar();
+        }
+
+        function pintarStockSinGuardar(){
+            const bar=document.getElementById('stockSinGuardar');
+            if(!bar)return;
+            const n=_stockDirty.size;
+            bar.hidden=!n;
+            const txt=document.getElementById('stockSinGuardarTxt');
+            if(txt&&n)txt.textContent=n===1
+                ? 'Modificaste el stock de 1 producto y todavía no se guardó.'
+                : 'Modificaste el stock de '+n+' productos y todavía no se guardaron.';
+            const btn=document.getElementById('stockGuardarTodosBtn');
+            if(btn)btn.innerHTML='<i class="bi bi-check-lg"></i> Guardar '+(n>1?('los '+n):'el cambio');
+        }
+
+        async function guardarStockPendiente(){
+            const ids=Array.from(_stockDirty.keys());
+            if(!ids.length)return;
+            const btn=document.getElementById('stockGuardarTodosBtn');
+            if(btn){btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';}
+            /* De a uno y en serie a proposito: saveStock relee el stock real de cada
+               producto y puede preguntar si cambio mientras la pantalla estaba abierta.
+               En paralelo se superpondrian varios confirm(). */
+            for(const id of ids){
+                try{ await saveStock(id); }catch(e){ console.warn('guardar stock '+id+':',e); }
+            }
+            if(btn)btn.disabled=false;
+            pintarStockSinGuardar();
+        }
+
+        /* saveStock es larga y tiene varias salidas (incluida la que repinta la fila
+           cuando otro admin toco el stock mientras esta pantalla estaba abierta), asi
+           que se envuelve en vez de tocarla por dentro.
+
+           Se limpia la marca ANTES de guardar para que, si esa salida repinta, la fila
+           muestre el valor real de la base y no lo que quedo tipeado; y se vuelve a
+           evaluar despues con una sola regla: hay cambio sin guardar solo si el campo
+           difiere de lo que hay en memoria. */
+        const _origSaveStock=saveStock;
+        saveStock=async function(id){
+            _stockDirty.delete(id);
+            await _origSaveStock(id);
+            const inp=document.getElementById('stock-'+id);
+            if(inp)stockCambio(id,inp); else pintarStockSinGuardar();
+        };
+
+        function descartarStockPendiente(){
+            if(!_stockDirty.size)return;
+            if(!confirm('Descartar los cambios de stock que no se guardaron?'))return;
+            _stockDirty.clear();
+            renderStockList();
+        }
         function toggleStockSort(){const btn=document.getElementById('stockSortBtn');if(window._stockSortDir==='desc'){window._stockSortDir='asc';if(btn)btn.innerHTML='<i class="bi bi-sort-numeric-up"></i> Menor stock';}else{window._stockSortDir='desc';if(btn)btn.innerHTML='<i class="bi bi-sort-numeric-down"></i> Mayor stock';}renderStockList();}
         function filterStockList(){renderStockList();}
         async function saveStock(id){const input=document.getElementById('stock-'+id);if(!input)return;const val=parseInt(input.value)||0;try{const p=allProducts.find(x=>x.id===id);const oldStock=p?p.stock:0;

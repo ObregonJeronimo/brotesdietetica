@@ -40,39 +40,28 @@ filterStockList = function () {
     _origFilterStockList();
 };
 
-// Override renderStockList to add pagination
-const _origRenderStock = renderStockList;
-let stockSortDir = null;
-renderStockList = function() {
-    const c = document.getElementById('stockList'); if (!c) return;
-    const q = (document.getElementById('stockSearch')?.value || '').toLowerCase();
-    const cat = document.getElementById('stockFilterCat')?.value || '';
-    let f = allProducts;
-    if (q) f = f.filter(p => (p.nombre || '').toLowerCase().includes(q));
-    if (cat) f = f.filter(p => p.categoria === cat);
-    if (stockSortDir) {
-        f = [...f].sort((a, b) => stockSortDir === 'desc' ? (b.stock || 0) - (a.stock || 0) : (a.stock || 0) - (b.stock || 0));
-    }
-    if (!f.length) { c.innerHTML = '<div class="empty-state" style="padding:2rem"><p>No hay productos</p></div>'; removePagination('sec-stock'); return; }
-    const totalPages = Math.ceil(f.length / ADMIN_PER_PAGE);
-    if (adminStockPage > totalPages) adminStockPage = totalPages || 1;
-    const start = (adminStockPage - 1) * ADMIN_PER_PAGE;
-    const pageItems = f.slice(start, start + ADMIN_PER_PAGE);
-    c.innerHTML = pageItems.map(p => {
-        const img = p.imagen || 'img/default-product.svg';
-        return '<div class="stock-row"><img src="' + img + '" onerror="this.src=\'img/default-product.svg\'"><div class="stock-row-info"><strong>' + p.nombre + '</strong><small>' + (p.categoria || '') + (p.subcategoria ? ' / ' + p.subcategoria : '') + '</small></div><input type="number" class="stock-input" id="stock-' + p.id + '" value="' + (p.stock || 0) + '" min="0"><button class="stock-save" onclick="saveStock(\'' + p.id + '\')"><i class="bi bi-check-lg"></i></button></div>';
-    }).join('');
-    renderAdminPagination('sec-stock', adminStockPage, totalPages, f.length, 'stock');
-};
+/* Aca habia una reimplementacion COMPLETA de renderStockList que nunca llamaba a
+   la original (guardaba _origRenderStock y no lo usaba). Era una copia vieja,
+   anterior a la seleccion multiple, y al cargarse despues del script principal la
+   tapaba: las filas salian SIN el checkbox, _stockVisibles quedaba vacio y por eso
+   "Seleccionar todos los visibles", "Agregar al stock" y "Limpiar" no hacian nada.
+   El texto del checkbox ademas se cambiaba al mensaje de respaldo (el de cuando no
+   hay nada visible) y se quedaba asi hasta recargar.
+
+   Ahora el paginado del stock lo hace la propia renderStockList de admin.html, que
+   es la unica que sabe como es una fila. Aca queda solo el orden. */
 
 function toggleStockSort() {
-    if (!stockSortDir) stockSortDir = 'desc';
-    else if (stockSortDir === 'desc') stockSortDir = 'asc';
-    else stockSortDir = null;
+    /* window._stockSortDir es la que lee renderStockList. Antes esta funcion
+       escribia una variable local distinta, asi que con la duplicacion resuelta
+       el boton de ordenar no habria hecho nada. */
+    if (!window._stockSortDir) window._stockSortDir = 'desc';
+    else if (window._stockSortDir === 'desc') window._stockSortDir = 'asc';
+    else window._stockSortDir = null;
     const btn = document.getElementById('stockSortBtn');
     if (btn) {
-        if (stockSortDir === 'desc') btn.innerHTML = '<i class="bi bi-sort-numeric-down"></i> Mayor stock';
-        else if (stockSortDir === 'asc') btn.innerHTML = '<i class="bi bi-sort-numeric-up"></i> Menor stock';
+        if (window._stockSortDir === 'desc') btn.innerHTML = '<i class="bi bi-sort-numeric-down"></i> Mayor stock';
+        else if (window._stockSortDir === 'asc') btn.innerHTML = '<i class="bi bi-sort-numeric-up"></i> Menor stock';
         else btn.innerHTML = '<i class="bi bi-sort-numeric-down"></i> Ordenar stock';
     }
     adminStockPage = 1;
