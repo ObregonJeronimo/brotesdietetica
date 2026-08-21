@@ -41,6 +41,35 @@
         .menu-acciones button:hover{background:var(--bg-input)}
         .menu-acciones button i{color:var(--text-dim);font-size:0.95rem}
         .badge-editado{background:rgba(237,184,51,0.18);color:#EDB833;padding:1px 6px;border-radius:4px;font-size:0.68rem;font-weight:700;cursor:help}
+        /* Campana de alertas. El panel va con position:fixed y montado en <body>:
+           la barra superior es sticky y crea su propio contexto de apilado, asi
+           que un panel absolute adentro se mete debajo del contenido al scrollear. */
+        .alertas-btn{position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-size:1rem;flex:0 0 auto}
+        .alertas-btn:hover{color:var(--text);background:var(--bg-input)}
+        .alertas-btn:focus-visible{outline:2px solid var(--accent-light);outline-offset:2px}
+        .alertas-btn.tiene-criticas{color:var(--danger);border-color:rgba(229,69,69,0.45)}
+        .alertas-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--danger);color:#fff;font-size:0.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+        .alertas-panel{position:fixed;z-index:300;width:340px;max-width:calc(100vw - 16px);max-height:min(70vh,520px);display:flex;flex-direction:column;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,0.5);overflow:hidden}
+        .alertas-head{display:flex;align-items:center;justify-content:space-between;padding:0.7rem 0.9rem;border-bottom:1px solid var(--border);font-size:0.85rem;font-weight:700;flex:0 0 auto}
+        .alertas-refresh{background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:0.9rem;padding:2px 4px;border-radius:6px}
+        .alertas-refresh:hover{color:var(--text);background:var(--bg-input)}
+        .alertas-body{overflow-y:auto;flex:1 1 auto}
+        .alertas-vacio{padding:1.6rem 0.9rem;text-align:center;color:var(--text-dim);font-size:0.85rem}
+        .alertas-vacio i{display:block;font-size:1.6rem;margin-bottom:0.4rem;color:#5FA87A}
+        .alertas-item{display:flex;gap:0.7rem;align-items:flex-start;padding:0.75rem 0.9rem;border-bottom:1px solid var(--border);cursor:pointer}
+        .alertas-item:last-child{border-bottom:none}
+        .alertas-item:hover{background:var(--bg-input)}
+        .alertas-item:focus-visible{outline:2px solid var(--accent-light);outline-offset:-2px}
+        .alertas-ico{font-size:1rem;margin-top:1px;flex:0 0 auto}
+        .alertas-item.critico .alertas-ico{color:var(--danger)}
+        .alertas-item.aviso .alertas-ico{color:#EDB833}
+        .alertas-txt{flex:1;min-width:0}
+        .alertas-titulo{font-size:0.85rem;font-weight:600;line-height:1.3}
+        .alertas-detalle{font-size:0.76rem;color:var(--text-dim);line-height:1.45;margin-top:2px}
+        .alertas-items{list-style:none;margin:0.4rem 0 0;padding:0;font-size:0.74rem;color:var(--text-dim)}
+        .alertas-items li{padding:1px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .alertas-items .alertas-mas{color:var(--text-dim);opacity:0.75;font-style:italic}
+        .alertas-chev{color:var(--text-dim);font-size:0.75rem;margin-top:3px;flex:0 0 auto}
         .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;padding:1rem}.modal-overlay.show{display:flex}.modal-box{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:550px;max-height:90vh;overflow-y:auto;padding:2rem}.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}.modal-header h3{font-size:1.2rem;font-weight:700}.modal-close{background:none;border:none;color:var(--text-dim);font-size:1.3rem;cursor:pointer}.modal-close:hover{color:var(--text)}.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}/* Las etiquetas no miden todas lo mismo: algunas se parten en dos lineas y otras
    llevan insignia (AUTO). En un grid las celdas se estiran, asi que cada input
    arrancaba a distinta altura. Con la columna flexible y el input empujado al
@@ -136,7 +165,16 @@
         .price-pager{display:flex;align-items:center;justify-content:center;gap:8px;padding-top:8px;font-size:0.78rem;color:var(--text-dim)}.price-pager button{background:var(--bg-card);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:0.78rem}.price-pager button:hover:not(:disabled){border-color:var(--accent)}.price-pager button:disabled{opacity:0.3;cursor:not-allowed}
         .price-page-info{font-size:0.75rem;color:var(--text-dim)}
         .sel-list{max-height:400px;overflow-y:auto}.sel-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s}.sel-item:hover{background:var(--bg-input)}.sel-item.checked{background:var(--accent-bg)}.sel-item input{accent-color:var(--accent)}.sel-price{color:var(--text-dim);margin-left:auto;font-family:var(--mono)}
-        .hist-list{max-height:calc(100vh - 350px);overflow-y:auto}.hist-item{padding:12px;border-bottom:1px solid var(--border);font-size:0.82rem}.hist-item:hover{background:var(--bg-input)}.hist-meta{display:flex;gap:10px;align-items:center;margin-bottom:4px;flex-wrap:wrap}.hist-date{color:var(--accent-light);font-family:var(--mono);font-size:0.75rem}.hist-user{color:var(--text-dim);font-size:0.75rem}.hist-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;text-transform:uppercase}.hist-badge.crear{background:#2d5a2720;color:#5a9a5a}.hist-badge.editar{background:var(--accent-bg);color:var(--accent-light)}.hist-badge.eliminar{background:var(--danger-bg);color:var(--danger)}.hist-badge.stock{background:var(--warning-bg);color:var(--warning)}.hist-badge.precios{background:#7c3aed20;color:#a78bfa}.hist-badge.importar{background:#0ea5e920;color:#67e8f9}.hist-desc{color:var(--text);line-height:1.4}.hist-detail{color:var(--text-dim);font-size:0.75rem;margin-top:3px}
+        .hist-list{max-height:calc(100vh - 350px);overflow-y:auto}.hist-item{padding:12px;border-bottom:1px solid var(--border);font-size:0.82rem}.hist-item:hover{background:var(--bg-input)}.hist-meta{display:flex;gap:10px;align-items:center;margin-bottom:4px;flex-wrap:wrap}.hist-date{color:var(--accent-light);font-family:var(--mono);font-size:0.75rem}.hist-user{color:var(--text-dim);font-size:0.75rem}.hist-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;text-transform:uppercase}.hist-badge.crear{background:#2d5a2720;color:#5a9a5a}.hist-badge.editar{background:var(--accent-bg);color:var(--accent-light)}.hist-badge.eliminar{background:var(--danger-bg);color:var(--danger)}.hist-badge.stock{background:var(--warning-bg);color:var(--warning)}.hist-badge.precios{background:#7c3aed20;color:#a78bfa}.hist-badge.importar{background:#0ea5e920;color:#67e8f9}
+        /* La caja registra abrir/cerrar/ingreso/egreso y la ficha de cliente registra
+           cobro, pero ninguno tenia color: en el historial salian como etiquetas
+           transparentes, ilegibles al lado de las que si lo tenian. */
+        .hist-badge.abrir{background:rgba(95,168,122,0.18);color:#5FA87A}
+        .hist-badge.cerrar{background:rgba(229,69,69,0.18);color:#e54545}
+        .hist-badge.ingreso{background:rgba(95,168,122,0.18);color:#5FA87A}
+        .hist-badge.egreso{background:rgba(229,69,69,0.18);color:#e54545}
+        .hist-badge.cobro{background:rgba(103,194,58,0.18);color:#67c23a}
+        .hist-badge.consultar{background:var(--bg-input);color:var(--text-dim)}.hist-desc{color:var(--text);line-height:1.4}.hist-detail{color:var(--text-dim);font-size:0.75rem;margin-top:3px}
         .venta-prod-list{max-height:180px;overflow-y:auto}.venta-prod-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s}.venta-prod-item:hover{background:var(--accent-bg)}
         .venta-items{max-height:200px;overflow-y:auto}.venta-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);font-size:0.82rem}.vi-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vi-price{color:var(--text-dim);font-family:var(--mono);min-width:65px;text-align:right}.vi-sub{color:var(--accent-light);font-family:var(--mono);min-width:75px;text-align:right;font-weight:600}.vi-qty{width:50px;padding:3px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);text-align:center;font-size:0.82rem}.vi-remove{background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.9rem}
         .venta-total-row{display:flex;justify-content:space-between;align-items:center;padding:0.75rem 0;font-size:1.1rem;font-weight:700}.venta-total-val{font-family:var(--mono);color:var(--accent-light);font-size:1.3rem}
@@ -278,7 +316,7 @@
 <body>
     <div class="login-screen" id="loginScreen"><div class="login-card"><div class="login-logo"><h1>BROTES</h1><p>Panel de Administración</p></div><div class="login-error" id="loginError"></div><button class="btn-google" id="googleLoginBtn" onclick="loginWithGoogle()"><svg viewBox="0 0 24 24" width="20" height="20" style="margin-right:8px"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A11.96 11.96 0 0 0 0 12c0 1.94.46 3.77 1.28 5.4l3.56-2.77.01-.54z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Iniciar con Google</button></div></div>
     <div class="dashboard" id="dashboard">
-    <div class="topbar"><div class="topbar-left"><button class="sidebar-toggle" onclick="toggleSidebar()"><i class="bi bi-list"></i></button><img src="img/logo-brotes-light.svg" alt="Brotes" class="admin-topbar-logo"><span>/ Admin</span></div><div class="topbar-right"><span class="user-badge" id="userEmail">admin</span><button class="btn btn-sm btn-secondary" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Salir</button></div></div>
+    <div class="topbar"><div class="topbar-left"><button class="sidebar-toggle" onclick="toggleSidebar()"><i class="bi bi-list"></i></button><img src="img/logo-brotes-light.svg" alt="Brotes" class="admin-topbar-logo"><span>/ Admin</span></div><div class="topbar-right"><button class="alertas-btn" id="alertasBtn" onclick="toggleAlertas(event)" aria-haspopup="dialog" aria-expanded="false" aria-label="Alertas"><i class="bi bi-bell"></i><span class="alertas-badge" id="alertasBadge" style="display:none">0</span></button><span class="user-badge" id="userEmail">admin</span><button class="btn btn-sm btn-secondary" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Salir</button></div></div>
     <div class="admin-layout">
     <nav class="sidebar" id="adminSidebar">
         <div class="sidebar-section">
@@ -443,8 +481,21 @@
       </div>
       <div id="cajaTop"><p style="color:var(--text-dim);font-size:0.88rem">Cargando...</p></div>
       <div class="card" style="padding:1.25rem;margin-top:1.5rem">
-        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:0.85rem">Cajas anteriores</h3>
+        <div class="toolbar" style="margin-bottom:0.85rem">
+          <h3 style="font-size:0.95rem;font-weight:700;flex:1;margin:0">Cajas anteriores</h3>
+          <select class="form-input" id="cajaHistMes" style="width:auto;min-width:165px" onchange="loadHistorialCajas()"></select>
+          <select class="form-input" id="cajaHistDif" style="width:auto;min-width:150px" onchange="cajaHistFiltrar()">
+            <option value="">Todas</option>
+            <option value="con">Con diferencia</option>
+            <option value="exactas">Exactas</option>
+            <option value="faltante">Con faltante</option>
+            <option value="sobrante">Con sobrante</option>
+          </select>
+          <button class="btn btn-secondary" style="width:auto" onclick="loadHistorialCajas()" title="Recargar"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+        <div id="cajaHistResumen" style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.7rem"></div>
         <div id="cajaHistorial"><p style="color:var(--text-dim);font-size:0.85rem">Cargando...</p></div>
+        <div id="cajaHistPager"></div>
       </div>
     </div>
 
@@ -566,7 +617,40 @@
     <div class="modal-overlay" id="ventaModal"><div class="modal-box" style="max-width:700px"><div class="modal-header"><h3>Nueva Venta</h3><button class="modal-close" onclick="closeVentaModal()"><i class="bi bi-x-lg"></i></button></div><div class="venta-modal-body"><div class="form-row" style="grid-template-columns:1.4fr 1fr 1fr;margin-bottom:1rem"><div class="form-group"><label>Cliente *</label><div class="cliente-select-wrap"><input type="text" class="form-input" id="ventaCliente" placeholder="Consumidor Final" autocomplete="off" onfocus="this.select();showClienteSelect()" oninput="ventaClienteSelected=false;document.getElementById('ventaClienteId').value='';showClienteSelect()" onblur="onBlurClienteVenta()"><input type="hidden" id="ventaClienteId" value=""><div class="cliente-select-list" id="clienteSelectList"></div></div></div><div class="form-group"><label>Medio de pago</label><select class="form-input" id="ventaMedio"><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option><option>Cuenta Corriente</option></select></div><div class="form-group"><label>Fecha</label><input type="date" class="form-input" id="ventaFecha"></div></div><div class="form-row" style="grid-template-columns:1fr;margin-bottom:1rem"><div class="form-group"><label>Tipo de entrega</label><div class="entrega-toggle"><button type="button" class="entrega-btn active" data-entrega="envio" onclick="setVentaEntrega('envio')"><i class="bi bi-truck"></i> Con envío</button><button type="button" class="entrega-btn" data-entrega="retiro" onclick="setVentaEntrega('retiro')"><i class="bi bi-shop"></i> Retiro</button></div></div></div><div class="toolbar" style="margin-bottom:0.75rem"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto para agregar..." id="ventaProdSearch" oninput="filterVentaProducts()"></div></div><div class="venta-prod-list" id="ventaProdList"></div><div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem"><h4 style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Items de la venta</h4><div id="ventaItems" class="venta-items"></div><div id="ventaTotalBreakdown"></div><div class="venta-descuento-row"><label for="ventaDescuentoPct" style="font-size:0.82rem;color:var(--text-dim);display:flex;align-items:center;gap:6px"><i class="bi bi-tag"></i> Descuento (%):</label><input type="number" id="ventaDescuentoPct" class="form-input" min="0" max="100" step="1" value="0" style="width:80px;padding:4px 8px;text-align:right;font-family:var(--mono)" oninput="onChangeDescuento()"></div><div class="venta-total-row"><span>TOTAL:</span><span id="ventaTotal" class="venta-total-val">$0</span></div></div><div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem"><h4 style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem"><i class="bi bi-tools"></i> Insumos utilizados (opcional)</h4><div style="display:flex;gap:6px;align-items:center;margin-bottom:0.5rem"><select class="form-input" id="ventaInsumoSelect" style="flex:1" onchange="addVentaInsumoFromSelect()"><option value="">+ Agregar insumo...</option></select></div><div id="ventaInsumosList" style="display:flex;flex-direction:column;gap:6px"></div></div><div class="form-actions"><button class="btn btn-secondary" onclick="closeVentaModal()">Cancelar</button><button class="btn btn-primary" onclick="saveVenta()" id="saveVentaBtn"><i class="bi bi-check-lg"></i> Registrar Venta</button></div></div></div></div>
     <div class="modal-overlay" id="facturaModal"><div class="modal-box" style="max-width:600px;background:#fff;color:#111"><div class="fac-cab"><div class="fac-cab-top"><h3>Factura</h3><button class="modal-close" onclick="closeFacturaModal()" style="color:#666"><i class="bi bi-x-lg"></i></button></div><div class="fac-acciones"><label class="fac-campo"><span>QR de rese&ntilde;a</span><!-- Solo elige si el ticket lleva el QR. printFactura lo lee al apretar cualquiera     de los tres botones; los valores nuevo/recurrente no se tocan porque son los     que compara el codigo. Antes tenia un onchange que imprimia al cambiarlo, y     cada toque gastaba una etiqueta. --><select id="facturaTypeSelect" title="Si el ticket lleva el QR para dejar rese&ntilde;a"><option value="nuevo">Incluir el QR</option><option value="recurrente">Sin QR</option></select></label><div class="fac-botones"><button class="btn btn-sm btn-primary" onclick="printFactura('a4')" title="Hoja A4"><i class="bi bi-printer"></i> A4</button><button class="btn btn-sm btn-secondary" onclick="printFactura('etiqueta')" style="color:#333;background:#f0f0f0;border:1px solid #ccc" title="Etiqueta adhesiva grande del local"><i class="bi bi-tag"></i> Mostrador</button><button class="btn btn-sm btn-secondary" onclick="printFactura('termica')" style="color:#333;background:#f0f0f0;border:1px solid #ccc" title="T&eacute;rmica de rollo continuo"><i class="bi bi-receipt"></i> Pedido web</button></div></div><p class="fac-ayuda">El QR lleva al cliente a la p&aacute;gina para dejar su opini&oacute;n sobre la compra. Conviene incluirlo cuando el cliente compra por primera vez.</p></div><div id="facturaContent" style="padding:2rem;font-family:'DM Mono',monospace;font-size:0.9rem;line-height:1.6"></div></div></div>
     <div class="modal-overlay" id="clienteModal"><div class="modal-box" style="max-width:480px"><div class="modal-header"><h3 id="clienteModalTitle">Nuevo Cliente</h3><button class="modal-close" onclick="closeClienteModal()"><i class="bi bi-x-lg"></i></button></div><form id="clienteForm" onsubmit="saveCliente(event)"><div class="form-group"><label>Nombre *</label><input type="text" class="form-input" id="cNombre" required></div><div class="form-row"><div class="form-group"><label>DNI / CUIT</label><input type="text" class="form-input" id="cIdentificacion"></div><div class="form-group"><label>Telefono</label><input type="text" class="form-input" id="cTelefono"></div></div><div class="form-group"><label>Email</label><input type="email" class="form-input" id="cEmail"></div><div class="form-group"><label>Direccion</label><input type="text" class="form-input" id="cDireccion" placeholder="Calle, numero, barrio..."></div><div class="form-actions"><button type="button" class="btn btn-secondary" onclick="closeClienteModal()">Cancelar</button><button type="submit" class="btn btn-primary" id="saveClienteBtn"><i class="bi bi-check-lg"></i> Guardar</button></div></form></div></div>
-    <div class="modal-overlay" id="clienteHistModal"><div class="modal-box" style="max-width:600px"><div class="modal-header"><h3 id="clienteHistTitle">Historial</h3><button class="modal-close" onclick="document.getElementById('clienteHistModal').classList.remove('show')"><i class="bi bi-x-lg"></i></button></div><div id="clienteHistList" class="hist-list" style="max-height:400px;overflow-y:auto"><div class="empty-state" style="padding:2rem"><p>Cargando...</p></div></div></div></div>
+    <!-- Ficha de cliente. Antes era solo el historial de ventas; ahora arriba va
+         la cuenta corriente, que es lo unico de la ficha sobre lo que hay algo que
+         hacer: plata facturada que todavia no se cobro. -->
+    <div class="modal-overlay" id="clienteHistModal"><div class="modal-box" style="max-width:680px">
+      <div class="modal-header">
+        <h3 id="clienteHistTitle">Ficha del cliente</h3>
+        <button class="modal-close" onclick="closeClienteFicha()"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="clienteFichaResumen"></div>
+        <div id="clienteFichaCC"></div>
+        <h4 style="font-size:0.82rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-dim);margin:1.2rem 0 0.5rem">Compras</h4>
+        <div id="clienteHistList" class="hist-list" style="max-height:340px;overflow-y:auto"><div class="empty-state" style="padding:2rem"><p>Cargando...</p></div></div>
+      </div>
+    </div></div>
+
+    <!-- Cobro de cuenta corriente. Se eligen las ventas que se saldan: un monto
+         suelto no se puede imputar a nada y el saldo del cliente nunca bajaria. -->
+    <div class="modal-overlay" id="cobroCCModal"><div class="modal-box" style="max-width:520px;width:96vw">
+      <div class="modal-header">
+        <h3><i class="bi bi-cash-coin"></i> Registrar cobro de fiado</h3>
+        <button class="modal-close" onclick="closeCobroCC()"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.83rem;color:var(--text-dim);margin-bottom:0.7rem;line-height:1.5">Seleccione las ventas que el cliente est&aacute; pagando.</p>
+        <div id="cobroCCLista" style="max-height:38vh;overflow-y:auto"></div>
+        <div id="cobroCCTotal" style="border-top:1px solid var(--border);margin-top:0.8rem;padding-top:0.8rem"></div>
+        <div id="cobroCCCaja" style="font-size:0.78rem;color:var(--text-dim);margin-top:0.6rem;line-height:1.5"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCobroCC()">Cancelar</button>
+        <button class="btn btn-primary" id="cobroCCBtn" onclick="confirmarCobroCC()" disabled><i class="bi bi-check-lg"></i> Registrar cobro</button>
+      </div>
+    </div></div>
     <div class="modal-overlay" id="sinCostoModal"><div class="modal-box" style="max-width:650px"><div class="modal-header"><h3>Productos sin costo</h3><div style="display:flex;gap:8px"><button class="btn btn-sm btn-primary" onclick="exportSinCostoExcel()"><i class="bi bi-download"></i> Descargar Excel</button><button class="modal-close" onclick="document.getElementById('sinCostoModal').classList.remove('show')"><i class="bi bi-x-lg"></i></button></div></div><div id="sinCostoList" style="max-height:60vh;overflow-y:auto"></div><p id="sinCostoCount" style="font-size:0.78rem;color:var(--text-dim);margin-top:0.75rem"></p></div></div>
     <div class="modal-overlay" id="roundModal"><div class="modal-box" style="max-width:700px"><div class="modal-header"><h3 id="roundModalTitle">Redondear precios</h3><button class="modal-close" onclick="closeRoundModal()"><i class="bi bi-x-lg"></i></button></div><div class="round-modal-body"><div class="price-actions" style="margin-bottom:1rem"><button class="price-action-btn" onclick="openRoundModal('all')"><i class="bi bi-collection"></i><span>Todos</span></button><button class="price-action-btn" onclick="openRoundModal('selected')"><i class="bi bi-ui-checks"></i><span>Seleccionados</span></button><button class="price-action-btn" onclick="openRoundModal('single')"><i class="bi bi-pencil-square"></i><span>Individual</span></button></div><div id="roundSingleArea" style="display:none"><div class="toolbar" style="margin-bottom:0.75rem"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto..." id="roundSingleSearch" oninput="filterRoundSingle()"></div></div><div class="sel-list" id="roundSingleList" style="max-height:250px;overflow-y:auto"></div></div><div id="roundSelArea" style="display:none"><div class="toolbar" style="margin-bottom:0.75rem"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar para seleccionar..." id="roundSelSearch" oninput="filterRoundSelList()"></div></div><div class="sel-list" id="roundSelList" style="max-height:200px;overflow-y:auto"></div><button class="btn btn-primary" style="width:auto;margin-top:0.75rem" onclick="confirmRoundSelection()"><i class="bi bi-check-lg"></i> Confirmar (<span id="roundSelCount">0</span>)</button></div><div id="roundPreviewArea" style="display:none"><div class="toolbar" style="margin-bottom:0.75rem"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar..." id="roundPreviewSearch" oninput="filterRoundPreview()"></div><span class="price-page-info" id="roundPageInfo"></span></div><div id="roundPreviewList"></div><div class="price-pager" id="roundPager"></div><div class="form-actions" style="margin-top:1rem"><button class="btn btn-secondary" onclick="closeRoundModal()">Cancelar</button><button class="btn btn-primary" onclick="applyRoundChanges()" id="applyRoundBtn"><i class="bi bi-check-lg"></i> Aplicar cambios</button></div></div></div></div></div>
         <!-- Aca habia un modal "Configurar Factura" (openFacturaConfig / saveFacturaConfig /
@@ -779,7 +863,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function _initAuth(){
             if(!firebase.auth){setTimeout(_initAuth,100);return;}
             try{if(!auth)auth=firebase.auth();if(!storage)storage=firebase.storage();}catch(e){}
-            auth.onAuthStateChanged(async u=>{if(u){const allowed=await isAllowedEmail(u.email);if(!allowed){auth.signOut();const err=document.getElementById('loginError');err.textContent='Tu cuenta no tiene permisos para acceder.';err.style.display='block';return;}document.getElementById('loginScreen').style.display='none';document.getElementById('dashboard').style.display='block';document.getElementById('userEmail').textContent=u.email;loadProducts();loadListas();loadFacturaConfig();loadTelegramConfig();loadResenasConfig();loadPedidosCfgEditor();loadAtajos();escucharUso();}else{document.getElementById('loginScreen').style.display='flex';document.getElementById('dashboard').style.display='none';}});
+            auth.onAuthStateChanged(async u=>{if(u){const allowed=await isAllowedEmail(u.email);if(!allowed){auth.signOut();const err=document.getElementById('loginError');err.textContent='Tu cuenta no tiene permisos para acceder.';err.style.display='block';return;}document.getElementById('loginScreen').style.display='none';document.getElementById('dashboard').style.display='block';document.getElementById('userEmail').textContent=u.email;Promise.resolve(loadProducts()).then(()=>{if(typeof actualizarBadgeAlertas==='function')actualizarBadgeAlertas();});loadListas();loadFacturaConfig();loadTelegramConfig();loadResenasConfig();loadPedidosCfgEditor();loadAtajos();escucharUso();}else{document.getElementById('loginScreen').style.display='flex';document.getElementById('dashboard').style.display='none';}});
         } // end _initAuth
         _initAuth();
         function logout(){auth.signOut();}
@@ -2850,7 +2934,202 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
             if(!confirm(aviso))return;
             try{await db.collection('clientes').doc(id).delete();logAction('eliminar','Cliente eliminado: '+name,(nV||nP)?('Quedaron '+nV+' ventas y '+nP+' pedidos sin cliente'):'');showAdminToast('"'+name+'" eliminado','info');loadClientes();}catch(e){showAdminToast('Error: '+e.message,'error');}
         }
-        async function showClienteHist(id,nombre){document.getElementById('clienteHistTitle').textContent='Ventas de '+nombre;const c=document.getElementById('clienteHistList');c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Cargando...</p></div>';document.getElementById('clienteHistModal').classList.add('show');try{const snap=await db.collection('ventas').where('clienteId','==',id).get();const ventas=snap.docs.map(d=>{const r=d.data();return{...r,fecha:r.fecha?r.fecha.toDate?r.fecha.toDate():new Date(r.fecha):new Date()};}).sort((a,b)=>b.fecha-a.fecha);if(!ventas.length){c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Sin ventas registradas para este cliente</p></div>';return;}c.innerHTML=ventas.map((v,idx)=>{const fecha=v.fecha.toLocaleDateString('es-AR');const nro=nroVta(v.numero||0);const items=(v.items||[]).map(i=>'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:0.78rem;color:var(--text-dim)"><span>'+esc(i.nombre)+'</span><span style="font-family:var(--mono);white-space:nowrap">'+i.cantidad+' x $'+i.precio.toLocaleString('es-AR')+' = $'+i.subtotal.toLocaleString('es-AR')+'</span></div>').join('');return'<div class="venta-card" style="cursor:pointer" onclick="this.querySelector(\'.ch-items\').classList.toggle(\'show\')"><div class="venta-card-top"><span class="venta-card-num">#'+nro+'</span><span class="venta-card-total">$'+(v.total||0).toLocaleString('es-AR')+'</span></div><div class="venta-card-bot"><span>'+fecha+'</span><span>'+v.medioPago+'</span><span title="'+(v.tipoEntrega==='retiro'?'Retiro en local':'Envio a domicilio')+'" style="background:'+(v.tipoEntrega==='retiro'?'#3a2818':'#1a3a2a')+';color:'+(v.tipoEntrega==='retiro'?'#e6a817':'#67c23a')+';padding:2px 8px;border-radius:10px;font-size:0.72rem"><i class="bi bi-'+(v.tipoEntrega==='retiro'?'shop':'truck')+'"></i> '+(v.tipoEntrega==='retiro'?'Retiro':'Envío')+'</span><span>'+(v.items||[]).length+' items <i class="bi bi-chevron-down" style="font-size:0.65rem"></i></span></div><div class="ch-items" style="display:none;padding-top:8px;border-top:1px solid var(--border);margin-top:8px">'+items+'</div></div>';}).join('');}catch(e){c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Error: '+e.message+'</p></div>';}}
+        /* ===== FICHA DE CLIENTE =====
+           Antes esto era solo el historial de ventas. Lo que faltaba era la cuenta
+           corriente: el panel mostraba un total "Fiado sin cobrar" que solo crecia,
+           porque no habia ninguna forma de decir "esto ya me lo pagaron". El concepto
+           "Cobro de fiado" de la caja existia, pero era un monto suelto que no bajaba
+           la deuda de nadie.
+
+           Una venta fiada esta impaga mientras no tenga ccPagado. Se saldan ventas
+           ENTERAS, no montos sueltos: un cobro que no se imputa a una venta concreta
+           deja un saldo que despues nadie puede explicar. */
+        let _fichaCliente = null;   /* { id, nombre, ventas } de la ficha abierta */
+
+        function _esFiadoImpago(v){ return medioKeyDeVenta(v)==='cuenta_corriente' && v.ccPagado!==true; }
+
+        function _attrHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+        function closeClienteFicha(){ document.getElementById('clienteHistModal').classList.remove('show'); }
+
+        async function showClienteHist(id,nombre){
+            document.getElementById('clienteHistTitle').textContent='Ficha de '+nombre;
+            const c=document.getElementById('clienteHistList');
+            const res=document.getElementById('clienteFichaResumen');
+            const cc=document.getElementById('clienteFichaCC');
+            res.innerHTML=''; cc.innerHTML='';
+            c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Cargando...</p></div>';
+            document.getElementById('clienteHistModal').classList.add('show');
+            try{
+                const snap=await db.collection('ventas').where('clienteId','==',id).get();
+                const ventas=snap.docs.map(d=>{const r=d.data();return{docId:d.id,...r,fecha:r.fecha?(r.fecha.toDate?r.fecha.toDate():new Date(r.fecha)):new Date()};})
+                    .sort((a,b)=>b.fecha-a.fecha);
+                _fichaCliente={id:id,nombre:nombre,ventas:ventas};
+                renderFichaResumen();
+                renderFichaCC();
+                renderFichaCompras();
+            }catch(e){
+                c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Error: '+esc(e.message)+'</p></div>';
+            }
+        }
+
+        function renderFichaResumen(){
+            const f=_fichaCliente, res=document.getElementById('clienteFichaResumen');
+            const impagas=f.ventas.filter(_esFiadoImpago);
+            const saldo=impagas.reduce((s,v)=>s+Number(v.total||0),0);
+            const totalComprado=f.ventas.reduce((s,v)=>s+netoVenta(v),0);
+            const dato=(etq,val,color)=>'<div style="flex:1;min-width:118px;background:var(--bg-input);padding:0.7rem 0.8rem;border-radius:var(--radius)">'+
+                '<div style="font-size:0.66rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.8px">'+etq+'</div>'+
+                '<strong style="font-size:1.05rem;'+(color?'color:'+color:'')+'">'+val+'</strong></div>';
+            res.innerHTML='<div style="display:flex;gap:0.5rem;flex-wrap:wrap">'+
+                dato('Debe','$'+saldo.toLocaleString('es-AR'),saldo?'#e54545':'#5FA87A')+
+                dato('Compras',f.ventas.length)+
+                dato('Total comprado','$'+Math.round(totalComprado).toLocaleString('es-AR'))+
+            '</div>';
+        }
+
+        function renderFichaCC(){
+            const f=_fichaCliente, cc=document.getElementById('clienteFichaCC');
+            const impagas=f.ventas.filter(_esFiadoImpago);
+            if(!impagas.length){
+                const hubo=f.ventas.some(v=>medioKeyDeVenta(v)==='cuenta_corriente');
+                cc.innerHTML=hubo
+                    ? '<p style="font-size:0.82rem;color:var(--text-dim);margin-top:0.9rem">Sin deuda pendiente: todo el fiado de este cliente esta cobrado.</p>'
+                    : '';
+                return;
+            }
+            const total=impagas.reduce((s,v)=>s+Number(v.total||0),0);
+            /* La mas vieja primero: es el dato que dice hace cuanto esta la plata afuera. */
+            const vieja=impagas.reduce((a,v)=>v.fecha<a.fecha?v:a,impagas[0]);
+            const dias=Math.floor((Date.now()-vieja.fecha.getTime())/86400000);
+            cc.innerHTML='<div style="margin-top:0.9rem;background:rgba(229,69,69,0.08);border-left:3px solid var(--danger);border-radius:0 8px 8px 0;padding:0.8rem 0.95rem">'+
+                '<div style="display:flex;justify-content:space-between;align-items:center;gap:0.8rem;flex-wrap:wrap">'+
+                    '<div><div style="font-weight:700;font-size:0.95rem">Debe $'+total.toLocaleString('es-AR')+'</div>'+
+                    '<div style="font-size:0.78rem;color:var(--text-dim);margin-top:1px">'+impagas.length+' venta'+(impagas.length!==1?'s':'')+' sin cobrar'+
+                    (dias>0?' &middot; la mas antigua, de hace '+dias+' dia'+(dias!==1?'s':''):'')+'</div></div>'+
+                    '<button class="btn btn-primary" style="width:auto" onclick="openCobroCC()"><i class="bi bi-cash-coin"></i> Registrar cobro</button>'+
+                '</div></div>';
+        }
+
+        function renderFichaCompras(){
+            const f=_fichaCliente, c=document.getElementById('clienteHistList');
+            if(!f.ventas.length){ c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Sin ventas registradas para este cliente</p></div>'; return; }
+            c.innerHTML=f.ventas.map(v=>{
+                const fecha=v.fecha.toLocaleDateString('es-AR');
+                const nro=nroVta(v.numero||0);
+                const impaga=_esFiadoImpago(v);
+                const items=(v.items||[]).map(i=>'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:0.78rem;color:var(--text-dim)"><span>'+esc(i.nombre)+'</span><span style="font-family:var(--mono);white-space:nowrap">'+i.cantidad+' x $'+i.precio.toLocaleString('es-AR')+' = $'+i.subtotal.toLocaleString('es-AR')+'</span></div>').join('');
+                const chip=impaga
+                    ? '<span style="background:rgba(229,69,69,0.18);color:#e54545;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700">DEBE</span>'
+                    : (medioKeyDeVenta(v)==='cuenta_corriente'
+                        ? '<span title="Cobrado'+(v.ccPagadoPor?' por '+_attrHtml(v.ccPagadoPor):'')+'" style="background:rgba(95,168,122,0.18);color:#5FA87A;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700">COBRADO</span>'
+                        : '');
+                return '<div class="venta-card" style="cursor:pointer" onclick="this.querySelector(\'.ch-items\').classList.toggle(\'show\')">'+
+                    '<div class="venta-card-top"><span class="venta-card-num">#'+nro+'</span><span class="venta-card-total">$'+(v.total||0).toLocaleString('es-AR')+'</span></div>'+
+                    '<div class="venta-card-bot"><span>'+fecha+'</span><span>'+esc(v.medioPago||'')+'</span>'+chip+
+                    '<span>'+(v.items||[]).length+' items <i class="bi bi-chevron-down" style="font-size:0.65rem"></i></span></div>'+
+                    '<div class="ch-items" style="display:none;padding-top:8px;border-top:1px solid var(--border);margin-top:8px">'+items+'</div></div>';
+            }).join('');
+        }
+
+        /* ---- Cobro de cuenta corriente ---- */
+        let _cobroCCSel = {};
+
+        function openCobroCC(){
+            if(!_fichaCliente)return;
+            _cobroCCSel={};
+            const impagas=_fichaCliente.ventas.filter(_esFiadoImpago);
+            document.getElementById('cobroCCLista').innerHTML=impagas.map(v=>{
+                const dias=Math.floor((Date.now()-v.fecha.getTime())/86400000);
+                return '<label style="display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.2rem;border-bottom:1px solid var(--border);cursor:pointer">'+
+                    '<input type="checkbox" value="'+_attrHtml(v.docId)+'" onchange="toggleCobroCC(this)" style="width:18px;height:18px;accent-color:var(--accent);flex:0 0 auto">'+
+                    '<span style="flex:1"><span style="font-weight:600">#'+nroVta(v.numero||0)+'</span>'+
+                    '<span style="font-size:0.76rem;color:var(--text-dim);margin-left:8px">'+v.fecha.toLocaleDateString('es-AR')+
+                    (dias>0?' &middot; hace '+dias+'d':'')+'</span></span>'+
+                    '<span style="font-weight:700;white-space:nowrap">$'+Number(v.total||0).toLocaleString('es-AR')+'</span>'+
+                '</label>';
+            }).join('');
+            /* Si no hay caja abierta el cobro se registra igual, pero no entra a
+               ningun arqueo. Se avisa ANTES, no despues. */
+            const hayCaja=typeof getCajaAbiertaId==='function' && !!getCajaAbiertaId();
+            document.getElementById('cobroCCCaja').innerHTML=hayCaja
+                ? '<i class="bi bi-check-circle" style="color:#5FA87A"></i> Se va a registrar como ingreso en la caja abierta.'
+                : '<i class="bi bi-exclamation-triangle" style="color:#EDB833"></i> No hay ninguna caja abierta: la deuda se salda igual, pero esta plata no va a figurar en ningun arqueo.';
+            _pintarTotalCobroCC();
+            document.getElementById('cobroCCModal').classList.add('show');
+        }
+        function closeCobroCC(){ document.getElementById('cobroCCModal').classList.remove('show'); }
+
+        function toggleCobroCC(inp){
+            if(inp.checked)_cobroCCSel[inp.value]=true; else delete _cobroCCSel[inp.value];
+            _pintarTotalCobroCC();
+        }
+
+        function _cobroCCVentas(){ return _fichaCliente.ventas.filter(v=>_cobroCCSel[v.docId]); }
+
+        function _pintarTotalCobroCC(){
+            const sel=_cobroCCVentas();
+            const total=sel.reduce((s,v)=>s+Number(v.total||0),0);
+            document.getElementById('cobroCCTotal').innerHTML=
+                '<div style="display:flex;justify-content:space-between;font-size:1rem"><span>Total a cobrar</span>'+
+                '<strong style="color:var(--accent-light)">$'+total.toLocaleString('es-AR')+'</strong></div>'+
+                '<div style="font-size:0.76rem;color:var(--text-dim);margin-top:2px">'+sel.length+' venta'+(sel.length!==1?'s':'')+' seleccionada'+(sel.length!==1?'s':'')+'</div>';
+            document.getElementById('cobroCCBtn').disabled = sel.length===0;
+        }
+
+        async function confirmarCobroCC(){
+            const sel=_cobroCCVentas();
+            if(!sel.length)return;
+            const total=sel.reduce((s,v)=>s+Number(v.total||0),0);
+            const btn=document.getElementById('cobroCCBtn');
+            btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat"></i> Registrando...';
+            try{
+                const quien=(auth.currentUser&&auth.currentUser.email)||'-';
+                const nros=sel.map(v=>'#'+nroVta(v.numero||0)).join(', ');
+                /* La caja se consulta EN VIVO, igual que al guardar una venta: si el
+                   cajero nunca entro a la seccion Caja, la variable local esta vacia
+                   y el ingreso se perderia. */
+                let cajaId=null;
+                if(typeof getCajaAbiertaIdLive==='function'){ try{ cajaId=await getCajaAbiertaIdLive(); }catch(_e){} }
+
+                const batch=db.batch();
+                sel.forEach(v=>batch.update(db.collection('ventas').doc(v.docId),{
+                    ccPagado:true,
+                    ccPagadoEn:firebase.firestore.FieldValue.serverTimestamp(),
+                    ccPagadoPor:quien,
+                    ccPagadoEnCaja:cajaId||null
+                }));
+                await batch.commit();
+
+                /* El ingreso a la caja va DESPUES de saldar y en su propio try: si
+                   fallara, la deuda ya quedo saldada (que es lo que el cliente pago) y
+                   lo unico que falta es una linea del arqueo, que se puede cargar a
+                   mano. Al reves seria peor: plata contada en la caja y el cliente
+                   figurando como que sigue debiendo. */
+                if(cajaId){
+                    try{
+                        await db.collection('cajas').doc(cajaId).collection('movimientos').add({
+                            tipo:'ingreso', concepto:'cobro_cuenta_corriente', monto:total,
+                            detalle:'Cobro de '+_fichaCliente.nombre+' - '+nros,
+                            usuario:quien, fecha:firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }catch(err){
+                        showAdminToast('La deuda se saldo, pero no se pudo cargar el ingreso en la caja: '+err.message,'error');
+                    }
+                }
+
+                logAction('cobro','Cobro de fiado: '+_fichaCliente.nombre+' $'+total.toLocaleString('es-AR'),
+                    nros+(cajaId?'':' | Sin caja abierta: no entro a ningun arqueo'));
+                showAdminToast('Cobro registrado por $'+total.toLocaleString('es-AR'),'success');
+                closeCobroCC();
+                await showClienteHist(_fichaCliente.id,_fichaCliente.nombre);
+                if(typeof loadCaja==='function' && cajaId) loadCaja();
+            }catch(e){
+                showAdminToast('No se pudo registrar el cobro: '+e.message,'error');
+            }finally{
+                btn.disabled=false; btn.innerHTML='<i class="bi bi-check-lg"></i> Registrar cobro';
+            }
+        }
 
         /* Selector de cliente en modal venta */
         function showClienteSelect(){
@@ -4859,6 +5138,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         </script>
     <script src="admin-pagination.js"></script>
     <script src="admin-caja.js"></script>
+    <script src="admin-alertas.js"></script>
     <script src="admin-stats.js"></script>
     <script src="admin-atajos.js"></script>
     <script src="admin-lector.js"></script>
@@ -4931,6 +5211,21 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeMovModal()">Cancelar</button>
         <button class="btn btn-primary" id="movGuardarBtn" onclick="guardarMovimiento()"><i class="bi bi-check-lg"></i> Guardar</button>
+      </div>
+    </div></div>
+
+    <!-- Corte parcial: el vistazo a mitad del dia. Muestra lo mismo que el cierre
+         pero no cierra nada. Sin esto, la unica forma de ver cuanto deberia haber
+         era abrir el modal de cierre y cancelar, con el riesgo obvio. -->
+    <div class="modal-overlay" id="corteParcialModal"><div class="modal-box" style="max-width:520px;width:96vw">
+      <div class="modal-header">
+        <h3 id="corteParcialTitulo"><i class="bi bi-eyeglasses"></i> Corte parcial</h3>
+        <button class="modal-close" onclick="closeCorteParcialModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="corteParcialBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCorteParcialModal()">Cerrar</button>
+        <button class="btn btn-primary" onclick="imprimirCorteParcial()"><i class="bi bi-printer"></i> Imprimir</button>
       </div>
     </div></div>
 

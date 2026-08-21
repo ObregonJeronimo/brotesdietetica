@@ -108,4 +108,8 @@ function removePagination(containerId) {
 function adminGoPage(type, page) {
     if (type === 'table') { adminTablePage = page; filterTable(); }
     else if (type === 'stock') { adminStockPage = page; renderStockList(); }
+    /* El historial de cajas vive en admin-caja.js y se pagina en memoria: la
+       consulta a Firestore la hace loadHistorialCajas() al cambiar de mes, no
+       al cambiar de pagina. */
+    else if (type === 'cajas' && typeof cajaHistGoPage === 'function') cajaHistGoPage(page);
 }

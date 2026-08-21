@@ -93,7 +93,10 @@ async function loadCaja() {
     cajaMovs = []; cajaVentas = []; cajaVentasSueltas = [];
   }
   renderCaja();
-  renderHistorialCajas();
+  await loadHistorialCajas();
+  /* La campana avisa si la caja quedo abierta de un dia anterior, y eso recien
+     se sabe cuando termina de cargarse. */
+  if (typeof actualizarBadgeAlertas === 'function') actualizarBadgeAlertas();
 }
 
 async function loadCajaConfig() {
@@ -245,6 +248,7 @@ function renderCaja() {
           'para que la caja cierre y se entienda por qué.</p>' +
         '<button class="btn btn-secondary" onclick="openMovModal(\'ingreso\')"><i class="bi bi-arrow-down-circle"></i> Registrar ingreso</button>' +
         '<button class="btn btn-secondary" onclick="openMovModal(\'egreso\')"><i class="bi bi-arrow-up-circle"></i> Registrar egreso</button>' +
+        '<button class="btn btn-secondary" onclick="openCorteParcial()"><i class="bi bi-eyeglasses"></i> Corte parcial</button>' +
         '<div style="flex:1"></div>' +
         '<button class="btn btn-primary" onclick="openCierreModal()"><i class="bi bi-lock"></i> Cerrar caja y arquear</button>' +
       '</div>' +
@@ -310,23 +314,93 @@ function renderVentasSueltas() {
       '<i class="bi bi-paperclip"></i> Adjuntar a esta caja</button></div>';
 }
 
-async function renderHistorialCajas() {
+/* ============ HISTORIAL: CARGA, FILTRO Y PAGINADO ============
+
+   La carga y el dibujado estan separados a proposito: cambiar el mes vuelve a
+   consultar Firestore (loadHistorialCajas), pero cambiar el filtro de diferencia
+   o pasar de pagina trabaja sobre lo que ya esta en memoria (renderHistorialCajas)
+   y no cuesta ni una lectura.
+
+   El filtro por mes usa el rango sobre `fecha`, que es el string 'AAAA-MM-DD':
+   se compara alfabeticamente y no necesita indice compuesto. Es el mismo patron
+   que ya usa admin-stats.js para traer las cajas del mes. */
+
+const CAJAS_HIST_LIMITE = 120;   /* techo cuando no hay mes elegido */
+let _cajaHistPage = 1;
+
+async function loadHistorialCajas() {
   const cont = document.getElementById('cajaHistorial');
   if (!cont) return;
+  const sel = document.getElementById('cajaHistMes');
+  /* Las opciones se arman una sola vez. noDefault=true para que arranque en
+     "Todos los meses" y la pantalla no esconda las cajas apenas se abre. */
+  if (sel && !sel.options.length && typeof _buildMesOptions === 'function') _buildMesOptions('cajaHistMes', true);
+  const mes = sel ? sel.value : '';
+  cont.innerHTML = '<p style="font-size:0.85rem;color:var(--text-dim)">Cargando...</p>';
   let docs = [];
   try {
-    const q = await db.collection('cajas').orderBy('abiertoEn', 'desc').limit(30).get();
-    q.forEach(d => docs.push(Object.assign({ docId: d.id }, d.data())));
-  } catch (e) { console.warn('historial cajas:', e); }
-  const cerradas = docs.filter(c => c.estado === 'cerrada');
-  /* Se cachean para que el detalle y la impresion no vuelvan a consultar la caja:
-     ya la tenemos entera acá, y son los totales congelados, no cambian. */
-  _cajasHistorial = cerradas;
-  if (!cerradas.length) {
-    cont.innerHTML = '<p style="font-size:0.85rem;color:var(--text-dim)">Todavía no hay cajas cerradas.</p>';
+    let q = db.collection('cajas');
+    q = mes
+      ? q.where('fecha', '>=', mes + '-01').where('fecha', '<=', mes + '-31').orderBy('fecha', 'desc')
+      : q.orderBy('abiertoEn', 'desc').limit(CAJAS_HIST_LIMITE);
+    const snap = await q.get();
+    snap.forEach(d => docs.push(Object.assign({ docId: d.id }, d.data())));
+  } catch (e) {
+    console.warn('historial cajas:', e);
+    cont.innerHTML = '<p style="font-size:0.85rem;color:var(--danger)">No se pudo cargar el historial: ' + esc(e.message) + '</p>';
     return;
   }
-  const filas = cerradas.map(c => {
+  /* Se cachean para que el detalle y la impresion no vuelvan a consultar la caja:
+     ya la tenemos entera acá, y son los totales congelados, no cambian. */
+  _cajasHistorial = docs.filter(c => c.estado === 'cerrada');
+  _cajaHistPage = 1;
+  renderHistorialCajas();
+}
+
+function _cajasFiltradas() {
+  const f = (document.getElementById('cajaHistDif') || {}).value || '';
+  return _cajasHistorial.filter(c => {
+    const d = Number(c.diferencia || 0);
+    if (f === 'con') return d !== 0;
+    if (f === 'exactas') return d === 0;
+    if (f === 'faltante') return d < 0;
+    if (f === 'sobrante') return d > 0;
+    return true;
+  });
+}
+
+function renderHistorialCajas() {
+  const cont = document.getElementById('cajaHistorial');
+  if (!cont) return;
+  const resumen = document.getElementById('cajaHistResumen');
+  const cerradas = _cajasFiltradas();
+
+  if (resumen) {
+    const mes = (document.getElementById('cajaHistMes') || {}).value || '';
+    const suma = cerradas.reduce((s, c) => s + Number(c.diferencia || 0), 0);
+    const conDif = cerradas.filter(c => Number(c.diferencia || 0) !== 0).length;
+    /* Si hay tope, se dice: un "0 cajas" por recorte silencioso se lee como
+       "no hubo movimiento", que es una conclusion muy distinta. */
+    const tope = (!mes && _cajasHistorial.length >= CAJAS_HIST_LIMITE)
+      ? ' · se muestran las últimas ' + CAJAS_HIST_LIMITE + ', elegí un mes para ver más atrás' : '';
+    resumen.innerHTML = cerradas.length
+      ? cerradas.length + ' caja' + (cerradas.length !== 1 ? 's' : '') + ' · ' + conDif + ' con diferencia · ' +
+        'saldo acumulado ' + (suma > 0 ? '+' : '') + _pesos(suma) + tope
+      : '';
+  }
+
+  if (!cerradas.length) {
+    cont.innerHTML = '<p style="font-size:0.85rem;color:var(--text-dim)">No hay cajas cerradas que coincidan con el filtro.</p>';
+    if (typeof removePagination === 'function') removePagination('cajaHistPager');
+    return;
+  }
+
+  const porPagina = (typeof ADMIN_PER_PAGE !== 'undefined') ? ADMIN_PER_PAGE : 20;
+  const totalPaginas = Math.ceil(cerradas.length / porPagina);
+  if (_cajaHistPage > totalPaginas) _cajaHistPage = totalPaginas || 1;
+  const pagina = cerradas.slice((_cajaHistPage - 1) * porPagina, _cajaHistPage * porPagina);
+
+  const filas = pagina.map(c => {
     const dif = Number(c.diferencia || 0);
     const color = dif === 0 ? '#5FA87A' : (dif > 0 ? '#EDB833' : '#e54545');
     const etq = dif === 0 ? 'exacta' : (dif > 0 ? 'sobrante' : 'faltante');
@@ -352,6 +426,27 @@ async function renderHistorialCajas() {
       '<th style="text-align:right">Esperado</th><th style="text-align:right">Contado</th>' +
       '<th style="text-align:right">Diferencia</th><th>Motivo</th><th></th></tr></thead>' +
     '<tbody>' + filas + '</tbody></table></div>';
+
+  if (typeof renderAdminPagination === 'function')
+    renderAdminPagination('cajaHistPager', _cajaHistPage, totalPaginas, cerradas.length, 'cajas');
+}
+
+/* Cambiar el filtro TIENE que volver a la pagina 1. Sin esto, si estabas en la
+   pagina 2 y filtras "con faltante", el paginador clampea y te deja en la ultima
+   pagina del resultado nuevo: filtras 24 cajas y ves 4. La conclusion natural es
+   "casi no hubo faltantes", que es exactamente lo contrario de lo que pasa.
+   Es el mismo problema que admin-pagination.js ya resuelve para el catalogo. */
+function cajaHistFiltrar() {
+  _cajaHistPage = 1;
+  renderHistorialCajas();
+}
+
+/* Lo llama adminGoPage('cajas', n) desde los botones del paginador. */
+function cajaHistGoPage(n) {
+  _cajaHistPage = n;
+  renderHistorialCajas();
+  const cont = document.getElementById('cajaHistorial');
+  if (cont) cont.scrollIntoView({ block: 'nearest' });
 }
 
 /* ============================ MENU "ACCIONES" ============================
@@ -421,7 +516,8 @@ function abrirMenuCaja(ev, cajaId) {
    que seguir diciendo lo que se conto aquel dia. Lo unico que se va a buscar
    son los movimientos y las ventas, que son el respaldo de esos numeros. */
 
-let _cajaDetalle = null;   /* { caja, movs, ventas } de la ultima caja abierta */
+let _cajaDetalle = null;        /* { caja, movs, ventas } de la ultima caja abierta */
+let _corteParcialDatos = null;  /* lo mismo, pero armado en vivo para el corte parcial */
 
 async function cargarDetalleCaja(cajaId) {
   let caja = _cajasHistorial.find(c => c.docId === cajaId) || null;
@@ -763,6 +859,106 @@ async function guardarMovimiento() {
   } finally { btn.disabled = false; }
 }
 
+/* ============================ CORTE PARCIAL ============================
+
+   El "vistazo" a mitad del dia. Muestra exactamente lo mismo que el cierre pero
+   NO cierra nada: no congela totales, no toca el estado de la caja y no escribe
+   un arqueo. Sirve para el cambio de turno y para cuando el dueño pasa por el
+   local y quiere saber como viene.
+
+   Antes de esto, la unica forma de ver cuanto deberia haber en el cajon era
+   abrir el modal de cierre, mirar el numero y cancelar; un Enter de mas y la
+   caja quedaba cerrada a media tarde, con las ventas del resto del dia cayendo
+   fuera de todo arqueo.
+
+   Se recargan los datos antes de calcular, igual que el cierre: `cajaVentas` es
+   lo que quedo cargado la ultima vez que se abrio la seccion, y un corte contra
+   una foto vieja no sirve para nada. */
+
+async function openCorteParcial() {
+  if (!cajaActual) { showAdminToast('No hay ninguna caja abierta', 'error'); return; }
+  const cont = document.getElementById('corteParcialBody');
+  if (!cont) return;
+  cont.innerHTML = '<p style="font-size:0.88rem;color:var(--text-dim)">Calculando...</p>';
+  document.getElementById('corteParcialModal').classList.add('show');
+  try {
+    await cargarDatosCaja(cajaActual.docId);
+    const t = calcularTotalesCaja();
+    _corteParcialDatos = { caja: _cajaSinteticaParcial(t), movs: cajaMovs.slice(), ventas: cajaVentas.slice(), parcial: true };
+    document.getElementById('corteParcialTitulo').innerHTML =
+      '<i class="bi bi-eyeglasses"></i> Corte parcial · Caja #' + String(cajaActual.numero || 0).padStart(4, '0');
+    cont.innerHTML = renderCorteParcial(t);
+    /* Queda registrado quien miro y cuando: en un corte de turno, saber que a las
+       17:05 habia $X y quien lo consulto es la mitad del control. */
+    if (typeof logAction === 'function')
+      logAction('consultar', 'Caja #' + cajaActual.numero + ': corte parcial',
+        'Debería haber ' + _pesos(t.esperado) + ' en efectivo · ' + t.count + ' ventas');
+  } catch (e) {
+    cont.innerHTML = '<p style="font-size:0.88rem;color:var(--danger)">No se pudo calcular: ' + esc(e.message) + '</p>';
+  }
+}
+function closeCorteParcialModal() { document.getElementById('corteParcialModal').classList.remove('show'); }
+
+/* Un documento con la MISMA forma que una caja cerrada, armado con los totales
+   en vivo. Asi el comprobante del corte parcial se imprime con la misma funcion
+   que el del cierre y no hay dos maquetas que mantener. */
+function _cajaSinteticaParcial(t) {
+  return {
+    docId: cajaActual.docId, numero: cajaActual.numero, fecha: cajaActual.fecha,
+    estado: 'abierta', montoInicial: cajaActual.montoInicial,
+    abiertoPor: cajaActual.abiertoPor, abiertoEn: cajaActual.abiertoEn,
+    ventasCount: t.count, ventasBruto: t.bruto, ventasEnvio: t.envio, ventasPorMedio: t.porMedio,
+    totalIngresos: t.ingresos, totalEgresos: t.egresos,
+    esperadoEfectivo: t.esperado,
+    /* Sin contar: el corte parcial no pide contar la plata. Si se deja en 0, el
+       comprobante diria "faltante" por el total del dia. */
+    contadoEfectivo: null, diferencia: null
+  };
+}
+
+function renderCorteParcial(t) {
+  const fila = (etq, val, fuerte) =>
+    '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.36rem 0;font-size:0.9rem">' +
+      '<span style="color:var(--text-dim)">' + etq + '</span>' +
+      '<span style="font-weight:' + (fuerte ? '700' : '600') + ';white-space:nowrap">' + val + '</span></div>';
+  const ahora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  return '' +
+    '<div style="background:rgba(255,255,255,0.04);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:0.8rem 0.95rem;margin-bottom:1rem">' +
+      '<div style="font-size:0.78rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.15rem">Debería haber ahora en efectivo</div>' +
+      '<div style="font-size:1.45rem;font-weight:700;color:var(--accent)">' + _pesos(t.esperado) + '</div>' +
+      '<div style="font-size:0.78rem;color:var(--text-dim);margin-top:0.2rem">Calculado a las ' + ahora + ' · la caja sigue abierta</div>' +
+    '</div>' +
+    '<div class="card" style="padding:1rem">' +
+      fila('Fondo inicial', _pesos(cajaActual.montoInicial)) +
+      fila('+ Ventas en efectivo (' + t.count + ' ventas en total)', _pesos(t.porMedio.efectivo)) +
+      fila('+ Ingresos', _pesos(t.ingresos)) +
+      fila('− Egresos', _pesos(t.egresos)) +
+      '<div style="border-top:1px solid var(--border);margin-top:0.5rem;padding-top:0.5rem">' +
+        fila('<b>Debería haber</b>', '<b style="color:var(--accent)">' + _pesos(t.esperado) + '</b>', true) +
+      '</div>' +
+    '</div>' +
+    '<div class="card" style="padding:1rem;margin-top:0.85rem">' +
+      '<h4 style="font-size:0.9rem;font-weight:700;margin-bottom:0.45rem">Facturado hasta ahora</h4>' +
+      fila('Total', _pesos(t.bruto), true) +
+      (t.porMedio.efectivo ? fila('· Efectivo', _pesos(t.porMedio.efectivo)) : '') +
+      (t.porMedio.tarjeta ? fila('· Tarjeta', _pesos(t.porMedio.tarjeta)) : '') +
+      (t.porMedio.transferencia ? fila('· Transferencia', _pesos(t.porMedio.transferencia)) : '') +
+      (t.porMedio.cuenta_corriente ? fila('· Fiado (no cobrado)', _pesos(t.porMedio.cuenta_corriente)) : '') +
+      '<p style="font-size:0.76rem;color:var(--text-dim);margin-top:0.5rem;line-height:1.5">' +
+        'Tarjeta, transferencia y fiado no entran al efectivo esperado: no pasan por el cajón.</p>' +
+    '</div>' +
+    '<p style="font-size:0.8rem;color:var(--text-dim);margin-top:0.9rem;line-height:1.55">' +
+      'Esto es solo una consulta. No cierra la caja, no congela ningún total y no queda ' +
+      'guardado como arqueo: el cierre del día se sigue haciendo desde <b>Cerrar caja y arquear</b>.</p>';
+}
+
+function imprimirCorteParcial() {
+  if (!_corteParcialDatos) { showAdminToast('El corte todavía no terminó de calcular', 'error'); return; }
+  const guardado = _cajaDetalle;
+  _cajaDetalle = _corteParcialDatos;
+  try { imprimirArqueo(); } finally { _cajaDetalle = guardado; }
+}
+
 /* ============================ CIERRE ============================ */
 
 async function openCierreModal() {
@@ -979,8 +1175,14 @@ const _MEDIOS_NOMBRE = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia
 
 function buildArqueoHTML(d) {
   const c = d.caja;
+  /* En un corte parcial la plata todavia no se conto: diferencia viene en null.
+     Con `Number(null)` daria 0 y el comprobante diria "CAJA EXACTA", que es una
+     afirmacion que nadie hizo. */
+  const parcial = !!d.parcial;
   const dif = Number(c.diferencia || 0);
-  const etqDif = dif === 0 ? 'CAJA EXACTA' : (dif > 0 ? 'SOBRANTE ' + _pesos(dif) : 'FALTANTE ' + _pesos(Math.abs(dif)));
+  const etqDif = parcial
+    ? 'CORTE PARCIAL — LA CAJA SIGUE ABIERTA'
+    : (dif === 0 ? 'CAJA EXACTA' : (dif > 0 ? 'SOBRANTE ' + _pesos(dif) : 'FALTANTE ' + _pesos(Math.abs(dif))));
   const negocio = (typeof NEGOCIO !== 'undefined' && NEGOCIO.nombre) ? NEGOCIO.nombre : 'Brotes Dietética';
   const medios = c.ventasPorMedio || {};
 
@@ -1020,7 +1222,7 @@ function buildArqueoHTML(d) {
   '<div style="font-family:Arial,Helvetica,sans-serif;color:#111;font-size:12px;line-height:1.45;max-width:180mm;margin:0 auto">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px">' +
       '<div><div style="font-size:16px;font-weight:700">' + esc(negocio) + '</div>' +
-      '<div style="font-size:11px;color:#555">Arqueo de caja</div></div>' +
+      '<div style="font-size:11px;color:#555">' + (parcial ? 'Corte parcial de caja' : 'Arqueo de caja') + '</div></div>' +
       '<div style="text-align:right">' +
         '<div style="font-size:15px;font-weight:700">Caja #' + String(c.numero || 0).padStart(4, '0') + '</div>' +
         '<div style="font-size:11px;color:#555">' + esc(c.fecha || '') + '</div>' +
@@ -1034,10 +1236,15 @@ function buildArqueoHTML(d) {
           f('Fondo inicial', _pesos(c.montoInicial)) + f('Abrió', esc(c.abiertoPor || '-')) + f('Hora', _fechaHora(c.abiertoEn) || '-') +
         '</table></div>' +
       '<div style="flex:1;border:1px solid #ccc;border-radius:5px;padding:7px 9px">' +
-        '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#555;margin-bottom:3px">Cierre</div>' +
+        '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#555;margin-bottom:3px">' +
+          (parcial ? 'Corte' : 'Cierre') + '</div>' +
         '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
-          f('Cerró', esc(c.cerradoPor || '-')) + f('Hora', _fechaHora(c.cerradoEn) || '-') +
-          f('Retiro final', _pesos(c.retiroFinal)) + f('Quedó en caja', _pesos(c.dejaEnCaja), true) +
+          (parcial
+            ? f('Tomado el', new Date().toLocaleString('es-AR')) +
+              f('Por', esc((typeof auth !== 'undefined' && auth.currentUser && auth.currentUser.email) || '-')) +
+              f('Estado', 'Abierta')
+            : f('Cerró', esc(c.cerradoPor || '-')) + f('Hora', _fechaHora(c.cerradoEn) || '-') +
+              f('Retiro final', _pesos(c.retiroFinal)) + f('Quedó en caja', _pesos(c.dejaEnCaja), true)) +
         '</table></div>' +
     '</div>' +
 
@@ -1051,7 +1258,7 @@ function buildArqueoHTML(d) {
           f('− Egresos', _pesos(c.totalEgresos)) +
           '<tr><td colspan="2" style="border-top:1px solid #999;padding-top:2px"></td></tr>' +
           f('Debería haber', _pesos(c.esperadoEfectivo), true) +
-          f('Se contó', _pesos(c.contadoEfectivo), true) +
+          (parcial ? '' : f('Se contó', _pesos(c.contadoEfectivo), true)) +
         '</table>' +
         '<div style="font-size:9px;color:#666;margin-top:4px">Tarjeta, transferencia y fiado no entran: no pasan por el cajón.</div>' +
       '</div>' +
@@ -1071,7 +1278,8 @@ function buildArqueoHTML(d) {
     '<div style="border:2px solid #111;border-radius:5px;padding:8px 10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">' +
       '<div><div style="font-size:15px;font-weight:700">' + etqDif + '</div>' +
       (c.motivoDiferencia ? '<div style="font-size:10px;color:#444;margin-top:2px">Motivo: ' + esc(c.motivoDiferencia) + '</div>' : '') + '</div>' +
-      '<div style="text-align:right;font-size:10px;color:#444">Esperado ' + _pesos(c.esperadoEfectivo) + '<br>Contado ' + _pesos(c.contadoEfectivo) + '</div>' +
+      '<div style="text-align:right;font-size:10px;color:#444">Esperado ' + _pesos(c.esperadoEfectivo) +
+        (parcial ? '<br>Sin contar todavía' : '<br>Contado ' + _pesos(c.contadoEfectivo)) + '</div>' +
     '</div>' +
 
     (c.observaciones ? '<div style="font-size:11px;margin-bottom:10px"><b>Observaciones:</b> ' + esc(c.observaciones) + '</div>' : '') +
@@ -1108,14 +1316,15 @@ function closeCajaExportModal() { document.getElementById('cajaExportModal').cla
 
 function _nombreArchivoArqueo(ext) {
   const c = _cajaDetalle.caja;
-  return 'BROTES_arqueo_caja' + String(c.numero || 0).padStart(4, '0') + '_' + (c.fecha || '') + '.' + ext;
+  const tipo = (_cajaDetalle && _cajaDetalle.parcial) ? 'corteparcial' : 'arqueo';
+  return 'BROTES_' + tipo + '_caja' + String(c.numero || 0).padStart(4, '0') + '_' + (c.fecha || '') + '.' + ext;
 }
 
 function imprimirArqueo() {
   if (!_cajaDetalle) { showAdminToast('El arqueo todavía no terminó de cargar', 'error'); return; }
   const win = window.open('', '_blank', 'width=900,height=700');
   if (!win) { showAdminToast('El navegador bloqueó la ventana de impresión. Permita las ventanas emergentes para este sitio.', 'error'); return; }
-  win.document.write('<html><head><title>Arqueo caja ' +
+  win.document.write('<html><head><title>' + (_cajaDetalle.parcial ? 'Corte parcial caja ' : 'Arqueo caja ') +
     String(_cajaDetalle.caja.numero || 0).padStart(4, '0') + '</title><style>' +
     '@page{margin:14mm;size:A4}html,body{margin:0;padding:0;background:#fff}' +
     'table{page-break-inside:auto}tr{page-break-inside:avoid;break-inside:avoid}thead{display:table-header-group}' +
