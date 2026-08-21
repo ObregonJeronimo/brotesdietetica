@@ -72,6 +72,17 @@ const db = firebase.firestore();
                             demas siguen andando sin cache.
      unimplemented       -> el navegador no lo soporta (modo privado de algunos, o
                             Safari viejo). Tambien sigue andando sin cache. */
+/* La consola avisa que enableMultiTabIndexedDbPersistence() va a quedar obsoleto y
+   que en su lugar conviene FirestoreSettings.cache. Es un aviso a futuro, no un
+   error: sigue funcionando y en la v10 va a seguir funcionando.
+   No se puede cambiar sin migrar el proyecto entero: el reemplazo son
+   persistentLocalCache() y persistentMultipleTabManager(), que son de la API
+   MODULAR, y el SDK compat 10.12 no las expone (verificado en el navegador:
+   firebase.firestore.persistentLocalCache es undefined). Cambiarlo implica pasar
+   todo el proyecto de compat a modular, o sea reescribir cada db.collection(...)
+   de app.js, admin.html y los seis modulos.
+   Se deja el aviso a la vista a proposito: taparlo seria esconderle a quien siga
+   el proyecto que esta migracion existe y en algun momento hay que hacerla. */
 if (db.enablePersistence) {
     db.enablePersistence({ synchronizeTabs: true }).catch(function (e) {
         if (e && e.code !== 'failed-precondition' && e.code !== 'unimplemented') {
