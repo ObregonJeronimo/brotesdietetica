@@ -191,7 +191,37 @@
         .hist-badge.egreso{background:rgba(229,69,69,0.18);color:#e54545}
         .hist-badge.cobro{background:rgba(103,194,58,0.18);color:#67c23a}
         .hist-badge.consultar{background:var(--bg-input);color:var(--text-dim)}.hist-desc{color:var(--text);line-height:1.4}.hist-detail{color:var(--text-dim);font-size:0.75rem;margin-top:3px}
-        .venta-prod-list{max-height:180px;overflow-y:auto}.venta-prod-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s}.venta-prod-item:hover{background:var(--accent-bg)}
+        .venta-prod-list{max-height:180px;overflow-y:auto}
+        /* Modal de venta a dos columnas. .venta-modal-body tampoco estaba definida:
+           era un div comun y todo caia en una sola columna angosta, con el buscador
+           tirando una lista de dos renglones sin imagen ni stock.
+           Izquierda: los datos de la venta (quien, como paga, cuando, insumos).
+           Derecha: elegir productos y ver el total, que es donde esta la accion. */
+        .venta-modal-box{max-width:1120px;width:96vw}
+        .venta-modal-body{display:grid;grid-template-columns:minmax(250px,310px) minmax(0,1fr);gap:1.25rem;align-items:start}
+        .venta-col{min-width:0;display:flex;flex-direction:column;gap:0.9rem}
+        .venta-pie{grid-column:1/-1;border-top:1px solid var(--border);padding-top:1rem}
+        .venta-bloque{background:var(--bg-input);border-radius:var(--radius);padding:0.85rem}
+        .venta-sub{font-size:0.78rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-dim);margin-bottom:0.6rem;display:flex;align-items:center;gap:0.4rem}
+        @media(max-width:900px){.venta-modal-body{grid-template-columns:1fr}}
+        /* Resultados del buscador: una fila por producto, con la miniatura, los dos
+           precios y el stock. Antes solo se veia el nombre y un precio suelto, asi que
+           habia que salir del modal para saber si quedaba stock. */
+        .vprod-row{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:0.65rem;align-items:center;padding:7px 9px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s}
+        .vprod-row:last-child{border-bottom:none}
+        .vprod-row:hover{background:var(--bg-input)}
+        .vprod-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+        .vprod-img-ph{position:relative;overflow:hidden;width:38px;height:38px;border-radius:7px;background:var(--bg-input);display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:0.95rem}
+        .vprod-nom{font-size:0.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .vprod-sub{display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;margin-top:2px}
+        .vprod-precios{text-align:right;white-space:nowrap}
+        .vprod-precio{font-size:0.92rem;font-weight:700;font-family:var(--mono);color:var(--accent-light)}
+        .vprod-precio-alt{font-size:0.7rem;color:var(--text-dim);font-family:var(--mono);margin-top:1px}
+        .vprod-chip{font-size:0.64rem;font-weight:700;padding:1px 6px;border-radius:8px;white-space:nowrap;letter-spacing:0.3px}
+        .vprod-chip.ok{background:rgba(95,168,122,0.16);color:#5FA87A}
+        .vprod-chip.bajo{background:rgba(237,184,51,0.18);color:#EDB833}
+        .vprod-chip.cero{background:rgba(229,69,69,0.18);color:#e54545}
+        .vprod-chip.neutro{background:var(--bg-input);color:var(--text-dim)}.venta-prod-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s}.venta-prod-item:hover{background:var(--accent-bg)}
         .venta-items{max-height:200px;overflow-y:auto}.venta-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);font-size:0.82rem}.vi-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vi-price{color:var(--text-dim);font-family:var(--mono);min-width:65px;text-align:right}.vi-sub{color:var(--accent-light);font-family:var(--mono);min-width:75px;text-align:right;font-weight:600}.vi-qty{width:50px;padding:3px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);text-align:center;font-size:0.82rem}.vi-remove{background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.9rem}
         .venta-total-row{display:flex;justify-content:space-between;align-items:center;padding:0.75rem 0;font-size:1.1rem;font-weight:700}.venta-total-val{font-family:var(--mono);color:var(--accent-light);font-size:1.3rem}
         .entrega-toggle{display:flex;gap:6px}.entrega-btn{flex:1;padding:0.6rem 0.8rem;background:var(--bg-input);border:1.5px solid var(--border);color:var(--text-dim);border-radius:var(--radius);cursor:pointer;font-size:0.88rem;font-weight:500;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:0.45rem}.entrega-btn:hover{border-color:var(--accent-light);color:var(--text-main)}.entrega-btn.active{background:var(--accent-dark);border-color:var(--accent-light);color:#fff;font-weight:600}.entrega-btn i{font-size:1rem}
@@ -630,7 +660,59 @@
     <div id="dscAllArea" style="display:none;margin-bottom:0.85rem"><div style="background:var(--bg-input);padding:0.7rem;border-radius:var(--radius);font-size:0.85rem"><i class="bi bi-asterisk"></i> Se aplicará a <strong id="dscAllCount">todos</strong> los productos visibles.</div></div>
     <div id="dscPctArea" style="display:none"><label style="font-size:0.85rem;display:block;margin-bottom:5px">% de descuento a aplicar <span style="color:var(--text-dim);font-size:0.75rem">(0 = quitar descuento)</span></label><div style="display:flex;gap:0.5rem;align-items:center"><input type="number" class="form-input" id="dscPctInput" placeholder="Ej: 10" min="0" max="95" style="width:120px"><span style="color:var(--text-dim)">%</span><span id="dscTargetInfo" style="font-size:0.82rem;color:var(--text-dim);margin-left:auto"></span></div></div></div>
     <div style="padding:0.75rem 1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-shrink:0"><button class="btn btn-secondary" style="flex:1" onclick="closeDescuentoModal()">Cancelar</button><button class="btn btn-primary" style="flex:2;background:#d97706;border-color:#d97706" id="dscApplyBtn" onclick="aplicarDescuentoMasivo()"><i class="bi bi-tag-fill"></i> Aplicar descuento</button></div></div></div>
-    <div class="modal-overlay" id="ventaModal"><div class="modal-box" style="max-width:700px"><div class="modal-header"><h3>Nueva Venta</h3><button class="modal-close" onclick="closeVentaModal()"><i class="bi bi-x-lg"></i></button></div><div class="venta-modal-body"><div class="form-row" style="grid-template-columns:1.4fr 1fr 1fr;margin-bottom:1rem"><div class="form-group"><label>Cliente *</label><div class="cliente-select-wrap"><input type="text" class="form-input" id="ventaCliente" placeholder="Consumidor Final" autocomplete="off" onfocus="this.select();showClienteSelect()" oninput="ventaClienteSelected=false;document.getElementById('ventaClienteId').value='';showClienteSelect()" onblur="onBlurClienteVenta()"><input type="hidden" id="ventaClienteId" value=""><div class="cliente-select-list" id="clienteSelectList"></div></div></div><div class="form-group"><label>Medio de pago</label><select class="form-input" id="ventaMedio"><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option><option>Cuenta Corriente</option></select></div><div class="form-group"><label>Fecha</label><input type="date" class="form-input" id="ventaFecha"></div></div><div class="form-row" style="grid-template-columns:1fr;margin-bottom:1rem"><div class="form-group"><label>Tipo de entrega</label><div class="entrega-toggle"><button type="button" class="entrega-btn active" data-entrega="envio" onclick="setVentaEntrega('envio')"><i class="bi bi-truck"></i> Con envío</button><button type="button" class="entrega-btn" data-entrega="retiro" onclick="setVentaEntrega('retiro')"><i class="bi bi-shop"></i> Retiro</button></div></div></div><div class="toolbar" style="margin-bottom:0.75rem"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto para agregar..." id="ventaProdSearch" oninput="filterVentaProducts()"></div></div><div class="venta-prod-list" id="ventaProdList"></div><div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem"><h4 style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Items de la venta</h4><div id="ventaItems" class="venta-items"></div><div id="ventaTotalBreakdown"></div><div class="venta-descuento-row"><label for="ventaDescuentoPct" style="font-size:0.82rem;color:var(--text-dim);display:flex;align-items:center;gap:6px"><i class="bi bi-tag"></i> Descuento (%):</label><input type="number" id="ventaDescuentoPct" class="form-input" min="0" max="100" step="1" value="0" style="width:80px;padding:4px 8px;text-align:right;font-family:var(--mono)" oninput="onChangeDescuento()"></div><div class="venta-total-row"><span>TOTAL:</span><span id="ventaTotal" class="venta-total-val">$0</span></div></div><div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem"><h4 style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem"><i class="bi bi-tools"></i> Insumos utilizados (opcional)</h4><div style="display:flex;gap:6px;align-items:center;margin-bottom:0.5rem"><select class="form-input" id="ventaInsumoSelect" style="flex:1" onchange="addVentaInsumoFromSelect()"><option value="">+ Agregar insumo...</option></select></div><div id="ventaInsumosList" style="display:flex;flex-direction:column;gap:6px"></div></div><div class="form-actions"><button class="btn btn-secondary" onclick="closeVentaModal()">Cancelar</button><button class="btn btn-primary" onclick="saveVenta()" id="saveVentaBtn"><i class="bi bi-check-lg"></i> Registrar Venta</button></div></div></div></div>
+    <div class="modal-overlay" id="ventaModal"><div class="modal-box venta-modal-box">
+      <div class="modal-header"><h3><i class="bi bi-cart-plus"></i> Nueva Venta</h3><button class="modal-close" onclick="closeVentaModal()"><i class="bi bi-x-lg"></i></button></div>
+      <div class="venta-modal-body">
+        <div class="venta-col">
+          <div class="form-group"><label>Cliente *</label>
+            <div class="cliente-select-wrap">
+              <input type="text" class="form-input" id="ventaCliente" placeholder="Consumidor Final" autocomplete="off" onfocus="this.select();showClienteSelect()" oninput="ventaClienteSelected=false;document.getElementById('ventaClienteId').value='';showClienteSelect()" onblur="onBlurClienteVenta()">
+              <input type="hidden" id="ventaClienteId" value="">
+              <div class="cliente-select-list" id="clienteSelectList"></div>
+            </div>
+          </div>
+          <div class="form-group"><label>Medio de pago</label>
+            <select class="form-input" id="ventaMedio">
+              <option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option><option>Cuenta Corriente</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Fecha</label><input type="date" class="form-input" id="ventaFecha"></div>
+          <div class="form-group"><label>Tipo de entrega</label>
+            <div class="entrega-toggle">
+              <button type="button" class="entrega-btn active" data-entrega="envio" onclick="setVentaEntrega('envio')"><i class="bi bi-truck"></i> Con env&iacute;o</button>
+              <button type="button" class="entrega-btn" data-entrega="retiro" onclick="setVentaEntrega('retiro')"><i class="bi bi-shop"></i> Retiro</button>
+            </div>
+          </div>
+          <div class="venta-bloque">
+            <h4 class="venta-sub"><i class="bi bi-tools"></i> Insumos utilizados (opcional)</h4>
+            <select class="form-input" id="ventaInsumoSelect" onchange="addVentaInsumoFromSelect()"><option value="">+ Agregar insumo...</option></select>
+            <div id="ventaInsumosList" style="display:flex;flex-direction:column;gap:6px;margin-top:0.5rem"></div>
+          </div>
+        </div>
+
+        <div class="venta-col">
+          <div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto por nombre o escanear el c&oacute;digo..." id="ventaProdSearch" oninput="filterVentaProducts()"></div>
+          <div class="venta-prod-list" id="ventaProdList"></div>
+          <div class="venta-bloque">
+            <h4 class="venta-sub"><i class="bi bi-basket"></i> Items de la venta</h4>
+            <div id="ventaItems" class="venta-items"></div>
+            <div id="ventaTotalBreakdown"></div>
+            <div class="venta-descuento-row">
+              <label for="ventaDescuentoPct" style="font-size:0.82rem;color:var(--text-dim);display:flex;align-items:center;gap:6px"><i class="bi bi-tag"></i> Descuento (%):</label>
+              <input type="number" id="ventaDescuentoPct" class="form-input" min="0" max="100" step="1" value="0" style="width:80px;padding:4px 8px;text-align:right;font-family:var(--mono)" oninput="onChangeDescuento()">
+            </div>
+            <div class="venta-total-row"><span>TOTAL:</span><span id="ventaTotal" class="venta-total-val">$0</span></div>
+          </div>
+        </div>
+
+        <div class="venta-pie">
+          <div class="form-actions" style="margin-top:0">
+            <button class="btn btn-secondary" onclick="closeVentaModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveVenta()" id="saveVentaBtn"><i class="bi bi-check-lg"></i> Registrar Venta</button>
+          </div>
+        </div>
+      </div>
+    </div></div>
     <div class="modal-overlay" id="facturaModal"><div class="modal-box" style="max-width:600px;background:#fff;color:#111"><div class="fac-cab"><div class="fac-cab-top"><h3>Factura</h3><button class="modal-close" onclick="closeFacturaModal()" style="color:#666"><i class="bi bi-x-lg"></i></button></div><div class="fac-acciones"><label class="fac-campo"><span>QR de rese&ntilde;a</span><!-- Solo elige si el ticket lleva el QR. printFactura lo lee al apretar cualquiera     de los tres botones; los valores nuevo/recurrente no se tocan porque son los     que compara el codigo. Antes tenia un onchange que imprimia al cambiarlo, y     cada toque gastaba una etiqueta. --><select id="facturaTypeSelect" title="Si el ticket lleva el QR para dejar rese&ntilde;a"><option value="nuevo">Incluir el QR</option><option value="recurrente">Sin QR</option></select></label><div class="fac-botones"><button class="btn btn-sm btn-primary" onclick="printFactura('a4')" title="Hoja A4"><i class="bi bi-printer"></i> A4</button><button class="btn btn-sm btn-secondary" onclick="printFactura('etiqueta')" style="color:#333;background:#f0f0f0;border:1px solid #ccc" title="Etiqueta adhesiva grande del local"><i class="bi bi-tag"></i> Mostrador</button><button class="btn btn-sm btn-secondary" onclick="printFactura('termica')" style="color:#333;background:#f0f0f0;border:1px solid #ccc" title="T&eacute;rmica de rollo continuo"><i class="bi bi-receipt"></i> Pedido web</button></div></div><p class="fac-ayuda">El QR lleva al cliente a la p&aacute;gina para dejar su opini&oacute;n sobre la compra. Conviene incluirlo cuando el cliente compra por primera vez.</p></div><div id="facturaContent" style="padding:2rem;font-family:'DM Mono',monospace;font-size:0.9rem;line-height:1.6"></div></div></div>
     <div class="modal-overlay" id="clienteModal"><div class="modal-box" style="max-width:480px"><div class="modal-header"><h3 id="clienteModalTitle">Nuevo Cliente</h3><button class="modal-close" onclick="closeClienteModal()"><i class="bi bi-x-lg"></i></button></div><form id="clienteForm" onsubmit="saveCliente(event)"><div class="form-group"><label>Nombre *</label><input type="text" class="form-input" id="cNombre" required></div><div class="form-row"><div class="form-group"><label>DNI / CUIT</label><input type="text" class="form-input" id="cIdentificacion"></div><div class="form-group"><label>Telefono</label><input type="text" class="form-input" id="cTelefono"></div></div><div class="form-group"><label>Email</label><input type="email" class="form-input" id="cEmail"></div><div class="form-group"><label>Direccion</label><input type="text" class="form-input" id="cDireccion" placeholder="Calle, numero, barrio..."></div><div class="form-actions"><button type="button" class="btn btn-secondary" onclick="closeClienteModal()">Cancelar</button><button type="submit" class="btn btn-primary" id="saveClienteBtn"><i class="bi bi-check-lg"></i> Guardar</button></div></form></div></div>
     <!-- Ficha de cliente. Antes era solo el historial de ventas; ahora arriba va
@@ -1742,7 +1824,84 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             cardEl.style.display='block';
             if(wrapEl)wrapEl.style.display='none';
         }
-        function filterVentaProducts(){const c=document.getElementById('ventaProdList');const q=(document.getElementById('ventaProdSearch')?.value||'').toLowerCase();if(!q){c.innerHTML='<div style="padding:10px;color:var(--text-dim);font-size:0.82rem">Buscar productos…</div>';return;}let f=allProducts.filter(p=>(p.nombre||'').toLowerCase().includes(q));if(!f.length){c.innerHTML='<div style="padding:10px;color:var(--text-dim);font-size:0.82rem">Sin resultados</div>';return;}c.innerHTML=f.slice(0,15).map(p=>'<div class="venta-prod-item" onclick="addVentaItem(\''+p.id+'\')"><span>'+p.nombre+'</span><span style="color:var(--accent-light);font-family:var(--mono)">$'+(p.precio||0).toLocaleString('es-AR')+'</span></div>').join('');}
+        /* Una fila del buscador de productos. La comparten la venta minorista y la
+           mayorista; ctx decide cual de los dos precios va grande.
+
+           Antes esto era el nombre y un precio suelto. Para saber si quedaba stock
+           habia que salir del modal, y en la mayorista no habia forma de notar que un
+           producto no tenia precio mayorista cargado. */
+        function _filaProdVenta(p,ctx){
+            const min=Number(p.precio||0), may=Number(p.precioMayorista||0), stock=Number(p.stock||0);
+            const principal = ctx==='may' ? (may||min) : min;
+            const alt = ctx==='may'
+                ? 'Minorista $'+min.toLocaleString('es-AR')
+                : (may?'Mayorista $'+may.toLocaleString('es-AR'):'');
+            const chips=[];
+            chips.push(stock<=0
+                ? '<span class="vprod-chip cero">SIN STOCK</span>'
+                : (stock<=5 ? '<span class="vprod-chip bajo">Quedan '+stock+'</span>'
+                            : '<span class="vprod-chip ok">Stock '+stock+'</span>'));
+            if(p.gramaje)chips.push('<span class="vprod-chip neutro">'+esc(p.gramaje)+'</span>');
+            /* Un producto oculto no esta en la tienda, pero SI se puede vender en el
+               mostrador: se muestra, marcado, en vez de esconderlo. */
+            if(p.oculto)chips.push('<span class="vprod-chip neutro">OCULTO</span>');
+            /* En mayorista, sin precio mayorista se cobra el de mostrador. Se avisa
+               aca y otra vez antes de guardar. */
+            if(ctx==='may'&&!may)chips.push('<span class="vprod-chip bajo">SIN PRECIO MAY.</span>');
+            const img='<div class="vprod-img-ph"><i class="bi bi-box"></i>'+
+                (p.imagen?'<img class="vprod-img" src="'+_attrHtml(p.imagen)+'" alt="" loading="lazy" onerror="this.remove()">':'')+'</div>';
+            const fn = ctx==='may' ? 'addVentaMayItem' : 'addVentaItem';
+            return '<div class="vprod-row" onclick="'+fn+'(\''+_attrHtml(p.id)+'\')" title="Agregar a la venta">'+
+                img+
+                '<div style="min-width:0">'+
+                    '<div class="vprod-nom">'+esc(p.nombreMostrado||p.nombre||'(sin nombre)')+'</div>'+
+                    '<div class="vprod-sub">'+chips.join('')+'</div>'+
+                '</div>'+
+                '<div class="vprod-precios"><div class="vprod-precio">$'+principal.toLocaleString('es-AR')+'</div>'+
+                (alt?'<div class="vprod-precio-alt">'+alt+'</div>':'')+'</div>'+
+            '</div>';
+        }
+
+        function _buscarProdVenta(q){
+            const t=(q||'').toLowerCase().trim();
+            if(!t)return null;
+            return allProducts.filter(p=>
+                ((p.nombreMostrado||'')+' '+(p.nombre||'')+' '+(p.gramaje||'')).toLowerCase().includes(t)
+                || String(p.codigoBarras||'')===t
+            ).slice(0,25);
+        }
+
+        function _pintarBusqueda(contId,q,ctx){
+            const c=document.getElementById(contId);
+            if(!c)return;
+            const res=_buscarProdVenta(q);
+            if(res===null){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Escriba el nombre del producto o escanee su c\u00f3digo de barras.</div>';return;}
+            if(!res.length){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Ning\u00fan producto coincide con esa b\u00fasqueda.</div>';return;}
+            c.innerHTML=res.map(p=>_filaProdVenta(p,ctx)).join('');
+        }
+
+        function filterVentaProducts(){_pintarBusqueda('ventaProdList',(document.getElementById('ventaProdSearch')||{}).value,'min');}
+
+        /* Despues de agregar, el buscador se limpia y vuelve al mensaje de ayuda: en el
+           mostrador lo que sigue es buscar OTRO producto. Para sumar unidades del mismo
+           esta el campo de cantidad en los items.
+           Se envuelven las funciones en vez de tocarlas adentro porque cada una tiene
+           mas de una salida (si el producto ya estaba en la lista, incrementan y
+           vuelven antes del final). */
+        const _origAddVentaItem=addVentaItem;
+        addVentaItem=function(id){
+            _origAddVentaItem(id);
+            const i=document.getElementById('ventaProdSearch');
+            if(i)i.value='';
+            filterVentaProducts();
+        };
+        const _origAddVentaMayItem=addVentaMayItem;
+        addVentaMayItem=function(id){
+            _origAddVentaMayItem(id);
+            const i=document.getElementById('ventaMayBuscaProd');
+            if(i)i.value='';
+            filterVentaMayProducts();
+        };
         function addVentaItem(id){const existing=ventaItems.find(i=>i.id===id);if(existing){existing.cantidad++;renderVentaItems();return;}const p=allProducts.find(x=>x.id===id);if(!p)return;ventaItems.push({id:p.id,nombre:p.nombre,precio:p.precio,costo:p.costo||0,cantidad:1,descuento:p.descuento||0});renderVentaItems();}
         function removeVentaItem(id){ventaItems=ventaItems.filter(i=>i.id!==id);renderVentaItems();}
         function updateVentaQty(id,val){const item=ventaItems.find(i=>i.id===id);if(item){item.cantidad=Math.max(1,parseInt(val)||1);}renderVentaItems();}
@@ -4402,26 +4561,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             renderVentaMayItems();
         }
 
-        function filterVentaMayProducts(){
-            var q=(document.getElementById('ventaMayBuscaProd').value||'').toLowerCase();
-            var list=document.getElementById('ventaMayProdListDropdown');
-            if(!list)return;
-            if(!q){list.innerHTML='';return;}
-            var res=allProducts.filter(function(p){return !p.oculto&&(p.nombre||'').toLowerCase().includes(q);}).slice(0,10);
-            if(!res.length){list.innerHTML='<div class="venta-prod-item" style="color:var(--text-dim)">Sin resultados</div>';return;}
-            list.innerHTML='';
-            res.forEach(function(p){
-                var d=document.createElement('div');
-                d.className='venta-prod-item';
-                d.innerHTML='<span class="vprod-nombre">'+esc(p.nombre)+'</span><span class="vprod-precio" style="color:#a78bfa">$'+(p.precioMayorista||p.precio||0).toLocaleString('es-AR')+'</span>';
-                d.addEventListener('mousedown',function(){
-                    addVentaMayItem(p.id);
-                    document.getElementById('ventaMayBuscaProd').value='';
-                    list.innerHTML='';
-                });
-                list.appendChild(d);
-            });
-        }
+        function filterVentaMayProducts(){_pintarBusqueda('ventaMayProdListDropdown',(document.getElementById('ventaMayBuscaProd')||{}).value,'may');}
         function addVentaMayItem(id){
             document.getElementById('ventaMayBuscaProd').value='';
             /* El id es ventaMayProdListDropdown, que es el que usa filterVentaMayProducts.
@@ -4498,6 +4638,26 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         async function saveVentaMay(){
             if(!ventaMayClienteSelected&&!document.getElementById('ventaMayCliente').value.trim()){showAdminToast('Ingresá un cliente','error');return;}
             if(!ventaMayItems.length){showAdminToast('Agregá al menos un producto','error');return;}
+            /* Un producto sin precioMayorista se agrega al precio de MOSTRADOR: en
+               addVentaMayItem el precio es `p.precioMayorista||p.precio||0`. Antes eso
+               pasaba sin que nadie se enterara, asi que la venta salia al precio
+               minorista y el error recien aparecia cuando el mayorista lo reclamaba.
+               Se avisa y se deja continuar: puede ser a proposito. */
+            const _sinPrecioMay=ventaMayItems
+                .map(it=>allProducts.find(x=>x.id===it.id))
+                .filter(pr=>pr&&!Number(pr.precioMayorista||0));
+            if(_sinPrecioMay.length){
+                const NL=String.fromCharCode(10);
+                const _lista=_sinPrecioMay.slice(0,8).map(pr=>'  - '+(pr.nombreMostrado||pr.nombre)).join(NL);
+                const _mas=_sinPrecioMay.length>8?NL+'  ...y '+(_sinPrecioMay.length-8)+' mas':'';
+                const _msg=_sinPrecioMay.length+(_sinPrecioMay.length===1
+                        ?' producto no tiene precio mayorista cargado y se va a cobrar al precio minorista:'
+                        :' productos no tienen precio mayorista cargado y se van a cobrar al precio minorista:')+
+                    NL+NL+_lista+_mas+NL+NL+
+                    'Puede cargarles el % de ganancia mayorista desde Productos.'+NL+NL+
+                    'Registrar la venta igual?';
+                if(!confirm(_msg))return;
+            }
             /* Validar stock de insumos */
             const originalInsumosMay={};
             let _mayItemsPrevios=null,_mayPoseiaStock=false;
@@ -5437,31 +5597,59 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:1rem">Al menos una pregunta debe estar activa.</p>
     <div class="form-actions"><button class="btn btn-secondary" onclick="closeConfigResenasModal()">Cancelar</button><button class="btn btn-primary" onclick="saveConfigResenas()"><i class="bi bi-check-lg"></i> Guardar</button></div></div></div>
     <!-- MODAL VENTA MAYORISTA -->
-    <div class="modal-overlay" id="ventaMayModal"><div class="modal-box" style="max-width:700px"><div class="modal-header"><h3 id="ventaMayModalTitle"><i class="bi bi-buildings"></i> Nueva Venta Mayorista</h3><button class="modal-close" onclick="closeVentaMayModal()"><i class="bi bi-x-lg"></i></button></div><div class="venta-modal-body">
-    <div class="form-row" style="grid-template-columns:1.4fr 1fr 1fr;margin-bottom:1rem">
-      <div class="form-group"><label>Cliente *</label><div class="cliente-select-wrap"><input type="text" class="form-input" id="ventaMayCliente" placeholder="Buscar cliente..." autocomplete="off" onfocus="this.select();showVentaMayClienteSelect()" oninput="ventaMayClienteSelected=false;document.getElementById('ventaMayClienteId').value='';showVentaMayClienteSelect()" onblur="setTimeout(()=>document.getElementById('ventaMayClienteList').classList.remove('open'),150)"><input type="hidden" id="ventaMayClienteId" value=""><div class="cliente-select-list" id="ventaMayClienteList"></div></div></div>
-      <div class="form-group"><label>Medio de pago</label><select class="form-input" id="ventaMayMedioPago"><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option><option>Cuenta Corriente</option></select></div>
-      <div class="form-group"><label>Fecha</label><input type="date" class="form-input" id="ventaMayFecha"></div>
-    </div>
-    <div class="form-row" style="grid-template-columns:1fr;margin-bottom:1rem">
-      <div class="form-group"><label>Tipo de entrega</label><div class="entrega-toggle"><button type="button" class="entrega-btn active" data-entrega="envio" onclick="setVentaMayEntrega('envio')"><i class="bi bi-truck"></i> Con envío</button><button type="button" class="entrega-btn" data-entrega="retiro" onclick="setVentaMayEntrega('retiro')"><i class="bi bi-shop"></i> Retiro</button></div></div>
-    </div>
-    <div class="toolbar" style="margin-bottom:0.75rem"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto para agregar (precio mayorista)..." id="ventaMayBuscaProd" oninput="filterVentaMayProducts()"></div></div>
-    <div class="venta-prod-list" id="ventaMayProdListDropdown"></div>
-    <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
-      <h4 style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Items de la venta</h4>
-      <div id="ventaMayItemsList" class="venta-items"></div>
-      <div id="ventaMayTotalBreakdown"></div>
-      <div class="venta-descuento-row"><label style="font-size:0.82rem;color:var(--text-dim);display:flex;align-items:center;gap:6px"><i class="bi bi-tag"></i> Descuento (%):</label><input type="number" id="ventaMayDescuentoPct" class="form-input" min="0" max="100" step="1" value="0" style="width:80px;padding:4px 8px;text-align:right;font-family:var(--mono)" oninput="onChangeMayDescuento()"></div>
-      <div class="venta-total-row"><span>TOTAL:</span><span id="ventaMayTotal" class="venta-total-val" style="color:#a78bfa">$0</span></div>
-    </div>
-    <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
-      <h4 style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem"><i class="bi bi-tools"></i> Insumos utilizados (opcional)</h4>
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:0.5rem"><select class="form-input" id="ventaMayInsumoSelect" style="flex:1" onchange="addVentaMayInsumoFromSelect()"><option value="">+ Agregar insumo...</option></select></div>
-      <div id="ventaMayInsumosList" style="display:flex;flex-direction:column;gap:6px"></div>
-    </div>
-    <div class="form-actions"><button class="btn btn-secondary" onclick="closeVentaMayModal()">Cancelar</button><button class="btn btn-primary" onclick="saveVentaMay()" id="saveVentaMayBtn" style="background:#5b2d8a;border-color:#5b2d8a"><i class="bi bi-check-lg"></i> Registrar Venta</button></div>
-    </div></div></div>
+    <div class="modal-overlay" id="ventaMayModal"><div class="modal-box venta-modal-box">
+      <div class="modal-header"><h3 id="ventaMayModalTitle"><i class="bi bi-buildings"></i> Nueva Venta Mayorista</h3><button class="modal-close" onclick="closeVentaMayModal()"><i class="bi bi-x-lg"></i></button></div>
+      <div class="venta-modal-body">
+        <div class="venta-col">
+          <div class="form-group"><label>Cliente *</label>
+            <div class="cliente-select-wrap">
+              <input type="text" class="form-input" id="ventaMayCliente" placeholder="Buscar cliente..." autocomplete="off" onfocus="this.select();showVentaMayClienteSelect()" oninput="ventaMayClienteSelected=false;document.getElementById('ventaMayClienteId').value='';showVentaMayClienteSelect()">
+              <input type="hidden" id="ventaMayClienteId" value="">
+              <div class="cliente-select-list" id="ventaMayClienteList"></div>
+            </div>
+          </div>
+          <div class="form-group"><label>Medio de pago</label>
+            <select class="form-input" id="ventaMayMedioPago">
+              <option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option><option>Cuenta Corriente</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Fecha</label><input type="date" class="form-input" id="ventaMayFecha"></div>
+          <div class="form-group"><label>Tipo de entrega</label>
+            <div class="entrega-toggle">
+              <button type="button" class="entrega-btn active" data-entrega="envio" onclick="setVentaMayEntrega('envio')"><i class="bi bi-truck"></i> Con env&iacute;o</button>
+              <button type="button" class="entrega-btn" data-entrega="retiro" onclick="setVentaMayEntrega('retiro')"><i class="bi bi-shop"></i> Retiro</button>
+            </div>
+          </div>
+          <div class="venta-bloque">
+            <h4 class="venta-sub"><i class="bi bi-tools"></i> Insumos utilizados (opcional)</h4>
+            <select class="form-input" id="ventaMayInsumoSelect" onchange="addVentaMayInsumoFromSelect()"><option value="">+ Agregar insumo...</option></select>
+            <div id="ventaMayInsumosList" style="display:flex;flex-direction:column;gap:6px;margin-top:0.5rem"></div>
+          </div>
+        </div>
+
+        <div class="venta-col">
+          <div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto por nombre o escanear el c&oacute;digo..." id="ventaMayBuscaProd" oninput="filterVentaMayProducts()"></div>
+          <div class="venta-prod-list" id="ventaMayProdListDropdown"></div>
+          <div class="venta-bloque">
+            <h4 class="venta-sub"><i class="bi bi-basket"></i> Items de la venta</h4>
+            <div id="ventaMayItemsList" class="venta-items"></div>
+            <div id="ventaMayTotalBreakdown"></div>
+            <div class="venta-descuento-row">
+              <label for="ventaMayDescuentoPct" style="font-size:0.82rem;color:var(--text-dim);display:flex;align-items:center;gap:6px"><i class="bi bi-tag"></i> Descuento (%):</label>
+              <input type="number" id="ventaMayDescuentoPct" class="form-input" min="0" max="100" step="1" value="0" style="width:80px;padding:4px 8px;text-align:right;font-family:var(--mono)" oninput="onChangeMayDescuento()">
+            </div>
+            <div class="venta-total-row"><span>TOTAL:</span><span id="ventaMayTotal" class="venta-total-val">$0</span></div>
+          </div>
+        </div>
+
+        <div class="venta-pie">
+          <div class="form-actions" style="margin-top:0">
+            <button class="btn btn-secondary" onclick="closeVentaMayModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveVentaMay()" id="saveVentaMayBtn"><i class="bi bi-check-lg"></i> Registrar Venta</button>
+          </div>
+        </div>
+      </div>
+    </div></div>
     <!-- MODAL CARGA MASIVA % MAYORISTA -->
     <div class="modal-overlay" id="mayoristaPctModal"><div class="modal-box" style="max-width:600px"><div class="modal-header"><h3><i class="bi bi-percent"></i> Asignar % Ganancia Mayorista</h3><button class="modal-close" onclick="document.getElementById('mayoristaPctModal').classList.remove('show')"><i class="bi bi-x-lg"></i></button></div>
     <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:1rem">Asigne el % de ganancia mayorista a cada grupo. Deje vac&iacute;o para no modificar ese grupo.</p>
