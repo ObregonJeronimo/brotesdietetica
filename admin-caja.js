@@ -1147,7 +1147,7 @@ async function confirmarCierre() {
 
 async function adjuntarVentasSueltas() {
   if (!cajaActual || !cajaVentasSueltas.length) return;
-  if (!confirm('Adjuntar ' + cajaVentasSueltas.length + ' venta(s) a la caja #' + cajaActual.numero + '?')) return;
+  if (!await pedirConfirmacion('Adjuntar ' + cajaVentasSueltas.length + ' venta(s) a la caja #' + cajaActual.numero + '?',{titulo:'Adjuntar ventas',aceptar:'Adjuntar'})) return;
   try {
     const batch = db.batch();
     /* Se usa v._col: una mayorista suelta vive en otra coleccion y actualizarla

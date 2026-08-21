@@ -303,7 +303,7 @@ async function guardarAtajos() {
 }
 
 async function restaurarAtajos() {
-  if (!confirm('¿Volver a los atajos originales?')) return;
+  if (!await pedirConfirmacion('¿Volver a los atajos originales?',{titulo:'Restaurar atajos',aceptar:'Restaurar'})) return;
   ATAJOS = atajosPorDefecto();
   _atajosCapturando = null;
   renderAtajosEditor();

@@ -29,11 +29,14 @@ let _insumosAlertaCache = null;    /* se pide una vez por sesión */
 
 /* ============================ CÁLCULO ============================ */
 
-async function _insumosParaAlertas() {
-  /* Si la sección Insumos ya está abierta, su lista está más fresca que
-     cualquier cache propio: se usa esa y no se consulta nada. */
-  if (typeof insumosData !== 'undefined' && insumosData && insumosData.length) return insumosData;
-  if (_insumosAlertaCache) return _insumosAlertaCache;
+async function _insumosParaAlertas(forzar) {
+  /* Acá antes se reusaba insumosData cuando tenía elementos, tomando `.length`
+     como señal de "ya está cargada". Estaba mal: al borrar el ÚLTIMO insumo esa
+     lista queda vacía, la condición da falso, se caía al cache propio —que
+     todavía tenía el insumo borrado— y la alerta seguía mostrándolo.
+     Ahora hay un solo camino y un solo cache, que se invalida a mano cuando algo
+     cambia. Insumos es una colección chica; la lectura de más no se nota. */
+  if (!forzar && _insumosAlertaCache) return _insumosAlertaCache;
   try {
     const snap = await db.collection('insumos').get();
     _insumosAlertaCache = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
@@ -44,7 +47,7 @@ async function _insumosParaAlertas() {
   return _insumosAlertaCache;
 }
 
-async function calcularAlertas() {
+async function calcularAlertas(forzar) {
   const out = [];
 
   /* --- La caja quedó abierta de un día anterior -------------------------
@@ -98,7 +101,7 @@ async function calcularAlertas() {
 
   /* --- Insumos: acá sí hay un mínimo por ítem, cargado a mano ----------- */
   try {
-    const insumos = await _insumosParaAlertas();
+    const insumos = await _insumosParaAlertas(forzar);
     const bajos = insumos.filter(i => Number(i.stockActual || 0) <= Number(i.stockMinimo || 0));
     if (bajos.length) {
       out.push({
@@ -136,10 +139,11 @@ function _pintarBadge() {
   btn.setAttribute('aria-label', 'Alertas: ' + total + ' pendiente' + (total !== 1 ? 's' : ''));
 }
 
-/* La llaman loadProducts() y loadCaja() cuando terminan. Es barata: solo
-   recalcula sobre lo que ya está en memoria. */
-async function actualizarBadgeAlertas() {
-  try { await calcularAlertas(); _pintarBadge(); }
+/* La llaman loadProducts() y loadCaja() al terminar, y con forzar=true todo lo
+   que crea, edita o borra un producto o un insumo. Sin ese forzar, una alerta
+   sigue mostrando lo que ya se resolvió hasta que se recargue la página. */
+async function actualizarBadgeAlertas(forzar) {
+  try { await calcularAlertas(forzar); _pintarBadge(); }
   catch (e) { console.warn('alertas:', e); }
 }
 
@@ -184,9 +188,8 @@ async function toggleAlertas(ev) {
   window.addEventListener('scroll', cerrarAlertas, true);
 
   panel.querySelector('.alertas-refresh').addEventListener('click', async () => {
-    _insumosAlertaCache = null;   /* refresco a mano: se vuelve a pedir todo */
     panel.querySelector('.alertas-body').innerHTML = '<p class="alertas-vacio">Revisando...</p>';
-    await calcularAlertas();
+    await calcularAlertas(true);   /* refresco a mano: se vuelve a pedir todo */
     _pintarBadge();
     _pintarPanel();
   });

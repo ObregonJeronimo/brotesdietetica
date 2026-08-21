@@ -183,7 +183,7 @@ async function asignarCodigoA(prodId) {
   const p = allProducts.find(x => x.id === prodId);
   if (!p) return;
   if (p.codigoBarras && p.codigoBarras !== cod &&
-      !confirm('"' + (p.nombreMostrado || p.nombre) + '" ya tiene el código ' + p.codigoBarras + '. ¿Reemplazarlo?')) return;
+      !await pedirConfirmacion('"' + (p.nombreMostrado || p.nombre) + '" ya tiene el código ' + p.codigoBarras + '. ¿Reemplazarlo?',{titulo:'Ese producto ya tiene código',aceptar:'Reemplazar'})) return;
   /* Se le pregunta a Firestore, no a allProducts: la lista en memoria se cargo al entrar al
      panel y si el otro admin le asigno este codigo a otro producto desde la otra PC, aca
      sigue figurando como libre. Sin este control quedaban dos productos con el mismo codigo

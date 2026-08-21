@@ -124,8 +124,8 @@ async function agregarAdmin() {
   /* Cuentas que no son de Google no van a poder entrar, porque el login es solo con
      Google. Se avisa en vez de dejar un documento que no sirve para nada. */
   if (!/@(gmail\.com|googlemail\.com)$/.test(mail) &&
-      !confirm('"' + mail + '" no es una cuenta de Gmail.\n\nAl panel se ingresa \u00fanicamente con una cuenta de Google. ' +
-               'Si ese correo no est\u00e1 asociado a una cuenta de Google, no podr\u00e1 ingresar.\n\n\u00bfAgregarlo de todos modos?')) return;
+      !await pedirConfirmacion('"' + mail + '" no es una cuenta de Gmail.\n\nAl panel se ingresa \u00fanicamente con una cuenta de Google. ' +
+               'Si ese correo no est\u00e1 asociado a una cuenta de Google, no podr\u00e1 ingresar.\n\n\u00bfAgregarlo de todos modos?',{titulo:'No es una cuenta de Gmail',aceptar:'Agregar igual'})) return;
 
   btn.disabled = true;
   try {
@@ -149,8 +149,8 @@ async function quitarAdmin(mail) {
   const yo = (auth.currentUser && auth.currentUser.email || '').toLowerCase();
   if (mail === MAIL_DUENIO) { showAdminToast('No puede quitarse el acceso al due\u00f1o', 'error'); return; }
   if (mail === yo) { showAdminToast('No puede quitarse el acceso a s\u00ed mismo', 'error'); return; }
-  if (!confirm('Quitarle el acceso al panel a "' + mail + '"?\n\nPierde el acceso de inmediato. ' +
-               'Los datos que carg\u00f3 se conservan.')) return;
+  if (!await pedirConfirmacion('Quitarle el acceso al panel a "' + mail + '"?\n\nPierde el acceso de inmediato. ' +
+               'Los datos que carg\u00f3 se conservan.',{titulo:'Quitar acceso',aceptar:'Quitar acceso',peligro:true})) return;
   try {
     await db.collection('admins').doc(mail).delete();
     if (typeof logAction === 'function') logAction('eliminar', 'Admin quitado: ' + mail, 'Acceso al panel revocado');
