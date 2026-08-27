@@ -185,6 +185,15 @@
         .dlg-peligro{background:var(--danger);color:#fff;border:none}
         .dlg-peligro:hover{filter:brightness(1.08)}
         .dlg-pie .btn:focus-visible{outline:2px solid var(--accent-light);outline-offset:2px}
+        .pz-rapidos{display:flex;gap:0.4rem;flex-wrap:wrap;margin:0.8rem 0 0.6rem}
+        .pz-rap{flex:1 1 auto;min-width:64px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:0.82rem;font-weight:600;padding:0.5rem 0.4rem;border-radius:8px;cursor:pointer}
+        .pz-rap:hover{border-color:var(--accent);color:var(--accent-light)}
+        .pz-fila{display:flex;align-items:center;gap:0.5rem}
+        .pz-input{flex:1;font-family:var(--mono);font-size:1rem;text-align:right}
+        .pz-unidad{color:var(--text-dim);font-size:0.85rem;white-space:nowrap}
+        .pz-total{display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;min-height:1.6rem;font-size:0.9rem;color:var(--text-dim)}
+        .pz-total b{font-size:1.15rem;color:var(--accent-light);font-family:var(--mono)}
+        .pz-aviso{color:#EDB833;font-size:0.78rem;min-height:1rem;margin-top:0.15rem}
         .stock-sin-guardar{display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;background:rgba(237,184,51,0.12);border:1px solid rgba(237,184,51,0.35);color:#EDB833;border-radius:var(--radius);padding:0.7rem 0.9rem;margin-bottom:0.75rem;font-size:0.85rem}
         .stock-sin-guardar[hidden]{display:none}
         .stock-row.sin-guardar{outline:1px solid rgba(237,184,51,0.55)}
@@ -676,7 +685,7 @@
   </div>
   <div class="img-size-info" id="imgSizeInfo" style="margin-top:0.25rem"><i class="bi bi-file-image"></i> <span id="imgSizeText"></span></div>
 </div>
-<input type="file" class="file-input-hidden" id="imgFileInput" accept="image/*" onchange="previewSelectedImage(this)"><div class="form-group"><label>Nombre interno *</label><input type="text" class="form-input" id="pNombre" required placeholder="Nombre real (BDD)"></div><div class="form-group"><label>Nombre público <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(lo que ve el cliente — vacío = usa nombre interno)</span></label><input type="text" class="form-input" id="pNombreMostrado" placeholder="Ej: Chocolate Artesanal Premium 1kg"></div><div class="form-group"><label>Gramaje / Presentación <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional — ej: 250g, 500g, 1kg)</span></label><input type="text" class="form-input" id="pGramaje" placeholder="Ej: 500g ó 1kg"></div><div class="form-group"><label>Código de barras <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional — escaneá el producto con el cursor acá)</span></label><input type="text" class="form-input" id="pCodigoBarras" placeholder="Se completa solo al escanear" style="font-family:var(--mono,ui-monospace,monospace)"></div><div class="precio-section"><div class="precio-section-title" style="color:#E6A817"><i class="bi bi-cash-stack"></i> Costo y stock</div><div class="form-row" style="grid-template-columns:1fr 1fr;align-items:start"><div class="form-group"><label>Costo *</label><input type="text" inputmode="numeric" class="form-input" id="pCosto" required oninput="limpiarMonto(this);calcPrecioModal()"><small style="font-size:0.72rem;color:var(--text-dim);line-height:1.35;display:block;margin-top:4px">Lo que cuesta el producto. Con este n&uacute;mero se calculan el precio minorista <b>y</b> el mayorista.</small></div><div class="form-group"><label>Stock</label><input type="number" class="form-input" id="pStock" value="0" min="0"></div></div></div><div class="precio-section"><div class="precio-section-title"><i class="bi bi-shop"></i> Precio minorista</div><div class="form-row" style="grid-template-columns:1fr 1fr"><div class="form-group"><label>% Ganancia *</label><input type="number" class="form-input" id="pPorcentaje" value="0" min="0" step="0.1" oninput="calcPrecioModal()"></div><div class="form-group"><label>Precio <span class="lbl-auto">auto</span></label><input type="number" class="form-input" id="pPrecio" readonly style="opacity:0.6;cursor:not-allowed" tabindex="-1"></div></div><div class="form-row" style="grid-template-columns:1fr 1fr;margin-top:0.75rem;align-items:end"><div class="form-group"><label>Descuento % <i class="bi bi-tag-fill" style="color:#e53935;font-size:0.7rem"></i></label><input type="number" class="form-input" id="pDescuento" value="0" min="0" max="100" step="1" oninput="calcPrecioModal()" placeholder="0"></div><div class="form-group" id="precioFinalWrap" style="display:none"><label style="color:#e53935">Precio final cliente</label><div id="pPrecioFinal" class="precio-final-box">$0</div></div></div></div><div class="precio-section"><div class="precio-section-title" style="color:#a78bfa"><i class="bi bi-box-seam"></i> Precio mayorista</div><div class="form-row" style="grid-template-columns:1fr 1fr"><div class="form-group"><label>% Ganancia</label><input type="number" class="form-input" id="pPorcentajeMay" value="0" min="0" step="0.1" oninput="calcPrecioModal()"></div><div class="form-group"><label>Precio <span class="lbl-auto">auto</span></label><input type="number" class="form-input" id="pPrecioMay" readonly style="opacity:0.6;cursor:not-allowed;color:#a78bfa" tabindex="-1"></div></div><div class="form-row" style="grid-template-columns:1fr"><div class="form-group" id="recalcMayWrap" style="display:none;margin-top:0.5rem"><button type="button" id="btnRecalcMay" onclick="recalcularMayoristaDesdeMinorista()" style="width:auto;background:rgba(167,139,250,0.15);border:1px solid #a78bfa;color:#a78bfa;border-radius:var(--radius);padding:8px 14px;font-size:0.78rem;cursor:pointer;font-weight:600"><i class="bi bi-arrow-repeat"></i> <span id="btnRecalcMayText">Recalcular mayorista</span></button></div></div></div><div class="form-row"><div class="form-group"><label>Categoria *</label><select class="form-input" id="pCategoria" required onchange="updateSubcatSelect()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Subcategoria</label><select class="form-input" id="pSubcategoria"><option value="">Ninguna</option></select></div></div><div class="form-group"><label>Descripción <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(se muestra al cliente al abrir el producto)</span></label><textarea class="form-input" id="pDescripcion" rows="3" style="resize:vertical;font-family:inherit" placeholder="Ej: Yerba mate orgánica con stevia. Sin TACC. Cosecha 2024..."></textarea></div><div class="form-group"><label>Información nutricional <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional, se muestra al cliente)</span></label><textarea class="form-input" id="pValoresNutricionales" rows="4" style="resize:vertical;font-family:'DM Mono',monospace;font-size:0.85rem" placeholder="Por porción de 100g:&#10;Energía: 400 kcal&#10;Proteínas: 12g&#10;Carbohidratos: 60g&#10;Grasas: 8g&#10;Sodio: 50mg"></textarea></div><input type="file" id="imgExtraFileInput" accept="image/*" class="file-input-hidden" onchange="handleImgExtraUpload(this)"><input type="hidden" id="pImagenesExtra"><div class="form-group"><label>Lista (proveedor) *</label><select class="form-input" id="pLista" required><option value="">Seleccionar...</option></select></div><div class="form-actions"><button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button type="submit" class="btn btn-primary" id="saveBtn"><i class="bi bi-check-lg"></i> Guardar</button></div></form></div></div>
+<input type="file" class="file-input-hidden" id="imgFileInput" accept="image/*" onchange="previewSelectedImage(this)"><div class="form-row" style="grid-template-columns:200px 1fr"><div class="form-group"><label>C&oacute;digo / ID *</label><input type="text" class="form-input" id="pCodigo" required maxlength="40" autocomplete="off" spellcheck="false" placeholder="Se completa solo" style="font-family:var(--mono)"><small style="font-size:0.72rem;color:var(--text-dim);line-height:1.35;display:block;margin-top:4px">Se sugiere uno libre. Pod&eacute;s escribir el tuyo; no se puede repetir.</small></div><div class="form-group"><label>Nombre interno *</label><input type="text" class="form-input" id="pNombre" required placeholder="Nombre real (BDD)"></div></div><div class="form-group"><label>Nombre público <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(lo que ve el cliente — vacío = usa nombre interno)</span></label><input type="text" class="form-input" id="pNombreMostrado" placeholder="Ej: Chocolate Artesanal Premium 1kg"></div><div class="form-group"><label>Gramaje / Presentación <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional — ej: 250g, 500g, 1kg)</span></label><input type="text" class="form-input" id="pGramaje" placeholder="Ej: 500g ó 1kg"></div><div class="form-group"><label>Código de barras <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional — escaneá el producto con el cursor acá)</span></label><input type="text" class="form-input" id="pCodigoBarras" placeholder="Se completa solo al escanear" style="font-family:var(--mono,ui-monospace,monospace)"></div><div class="form-group"><label>&iquest;C&oacute;mo se vende?</label><div class="entrega-toggle"><button type="button" class="entrega-btn active" data-venta="unidad" onclick="setTipoVenta('unidad')"><i class="bi bi-box"></i> Por unidad</button><button type="button" class="entrega-btn" data-venta="peso" onclick="setTipoVenta('peso')"><i class="bi bi-database"></i> Por peso</button></div><small id="tipoVentaAyuda" style="font-size:0.72rem;color:var(--text-dim);line-height:1.35;display:block;margin-top:4px">Se vende de a unidades enteras. El precio es por unidad.</small></div><div class="precio-section"><div class="precio-section-title" style="color:#E6A817"><i class="bi bi-cash-stack"></i> Costo y stock</div><div class="form-row" style="grid-template-columns:1fr 1fr;align-items:start"><div class="form-group"><label id="lblCosto">Costo *</label><input type="text" inputmode="numeric" class="form-input" id="pCosto" required oninput="limpiarMonto(this);calcPrecioModal()"><small style="font-size:0.72rem;color:var(--text-dim);line-height:1.35;display:block;margin-top:4px">Lo que cuesta el producto. Con este n&uacute;mero se calculan el precio minorista <b>y</b> el mayorista.</small></div><div class="form-group"><label id="lblStock">Stock</label><input type="number" class="form-input" id="pStock" value="0" min="0" step="1"></div></div></div><div class="precio-section"><div class="precio-section-title"><i class="bi bi-shop"></i> Precio minorista</div><div class="form-row" style="grid-template-columns:1fr 1fr"><div class="form-group"><label>% Ganancia *</label><input type="number" class="form-input" id="pPorcentaje" value="0" min="0" step="0.1" oninput="calcPrecioModal()"></div><div class="form-group"><label>Precio <span class="lbl-auto">auto</span></label><input type="number" class="form-input" id="pPrecio" readonly style="opacity:0.6;cursor:not-allowed" tabindex="-1"></div></div><div class="form-row" style="grid-template-columns:1fr 1fr;margin-top:0.75rem;align-items:end"><div class="form-group"><label>Descuento % <i class="bi bi-tag-fill" style="color:#e53935;font-size:0.7rem"></i></label><input type="number" class="form-input" id="pDescuento" value="0" min="0" max="100" step="1" oninput="calcPrecioModal()" placeholder="0"></div><div class="form-group" id="precioFinalWrap" style="display:none"><label style="color:#e53935">Precio final cliente</label><div id="pPrecioFinal" class="precio-final-box">$0</div></div></div></div><div class="precio-section"><div class="precio-section-title" style="color:#a78bfa"><i class="bi bi-box-seam"></i> Precio mayorista</div><div class="form-row" style="grid-template-columns:1fr 1fr"><div class="form-group"><label>% Ganancia</label><input type="number" class="form-input" id="pPorcentajeMay" value="0" min="0" step="0.1" oninput="calcPrecioModal()"></div><div class="form-group"><label>Precio <span class="lbl-auto">auto</span></label><input type="number" class="form-input" id="pPrecioMay" readonly style="opacity:0.6;cursor:not-allowed;color:#a78bfa" tabindex="-1"></div></div><div class="form-row" style="grid-template-columns:1fr"><div class="form-group" id="recalcMayWrap" style="display:none;margin-top:0.5rem"><button type="button" id="btnRecalcMay" onclick="recalcularMayoristaDesdeMinorista()" style="width:auto;background:rgba(167,139,250,0.15);border:1px solid #a78bfa;color:#a78bfa;border-radius:var(--radius);padding:8px 14px;font-size:0.78rem;cursor:pointer;font-weight:600"><i class="bi bi-arrow-repeat"></i> <span id="btnRecalcMayText">Recalcular mayorista</span></button></div></div></div><div class="form-row"><div class="form-group"><label>Categoria *</label><select class="form-input" id="pCategoria" required onchange="updateSubcatSelect()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Subcategoria</label><select class="form-input" id="pSubcategoria"><option value="">Ninguna</option></select></div></div><div class="form-group"><label>Descripción <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(se muestra al cliente al abrir el producto)</span></label><textarea class="form-input" id="pDescripcion" rows="3" style="resize:vertical;font-family:inherit" placeholder="Ej: Yerba mate orgánica con stevia. Sin TACC. Cosecha 2024..."></textarea></div><div class="form-group"><label>Información nutricional <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional, se muestra al cliente)</span></label><textarea class="form-input" id="pValoresNutricionales" rows="4" style="resize:vertical;font-family:'DM Mono',monospace;font-size:0.85rem" placeholder="Por porción de 100g:&#10;Energía: 400 kcal&#10;Proteínas: 12g&#10;Carbohidratos: 60g&#10;Grasas: 8g&#10;Sodio: 50mg"></textarea></div><input type="file" id="imgExtraFileInput" accept="image/*" class="file-input-hidden" onchange="handleImgExtraUpload(this)"><input type="hidden" id="pImagenesExtra"><div class="form-group"><label>Lista (proveedor) *</label><select class="form-input" id="pLista" required><option value="">Seleccionar...</option></select></div><div class="form-actions"><button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button type="submit" class="btn btn-primary" id="saveBtn"><i class="bi bi-check-lg"></i> Guardar</button></div></form></div></div>
     <div class="modal-overlay" id="priceModal"><div class="modal-box" style="max-width:650px"><div class="modal-header"><h3 id="priceModalTitle">Ajustar precios</h3><button class="modal-close" onclick="closePriceModal()"><i class="bi bi-x-lg"></i></button></div><div class="price-modal-body"><div class="price-actions" style="margin-bottom:1rem"><button class="price-action-btn" onclick="openPriceModal('all')"><i class="bi bi-collection"></i><span>Todos</span></button><button class="price-action-btn" onclick="openPriceModal('selected')"><i class="bi bi-ui-checks"></i><span>Seleccionados</span></button><button class="price-action-btn" onclick="openPriceModal('single')"><i class="bi bi-pencil-square"></i><span>Individual</span></button></div><div id="selectionArea" style="display:none"><div class="toolbar" style="margin-bottom:0.75rem"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar para seleccionar..." id="priceSelSearch" oninput="filterSelectionList()"></div><select class="form-input" style="width:auto;min-width:140px" id="priceSelCat" onchange="filterSelectionList()"><option value="">Todas</option></select></div><div class="sel-list" id="selList"></div><button class="btn btn-primary" style="width:auto;margin-top:0.75rem" onclick="confirmSelection()"><i class="bi bi-check-lg"></i> Confirmar (<span id="selCount">0</span>)</button></div><div id="priceControlsArea" style="display:none"><div class="price-controls"><div class="radio-group"><label class="radio-opt"><input type="radio" name="priceDir" value="up" checked> <i class="bi bi-arrow-up-circle"></i> Aumentar</label><label class="radio-opt"><input type="radio" name="priceDir" value="down"> <i class="bi bi-arrow-down-circle"></i> Disminuir</label></div><div class="pct-row"><input type="number" class="form-input" id="pctInput" placeholder="%" min="0" max="100" style="width:100px"><span style="color:var(--text-dim);font-size:0.85rem">%</span><button class="btn btn-primary" style="width:auto" onclick="calcPricePreview()"><i class="bi bi-calculator"></i> Calcular</button><button class="btn btn-secondary" style="width:auto" onclick="roundPricePreview()"><i class="bi bi-arrows-angle-contract"></i> Redondear</button></div></div><div id="pricePreviewArea" style="display:none"><div class="toolbar" style="margin-bottom:0.75rem"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar..." id="pricePreviewSearch" oninput="filterPricePreview()"></div><span class="price-page-info" id="pricePageInfo"></span></div><div class="price-preview-list" id="pricePreviewList"></div><div class="price-pager" id="pricePager"></div><div class="form-actions" style="margin-top:1rem"><button class="btn btn-secondary" onclick="closePriceModal()">Cancelar</button><button class="btn btn-primary" onclick="applyPriceChanges()" id="applyPriceBtn"><i class="bi bi-check-lg"></i> Aplicar cambios</button></div></div></div></div></div></div>
     <div class="modal-overlay" id="descuentoModal"><div class="modal-box" style="max-width:680px;width:96vw;max-height:92vh;display:flex;flex-direction:column"><div class="modal-header"><h3><i class="bi bi-tag-fill"></i> Aplicar descuentos</h3><button class="modal-close" onclick="closeDescuentoModal()"><i class="bi bi-x-lg"></i></button></div><div style="padding:1rem;overflow-y:auto;flex:1"><div style="background:#3a2a1a;border:1px solid #6a4a2a;padding:0.7rem 0.9rem;border-radius:var(--radius);margin-bottom:1rem;font-size:0.8rem;color:#e6a23c;line-height:1.5"><i class="bi bi-info-circle"></i> El descuento se muestra como cinta "-X% OFF" en la card del cliente. El precio se mantiene y el cliente ve el precio tachado y el precio con descuento. Para quitar un descuento, aplicá 0%.</div>
     <div style="display:flex;gap:0.5rem;margin-bottom:0.85rem;flex-wrap:wrap"><button class="btn btn-secondary" style="flex:1;min-width:120px" onclick="dscSelMode('cat')"><i class="bi bi-collection"></i> Por categoría</button><button class="btn btn-secondary" style="flex:1;min-width:120px" onclick="dscSelMode('sel')"><i class="bi bi-ui-checks"></i> Elegir productos</button><button class="btn btn-secondary" style="flex:1;min-width:120px" onclick="dscSelMode('all')"><i class="bi bi-asterisk"></i> Todos</button></div>
@@ -1457,6 +1466,137 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             info.className='img-size-info';
         }
 
+        /* =====================================================================
+           PRODUCTOS POR PESO
+           =====================================================================
+           Un producto puede venderse POR UNIDAD (una bolsa de chía de 500g es un
+           producto entero) o POR PESO (chía suelta, el cliente pide 200 gramos).
+
+           Para los de peso se reinterpretan tres campos que ya existían, en vez de
+           agregar campos paralelos que habría que mantener sincronizados:
+
+             precio  -> precio por KILO
+             costo   -> costo por KILO
+             stock   -> GRAMOS en stock
+
+           Y la cantidad de un item de venta pasa a ser GRAMOS. Eso hace que el
+           descuento de stock (deltasDeItems) siga funcionando sin tocarlo: resta
+           gramos de un stock que está en gramos.
+
+           tipoVenta ausente = 'unidad'. Los productos que ya existen no cambian en
+           nada, que es la razón de no haber invertido el default.
+
+           El subtotal SIEMPRE se calcula con subtotalItem(). La fórmula estaba
+           repetida en cinco lugares (los dos render, los dos totales y el guardado);
+           con dos modos de venta, cinco copias es una garantía de que alguna quede
+           mal y una venta salga mil veces más cara o más barata. */
+
+        function esPorPeso(x){ return !!(x && x.tipoVenta === 'peso'); }
+
+        /* 250 -> "250 g" | 1500 -> "1,5 kg". Se usa en pantalla, tickets y PDF. */
+        function fmtPeso(gr){
+            const g = Number(gr || 0);
+            if (Math.abs(g) < 1000) return g.toLocaleString('es-AR') + ' g';
+            return (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg';
+        }
+
+        /* Cómo se muestra la cantidad de un item, según cómo se venda. */
+        function fmtCantidad(i){
+            return esPorPeso(i) ? fmtPeso(i.cantidad) : String(Number(i.cantidad || 0));
+        }
+
+        /* Stock de un producto, para las pantallas que lo listan. */
+        function fmtStockProd(p){
+            return esPorPeso(p) ? fmtPeso(p && p.stock) : String(Number((p && p.stock) || 0));
+        }
+
+        /* El precio unitario ya con su descuento aplicado. En los de peso esto es
+           el precio del KILO. */
+        function precioConDsc(i){
+            return Math.round(Number(i.precio || 0) * (1 - (Number(i.descuento) || 0) / 100));
+        }
+
+        /* LA función. Para peso: precio del kilo por los gramos, dividido 1000.
+           Se redondea al peso porque no existe la fracción de peso en el mostrador. */
+        function subtotalItem(i){
+            const pd = precioConDsc(i);
+            const cant = Number(i.cantidad || 0);
+            return esPorPeso(i) ? Math.round(pd * cant / 1000) : pd * cant;
+        }
+
+        /* El costo tambien es POR KILO en los de peso: si no, el margen que muestra
+           la venta sale mil veces mas alto y parece que todo se vende con ganancia
+           enorme. */
+        function costoItem(i){
+            const c = Number((i && i.costo) || 0), cant = Number((i && i.cantidad) || 0);
+            return esPorPeso(i) ? Math.round(c * cant / 1000) : c * cant;
+        }
+
+        /* Etiqueta de precio para las listas: "$4.500" o "$4.500 el kilo". */
+        function fmtPrecioProd(p, precio){
+            const v = Number(precio != null ? precio : (p && p.precio) || 0);
+            return '$' + v.toLocaleString('es-AR') + (esPorPeso(p) ? ' <span style="font-size:0.72rem;color:var(--text-dim)">el kilo</span>' : '');
+        }
+
+        /* --------- Formulario: el toggle unidad / peso --------- */
+        let _tipoVentaProd = 'unidad';
+
+        function setTipoVenta(t){
+            _tipoVentaProd = (t === 'peso') ? 'peso' : 'unidad';
+            document.querySelectorAll('#productModal .entrega-btn[data-venta]').forEach(b => {
+                b.classList.toggle('active', b.getAttribute('data-venta') === _tipoVentaProd);
+            });
+            const peso = _tipoVentaProd === 'peso';
+            const lc = document.getElementById('lblCosto');
+            const ls = document.getElementById('lblStock');
+            const ay = document.getElementById('tipoVentaAyuda');
+            if (lc) lc.textContent = peso ? 'Costo por kilo *' : 'Costo *';
+            if (ls) ls.textContent = peso ? 'Stock (en gramos)' : 'Stock';
+            if (ay) ay.textContent = peso
+                ? 'Se vende suelto, pesado en el mostrador. El precio que cargues es el del KILO, y el stock va en gramos: 5 kilos son 5000.'
+                : 'Se vende de a unidades enteras. El precio es por unidad.';
+            const st = document.getElementById('pStock');
+            if (st) st.placeholder = peso ? 'gramos' : '0';
+        }
+
+        /* --------- Código / ID --------- */
+        /* Se sugiere el primer P-#### libre. No hay contador en la base a propósito:
+           un contador agrega una escritura y un punto de falla, y acá alcanza con
+           mirar los que ya existen. La unicidad de verdad se valida contra Firestore
+           al guardar, que es lo único que no se puede saltear. */
+        function sugerirCodigoProducto(){
+            const usados = new Set((allProducts || []).map(p => String(p.codigo || '').toUpperCase()));
+            let n = (allProducts || []).length + 1;
+            for (let i = 0; i < 10000; i++){
+                const c = 'P-' + String(n).padStart(4, '0');
+                if (!usados.has(c)) return c;
+                n++;
+            }
+            return 'P-' + Date.now().toString().slice(-6);
+        }
+
+        function normCodigo(v){
+            return String(v == null ? '' : v).trim().toUpperCase().replace(/\s+/g, '-');
+        }
+
+        /* Devuelve el mensaje de error, o '' si está bien. */
+        async function validarCodigoProducto(codigo, idActual){
+            if (!codigo) return 'El código no puede quedar vacío.';
+            if (codigo.length > 40) return 'El código no puede tener más de 40 caracteres.';
+            if (!/^[A-Z0-9._\-]+$/.test(codigo)) return 'El código solo puede tener letras, números, punto, guion y guion bajo.';
+            /* En memoria primero: es instantáneo y resuelve el 99% de los casos. */
+            const choqueLocal = (allProducts || []).find(p => p.id !== idActual && normCodigo(p.codigo) === codigo);
+            if (choqueLocal) return 'Ese código ya lo usa "' + (choqueLocal.nombreMostrado || choqueLocal.nombre) + '".';
+            /* Y contra la base, que es la que manda: allProducts puede estar vieja si
+               otro admin cargó un producto hace un minuto. */
+            try {
+                const q = await db.collection('productos').where('codigo', '==', codigo).limit(2).get();
+                const otro = q.docs.find(d => d.id !== idActual);
+                if (otro) return 'Ese código ya lo usa "' + (otro.data().nombreMostrado || otro.data().nombre || 'otro producto') + '".';
+            } catch (e) { console.warn('validar codigo:', e); }
+            return '';
+        }
+
         function openModal(id){editingId=id||null;selectedImageFile=null;existingImageUrl=null;_stockAlAbrir=null;document.getElementById('productForm').reset();document.getElementById('pStock').value='0';document.getElementById('pCosto').value='0';document.getElementById('pPorcentaje').value='0';document.getElementById('pPrecio').value='0';_pctMinOriginal=null;const _may=document.getElementById('pPorcentajeMay');if(_may)_may.value='0';const _pMay=document.getElementById('pPrecioMay');if(_pMay)_pMay.value='0';_imgExtraUrls=[];_imgPrincipalUrl=null;_prodCarIdx=0;renderProdCarousel();hideImageSize();if(id){document.getElementById('modalTitle').textContent='Editar Producto';const p=allProducts.find(x=>x.id===id);if(p){document.getElementById('pNombre').value=p.nombre||'';if(document.getElementById('pNombreMostrado'))document.getElementById('pNombreMostrado').value=p.nombreMostrado||'';if(document.getElementById('pGramaje'))document.getElementById('pGramaje').value=p.gramaje||'';if(document.getElementById('pCodigoBarras'))document.getElementById('pCodigoBarras').value=p.codigoBarras||'';if(document.getElementById('pDescuento'))document.getElementById('pDescuento').value=p.descuento||0;document.getElementById('pCosto').value=p.costo||0;document.getElementById('pPorcentaje').value=p.porcentaje||0;_pctMinOriginal=Number(p.porcentaje||0);document.getElementById('pPrecio').value=p.precio||0;document.getElementById('pStock').value=p.stock||0;_stockAlAbrir=Number(p.stock||0);updateCatSelects();document.getElementById('pCategoria').value=p.categoria||'';updateSubcatSelect();document.getElementById('pSubcategoria').value=p.subcategoria||'';document.getElementById('pDescripcion').value=p.descripcion||'';document.getElementById('pValoresNutricionales').value=p.valoresNutricionales||'';document.getElementById('pPorcentajeMay').value=p.porcentajeMayorista||0;calcPrecioModal();_imgExtraUrls=Array.isArray(p.imagenesExtra)?p.imagenesExtra.filter(Boolean):(p.imagenesExtra?p.imagenesExtra.split('\n').filter(Boolean):[]);_imgPrincipalUrl=p.imagen||null;_prodCarIdx=0;renderProdCarousel();calcPrecioModal();if(p.imagen){existingImageUrl=p.imagen;}}}else{document.getElementById('modalTitle').textContent='Nuevo Producto';updateCatSelects();/* Recalculo con el formulario ya limpio: form.reset() devuelve los inputs a 0 pero no borra el display del bloque 'Precio final cliente' ni el color/title que dejo inline la edicion anterior, asi que al abrir 'Nuevo producto' despues de editar uno con descuento se mostraba el precio final de OTRO producto sobre un formulario vacio. */calcPrecioModal();}updateListaSelect(id?allProducts.find(x=>x.id===id)?.lista||'':'');const _brmw=document.getElementById('recalcMayWrap');if(_brmw)_brmw.style.display='none';document.getElementById('productModal').classList.add('show');}
         function downloadProductImage(e){e.preventDefault();e.stopPropagation();if(!existingImageUrl)return;window.open(existingImageUrl,'_blank');}
         function _redondearMayorista(p){return p?Math.ceil(p/50)*50:0;}
@@ -1550,8 +1690,25 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             }
         }
 
-        async function saveProduct(e){e.preventDefault();const _listaVal=document.getElementById('pLista')?.value||'';if(!_listaVal){showAdminToast('Seleccioná una lista de proveedor','error');document.getElementById('pLista').focus();return;}const btn=document.getElementById('saveBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{let _refId=editingId;let imgUrl=existingImageUrl;if(selectedImageFile){btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Subiendo imagen...';imgUrl=await uploadImage(selectedImageFile);}const costo=montoAR(document.getElementById('pCosto').value)||0;const porcentaje=parseFloat(document.getElementById('pPorcentaje').value)||0;const precioCalc=Math.round(costo*(1+porcentaje/100));const pctMay=parseFloat(document.getElementById('pPorcentajeMay')?.value)||0;const precioMayCalc=_redondearMayorista(Math.round(costo*(1+pctMay/100)));const listaVal=document.getElementById('pLista')?.value||'';const descuentoProd=Math.min(100,Math.max(0,parseInt(document.getElementById('pDescuento')?.value)||0));const nombreMostrado=document.getElementById('pNombreMostrado')?.value.trim()||'';const gramajeProd=document.getElementById('pGramaje')?.value.trim()||'';/* Solo digitos: los lectores a veces mandan basura y un codigo con un espacio invisible al final no vuelve a matchear nunca */
-            const codBarras=(document.getElementById('pCodigoBarras')?.value||'').replace(/[^0-9A-Za-z]/g,'');const data={nombre:document.getElementById('pNombre').value.trim(),nombreMostrado:nombreMostrado||null,gramaje:gramajeProd||null,codigoBarras:codBarras||null,costo:costo,porcentaje:porcentaje,precio:precioCalc,porcentajeMayorista:pctMay,precioMayorista:precioMayCalc,descuento:descuentoProd,stock:parseInt(document.getElementById('pStock').value)||0,categoria:document.getElementById('pCategoria').value.trim(),subcategoria:document.getElementById('pSubcategoria').value.trim()||null,descripcion:document.getElementById('pDescripcion').value.trim(),valoresNutricionales:document.getElementById('pValoresNutricionales').value.trim(),imagenesExtra:_imgExtraUrls.filter(Boolean),imagen:imgUrl||null,lista:listaVal||null};btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando datos...';if(editingId){const old=allProducts.find(x=>x.id===editingId);const cambios=[];if(old){if(old.nombre!==data.nombre)cambios.push('nombre: '+old.nombre+' -> '+data.nombre);if(old.precio!==data.precio)cambios.push('precio: $'+old.precio+' -> $'+data.precio);if((old.costo||0)!==data.costo)cambios.push('costo: $'+(old.costo||0)+' -> $'+data.costo);if(old.stock!==data.stock)cambios.push('stock: '+old.stock+' -> '+data.stock);if(old.categoria!==data.categoria)cambios.push('cat: '+old.categoria+' -> '+data.categoria);if(old.subcategoria!==data.subcategoria)cambios.push('subcat: '+(old.subcategoria||'-')+' -> '+(data.subcategoria||'-'));if(old.imagen!==data.imagen)cambios.push('imagen cambiada');}/* Si nadie toco el campo de stock, NO se escribe. Este update mandaba siempre el numero
+
+        /* Se envuelve en vez de tocar openModal por dentro: es una sola linea de casi
+           2000 caracteres y cualquier edicion ahi adentro es una ruleta. */
+        const _origOpenModal = openModal;
+        openModal = function(id){
+            _origOpenModal(id);
+            const p = id ? (allProducts || []).find(x => x.id === id) : null;
+            setTipoVenta(p ? (p.tipoVenta || 'unidad') : 'unidad');
+            const c = document.getElementById('pCodigo');
+            if (c) c.value = p ? (p.codigo || '') : sugerirCodigoProducto();
+        };
+        async function saveProduct(e){e.preventDefault();const _listaVal=document.getElementById('pLista')?.value||'';if(!_listaVal){showAdminToast('Seleccioná una lista de proveedor','error');document.getElementById('pLista').focus();return;}
+            /* El codigo es obligatorio y unico. Se valida ANTES de subir la imagen:
+               si no, una imagen queda huerfana en Storage cada vez que el codigo choca. */
+            const _codigoProd=normCodigo(document.getElementById('pCodigo')?.value);
+            const _errCod=await validarCodigoProducto(_codigoProd, editingId);
+            if(_errCod){showAdminToast(_errCod,'error');const _c=document.getElementById('pCodigo');if(_c){_c.value=_codigoProd;_c.focus();}return;}
+            if(document.getElementById('pCodigo'))document.getElementById('pCodigo').value=_codigoProd;const btn=document.getElementById('saveBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{let _refId=editingId;let imgUrl=existingImageUrl;if(selectedImageFile){btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Subiendo imagen...';imgUrl=await uploadImage(selectedImageFile);}const costo=montoAR(document.getElementById('pCosto').value)||0;const porcentaje=parseFloat(document.getElementById('pPorcentaje').value)||0;const precioCalc=Math.round(costo*(1+porcentaje/100));const pctMay=parseFloat(document.getElementById('pPorcentajeMay')?.value)||0;const precioMayCalc=_redondearMayorista(Math.round(costo*(1+pctMay/100)));const listaVal=document.getElementById('pLista')?.value||'';const descuentoProd=Math.min(100,Math.max(0,parseInt(document.getElementById('pDescuento')?.value)||0));const nombreMostrado=document.getElementById('pNombreMostrado')?.value.trim()||'';const gramajeProd=document.getElementById('pGramaje')?.value.trim()||'';/* Solo digitos: los lectores a veces mandan basura y un codigo con un espacio invisible al final no vuelve a matchear nunca */
+            const codBarras=(document.getElementById('pCodigoBarras')?.value||'').replace(/[^0-9A-Za-z]/g,'');const data={nombre:document.getElementById('pNombre').value.trim(),nombreMostrado:nombreMostrado||null,gramaje:gramajeProd||null,codigoBarras:codBarras||null,costo:costo,porcentaje:porcentaje,precio:precioCalc,porcentajeMayorista:pctMay,precioMayorista:precioMayCalc,descuento:descuentoProd,stock:parseInt(document.getElementById('pStock').value)||0,categoria:document.getElementById('pCategoria').value.trim(),subcategoria:document.getElementById('pSubcategoria').value.trim()||null,descripcion:document.getElementById('pDescripcion').value.trim(),valoresNutricionales:document.getElementById('pValoresNutricionales').value.trim(),imagenesExtra:_imgExtraUrls.filter(Boolean),imagen:imgUrl||null,lista:listaVal||null,codigo:_codigoProd,tipoVenta:_tipoVentaProd};btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando datos...';if(editingId){const old=allProducts.find(x=>x.id===editingId);const cambios=[];if(old){if(old.nombre!==data.nombre)cambios.push('nombre: '+old.nombre+' -> '+data.nombre);if(old.precio!==data.precio)cambios.push('precio: $'+old.precio+' -> $'+data.precio);if((old.costo||0)!==data.costo)cambios.push('costo: $'+(old.costo||0)+' -> $'+data.costo);if(old.stock!==data.stock)cambios.push('stock: '+old.stock+' -> '+data.stock);if(old.categoria!==data.categoria)cambios.push('cat: '+old.categoria+' -> '+data.categoria);if(old.subcategoria!==data.subcategoria)cambios.push('subcat: '+(old.subcategoria||'-')+' -> '+(data.subcategoria||'-'));if(old.imagen!==data.imagen)cambios.push('imagen cambiada');}/* Si nadie toco el campo de stock, NO se escribe. Este update mandaba siempre el numero
                absoluto que el formulario habia cargado al abrirse: si el otro admin vendia 12
                unidades mientras este formulario estaba abierto, guardar el producto —aunque
                fuera solo para corregir la descripcion— devolvia el stock al valor viejo y esas
@@ -1625,12 +1782,15 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                     '<input type="checkbox" class="stock-chk" '+(_stockSel.has(p.id)?'checked':'')+
                         ' onchange="stockAlternar(\''+_attrHtml(p.id)+'\',this.checked)" title="Seleccionar">'+
                     '<img src="'+_attrHtml(img)+'" onerror="this.src=\'img/default-product.svg\'">'+
-                    '<div class="stock-row-info"><strong>'+esc(p.nombre||'')+
+                    '<div class="stock-row-info"><strong>'+esc(p.nombre||'')+(esPorPeso(p)?'<span class="vprod-chip neutro" style="margin-left:6px">POR PESO</span>':'')+
                         (pend?'<span class="stock-chip-sg">SIN GUARDAR</span>':'')+'</strong>'+
                         '<small>'+esc((p.categoria||'')+(p.subcategoria?' / '+p.subcategoria:''))+'</small></div>'+
-                    '<input type="number" class="stock-input" id="stock-'+_attrHtml(p.id)+'" value="'+val+'" min="0"'+
+                    '<input type="number" class="stock-input" id="stock-'+_attrHtml(p.id)+'" value="'+val+'" min="0" step="'+(esPorPeso(p)?'50':'1')+'"'+
                         ' oninput="stockCambio(\''+_attrHtml(p.id)+'\',this)"'+
                         ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();saveStock(\''+_attrHtml(p.id)+'\');}">'+
+                    /* En los de peso el numero son GRAMOS. Sin la unidad al lado,
+                       un 3400 se lee como 3400 unidades. */
+                    (esPorPeso(p)?'<span style="color:var(--text-dim);font-size:0.74rem;white-space:nowrap">g<br><span style="font-size:0.68rem">'+fmtPeso(val)+'</span></span>':'')+
                     '<button class="stock-save" onclick="saveStock(\''+_attrHtml(p.id)+'\')" title="Guardar este producto">'+
                         '<i class="bi bi-check-lg"></i></button>'+
                 '</div>';
@@ -1924,7 +2084,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         }
 
         function calcularTotalesVenta(){
-            const subtotal=ventaItems.reduce((s,i)=>s+Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad,0);
+            const subtotal=ventaItems.reduce((s,i)=>s+subtotalItem(i),0);
             const descInput=document.getElementById('ventaDescuentoPct');
             let descuentoPct=descInput?parseFloat(descInput.value)||0:0;
             if(descuentoPct<0)descuentoPct=0;
@@ -2019,14 +2179,20 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function _filaProdVenta(p,ctx){
             const min=Number(p.precio||0), may=Number(p.precioMayorista||0), stock=Number(p.stock||0);
             const principal = ctx==='may' ? (may||min) : min;
+            const sufKg = esPorPeso(p) ? ' el kilo' : '';
             const alt = ctx==='may'
-                ? 'Minorista $'+min.toLocaleString('es-AR')
-                : (may?'Mayorista $'+may.toLocaleString('es-AR'):'');
+                ? 'Minorista $'+min.toLocaleString('es-AR')+sufKg
+                : (may?'Mayorista $'+may.toLocaleString('es-AR')+sufKg:'');
             const chips=[];
+            /* En los de peso el stock son GRAMOS: "Stock 800" se leeria como 800
+               unidades. Y el umbral de "poco" no puede ser 5 gramos. */
+            const peso=esPorPeso(p);
+            const bajoUmbral=peso?500:5;
             chips.push(stock<=0
                 ? '<span class="vprod-chip cero">SIN STOCK</span>'
-                : (stock<=5 ? '<span class="vprod-chip bajo">Quedan '+stock+'</span>'
-                            : '<span class="vprod-chip ok">Stock '+stock+'</span>'));
+                : (stock<=bajoUmbral ? '<span class="vprod-chip bajo">Quedan '+(peso?fmtPeso(stock):stock)+'</span>'
+                            : '<span class="vprod-chip ok">Stock '+(peso?fmtPeso(stock):stock)+'</span>'));
+            if(peso)chips.push('<span class="vprod-chip neutro">POR PESO</span>');
             if(p.gramaje)chips.push('<span class="vprod-chip neutro">'+esc(p.gramaje)+'</span>');
             /* Un producto oculto no esta en la tienda, pero SI se puede vender en el
                mostrador: se muestra, marcado, en vez de esconderlo. */
@@ -2043,7 +2209,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                     '<div class="vprod-nom">'+esc(p.nombreMostrado||p.nombre||'(sin nombre)')+'</div>'+
                     '<div class="vprod-sub">'+chips.join('')+'</div>'+
                 '</div>'+
-                '<div class="vprod-precios"><div class="vprod-precio">$'+principal.toLocaleString('es-AR')+'</div>'+
+                '<div class="vprod-precios"><div class="vprod-precio">$'+principal.toLocaleString('es-AR')+(esPorPeso(p)?'<span style="font-size:0.68rem;color:var(--text-dim)">/kg</span>':'')+'</div>'+
                 (alt?'<div class="vprod-precio-alt">'+alt+'</div>':'')+'</div>'+
             '</div>';
         }
@@ -2075,20 +2241,46 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
            mas de una salida (si el producto ya estaba en la lista, incrementan y
            vuelven antes del final). */
         const _origAddVentaItem=addVentaItem;
-        addVentaItem=function(id){
-            _origAddVentaItem(id);
-            const i=document.getElementById('ventaProdSearch');
-            if(i)i.value='';
-            filterVentaProducts();
-        };
         const _origAddVentaMayItem=addVentaMayItem;
-        addVentaMayItem=function(id){
-            _origAddVentaMayItem(id);
-            const i=document.getElementById('ventaMayBuscaProd');
-            if(i)i.value='';
-            filterVentaMayProducts();
-        };
-        function addVentaItem(id){const existing=ventaItems.find(i=>i.id===id);if(existing){existing.cantidad++;renderVentaItems();return;}const p=allProducts.find(x=>x.id===id);if(!p)return;ventaItems.push({id:p.id,nombre:p.nombre,precio:p.precio,costo:p.costo||0,cantidad:1,descuento:p.descuento||0});renderVentaItems();}
+
+        /* Agrega un producto a una venta. Si se vende por peso, primero pregunta
+           cuantos gramos: un producto suelto no se agrega "de a uno".
+
+           Las originales incrementan en 1 cuando el producto YA esta en la lista.
+           Para los de peso eso sumaria un gramo, asi que despues de llamarlas se
+           corrige la cantidad a mano: si ya estaba, se SUMAN los gramos nuevos
+           (el cliente pidio 200 y despues 100 mas), y si es la primera vez se
+           reemplaza el 1 que dejo la original. */
+        async function _agregarItemVenta(id, ctx){
+            const p=(allProducts||[]).find(x=>x.id===id);
+            const may = ctx==='may';
+            const lista = may ? ventaMayItems : ventaItems;
+            const orig = may ? _origAddVentaMayItem : _origAddVentaItem;
+            const repintar = may ? renderVentaMayItems : renderVentaItems;
+
+            if(p && esPorPeso(p)){
+                const precioKg = may ? (p.precioMayorista||p.precio||0) : (p.precio||0);
+                const gr = await pedirCantidadPeso(p,{precioKg:precioKg});
+                if(gr==null) return;                       /* cancelo */
+                const yaEstaba = lista.find(x=>x.id===id);
+                const antes = yaEstaba ? Number(yaEstaba.cantidad||0) : 0;
+                orig(id);
+                const it = lista.find(x=>x.id===id);
+                if(it){ it.cantidad = yaEstaba ? (antes+gr) : gr; repintar(); }
+            } else {
+                orig(id);
+            }
+
+            /* El buscador se limpia y vuelve a la ayuda: en el mostrador lo que
+               sigue es buscar OTRO producto. */
+            const inp=document.getElementById(may?'ventaMayBuscaProd':'ventaProdSearch');
+            if(inp)inp.value='';
+            (may?filterVentaMayProducts:filterVentaProducts)();
+        }
+
+        addVentaItem=function(id){ return _agregarItemVenta(id,'min'); };
+        addVentaMayItem=function(id){ return _agregarItemVenta(id,'may'); };
+        function addVentaItem(id){const existing=ventaItems.find(i=>i.id===id);if(existing){existing.cantidad++;renderVentaItems();return;}const p=allProducts.find(x=>x.id===id);if(!p)return;ventaItems.push({id:p.id,nombre:p.nombre,precio:p.precio,costo:p.costo||0,cantidad:1,descuento:p.descuento||0,tipoVenta:p.tipoVenta||'unidad'});renderVentaItems();}
         function removeVentaItem(id){ventaItems=ventaItems.filter(i=>i.id!==id);renderVentaItems();}
         function updateVentaQty(id,val){const item=ventaItems.find(i=>i.id===id);if(item){item.cantidad=Math.max(1,parseInt(val)||1);}renderVentaItems();}
         function onChangeDescuento(){
@@ -2108,24 +2300,24 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             if(!ventaItems.length){c.innerHTML='<div style="color:var(--text-dim);font-size:0.85rem;padding:0.5rem 0">Agrega productos buscando arriba</div>';var bde=document.getElementById('ventaTotalBreakdown');if(bde)bde.innerHTML='';document.getElementById('ventaTotal').textContent='$0';return;}
             c.innerHTML=ventaItems.map(function(i){
                 var precioDsc=Math.round(i.precio*(1-(i.descuento||0)/100));
-                var sub=precioDsc*i.cantidad;
+                var sub=subtotalItem(i);
                 var dscBadge=(i.descuento||0)>0?'<span id="badge-vta-'+i.id+'" style="background:#e6a817;color:#000;border-radius:4px;padding:1px 5px;font-size:0.68rem;font-weight:700">-'+(i.descuento)+'%</span>':'<span id="badge-vta-'+i.id+'" style="display:none"></span>';
                 var dscInput='<div class="vi-dsc-wrap" id="dscwrap-vta-'+i.id+'" style="display:none;align-items:center;gap:3px"><span style="font-size:0.72rem;color:var(--text-dim)">Desc%</span><input type="number" min="0" max="100" value="'+(i.descuento||0)+'" style="width:46px;padding:2px 4px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);text-align:center;font-size:0.78rem" oninput="setVentaItemDsc(\''+i.id+'\',this.value)"></div>';
                 return '<div class="venta-item" style="flex-wrap:wrap">'+
                     '<span class="vi-name">'+esc(i.nombre)+'</span>'+
-                    '<span class="vi-price">$'+i.precio.toLocaleString('es-AR')+'</span>'+
+                    '<span class="vi-price">$'+i.precio.toLocaleString('es-AR')+(esPorPeso(i)?'<span style="font-size:0.7rem;color:var(--text-dim)">/kg</span>':'')+'</span>'+
                     dscBadge+
                     '<button onclick="toggleVtaDsc(\''+i.id+'\')" style="background:none;border:1px solid var(--border);color:#e6a817;border-radius:4px;padding:1px 5px;cursor:pointer;font-size:0.75rem;font-weight:700" title="Descuento individual">%</button>'+
                     dscInput+
-                    '<span style="color:var(--text-dim)">x</span>'+
-                    '<input class="vi-qty" type="number" value="'+i.cantidad+'" min="1" onchange="updateVentaQty(\''+i.id+'\',this.value)">'+
+                    (esPorPeso(i)?'':'<span style="color:var(--text-dim)">x</span>')+
+                    '<input class="vi-qty" type="number" value="'+i.cantidad+'" min="1" step="'+(esPorPeso(i)?'50':'1')+'" onchange="updateVentaQty(\''+i.id+'\',this.value)">'+(esPorPeso(i)?'<span style="color:var(--text-dim);font-size:0.76rem">g</span>':'')+
                     '<span class="vi-sub">$'+sub.toLocaleString('es-AR')+'</span>'+
                     '<button class="vi-remove" onclick="removeVentaItem(\''+i.id+'\')"><i class="bi bi-x"></i></button>'+
                     '</div>';
             }).join('');
             var t=calcularTotalesVenta();
             var bd=document.getElementById('ventaTotalBreakdown');
-            var costoTotalVta=ventaItems.reduce(function(s,i){return s+(i.costo||0)*i.cantidad;},0);
+            var costoTotalVta=ventaItems.reduce(function(s,i){return s+costoItem(i);},0);
             if(bd){
                 var bh='<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">';
                 bh+='<div class="venta-subtotal-row"><span>Subtotal productos</span><span>$'+t.subtotal.toLocaleString('es-AR')+'</span></div>';
@@ -2169,7 +2361,7 @@ const dProd=(editingVentaOriginal.stockDescontado?deltasDeItems(editingVentaOrig
 const dNuevo=deltasDeItems(ventaItems,-1);
 Object.keys(dNuevo).forEach(k=>{dProd[k]=(dProd[k]||0)+dNuevo[k];});
 await aplicarStockProductos(dProd);
-/* 4. Actualizar la venta */const ventaUpdate={fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,medioPagoKey:keyDeMedio(document.getElementById('ventaMedio').value),stockDescontado:!!DESCONTAR_STOCK,editadoEn:new Date(),editadoPor:auth.currentUser?auth.currentUser.email:''};await db.collection('ventas').doc(editingVentaId).update(ventaUpdate);/* Si la venta era de una caja YA CERRADA, hay que marcar la caja. El arqueo queda
+/* 4. Actualizar la venta */const ventaUpdate={fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,tipoVenta:i.tipoVenta||'unidad',subtotal:subtotalItem(i)})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,medioPagoKey:keyDeMedio(document.getElementById('ventaMedio').value),stockDescontado:!!DESCONTAR_STOCK,editadoEn:new Date(),editadoPor:auth.currentUser?auth.currentUser.email:''};await db.collection('ventas').doc(editingVentaId).update(ventaUpdate);/* Si la venta era de una caja YA CERRADA, hay que marcar la caja. El arqueo queda
    congelado a proposito, asi que a partir de esta edicion el listado de ventas de ese dia
    no cuadra mas con el cierre de ese dia, y no habia forma de darse cuenta: el cartel
    EDITADA del historial de cajas existe desde el principio (admin-caja.js:285) pero nadie
@@ -2190,7 +2382,7 @@ const _pedOrigen=window._pedidoOrigenVentaId?pedidosData.find(x=>x.docId===windo
    Confundirlas hacia que una venta de mostrador comun dejara de descontar. */
 const _yaDescontado=!!(_pedOrigen&&_pedOrigen.stockDescontado);
 const _ventaPoseeStock=_yaDescontado||!!DESCONTAR_STOCK;
-const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,cupon:window._pedidoCuponVenta||null,usuario:auth.currentUser?auth.currentUser.email:'',cajaId:(typeof getCajaAbiertaIdLive==='function'?await getCajaAbiertaIdLive():null),medioPagoKey:(typeof keyDeMedio==='function'?keyDeMedio(document.getElementById('ventaMedio').value):null),origen:window._pedidoOrigenVentaId?'web':'mostrador',pedidoId:window._pedidoOrigenVentaId||null,stockDescontado:_ventaPoseeStock,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};const ventaRefNueva=await db.collection('ventas').add(venta);/* el contador ya quedo escrito dentro de la transaccion de arriba *//* Descontar stock de productos (gondola). Si la venta viene de un pedido web el
+const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,tipoVenta:i.tipoVenta||'unidad',subtotal:subtotalItem(i)})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,cupon:window._pedidoCuponVenta||null,usuario:auth.currentUser?auth.currentUser.email:'',cajaId:(typeof getCajaAbiertaIdLive==='function'?await getCajaAbiertaIdLive():null),medioPagoKey:(typeof keyDeMedio==='function'?keyDeMedio(document.getElementById('ventaMedio').value):null),origen:window._pedidoOrigenVentaId?'web':'mostrador',pedidoId:window._pedidoOrigenVentaId||null,stockDescontado:_ventaPoseeStock,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};const ventaRefNueva=await db.collection('ventas').add(venta);/* el contador ya quedo escrito dentro de la transaccion de arriba *//* Descontar stock de productos (gondola). Si la venta viene de un pedido web el
    stock YA lo descontó la tienda al confirmar, asi que no se resta dos veces. */
 /* Se mira la bandera del pedido, no de donde viene la venta. Antes alcanzaba con
    que la venta naciera de un pedido web para NO descontar, dando por hecho que la
@@ -3031,7 +3223,7 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
            tienda (app.js usa costoEnvio(subtotalConDesc,...)): si no, un cupon podia dejar el
            pedido debajo del minimo de envio gratis y el cliente igual no lo pagaba. */
         function calcPedTotales(){
-            const sub=pedItems.reduce((s,i)=>s+Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad,0);
+            const sub=pedItems.reduce((s,i)=>s+subtotalItem(i),0);
             const dc=Math.min(Math.max(0,Number((_pedidoCupon&&_pedidoCupon.monto)||0)),sub);
             const subConDc=sub-dc;
             const envio=pedTipoEntrega==='envio'?(subConDc>=ENVIO_GRATIS_DESDE?0:ENVIO_PRECIO):0;
@@ -3056,16 +3248,16 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
             if(!pedItems.length){c.innerHTML='<div style="padding:10px;color:var(--text-dim);font-size:0.82rem">Agrega productos buscando arriba</div>';if(bd)bd.innerHTML='';document.getElementById('pedTotal').textContent='$0';return;}
             c.innerHTML=pedItems.map(function(i){
                 var precioDsc=Math.round(i.precio*(1-(i.descuento||0)/100));
-                var sub=precioDsc*i.cantidad;
+                var sub=subtotalItem(i);
                 var dscBadge=(i.descuento||0)>0?'<span style="background:#e6a817;color:#000;border-radius:4px;padding:1px 5px;font-size:0.68rem;font-weight:700">-'+(i.descuento)+'%</span>':'';
                 var dscInput='<div class="vi-dsc-wrap" id="dscwrap-ped-'+i.id+'" style="display:none;align-items:center;gap:3px"><span style="font-size:0.72rem;color:var(--text-dim)">Desc%</span><input type="number" min="0" max="100" value="'+(i.descuento||0)+'" style="width:46px;padding:2px 4px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);text-align:center;font-size:0.78rem" oninput="setPedItemDsc(\''+i.id+'\',this.value)"></div>';
                 return '<div class="venta-item" style="flex-wrap:wrap">'+
                     '<span class="vi-name">'+i.nombre+'</span>'+
-                    '<span class="vi-price">$'+i.precio.toLocaleString('es-AR')+'</span>'+
+                    '<span class="vi-price">$'+i.precio.toLocaleString('es-AR')+(esPorPeso(i)?'<span style="font-size:0.7rem;color:var(--text-dim)">/kg</span>':'')+'</span>'+
                     dscBadge+
                     '<button onclick="togglePedDsc(\''+i.id+'\')" style="background:none;border:1px solid var(--border);color:#e6a817;border-radius:4px;padding:1px 5px;cursor:pointer;font-size:0.75rem;font-weight:700" title="Descuento individual">%</button>'+
                     dscInput+
-                    '<span style="color:var(--text-dim)">x</span>'+
+                    (esPorPeso(i)?'':'<span style="color:var(--text-dim)">x</span>')+
                     '<input class="vi-qty" type="number" value="'+i.cantidad+'" min="1" onchange="updatePedQty(\''+i.id+'\',this.value)">'+
                     '<span class="vi-sub">$'+sub.toLocaleString('es-AR')+'</span>'+
                     '<button class="vi-remove" onclick="removePedItem(\''+i.id+'\')"><i class="bi bi-x"></i></button>'+
@@ -3121,7 +3313,7 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                     items:pedItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,
                         precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,
                         costo:i.costo,cantidad:i.cantidad,
-                        subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),
+                        subtotal:subtotalItem(i)})),
                     insumosUsados:pedInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),
                     /* El cupon se guarda junto con el total que lo incluye. Antes el total se
                        recalculaba sin el y el campo cupon quedaba intacto: el pedido decia
@@ -4759,7 +4951,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             const p=allProducts.find(x=>x.id===id);if(!p)return;
             const ex=ventaMayItems.find(x=>x.id===id);
             if(ex){ex.cantidad++;renderVentaMayItems();return;}
-            ventaMayItems.push({id:p.id,nombre:p.nombre,precio:p.precioMayorista||p.precio||0,costo:p.costo||0,cantidad:1,descuento:0});
+            ventaMayItems.push({id:p.id,nombre:p.nombre,precio:p.precioMayorista||p.precio||0,costo:p.costo||0,cantidad:1,descuento:0,tipoVenta:p.tipoVenta||'unidad'});
             renderVentaMayItems();
         }
 
@@ -4767,7 +4959,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         function updateVentaMayQty(id,val){const it=ventaMayItems.find(x=>x.id===id);if(it)it.cantidad=Math.max(1,parseInt(val)||1);renderVentaMayItems();}
 
         function calcVentaMayTotales(){
-            const sub=ventaMayItems.reduce(function(s,i){return s+Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad;},0);
+            const sub=ventaMayItems.reduce(function(s,i){return s+subtotalItem(i);},0);
             const dcEl=document.getElementById('ventaMayDescuentoPct');
             const dcp=dcEl?Math.min(100,Math.max(0,parseFloat(dcEl.value)||0)):0;
             const dcMonto=Math.round(sub*dcp/100);
@@ -4783,7 +4975,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             if(!ventaMayItems.length){c.innerHTML='<div style="color:var(--text-dim);font-size:0.85rem;padding:0.5rem 0">Sin productos</div>';var bde=document.getElementById('ventaMayTotalBreakdown');if(bde)bde.innerHTML='';document.getElementById('ventaMayTotal').textContent='$0';return;}
             c.innerHTML=ventaMayItems.map(function(i){
                 var precioDsc=Math.round(i.precio*(1-(i.descuento||0)/100));
-                var sub=precioDsc*i.cantidad;
+                var sub=subtotalItem(i);
                 var dscBadge=(i.descuento||0)>0?'<span id="badge-may-'+i.id+'" style="background:#e6a817;color:#000;border-radius:4px;padding:1px 5px;font-size:0.68rem;font-weight:700">-'+(i.descuento)+'%</span>':'<span id="badge-may-'+i.id+'" style="display:none"></span>';
                 var dscInput='<div class="vi-dsc-wrap" id="dscwrap-may-'+i.id+'" style="display:none;align-items:center;gap:3px"><span style="font-size:0.72rem;color:var(--text-dim)">Desc%</span><input type="number" min="0" max="100" value="'+(i.descuento||0)+'" style="width:46px;padding:2px 4px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);text-align:center;font-size:0.78rem" oninput="setVentaMayItemDsc(\''+i.id+'\',this.value)"></div>';
                 return '<div class="venta-item" style="flex-wrap:wrap">'+
@@ -4792,15 +4984,15 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                     dscBadge+
                     '<button onclick="toggleMayDsc(\''+i.id+'\')" style="background:none;border:1px solid var(--border);color:#e6a817;border-radius:4px;padding:1px 5px;cursor:pointer;font-size:0.75rem;font-weight:700" title="Descuento individual">%</button>'+
                     dscInput+
-                    '<span style="color:var(--text-dim)">x</span>'+
-                    '<input class="vi-qty" type="number" value="'+i.cantidad+'" min="1" onchange="updateVentaMayQty(\''+i.id+'\',this.value)">'+
+                    (esPorPeso(i)?'':'<span style="color:var(--text-dim)">x</span>')+
+                    '<input class="vi-qty" type="number" value="'+i.cantidad+'" min="1" step="'+(esPorPeso(i)?'50':'1')+'" onchange="updateVentaMayQty(\''+i.id+'\',this.value)">'+(esPorPeso(i)?'<span style="color:var(--text-dim);font-size:0.76rem">g</span>':'')+
                     '<span class="vi-sub">$'+sub.toLocaleString('es-AR')+'</span>'+
                     '<button class="vi-remove" onclick="removeVentaMayItem(\''+i.id+'\')"><i class="bi bi-x"></i></button>'+
                     '</div>';
             }).join('');
             var t=calcVentaMayTotales();
             var bd=document.getElementById('ventaMayTotalBreakdown');
-            var costoTotalMay=ventaMayItems.reduce(function(s,i){return s+(i.costo||0)*i.cantidad;},0);
+            var costoTotalMay=ventaMayItems.reduce(function(s,i){return s+costoItem(i);},0);
             if(bd){
                 var bh='<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">';
                 bh+='<div class="venta-subtotal-row"><span>Subtotal productos</span><span>$'+t.subtotal.toLocaleString('es-AR')+'</span></div>';
@@ -4880,7 +5072,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                 const _cliRaw=String(clienteId||'');
                 const _cliEsAuth=_cliRaw.indexOf('auth:')===0;
                 const _cliPrev=(editingVentaMayId&&(ventasMayData.find(x=>x.id===editingVentaMayId)||{}).clienteAuthUid)||null;
-                const ventaData={cliente:cliente,clienteId:_cliEsAuth?null:(_cliRaw||null),clienteAuthUid:_cliEsAuth?_cliRaw.slice(5):_cliPrev,fecha:fecha,medioPago:medioPago,medioPagoKey:(typeof keyDeMedio==='function'?keyDeMedio(medioPago):null),tipoEntrega:ventaMayTipoEntrega,items:ventaMayItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,subtotal:Math.round(i.precio*(1-(i.descuento||0)/100))*i.cantidad})),insumosUsados:ventaMayInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotal:t.subtotal,descuentoPct:t.descuentoPct||0,descuentoMonto:t.descuentoMonto||0,envio:t.envio,envioGratis:ventaMayTipoEntrega==='envio'&&t.envio===0,total:t.total,tipo:'mayorista'};
+                const ventaData={cliente:cliente,clienteId:_cliEsAuth?null:(_cliRaw||null),clienteAuthUid:_cliEsAuth?_cliRaw.slice(5):_cliPrev,fecha:fecha,medioPago:medioPago,medioPagoKey:(typeof keyDeMedio==='function'?keyDeMedio(medioPago):null),tipoEntrega:ventaMayTipoEntrega,items:ventaMayItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,tipoVenta:i.tipoVenta||'unidad',subtotal:subtotalItem(i)})),insumosUsados:ventaMayInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotal:t.subtotal,descuentoPct:t.descuentoPct||0,descuentoMonto:t.descuentoMonto||0,envio:t.envio,envioGratis:ventaMayTipoEntrega==='envio'&&t.envio===0,total:t.total,tipo:'mayorista'};
                 if(editingVentaMayId){
                     /* Restaurar stock insumos originales y descontar nuevos */
                     const stockUpdates={};

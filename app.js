@@ -139,7 +139,13 @@ async function loadProductsFromFirebase(retries) {
                p.gramajePadreId quedaba undefined siempre, asi que el filtro de aplicarFiltros no
                excluia al hijo (dos tarjetas de almendras en la grilla, una de 250g y otra de 1kg)
                y el padre nunca mostraba los botones de gramaje. Todo el agrupado estaba muerto. */
-            gramajePadreId:r.gramajePadreId||null }; }).filter(p => !p.oculto);
+            gramajePadreId:r.gramajePadreId||null, tipoVenta:r.tipoVenta||'unidad' }; })
+            /* Los que se venden POR PESO no salen en la tienda. El precio que tienen
+               cargado es el del KILO, y comprar online "1 unidad" de algo que se pesa
+               en el mostrador no significa nada: el carrito cobraria un kilo entero.
+               Venderlos por internet necesita decidir antes como elige los gramos el
+               cliente, y eso todavia no esta definido. Se venden en el local. */
+            .filter(p => !p.oculto && p.tipoVenta !== 'peso');
         renderCategoryFilters(getCategoriasConSub(productos)); aplicarFiltros();
         _searchCache.clear();
         let carritoActualizado=false;

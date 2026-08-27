@@ -21,6 +21,7 @@
    ============================================================================= */
 
 const ALERTAS_STOCK_BAJO = 5;      /* productos con 1..5 unidades */
+const ALERTAS_PESO_BAJO = 500;     /* los que se venden por peso: medio kilo, en gramos */
 const ALERTAS_MAX_ITEMS = 8;       /* cuántos nombres se listan por alerta */
 
 let _alertas = [];
@@ -82,18 +83,23 @@ async function calcularAlertas(forzar) {
       });
     }
 
+    /* Los que se venden por peso tienen el stock en GRAMOS, así que el umbral de
+       unidades no sirve: 400 gramos de chía es poco y no entraría, y 4 gramos
+       entraría por casualidad. Se usa medio kilo. */
     const bajos = aLaVenta.filter(p => {
       const s = Number(p.stock || 0);
-      return s > 0 && s <= ALERTAS_STOCK_BAJO;
+      const umbral = (p.tipoVenta === 'peso') ? ALERTAS_PESO_BAJO : ALERTAS_STOCK_BAJO;
+      return s > 0 && s <= umbral;
     });
     if (bajos.length) {
       out.push({
         id: 'stock-bajo', nivel: 'aviso', icono: 'bi-exclamation-triangle',
         titulo: bajos.length + (bajos.length === 1 ? ' producto con poco stock' : ' productos con poco stock'),
-        detalle: 'Queda' + (bajos.length === 1 ? '' : 'n') + ' ' + ALERTAS_STOCK_BAJO + ' unidades o menos.',
+        detalle: 'Queda poco: ' + ALERTAS_STOCK_BAJO + ' unidades o menos, o medio kilo en los que se venden sueltos.',
         items: bajos
           .sort((a, b) => Number(a.stock || 0) - Number(b.stock || 0))
-          .map(p => (p.nombre || '(sin nombre)') + ' · ' + Number(p.stock || 0)),
+          .map(p => (p.nombre || '(sin nombre)') + ' · ' +
+            (p.tipoVenta === 'peso' ? _alertasPeso(p.stock) : Number(p.stock || 0))),
         seccion: 'stock'
       });
     }
@@ -117,6 +123,14 @@ async function calcularAlertas(forzar) {
 
   _alertas = out;
   return out;
+}
+
+/* Gramos legibles. Repetido de admin.html porque este modulo se carga aparte
+   y no puede depender del orden de evaluacion. */
+function _alertasPeso(gr) {
+  const g = Number(gr || 0);
+  if (Math.abs(g) < 1000) return g.toLocaleString('es-AR') + ' g';
+  return (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg';
 }
 
 /* ============================ BADGE ============================ */
