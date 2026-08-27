@@ -380,7 +380,17 @@ exports.descontarStockPedido = onDocumentCreated(
            cliente acepto ESE precio. Cambiarselo despues seria peor. */
         const base = Number(p.precio || 0);
         const desc = Number(p.descuento || 0);
-        totalCatalogo += Math.round(base * (1 - desc / 100)) * pedido;
+        const unidad = Math.round(base * (1 - desc / 100));
+        /* En un producto a granel el precio es POR KILO y la cantidad viene en GRAMOS,
+           igual que en subtotalCarrito() de la tienda. Multiplicar derecho daba el
+           total x1000: 250 g de nueces a $18.000 el kilo salian $4.500.000 en vez de
+           $4.500. Y como abajo se marca revisarPrecio cuando lo cobrado es menos de la
+           mitad del catalogo, TODO pedido que tuviera un producto por peso quedaba
+           marcado como sospechoso. Se toma tipoVenta del catalogo y no del item del
+           pedido, que lo manda el cliente. */
+        totalCatalogo += (p.tipoVenta === 'peso')
+          ? Math.round(unidad * pedido / 1000)
+          : unidad * pedido;
 
         /* Y aca la senal que SI distingue una manipulacion de un cambio de precios.
            Con inflacion, un pedido legitimo hecho con la pagina abierta hace rato paga

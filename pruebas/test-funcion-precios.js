@@ -194,6 +194,28 @@ async function correr(pedido, vivo) {
   p = await correr(cargaCreacion, null);
   t('no descuenta ni escribe nada', p === null && INCREMENTOS.length === 0);
 
+  /* La venta por peso y esta funcion se escribieron por separado y nadie las cruzo.
+     En un producto a granel el precio es POR KILO y la cantidad va en GRAMOS
+     (subtotalCarrito divide por 1000), asi que multiplicar derecho daba el total del
+     catalogo x1000 y, como revisarPrecio se marca cuando lo cobrado es menos de la
+     mitad del catalogo, TODO pedido con un producto por peso salia marcado como
+     sospechoso. Con 0 pedidos en la base no lo habria visto nadie hasta vender. */
+  grupo('Caso 9f - producto a granel: precio por kilo, cantidad en gramos');
+  PRODUCTOS = { n: { nombre: 'Nueces', tipoVenta: 'peso', precio: 18000, costo: 12000, descuento: 0, stock: 5000 } };
+  p = await correr({ origen: 'web', subtotalProductos: 4500, total: 4500,
+    items: [{ id: 'n', nombre: 'Nueces', tipoVenta: 'peso', precio: 18000, cantidad: 250 }] });
+  t('250 g a $18.000 el kilo son $4.500 de catalogo', p.subtotalCatalogo === 4500, p.subtotalCatalogo);
+  t('NO lo marca como sospechoso', !p.revisarPrecio);
+  t('la diferencia con lo cobrado es 0', p.diferenciaCatalogo === 0, p.diferenciaCatalogo);
+  t('descuenta los gramos del stock', INCREMENTOS.length === 1 && INCREMENTOS[0].patch.stock.__inc === -250);
+
+  grupo('Caso 9g - a granel cobrado por debajo del costo sigue avisando');
+  PRODUCTOS = { n: { nombre: 'Nueces', tipoVenta: 'peso', precio: 18000, costo: 12000, descuento: 0, stock: 5000 } };
+  p = await correr({ origen: 'web', subtotalProductos: 250, total: 250,
+    items: [{ id: 'n', nombre: 'Nueces', tipoVenta: 'peso', precio: 1000, cantidad: 250 }] });
+  t('el costo se compara por kilo contra el precio por kilo', p.revisarPrecio === true);
+  t('y dice cual fue', !!p.itemsBajoCosto && p.itemsBajoCosto[0].nombre === 'Nueces');
+
   grupo('Caso 10 - cantidades: el costo se compara por UNIDAD');
   PRODUCTOS = { y: { nombre: 'Yerba', precio: 10000, costo: 6000, descuento: 0, stock: 20 } };
   p = await correr({ origen: 'web', subtotalProductos: 70000, total: 70000,
