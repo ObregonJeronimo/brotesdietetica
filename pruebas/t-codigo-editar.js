@@ -55,10 +55,17 @@ const t = (d, c, extra) => {
 };
 
 function armar(productos) {
-  const DOM = { pCodigo: { value: '' } };
+  /* El <small> debajo del campo, que `_pintarEstadoCodigo` reescribe mientras se
+     escribe para avisar si el codigo choca o si se va a cambiar. */
+  const ayuda = { textContent: '', style: {} };
+  const DOM = {};
   const reg = { tipoVenta: [], abiertos: [] };
+  const nuevo = id => ({
+    _id: id, value: '', dataset: {},
+    parentElement: { querySelector: () => ayuda },
+  });
   const ent = {
-    document: { getElementById: id => (DOM[id] = DOM[id] || { value: '' }) },
+    document: { getElementById: id => (DOM[id] = DOM[id] || nuevo(id)) },
     allProducts: productos,
     _origOpenModal: id => { reg.abiertos.push(id); },
     setTipoVenta: v => { reg.tipoVenta.push(v); },
@@ -71,11 +78,18 @@ function armar(productos) {
   };
   const nombres = Object.keys(ent);
   const api = new Function(...nombres,
-    ['normCodigo', 'sugerirCodigoProducto', 'validarCodigoProducto'].map(cuerpo).join('\n') +
+    /* editingId lo declara el modulo y lo asigna openModal en su primera linea, que
+       vive dentro de _origOpenModal (la funcion original, de 2.000 caracteres, que el
+       envoltorio no toca). Se replica aca para que el aviso en vivo sepa cual es el
+       producto que se esta editando y no se acuse a si mismo de duplicado. */
+    'let editingId=null;\n' +
+    ['normCodigo', 'sugerirCodigoProducto', 'validarCodigoProducto', '_pintarEstadoCodigo']
+      .map(cuerpo).join('\n') +
     '\n' + envoltorio() +
-    '\nreturn {abrir:openModal,validar:validarCodigoProducto,norm:normCodigo};'
+    '\nreturn {abrir:function(id){editingId=id||null;return openModal(id);},' +
+    'validar:validarCodigoProducto,norm:normCodigo,pintar:_pintarEstadoCodigo};'
   )(...nombres.map(n => ent[n]));
-  return { api, DOM, reg };
+  return { api, DOM, reg, ayuda };
 }
 
 /* Produccion tal cual esta hoy: 2 productos, ninguno con codigo ni tipoVenta. */
@@ -138,6 +152,54 @@ const PRODUCCION = [
   t('el segundo recibe OTRO distinto', cod2 !== cod1, cod1 + ' vs ' + cod2);
   err = await a.api.validar(a.api.norm(cod2), 'p2');
   t('y tambien se puede guardar', err === '', err);
+
+  /* Lo que Thiago sumo encima: el aviso cambia MIENTRAS se escribe, contra lo que hay en
+     memoria. Antes te enterabas de que el codigo estaba repetido recien al apretar
+     Guardar, con el formulario entero completado. La validacion contra la base sigue
+     estando al guardar, que es la que manda. */
+  console.log('\nEL AVISO EN VIVO, MIENTRAS SE ESCRIBE');
+  const CAT = [
+    { id: 'p1', nombre: 'Uno', codigo: 'P-0001' },
+    { id: 'p2', nombre: 'Nueces mariposa', codigo: 'P-0002' },
+    { id: 'p3', nombre: 'Tres sin codigo' },
+  ];
+  let a3 = armar(JSON.parse(JSON.stringify(CAT)));
+  a3.api.abrir('p1');
+  t('al abrir, la ayuda no acusa nada', !/Ya lo usa|cambiar|vac/i.test(a3.ayuda.textContent),
+    a3.ayuda.textContent);
+  t('   y recuerda el codigo original para poder comparar',
+    a3.DOM.pCodigo.dataset.original === 'P-0001', a3.DOM.pCodigo.dataset.original);
+
+  a3.DOM.pCodigo.value = 'P-0002';
+  a3.api.pintar();
+  t('escribir uno repetido avisa Y dice de quien es',
+    /Ya lo usa/.test(a3.ayuda.textContent) && /Nueces mariposa/.test(a3.ayuda.textContent),
+    a3.ayuda.textContent);
+
+  a3.DOM.pCodigo.value = 'ALM-500';
+  a3.api.pintar();
+  t('uno libre y distinto avisa el cambio',
+    /P-0001/.test(a3.ayuda.textContent) && /ALM-500/.test(a3.ayuda.textContent),
+    a3.ayuda.textContent);
+
+  a3.DOM.pCodigo.value = '';
+  a3.api.pintar();
+  t('vaciarlo avisa antes de llegar a Guardar', /no puede quedar vac/i.test(a3.ayuda.textContent),
+    a3.ayuda.textContent);
+
+  a3.DOM.pCodigo.value = 'p-0001';
+  a3.api.pintar();
+  t('su PROPIO codigo no se acusa a si mismo (ni en minuscula)',
+    !/Ya lo usa/.test(a3.ayuda.textContent), a3.ayuda.textContent);
+
+  a3 = armar(JSON.parse(JSON.stringify(CAT)));
+  a3.api.abrir('p3');
+  t('un producto sin codigo abre con el sugerido y sin acusar nada',
+    /^P-\d{4}$/.test(a3.DOM.pCodigo.value) && !/Ya lo usa/.test(a3.ayuda.textContent),
+    a3.DOM.pCodigo.value + ' | ' + a3.ayuda.textContent);
+  t('   y su original queda vacio, asi no dice "se va a cambiar de  a X"',
+    a3.DOM.pCodigo.dataset.original === '' && !/cambiar/.test(a3.ayuda.textContent),
+    a3.ayuda.textContent);
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);

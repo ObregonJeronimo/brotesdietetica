@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 669 en 26 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
+| Pruebas | 677 en 26 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **prácticamente vacíos — ver abajo** |
@@ -505,6 +505,12 @@ Medido en el panel: los dos abren con un código sugerido y guardan sin error; g
 primero como `P-0004` hace que el segundo pase a sugerir `P-0005`, sin choque. El producto que
 sí tiene código (`P-0003`) no se toca.
 
+**Thiago construyó encima** (`0de2df7`): el mismo campo ahora avisa **mientras se escribe**
+—en rojo si el código ya lo usa otro producto, diciendo cuál; en amarillo si se va a cambiar—
+y el buscador de la venta encuentra por código propio. Ese chequeo mira sólo `allProducts`,
+que es instantáneo y no cuesta lecturas; la validación contra la base sigue estando al
+guardar, que es la que manda. Cubierto por los casos nuevos de `t-codigo-editar.js`.
+
 #### h) `clienteWeb` — el único de los siete que no era nada
 
 Se lee en cuatro lugares del panel y no lo escribe nadie en todo el repo, pero siempre cae al
@@ -635,7 +641,7 @@ hechos**: son la tanda 6.
 ## 4. Cómo verificar que no rompiste nada
 
 ```bash
-npm test          # 669 pruebas, 26 suites — no necesita nada instalado
+npm test          # 677 pruebas, 26 suites — no necesita nada instalado
 npm run build     # corre check-admin.js y luego minifica
 npm run test:reglas   # 55 asertos contra firestore.rules, con el emulador
 ```
