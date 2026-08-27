@@ -35,6 +35,7 @@ dev-server.js
 
 # Bancos de prueba locales (montan los modulos contra un Firestore falso)
 _test-*.html
+pruebas/
 
 # OJO: check-admin.js NO va aca a proposito.
 # Vercel corre `npm run build` al desplegar, y el build arranca con `npm run check`,

@@ -1,479 +1,197 @@
-# Brotes Dietética — Estado y pendientes
+# Brotes Dietética — estado y pendientes
 
-**Código:** terminado y desplegado. Producción verificada byte a byte contra el build local.
-**Infraestructura:** lista — reglas de Firestore y Storage, índices, 7 Cloud Functions, bot de
-Telegram, datos iniciales.
-**Lo único que queda:** tres cosas, y dos de ellas son de credenciales sobre tus cuentas.
+> Actualizado: 27/08/2026. Reemplaza la versión anterior de este archivo.
+> No se publica: `.vercelignore` excluye todos los `*.md`.
+
+**El software está terminado.** Lo que falta para entregar no es programar: es cargar
+el negocio adentro y probarlo una vez de punta a punta.
+
+| | |
+|---|---|
+| Código | terminado, desplegado, producción al día |
+| Pruebas | 278 en 12 suites, todas verdes (`npm test`) |
+| Panel | 20 secciones cargando sin un solo error de consola |
+| Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
+| **Datos** | **prácticamente vacíos — ver abajo** |
 
 ---
 
-## Lo que falta, y solo lo podés hacer vos
+## 1. Lo que bloquea la entrega
 
-**1. Importar los admins.** Entrá a **/admin → Configuración → Quién puede entrar al panel**
-y tocá el botón que dice **Agregar a los 3**. Es un click.
+### a) Probar un pedido web desde una cuenta que NO sea admin ← lo más importante
 
-> Hace falta porque los admins pasaron de estar escritos en el código a vivir en la base, y el
-> deploy de las reglas dejó a Thiago, Cecilia y Joaco sin documento. Vos entrás igual: estás fijo
-> en las reglas como salida de emergencia. El botón desaparece solo en cuanto lo uses.
+Hay **0 pedidos** en la base: el camino más crítico de toda la app —que un cliente
+compre— nunca se ejecutó de verdad, ni una vez.
 
-**2. Rotar el token del bot de Telegram.**
-Estuvo un rato legible sin login por una regla de Firestore. Ya está cerrada, pero el token viejo
-hay que darlo de baja igual: `/revoke` a [@BotFather](https://t.me/BotFather), pedí uno nuevo, y
-pegalo en `config/telegram` desde la consola de Firebase.
+Importa más de lo que parece. El bug más grave que encontramos en toda la revisión
+era justamente ahí: el checkout escribía en `/productos`, que las reglas sólo
+permiten a admins, así que **todo pedido web fallaba en silencio** — todos numerados
+1, sin descontar stock, y marcados como si hubiera salido bien. Se había escapado
+porque el checkout siempre se probó con una cuenta de admin, que tiene permisos que
+un cliente no tiene.
 
-**3. Revocar el token de GitHub** que pegaste en el chat.
-Cualquiera que lea esa conversación puede escribir en el repo.
-GitHub → Settings → Developer settings → Personal access tokens → Delete.
-
-### Y una prueba que yo no puedo hacer
-
-Un pedido web **desde una cuenta de Google que no sea admin**. Anotá el stock de un producto,
-compralo desde la tienda, y confirmá dos cosas: que el pedido queda con número correlativo (no 1)
-y que el stock baja. Para verlo sin esperar:
+Cómo cerrarlo: anotá el stock de un producto, compralo desde la tienda con otra
+cuenta de Google, y confirmá que el pedido queda con número correlativo (no 1) y que
+el stock baja.
 
 ```bash
 firebase functions:log --only descontarStockPedido
 ```
 
-> Por qué importa: el bug más grave que aparecería ahí ya está arreglado, pero se había escapado
-> justamente porque el checkout siempre se probó con una cuenta de admin, que tiene permisos que
-> un cliente no tiene. Vale cerrarlo con una cuenta común.
+### b) Cargar el catálogo
 
-### Opcional
+Estado real de la base, verificado por API:
 
-**App Check** (gratis) evita que alguien use tus credenciales de Firebase desde afuera. Está en el
-PASO 7 más abajo.
+| colección | cuántos |
+|---|---|
+| productos | **2** — uno es *"Producto de ejemplo (ocultalo o borralo)"* del setup |
+| categorías | **0** |
+| pedidos · ventas · cupones · clientesAuth | 0 |
+| listas | 1 (FRUTICOR) |
 
-El texto de la insignia del hero se cambia desde **/admin → Editor Web**, no tocando código.
+Un cliente que entre hoy a la tienda ve **un producto**. Para cargar en tanda está
+**Productos → Importar Nuevos** (Excel).
 
----
+### c) Borrar el producto de ejemplo y lo que quedó del setup inicial
 
-## Cómo agregar un admin
+### d) La foto del hero
 
-**/admin → Configuración → Quién puede entrar al panel.** Escribís el mail de Google y entra.
-Ya no hay que tocar código ni desplegar nada.
+En `config/siteContent`, `heroImg` y `ctaImg` siguen guardados como
+`https://brotesdietetica.vercel.app/admin` — la página del panel, no una imagen.
+Es basura de un bug viejo ya arreglado.
 
-Dos cosas que conviene saber:
+**Se limpia solo**: entrá a **Editor Web**, subí la foto del hero y apretá **Guardar**.
+El panel detecta los valores inválidos, no los muestra en la vista previa y los borra
+del documento al guardar. No hay que tocar la base a mano.
 
-- **Para subir imágenes** la persona necesita cerrar sesión y volver a entrar una vez. Ese permiso
-  viaja en la sesión de Google, no en el panel — Storage no puede consultar la base, así que se
-  resuelve con una marca en el token, y el token se emite al iniciar sesión. Todo el resto del
-  panel le funciona al instante.
-- **A vos no se te puede quitar el acceso**, y nadie puede borrarse a sí mismo. Si la lista quedara
-  vacía por un error, vos seguís entrando y podés rearmarla.
+### e) Rotar el token del bot de Telegram
 
----
-
-## Lo que se sumó para el local físico
-
-Todo esto se maneja desde `/admin` y no necesita configuración.
-
-### Caja
-
-El ciclo del día: se abre con un fondo inicial, se registran los ingresos y egresos que no son
-ventas (siempre con un detalle, para que la caja cierre), y al final se cuenta el efectivo y queda
-el arqueo.
-
-> Al esperado en efectivo **solo suman las ventas cobradas en efectivo**. Tarjeta y transferencia
-> no pasan por el cajón, y el fiado todavía no se cobró. El arqueo, en cambio, sí cuenta el envío,
-> porque ese flete entró a la caja. Las estadísticas hacen lo contrario, porque el flete no es
-> mercadería vendida.
-
-Los totales quedan **congelados** al cerrar: si mañana se edita una venta vieja, el arqueo de aquel
-día sigue diciendo lo que se contó aquel día.
-
-Si se registró una venta con la caja cerrada, el panel la muestra aparte como "venta fuera de caja"
-y se puede adjuntar. Y si el otro admin cerró la caja mientras vos cargabas un movimiento, se avisa
-y no se guarda: esa plata no aparecería en ningún cierre.
-
-### Estadísticas
-
-Un mes por vez. El **color** de cada día del calendario dice cómo cerró la caja —la leyenda con los
-seis estados está debajo— y la **barrita** cuánto se vendió comparado con el mejor día del mes.
-Tocando un día se ve su detalle.
-
-Separa local de online, muestra medios de pago, lo más vendido, cómo viene la tienda web y compara
-contra el mes anterior.
-
-### Stock
-
-Baja solo en las ventas del mostrador y en los pedidos web, y vuelve a subir si se elimina la
-venta. Se puede apagar desde **Configuración**.
-
-El stock puede quedar en negativo: no es un error, avisa que se vendió más de lo que el sistema
-creía tener y que hay que recontar.
-
-> Si el otro admin vende mientras tenés un producto abierto para editarlo, guardar **ya no** pisa
-> esas ventas. Y en la sección Stock, si el número cambió por atrás, se pregunta antes de escribir.
-
-### Atajos de teclado
-
-`v` nueva venta · `m` mayorista · `p` producto · `/` buscar · `i` ingreso · `e` egreso ·
-`x` cerrar caja · números para cambiar de pantalla.
-
-`?` muestra la lista completa desde cualquier pantalla. Se cambian desde **Configuración**. No se
-disparan mientras escribís ni con una ventana abierta.
-
-### Lector de códigos de barras
-
-Se enchufa y anda: para el navegador es un teclado, no hay nada que instalar.
-
-Como el catálogo arranca sin ningún código cargado, **aprende usándolo**: la primera vez que
-escaneás algo desconocido el panel pregunta de qué producto es y lo guarda. De la segunda vez en
-adelante entra de una.
-
-Lo que se vende suelto no tiene código de fábrica y no lo va a tener: eso se sigue buscando por
-nombre.
-
-### Formatos de papel
-
-El ticket del mostrador (etiqueta adhesiva grande) y el de pedido web (térmica de rollo) tienen
-cada uno su tamaño, configurables en **Factura**.
-
-> **A qué impresora sale no lo elige el navegador.** Eso se elige en la ventana de impresión de
-> Windows. Acá solo se define el tamaño del papel.
+Estuvo un rato legible sin login por una regla de Firestore. La regla ya está cerrada,
+pero el token viejo hay que darlo de baja igual: `/revoke` a
+[@BotFather](https://t.me/BotFather), pedí uno nuevo, y pegalo en `config/telegram`
+desde la consola de Firebase.
 
 ---
 
-## Dos cosas que conviene tener presentes al mantenerlo
+## 2. Decisiones tuyas que quedaron abiertas
 
-**`index.html` carga `app.min.js`, no `app.js`.** Los cambios a la tienda solo se ven después de:
+1. **El QR de reseña exige iniciar sesión con Google.** Es deliberado: la colección de
+   reseñas es de lectura pública porque la tienda las muestra, así que los tokens
+   pendientes se pueden listar. Sin sesión, cualquiera podría completar la reseña de
+   otro o llenar todas las pendientes con una estrella. Sacar esa fricción se puede,
+   pero requiere separar en dos colecciones (tokens pendientes sin permiso de listar,
+   reseñas publicadas sí). Es una migración, no un cambio de una línea.
+
+2. **El contacto de Deft** quedó con el nombre *Deft Software Solutions* y el teléfono
+   de **Joaco Brarda Melchionna** (+54 9 3512 33-3009). Falta decidir si el nombre
+   también cambia.
+
+3. **El registro del texto.** El panel quedó formal (usted / impersonal). La tienda y
+   el ticket impreso siguen en tono cercano — *"Dejá tu opinión"*, *"Volvé a pedir"* —
+   porque no es la misma audiencia. Falta decidir si eso también cambia.
+
+4. **`check-admin.js` no revisa el balance del HTML**, sólo el JavaScript. Un `</div>`
+   de más ya rompió el panel una vez (ver más abajo). Se le puede agregar.
+
+5. **Token de GitHub en `Autoleads`.** Está en texto plano en
+   `C:\Users\Usuario\Desktop\Autoleads\.git\config` y en el historial de PowerShell.
+   Decidiste no revocarlo. Queda anotado: un `ghp_` clásico con scope `repo` alcanza a
+   **todos** los repos, no sólo a ese.
+
+---
+
+## 3. Cómo verificar que no rompiste nada
 
 ```bash
-npm run build
+npm test          # 278 pruebas, 12 suites
+npm run build     # corre check-admin.js y luego minifica
 ```
 
-Vercel lo corre en cada deploy, así que producción siempre queda bien. Pero si probás en local y no
-reconstruís, estás mirando el archivo viejo.
+`npm run build` **falla y corta el deploy** si el JS de `admin.html` revienta al
+cargar. Eso es a propósito: Vercel lo ejecuta al desplegar, así que un JS roto hace
+fallar el deploy en vez de salir al aire.
 
-**Las secciones Ventas e Historial están acotadas.** Ventas trae solo el mes elegido; con "Todos los
-meses" son las 500 más recientes. Historial son los últimos 500 movimientos. Los dos avisan en
-pantalla cuando están acotados. Es a propósito: traerlas completas eran 20.000 lecturas por click,
-y en Blaze eso se paga.
+**Lo que las pruebas NO pueden ver.** Cada suite saca la función del archivo y la
+corre aislada, así que no se entera si en el navegador **otro módulo la reemplaza**.
+Pasó: `admin-pagination.js` no envuelve a `renderStockList`, la **reimplementa entera**
+y nunca llama a la original — la selección múltiple de Stock no andaba aunque las 33
+pruebas pasaban. **Lo visual y lo que depende del orden de carga hay que verificarlo
+abriendo la página.**
 
 ---
 
-## Referencia — datos del proyecto
+## 4. Trampas de este código (todas costaron un bug)
 
-| Qué | Valor |
+**`admin.html` tiene su JavaScript adentro, en un bloque de ~4.700 líneas.** Si una
+sola línea tira un error al cargar, el navegador abandona el bloque entero ahí mismo.
+Las funciones sobreviven porque las declaraciones `function` se hoistean —así que la
+página parece sana— pero todas las declaraciones `let`/`const` posteriores quedan sin
+inicializar. Un error en la línea 1750 rompe las 2.900 que siguen.
+
+**`node --check` no alcanza.** Un `async` que quedó colgado al sacar una función es
+sintaxis válida (`async` es un identificador) y explota recién al ejecutar. Para eso
+está `check-admin.js`.
+
+**Al agregar CSS, mirá dónde está parada la regla vecina.** Muchas viven dentro de
+`@media(max-width:768px)`. Anclar ahí hace que el estilo nuevo **sólo aplique en
+pantallas chicas**, y en escritorio no se nota que falta hasta que algo se ve mal.
+
+**`.btn{flex:1}` y `.btn{width:100%}`** existen en esas media queries. Cualquier botón
+en una barra necesita `width:auto; flex:0 0 auto` o se estira a todo el ancho.
+
+**El balance de `<div>` del archivo es −1 de fábrica.** No es un error nuevo: si al
+comparar te da −1, está bien. Si da otra cosa, rompiste algo.
+
+**Finales de línea.** El repo tiene LF y la copia local CRLF. Comparar hashes contra
+producción da distinto aunque el contenido sea idéntico: normalizá `\r\n` → `\n` antes.
+
+**Thiago trabaja en paralelo** (`thiagojoel17@hotmail.com`). Hacé `git fetch` antes de
+empezar: ya pasó que el remoto estuviera 6 commits adelante.
+
+**El panel del navegador oculto no dibuja frames**, así que las transiciones CSS quedan
+congeladas en su valor inicial y las capturas fallan. Si vas a medir un color animado,
+comprobá antes con `requestAnimationFrame`.
+
+---
+
+## 5. Referencia rápida
+
+| | |
 |---|---|
-| Repo | `github.com/ObregonJeronimo/brotesdietetica` |
-| Sitio | https://brotesdietetica.vercel.app |
-| Panel admin | https://brotesdietetica.vercel.app/admin |
 | Proyecto Firebase | `brotesdietetica-2f78e` |
-| Región Firestore | `southamerica-east1` (São Paulo) — ya elegida, **no se puede cambiar** |
-| Plan Firebase | Blaze (pago por uso; con este volumen no factura) |
-| Admins del panel | `jeroobregon03@gmail.com` · `thiagowendler53@gmail.com` |
-| Carpeta local | `C:\Users\Usuario\Documents\brotesdietetica` |
+| Producción | https://brotesdietetica.vercel.app |
+| Repo | https://github.com/ObregonJeronimo/brotesdietetica |
+| Dueño | `jeroobregon03@gmail.com` — en `config-negocio.js` (`NEGOCIO.mailDuenio`) **y** en `firestore.rules` y `storage.rules`. Las reglas no pueden leer ese archivo: ese literal es la salida de emergencia si `/admins` quedara vacía. **Si cambia el dueño hay que tocar los tres.** |
+| Quién entra al panel | colección `/admins` — se maneja desde Configuración → Quién puede entrar |
+| Tope de Storage | 5 GB, con el medidor en la barra lateral |
 
-**Contactos del negocio ya cargados en el código:** WhatsApp `+54 9 351 687-2770`,
-email `brotesdietetica@gmail.com`, dirección `Manuel de Falla, X5021 Córdoba`,
-zona de envío `Rivera Indarte y alrededores`.
+**Cloud Functions (10):** `notifyTelegramOnNewOrder`, `procesarUsoCupon`,
+`rateLimitPedidos`, `sanitizarPedido`, `sincronizarClaimAdmin`,
+`aplicarClaimAlIngresar`, `descontarStockPedido`, `sumarUsoStorage`,
+`restarUsoStorage`, `recalcularUsoStorage`.
 
----
-
-## Historial — lo que ya se hizo (referencia, no hay que repetirlo)
-
-- Ecommerce y panel `/admin` completos, replicados de YERCO.
-- Marca, logos, paleta del logo y textos de Brotes.
-- Términos y condiciones divididos: lo comercial es de Brotes, el software de Deft.
-- Footer con el crédito de Deft Software Solutions y contacto.
-- Deploy en Vercel funcionando (HTTP 200, con estilos, cabeceras de seguridad OK).
-- `firebase-config.js` y `vercel.json` ya apuntan a `brotesdietetica-2f78e`.
-- Proyecto Firebase creado, Firestore en São Paulo, modo producción.
-
-**Comprobado:** el sitio conecta con Firestore y responde `permission-denied`.
-Eso es lo esperado — las credenciales están bien, faltan las reglas (paso 2).
+Las tres de pedidos corren en `southamerica-east1`; las dos de Storage en `us-east1`,
+que es donde vive el bucket (en otra región el deploy las rechaza).
 
 ---
 
-## PASO 1 — Ver con qué cuenta se creó el proyecto
-
-Esto primero, porque define cómo hacés el paso 2.
-
-Entrá a https://console.firebase.google.com/project/brotesdietetica-2f78e y mirá
-**el avatar de arriba a la derecha**: ese es el mail dueño del proyecto. Anotalo.
-
-> **Por qué importa:** desde la PC de Jero la CLI está logueada como
-> `jeroobregon03@gmail.com`, y **ese mail no ve el proyecto**. Ve los otros 6
-> (incluido `yerco-bb620`) pero no este. O sea que se creó con otra cuenta.
-
-Aprovechá y agregá a los dos como propietarios, así cualquiera lo puede mantener:
-
-**⚙ Configuración del proyecto → Usuarios y permisos → Agregar miembro**
-→ `jeroobregon03@gmail.com` y `thiagowendler53@gmail.com`, rol **Propietario**.
-
----
-
-## PASO 2 — Desplegar las reglas (lo más importante)
-
-Ahora Firestore tiene las reglas de bloqueo total que pone Firebase por defecto:
-
-```
-allow read, write: if false;
-```
-
-Con eso **nada funciona**: el catálogo se ve vacío y el panel no puede escribir.
-Hay que reemplazarlas por las del repo. Son 3 cosas.
-
-| Archivo del repo | Dónde va | Si falta |
-|---|---|---|
-| `firestore.rules` | Firestore → Reglas | no funciona nada |
-| `firestore.indexes.json` | Firestore → Índices | fallan cosas **en silencio** |
-| `storage.rules` | Storage → Reglas | no se pueden subir fotos de productos |
-
-### Opción A — Por línea de comandos (recomendada: más rápido y sin errores de tipeo)
-
-Tenés que estar logueado con la cuenta **dueña del proyecto** (la del paso 1).
-
-```bash
-npm install -g firebase-tools
-```
-
-```bash
-cd C:\Users\Usuario\Documents\brotesdietetica
-```
-
-```bash
-firebase login
-```
-
-```bash
-firebase use --add
-```
-
-(elegí `brotesdietetica-2f78e`, alias `default`)
-
-```bash
-firebase deploy --only firestore:rules,firestore:indexes,storage
-```
-
-Eso sube las reglas **y los 4 índices** de una. Si Storage todavía no está habilitado,
-habilitalo primero desde la consola (misma región) y volvé a correr el comando.
-
-### Opción B — Por consola, copiar y pegar
-
-1. **Firestore Database → pestaña Reglas.** Borrá todo lo que hay.
-   Abrí `firestore.rules` de la carpeta local, copiá **todo** y pegalo. **Publicar.**
-2. **Storage.** Si nunca lo habilitaste: *Comenzar* → misma región (`southamerica-east1`).
-   Después **pestaña Reglas** → borrá todo → pegá `storage.rules` → **Publicar.**
-3. **Los 4 índices** a mano en **Firestore → Índices → Crear índice**.
-   Todos con *Alcance de consulta* = **Colección**:
-
-   | Colección | Campo 1 | Campo 2 |
-   |---|---|---|
-   | `pedidos` | `clienteAuthUid` Ascendente | `creadoEn` **Descendente** |
-   | `cuponesUsos` | `cuponId` Ascendente | `uid` Ascendente |
-   | `cupones` | `codigo` Ascendente | `activo` Ascendente |
-   | `resenas` | `clienteAuthUid` Ascendente | `usado` Ascendente |
-
-   Tardan unos minutos. Esperá a que los 4 digan **Habilitado**.
-
-> ⚠️ El índice de `resenas` es el más traicionero: si falta, la página de reseñas
-> le dice **"Link inválido"** a todo el mundo y parece que el link estuviera roto.
-
----
-
-## PASO 3 — Agregar el dominio de Vercel a Firebase
-
-**Authentication → Settings → Dominios autorizados → Agregar un dominio:**
-
-```
-brotesdietetica.vercel.app
-```
-
-Ahora solo están `localhost`, `brotesdietetica-2f78e.firebaseapp.com` y
-`brotesdietetica-2f78e.web.app`, que vienen por defecto.
-
-**Sin este paso el login con Google no funciona en el sitio publicado.**
-
----
-
-## PASO 4 — Desactivar el acceso con email y contraseña
-
-**Authentication → Sign-in method → Correo electrónico/contraseña → Inhabilitar.**
-Dejá **solo Google**, igual que YERCO.
-
-**Por qué:** el sitio no tiene ninguna pantalla de registro con email, no se usa para
-nada. Pero mientras esté habilitado, cualquiera puede crearse una cuenta desde la
-consola del navegador y pasar a contar como "usuario autenticado". Y hay reglas que
-solo piden eso: crear pedidos y escribir los contadores de `config`. Con Google-only,
-al menos hace falta una cuenta de Google real.
-
----
-
-## PASO 5 — Crear los datos iniciales
-
-En un Firestore vacío **el panel no arranca**, por dos trabas encadenadas:
-
-- Guardar un producto exige elegir una *lista de proveedor*; si no hay ninguna, no se puede.
-- El desplegable de *Categoría* se arma con las categorías **de los productos que ya
-  existen** → con la colección vacía nunca podés crear el primero. Círculo cerrado.
-
-Para eso hay una página que lo resuelve sola:
-
-### https://brotesdietetica.vercel.app/setup-inicial.html
-
-1. Entrá con Google (tiene que ser uno de los dos mails admin).
-2. Te lista qué documentos faltan.
-3. **Crear los que faltan.**
-
-Crea 10 documentos y **nunca borra ni sobreescribe nada**. Se puede correr las veces
-que quieras: si algo ya existe, lo saltea.
-
-| Documento | Para qué |
-|---|---|
-| `listas/{id}` | **bloqueante** — lista de proveedor inicial |
-| `_categorias/GENERAL` | **bloqueante** — categoría inicial |
-| `productos/{id}` | **bloqueante** — producto oculto que desbloquea el desplegable |
-| `config/siteContent` | textos e imágenes de la web |
-| `config/factura` | datos que salen impresos en el ticket |
-| `config/resenasConfig` | preguntas del formulario de reseñas |
-| `config/pedidosCount` y 3 contadores más | numeración de pedidos y ventas |
-
-> Si la página dice que tu mail no es admin: o el paso 2 no se completó (las reglas
-> viejas bloquean todo), o estás con otra cuenta de Google.
-
-Después:
-
-1. Borrá o dejá oculto el "Producto de ejemplo".
-2. Cargá el catálogo real: **/admin → Importar Nuevos Excel**.
-   Obligatorias: `NOMBRE` y `CATEGORIA`.
-   Opcionales: `SUBCATEGORIA`, `COSTO`, `PORCENTAJE`, `STOCK`, `DESCRIPCION`.
-3. Subí el logo y la foto del hero: **/admin → Editor Web**.
-
----
-
-## PASO 6 — Probar (en este orden)
-
-Cada punto tapa una falla que **no muestra ningún error visible** si está mal.
-
-- [ ] La home carga con estilos y se ven los productos.
-- [ ] Login con Google **en la computadora** (abre un popup).
-- [ ] Login con Google **en un celular de verdad** ← el que más se rompe. Hacelo sí o sí.
-- [ ] Mi perfil: guardar nombre y teléfono, agregar una dirección.
-- [ ] Carrito → Confirmar pedido → **aparece en /admin → Pedidos**.
-- [ ] Cupón: crealo en /admin y aplicalo en el checkout.
-- [ ] `/admin` deja entrar a los 2 mails admin y **rechaza** cualquier otro.
-- [ ] Subir la foto de un producto (esto prueba `storage.rules`).
-- [ ] Imprimir una factura: tiene que decir **BROTES DIETETICA** y la dirección correcta.
-- [ ] Generar un link de reseña desde /admin y abrirlo: **no** debe decir "Link inválido".
-- [ ] Buscá "yerco" en el sitio publicado: **0 resultados**.
-
----
-
-## PASO 7 — App Check (opcional, gratis, dejalo para el final)
-
-**Qué es:** exige que las peticiones vengan de nuestra web y no de un script.
-
-**Por qué conviene:** no es por robo de datos, es por **la factura**. Firestore cobra
-por documento leído, el catálogo tiene que ser público, y la `apiKey` está a la vista
-en el código de la página (eso es normal, no es una filtración). Sin App Check,
-cualquiera puede leer la base en loop y hacernos consumir cuota.
-
-**¿Cuesta?** No. App Check es gratis y la clave de **reCAPTCHA v3** también, de sobra
-para el volumen de una dietética. La que cuesta es **reCAPTCHA Enterprise**: en la
-pantalla de Firebase aparecen las dos, **elegí la de arriba (reCAPTCHA), NO Enterprise.**
-
-Pasos (3 minutos):
-
-1. `google.com/recaptcha/admin` → crear clave → tipo **reCAPTCHA v3**.
-2. Dominios: `brotesdietetica.vercel.app` y `localhost`.
-3. Te da **clave de sitio** y **clave secreta**.
-4. Firebase → **App Check → Apps → brotesdietetica → reCAPTCHA** → pegá la
-   **clave secreta** → Guardar.
-5. La **clave de sitio** va en el código, en `firebase-config.js` línea 63. Reemplazá
-   el texto `REEMPLAZAR-recaptcha-v3-site-key` por la clave, y después:
-
-```bash
-git add firebase-config.js && git commit -m "config: clave de sitio de reCAPTCHA" && git push
-```
-
-Vercel redeploya solo.
-
-> **NO prendas "Aplicar" / enforcement hasta que el sitio esté andando.** Si lo forzás
-> con la clave mal configurada, **todas** las lecturas de Firestore fallan, el catálogo
-> se ve vacío y el único síntoma es un error en la consola del navegador.
->
-> Mientras la clave siga en `REEMPLAZAR`, el código no activa App Check y todo funciona
-> normal. No corre apuro.
-
----
-
-## PASO 8 — Cloud Functions (requiere plan Blaze — leer antes de decidir)
-
-Las 4 Cloud Functions **no se pueden desplegar en Spark** (son Gen 2, corren sobre
-Cloud Run). **El sitio funciona igual sin ellas**: catálogo, carrito, checkout, login,
-panel, facturas, reseñas y mayoristas andan bien.
-
-Lo único que se pierde:
-
-| Function | Qué se pierde si no está |
-|---|---|
-| `notifyTelegramOnNewOrder` | no llega el aviso por Telegram de cada pedido nuevo |
-| `procesarUsoCupon` | el tope **global** de usos de un cupón no se aplica (el "un uso por cliente" sí sigue) |
-| `rateLimitPedidos` | no hay límite de 5 pedidos por hora por cliente |
-| `sanitizarPedido` | no hay limpieza de texto en el servidor (la del navegador sigue) |
-
-**Blaze en la práctica sale ~USD 0** con este tráfico: mantiene la capa gratuita y
-cobra solo el excedente. Pide tarjeta. Si lo activan, **poné un presupuesto de alerta
-en USD 5** (Google Cloud → Facturación → Presupuestos).
-
-**Sugerencia: arranquen en Spark.** Pasen a Blaze cuando el dueño quiera los avisos
-por Telegram, que es lo que más se nota.
-
-Si activan Blaze:
-
-```bash
-cd C:\Users\Usuario\Documents\brotesdietetica\functions && npm install && cd .. && firebase deploy --only functions
-```
-
-Para Telegram, además hay que crear a mano el documento `config/telegram` en Firestore
-con los campos `token` y `chatId` (el bot se crea con @BotFather). Ningún panel lo crea.
-Ese token **es el único secreto real del sistema**, y por eso la regla de Firestore lo
-deja visible solo para admins.
-
----
-
-## Trampas — cosas que NO hay que hacer
-
-1. **No cambies Build Command ni Output Directory en Vercel.** Los define `vercel.json`.
-   Si los tocás, el deploy falla con *No Output Directory named public found*.
-2. **No agregues comentarios a `vercel.json`.** Rechaza cualquier clave que no esté en
-   su esquema, incluida `"//"`. Es JSON estricto.
-3. **No agregues un redirect de `www` a sin-`www`** (ni al revés) si algún día ponen
-   dominio propio. Combinado con el proxy de login da `ERR_TOO_MANY_REDIRECTS`.
-   En YERCO pasó y hubo que revertirlo de urgencia. Servir los dos hostnames.
-4. **Si editás `app.js` o `styles.css`, corré `npm run build`** antes de mirar el
-   resultado en local. La web carga los `.min`, no los fuentes. En producción no hace
-   falta acordarse (Vercel lo hace solo), pero en local sí.
-5. **No toques el orden de los `<script>` de `admin.html`.** `admin-pagination.js` tiene
-   que quedar último.
-6. **Para agregar o quitar un admin hay que tocar 4 lugares** y volver a desplegar las
-   reglas (ver `SETUP.md` sección 13). Si tocás uno solo, la persona queda a medias:
-   entra al panel pero todo le da error, o al revés.
-7. **No borres el `class="wa-dev"`** del link de Deft en el footer. Sin esa clase, el
-   código lo reescribe con el número del negocio.
-
----
-
-## Si algo falla
-
-| Síntoma | Causa casi siempre |
-|---|---|
-| Catálogo vacío, sin error visible | reglas sin desplegar (paso 2), o App Check forzado con clave mal |
-| `permission-denied` en la consola | reglas sin desplegar (paso 2) |
-| Login anda en PC pero no en celular | falta el dominio en Firebase (paso 3) |
-| "Link inválido" en toda reseña | falta el índice de `resenas` (paso 2) |
-| "Seleccioná una lista de proveedor" | falta el paso 5 |
-| El desplegable de Categoría vacío | falta el paso 5 |
-| `storage/unauthorized` al subir foto | `storage.rules` sin desplegar (paso 2) |
-| La factura sale con datos viejos | falta `config/factura` (paso 5) |
-| Todo el sitio sin diseño | los `.min` no se generaron; revisar el log del build en Vercel |
-
-**Detalle completo del sistema:** `SETUP.md` en la raíz del repo. Ahí está también la
-deuda técnica heredada de YERCO (sección 17) y el manejo de credenciales (sección 13).
-
----
-
-*Deft Software Solutions · +54 9 351 206-7970*
+## 6. Lo que se hizo (referencia — no hay que repetirlo)
+
+**Bugs graves cerrados:** el checkout que fallaba en silencio · la ganancia por
+cliente que mostraba facturación como margen y aplicaba el descuento dos veces · un
+pedido borrado por rate-limit que se llevaba el stock sin dejar rastro · escribir
+`20.000` guardaba `20` · la venta mayorista era imposible · un producto con apóstrofo
+no se podía borrar · guardar el Editor Web rompía la portada de un click · volver un
+pedido a pendiente borraba la venta sin devolver stock · XSS almacenado · Vercel
+publicaba el repo entero con los mails de los admins.
+
+**Funcionalidad nueva:** caja y arqueo · estadísticas con calendario · lector de
+códigos de barras · atajos de teclado · formatos de papel · administración de admins
+desde el panel · carga de stock en tanda · medidor de almacenamiento con tope ·
+validación de precios bajo costo del lado del servidor.
+
+**Costos de Firestore:** la tienda y el panel leían colecciones enteras en cada
+visita; guardar un producto releía los 3.000. Todo acotado.
+
+El detalle de cada uno está en los mensajes de commit, que explican el problema antes
+que la solución. `git log` es la mejor documentación de este proyecto.

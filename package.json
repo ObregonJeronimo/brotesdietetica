@@ -8,6 +8,7 @@
     "build:js": "terser app.js -c -m -o app.min.js",
     "build:css": "cleancss -o styles.min.css styles.css && cleancss -o toolbar.min.css toolbar.css && cleancss -o footer-dev.min.css footer-dev.css",
     "check": "node check-admin.js",
+    "test": "node pruebas/correr.js",
     "build": "npm run check && npm run build:js && npm run build:css"
   },
   "devDependencies": {
