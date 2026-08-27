@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 699 en 27 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
+| Pruebas | 722 en 28 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **prácticamente vacíos — ver abajo** |
@@ -167,6 +167,49 @@ la cabeza si alguna vez se revisa la decisión de no rotar el token.
 Si en algún momento se quisiera apagar el bot, alcanza con vaciar `token` o `chatId`: la
 function escribe *"Telegram no está configurado, omito notificación"* en el log y **corta sin
 error**. El pedido se guarda igual y el stock se descuenta igual.
+
+---
+
+### f) El popup de Google se colgaba · PORTADO DE YERCO (27/08/2026)
+
+Al ir a hacer el pedido de prueba, el popup de login quedaba **en blanco y cargando para
+siempre** en `brotesdietetica.vercel.app/__/auth/handler?state=...`. En YERCO el mismo login
+funciona, así que se comparó todo — y **la infraestructura resultó ser idéntica**:
+
+| | |
+|---|---|
+| `vercel.json` | los dos tienen los **dos** rewrites: `/__/auth/:path*` y `/__/firebase/:path*` |
+| Headers | mismo COOP (`same-origin-allow-popups`), mismo `X-Frame-Options`, misma CSP salvo los dominios |
+| Dominio autorizado | `brotesdietetica.vercel.app` **sí** está en Firebase Auth |
+| SDK | 10.12.0 en los dos |
+| App Check | `UNENFORCED` en identitytoolkit, firestore y storage |
+| `/__/auth/handler` | mismo status, mismos bytes y **mismo cuerpo**, en GET y en POST |
+| La ida a Google | funciona: cargando el handler a mano, la pestaña termina en `accounts.google.com` |
+
+Lo único distinto era **el código de la aplicación**, en tres cosas:
+
+- **`_onUserLogin` lo llamaban CUATRO lugares** —el `DOMContentLoaded`, el `.then` de
+  `getRedirectResult`, el `.then` de `signInWithPopup` y `onAuthStateChanged`— contra **uno**
+  en YERCO. Firebase avisa la misma sesión por varios de esos caminos a la vez. El candado
+  por uid de la tanda 2 se deja, pero pasa a ser red de seguridad en vez de la única defensa.
+- **En móvil se arrancaba con `signInWithRedirect`.** El redirect depende de cookies de
+  terceros, que Safari, Firefox y Chrome bloquean: es **menos** confiable que el popup, no
+  más. YERCO es popup-first en todos los dispositivos, con redirect sólo como fallback.
+- **No había guarda de reentrada, ni de "mismo uid ya procesado", ni `try/catch`.** Sin el
+  `finally`, una excepción de Firestore dejaba `_authProcesando` en true para siempre y
+  ningún login posterior se volvía a procesar.
+
+Se portó la estructura de YERCO tal cual: `setPersistence` primero, `onAuthStateChanged`
+como única fuente de verdad con los dos guardas y `try/catch/finally`, y `getRedirectResult`
+reducido a reabrir el carrito. Cubierto por `pruebas/t-login.js` (23 asertos), que además
+deja fijo **por contrato** que `_onUserLogin` tenga un solo llamador. Contra el código
+anterior la suite ni termina.
+
+> **Lo que NO está demostrado:** que esto sea *la causa* del cuelgue. Se probó que la
+> infraestructura es idéntica y que el código difería en cosas que son bugs de verdad, y se
+> alineó con la versión que funciona. Si el popup sigue colgado, **el dato que falta es la
+> consola de la ventana del popup** (F12 adentro del popup) — es lo único que no se puede
+> mirar desde acá sin iniciar sesión con una cuenta de Google real.
 
 ---
 
@@ -699,7 +742,7 @@ hechos**: son la tanda 6.
 ## 4. Cómo verificar que no rompiste nada
 
 ```bash
-npm test          # 699 pruebas, 27 suites — no necesita nada instalado
+npm test          # 722 pruebas, 28 suites — no necesita nada instalado
 npm run build     # corre check-admin.js y luego minifica
 npm run test:reglas   # 55 asertos contra firestore.rules, con el emulador
 ```
