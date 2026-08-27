@@ -37,15 +37,20 @@ const t = (d, c, extra) => {
   else { fail++; console.log('  FALLA ' + d + (extra !== undefined ? '   [' + extra + ']' : '')); }
 };
 
-const FUNCIONES = ['totalesMes', 'renderOnline', '_card', '_fila'].map(cuerpo).join('\n');
+const FUNCIONES = ['totalesMes', 'renderOnline', 'renderTopProductos', '_cantTop', '_card', '_fila']
+  .map(cuerpo).join('\n');
 
 const ent = {
   medioKeyDeVenta: v => 'efectivo',
   _sp: n => '$' + Number(n || 0).toLocaleString('es-AR'),
+  /* renderTopProductos escapa el nombre del producto: los nombres entran por el Excel
+     del proveedor, que no lo escribe el comercio. */
+  esc: s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
 };
 const nombres = Object.keys(ent);
 const api = new Function(...nombres, FUNCIONES +
-  '\nreturn {totalesMes:totalesMes,renderOnline:renderOnline};')(...nombres.map(n => ent[n]));
+  '\nreturn {totalesMes:totalesMes,renderOnline:renderOnline,renderTopProductos:renderTopProductos};'
+)(...nombres.map(n => ent[n]));
 
 /* Un mes de trabajo normal: 4 pedidos web, todos resueltos. Uno recien confirmado
    (lo facturaron hoy) y tres ya entregados. */
@@ -98,6 +103,43 @@ const t3 = api.totalesMes(conCancel);
 t('el entregado cuenta como resuelto', t3.pedidosConfirmados === 1, t3.pedidosConfirmados);
 t('el cancelado cuenta como cancelado, no como resuelto', t3.pedidosCancelados === 1);
 t('y no se pisan entre si', t3.pedidosConfirmados + t3.pedidosCancelados === 2);
+
+console.log('\nEL RANKING NO PUEDE SUMAR GRAMOS Y UNIDADES');
+/* Un producto a granel vende GRAMOS y uno normal UNIDADES. El contador los sumaba en la
+   misma columna, asi que 300 g de nueces figuraban como "300u" arriba de un producto que
+   se vendio de a 2 por mucha mas plata. El ORDEN siempre fue por monto y estaba bien: lo
+   unico mal era como se decia la cantidad. */
+const mesGranel = {
+  ventas: [{ _neto: 28200, _online: true, envio: 0, descuentoMonto: 0, medioPago: 'Efectivo', items: [
+    { nombre: 'Nueces mariposa', cantidad: 300, tipoVenta: 'peso', subtotal: 5400 },
+    { nombre: 'Producto de ejemplo', cantidad: 2, tipoVenta: 'unidad', subtotal: 22800 },
+    { nombre: 'Almendras', cantidad: 1500, tipoVenta: 'peso', subtotal: 3000 },
+  ] }],
+  pedidos: [], porDia: {},
+};
+const tg = api.totalesMes(mesGranel);
+t('el granel cuenta GRAMOS y no unidades',
+  tg.productos['Nueces mariposa'].gramos === 300 && tg.productos['Nueces mariposa'].unidades === 0,
+  JSON.stringify(tg.productos['Nueces mariposa']));
+t('el de unidad cuenta UNIDADES y no gramos',
+  tg.productos['Producto de ejemplo'].unidades === 2 && tg.productos['Producto de ejemplo'].gramos === 0,
+  JSON.stringify(tg.productos['Producto de ejemplo']));
+
+const top = api.renderTopProductos(tg);
+t('el ranking dice "300 g", NO "300u"', /300 g/.test(top) && !/300u/.test(top),
+  top.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').slice(0, 180));
+t('1.500 g se dicen como "1,5 kg"', /1,5 kg/.test(top));
+t('y lo que se vende por unidad sigue diciendo "2u"', /2u/.test(top));
+t('el orden sigue siendo por monto, no por el numero de la cantidad',
+  top.indexOf('Producto de ejemplo') < top.indexOf('Nueces mariposa'),
+  'ejemplo=' + top.indexOf('Producto de ejemplo') + ' nueces=' + top.indexOf('Nueces mariposa'));
+
+console.log('\nUn producto viejo sin tipoVenta se cuenta como unidad');
+const tv = api.totalesMes({ ventas: [{ _neto: 1000, _online: false, envio: 0, descuentoMonto: 0,
+  medioPago: 'Efectivo', items: [{ nombre: 'Yerba', cantidad: 3, subtotal: 1000 }] }],
+  pedidos: [], porDia: {} });
+t('sin tipoVenta va a unidades', tv.productos['Yerba'].unidades === 3 && tv.productos['Yerba'].gramos === 0,
+  JSON.stringify(tv.productos['Yerba']));
 
 console.log('\nSin pedidos no se divide por cero');
 const t4 = api.totalesMes({ ventas: [], pedidos: [], porDia: {} });

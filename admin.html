@@ -1047,7 +1047,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function _initAuth(){
             if(!firebase.auth){setTimeout(_initAuth,100);return;}
             try{if(!auth)auth=firebase.auth();if(!storage)storage=firebase.storage();}catch(e){}
-            auth.onAuthStateChanged(async u=>{if(u){const allowed=await isAllowedEmail(u.email);if(!allowed){auth.signOut();const err=document.getElementById('loginError');err.textContent='Tu cuenta no tiene permisos para acceder.';err.style.display='block';return;}document.getElementById('loginScreen').style.display='none';document.getElementById('dashboard').style.display='block';document.getElementById('userEmail').textContent=u.email;Promise.resolve(loadProducts()).then(()=>{if(typeof actualizarBadgeAlertas==='function')actualizarBadgeAlertas();});loadListas();loadFacturaConfig();loadTelegramConfig();loadResenasConfig();loadPedidosCfgEditor();loadAtajos();escucharUso();}else{document.getElementById('loginScreen').style.display='flex';document.getElementById('dashboard').style.display='none';}});
+            auth.onAuthStateChanged(async u=>{if(u){const allowed=await isAllowedEmail(u.email);if(!allowed){/* NO se cierra la sesion. /admin y la tienda son EL MISMO ORIGEN y Firebase comparte la sesion entre pestañas: un cliente que entraba aca por curiosidad quedaba deslogueado de la tienda en TODAS sus pestañas, en silencio y sin ningun error, con el carrito armado y sin entender que paso. El panel igual no se abre -el dashboard sigue oculto y las reglas no le dejan leer nada-, que es lo unico que hay que impedir. El boton de salir queda a mano para el caso contrario: un admin que entro con la cuenta equivocada y necesita cambiarla. */const err=document.getElementById('loginError');err.innerHTML='Tu cuenta no tiene permisos para acceder. <button type="button" onclick="logout()" style="background:none;border:none;color:inherit;text-decoration:underline;cursor:pointer;padding:0;font:inherit">Salir de esta cuenta</button>';err.style.display='block';return;}document.getElementById('loginScreen').style.display='none';document.getElementById('dashboard').style.display='block';document.getElementById('userEmail').textContent=u.email;Promise.resolve(loadProducts()).then(()=>{if(typeof actualizarBadgeAlertas==='function')actualizarBadgeAlertas();});loadListas();loadFacturaConfig();loadTelegramConfig();loadResenasConfig();loadPedidosCfgEditor();loadAtajos();escucharUso();}else{document.getElementById('loginScreen').style.display='flex';document.getElementById('dashboard').style.display='none';}});
         } // end _initAuth
         _initAuth();
         function logout(){auth.signOut();}
@@ -3128,7 +3128,8 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                        descontar; `revisarPrecio` es un precio sospechoso; `stockError` es que
                        la funcion no pudo descontar nada. */
                     if(p.stockFaltante&&p.stockFaltante.length){
-                        var _f=p.stockFaltante.map(function(x){return esc(x.nombre)+' (pidio '+x.pedido+', habia '+x.disponible+')';}).join(', ');
+                        /* fmtPeso cuando el producto va a granel: 250 gramos no son 250 paquetes. */
+                        var _f=p.stockFaltante.map(function(x){var _u=function(n){return x.tipoVenta==='peso'?fmtPeso(n):String(Number(n||0));};return esc(x.nombre)+' (pidio '+_u(x.pedido)+', habia '+_u(x.disponible)+')';}).join(', ');
                         cards+='<span style="background:#3a2a1a;color:#e6a23c;border:1px solid #6a4a2a;border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="'+_f+'"><i class="bi bi-exclamation-triangle"></i> Falto stock</span>';
                     }
                     if(p.revisarPrecio){
@@ -3368,20 +3369,37 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
         /* Devuelve al stock los items de un pedido que ya lo habia descontado.
            Idempotente por la bandera stockDescontado: al devolver la baja a false,
            asi cancelar dos veces no infla el inventario. */
+        /* El parametro `pedido` ya NO decide nada: quedo como pista del que llama. La
+           decision y la escritura tienen que ser coherentes, asi que las dos pasan adentro
+           de la transaccion, sobre el documento vivo. Antes la guarda miraba la copia en
+           memoria (pedidosData) y recien despues abria la transaccion: la ventana es
+           angosta -el panel escucha con onSnapshot- pero un doble click alcanzaba para
+           devolver la mercaderia DOS veces. Es la misma forma del bug que ya se arreglo en
+           las Cloud Functions, y la receta ya estaba escrita en PENDIENTE.md.
+           De paso se cierra el otro agujero: si pedidosData estaba vacia -entrar derecho a
+           Pedidos la deja asi- el pedido llegaba en null, esto devolvia false, y
+           deletePedido borraba el pedido SIN devolver una sola unidad. */
         async function devolverStockPedido(docId,pedido){
-            if(!pedido||!pedido.stockDescontado)return false;
-            const porProd={};
-            (pedido.items||[]).forEach(i=>{ if(i.id)porProd[i.id]=(porProd[i.id]||0)+Number(i.cantidad||0); });
-            const ids=Object.keys(porProd);
-            if(!ids.length)return false;
             try{
+                let devolvio=false;
                 await db.runTransaction(async t=>{
+                    const pedRef=db.collection('pedidos').doc(docId);
+                    /* TODAS las lecturas antes de la primera escritura. */
+                    const pedSnap=await t.get(pedRef);
+                    if(!pedSnap.exists)return;
+                    const vivo=pedSnap.data();
+                    if(!vivo.stockDescontado)return;
+                    const porProd={};
+                    (vivo.items||[]).forEach(i=>{ if(i.id)porProd[i.id]=(porProd[i.id]||0)+Number(i.cantidad||0); });
+                    const ids=Object.keys(porProd);
+                    if(!ids.length){ t.update(pedRef,{stockDescontado:false}); devolvio=true; return; }
                     const refs=ids.map(id=>db.collection('productos').doc(id));
                     const snaps=await Promise.all(refs.map(r=>t.get(r)));
                     refs.forEach((r,k)=>{ if(snaps[k].exists)t.update(r,{stock:Number(snaps[k].data().stock||0)+porProd[ids[k]]}); });
-                    t.update(db.collection('pedidos').doc(docId),{stockDescontado:false});
+                    t.update(pedRef,{stockDescontado:false});
+                    devolvio=true;
                 });
-                return true;
+                return devolvio;
             /* Devuelve 'error' y no false cuando la transaccion revento: false tambien
                significa "no habia nada que devolver", y quien llama no podia distinguir
                un caso del otro. */

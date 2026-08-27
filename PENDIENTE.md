@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 632 en 25 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
+| Pruebas | 669 en 26 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **prácticamente vacíos — ver abajo** |
@@ -568,18 +568,53 @@ Medido: pedido guardado en $2.000, tarifa del día $3.000 → el documento queda
 Ahora queda en $2.000, y si el admin agrega mercadería y cruza el mínimo, pasa a $0. Un
 pedido nuevo cargado desde el panel sigue cotizando con la tarifa de hoy, como corresponde.
 
-### h9 — /admin desloguea al cliente de la tienda (FALTA DECIDIR)
+### h9 — /admin deslogueaba al cliente de la tienda · ARREGLADO
 
-`admin.html` hace `auth.signOut()` a cualquiera que no sea admin, y **/admin y la tienda son
-el mismo origen**. Firebase comparte la sesión entre pestañas, así que un cliente que abra
-/admin por curiosidad **queda deslogueado de la tienda en todas sus pestañas**, en silencio.
+`admin.html` hacía `auth.signOut()` a cualquiera que no fuera admin, y **/admin y la tienda son
+el mismo origen**. Firebase comparte la sesión entre pestañas, así que un cliente que abría
+/admin por curiosidad **quedaba deslogueado de la tienda en todas sus pestañas**, en silencio,
+con el carrito armado y sin entender qué pasó.
 
-Medido en el navegador: con `ana.cliente@gmail.com` logueada y con su pedido hecho, abrir
-/admin dejó `currentUser` en `null` y mostró *"Tu cuenta no tiene permisos para acceder."*
+Medido en el navegador antes del arreglo: con `ana.cliente@gmail.com` logueada y con su pedido
+hecho, abrir /admin dejó `currentUser` en `null`.
 
-**Falta decidir**: mostrar el cartel sin desloguear —el panel no se abre igual, y la sesión de
-la tienda sobrevive— o dejarlo así y documentarlo. No es pérdida de datos: el carrito vive en
-`localStorage` y sigue ahí. Es fricción, y de la que el cliente no entiende.
+Impedirle **entrar al panel** es correcto; cerrarle la sesión de la tienda no. Ahora se muestra
+el cartel y no se toca la sesión: el dashboard sigue oculto y las reglas no le dejan leer nada,
+que es lo único que hay que impedir. El cartel lleva un **"Salir de esta cuenta"** para el caso
+contrario —un admin que entró con la cuenta equivocada y necesita cambiarla—, que antes lo
+resolvía el `signOut()` automático.
+
+Cubierto por `pruebas/t-panel-cierres.js`.
+
+### Tanda 6 — los tres que quedaban de la auditoría
+
+> **Estado: hecha y probada.** Toca `admin.html`, `admin-stats.js` y `functions/index.js`.
+> Esta sí **necesita redesplegar una function**:
+>
+> ```bash
+> git push origin main
+> firebase deploy --only functions:descontarStockPedido
+> ```
+
+- **`devolverStockPedido` decidía con la copia en memoria.** La guarda
+  `if(!pedido||!pedido.stockDescontado)return false;` miraba el objeto que le pasaban (de
+  `pedidosData`) y recién después abría la transacción. Dos agujeros: un doble click alcanzaba
+  para devolver la mercadería **dos veces**, y con `pedidosData` vacía —entrar derecho a
+  Pedidos la deja así— el pedido llegaba en `null`, devolvía `false`, y `deletePedido` borraba
+  el pedido **sin devolver una sola unidad**. Ahora todo se decide adentro del
+  `runTransaction` sobre el documento vivo, con todas las lecturas antes de la primera
+  escritura.
+- **`stockFaltante` ya dice la unidad.** El aviso decía *"Nueces (pidió 250, había 100)"* para
+  un producto a granel: los números estaban bien, pero 250 gramos se leen como 250 paquetes.
+  La function guarda `tipoVenta` y el panel lo dibuja con `fmtPeso()`.
+- **El ranking ya no suma gramos con unidades.** El **orden** siempre fue por monto y estaba
+  bien; lo único mal era cómo se decía la cantidad: 300 g figuraban como `300u`. Ahora dice
+  `300 g`, `1,5 kg` o `2u` según cómo se venda, y los dos juntos si a un producto le cambiaron
+  la forma de venta a mitad de mes.
+
+Cubierto por `pruebas/t-panel-cierres.js` (26 asertos), los casos nuevos de
+`t-stats-entregado.js` y los casos 9h/9i de `test-funcion-precios.js`. Contra el commit
+anterior fallan 13 asertos y una suite no arranca.
 
 ---
 
@@ -593,34 +628,14 @@ la tienda sobrevive— o dejarlo así y documentarlo. No es pérdida de datos: e
   sin poder comprar: el cliente lo tolera con `parseInt`, la regla no. Sólo pasa si
   alguien lo edita a mano desde la consola de Firebase.
 
-- **`devolverStockPedido` decide con la copia en memoria, no adentro de la transacción.**
-  La guarda `if(!pedido||!pedido.stockDescontado)return false;` mira el objeto que le
-  pasan (de `pedidosData`), y recién después abre la transacción que devuelve el stock.
-  Es la misma forma del bug de las Cloud Functions que ya está en §5: la decisión y la
-  escritura tienen que ser coherentes. La ventana es angosta —el panel escucha los
-  pedidos con `onSnapshot`, así que la copia está fresca— pero un doble click alcanza.
-  La receta ya está escrita en este archivo: leer el pedido **adentro** del
-  `runTransaction`, con todas las lecturas antes de la primera escritura.
-- **`stockFaltante` no guarda `tipoVenta`.** El aviso "Faltó stock" muestra
-  *"Nueces (pidió 250, había 100)"* para un producto a granel: los números están bien,
-  la unidad no se dice. Son dos líneas —`tipoVenta: p.tipoVenta || 'unidad'` en el
-  `falt.push()` de `functions/index.js`, y `fmtPeso()` en el panel— pero **obliga a
-  redesplegar `descontarStockPedido`**, así que queda para cuando se toquen las
-  functions.
-- **El ranking de productos de estadísticas suma gramos y unidades en la misma columna**
-  (`admin-stats.js`, `p.unidades += Number(i.cantidad||0)`). El monto está bien —sale de
-  `i.subtotal`, que ahora es correcto—, pero *"más vendidos por unidades"* pone a
-  cualquier producto a granel arriba de todo con números de cuatro cifras. No se tocó
-  porque no es mecánico: hay que decidir **cómo se presenta** (dos columnas, o rankear
-  por monto). El dato para hacerlo ya está: los items guardan `tipoVenta`.
-  **Visto en pantalla** durante el ensayo de la tanda 5, con datos reales: el ranking
-  *"Lo que más se vendió"* mostró **`Nueces mariposa 300u`** por 300 **gramos**, arriba de
-  un producto que se vendió de a 2 unidades por $22.800. Ya no es una sospecha.
+Los otros tres que estaban acá —`devolverStockPedido` decidiendo con la caché,
+`stockFaltante` sin `tipoVenta`, y el ranking sumando gramos con unidades— **ya están
+hechos**: son la tanda 6.
 
 ## 4. Cómo verificar que no rompiste nada
 
 ```bash
-npm test          # 632 pruebas, 25 suites — no necesita nada instalado
+npm test          # 669 pruebas, 26 suites — no necesita nada instalado
 npm run build     # corre check-admin.js y luego minifica
 npm run test:reglas   # 55 asertos contra firestore.rules, con el emulador
 ```

@@ -197,8 +197,14 @@ function totalesMes(d) {
     t.porMedio[k] = (t.porMedio[k] || 0) + v._neto;
     (v.items || []).forEach(i => {
       if (!i || !i.nombre) return;
-      const p = (t.productos[i.nombre] = t.productos[i.nombre] || { unidades:0, monto:0 });
-      p.unidades += Number(i.cantidad || 0);
+      const p = (t.productos[i.nombre] = t.productos[i.nombre] || { unidades:0, gramos:0, monto:0 });
+      /* Un producto a granel vende GRAMOS y uno normal UNIDADES. Sumarlos en el mismo
+         contador ponia a cualquier granel arriba de todo con numeros de cuatro cifras:
+         300 g de nueces figuraban como "300u", encima de un producto que se vendio de a 2.
+         El ORDEN del ranking siempre fue por monto y estaba bien; lo unico mal era como se
+         decia la cantidad. */
+      if (i.tipoVenta === 'peso') p.gramos += Number(i.cantidad || 0);
+      else p.unidades += Number(i.cantidad || 0);
       p.monto += Number(i.subtotal || 0);
     });
   });
@@ -410,6 +416,18 @@ function renderOnline(t) {
       'Los envíos se muestran aparte: no son mercadería vendida, por eso no entran al facturado.</p>');
 }
 
+/* "300 g" / "1,5 kg" / "2u", y los dos juntos si el mismo nombre se vendio de las dos
+   formas (pasa si al producto le cambiaron la forma de venta a mitad de mes). */
+function _cantTop(p) {
+  const partes = [];
+  const g = Number(p.gramos || 0);
+  if (g) partes.push(g < 1000
+    ? g.toLocaleString('es-AR') + ' g'
+    : (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg');
+  if (p.unidades) partes.push(p.unidades + 'u');
+  return partes.join(' + ') || '—';
+}
+
 function renderTopProductos(t) {
   const arr = Object.keys(t.productos).map(n => Object.assign({ nombre:n }, t.productos[n]))
     .sort((a, b) => b.monto - a.monto).slice(0, 8);
@@ -419,7 +437,7 @@ function renderTopProductos(t) {
       '<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.35rem 0;font-size:0.85rem;border-bottom:1px solid rgba(255,255,255,0.04)">' +
         '<span style="color:var(--text-dim);font-size:0.75rem;width:1.1rem;flex:0 0 auto">' + (i + 1) + '</span>' +
         '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.nombre) + '</span>' +
-        '<span style="color:var(--text-dim);font-size:0.76rem;white-space:nowrap">' + p.unidades + 'u</span>' +
+        '<span style="color:var(--text-dim);font-size:0.76rem;white-space:nowrap">' + _cantTop(p) + '</span>' +
         '<span style="font-weight:600;white-space:nowrap">' + _sp(p.monto) + '</span></div>').join(''));
 }
 

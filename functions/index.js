@@ -371,7 +371,11 @@ exports.descontarStockPedido = onDocumentCreated(
             id: ids[k],
             nombre: p.nombreMostrado || p.nombre || ids[k],
             pedido: pedido,
-            disponible: disp
+            disponible: disp,
+            /* Sin esto el aviso "Falto stock" decia "Nueces (pidio 250, habia 100)" para un
+               producto a granel: los numeros estaban bien, la unidad no se decia, y 250
+               gramos se leen como 250 paquetes. */
+            tipoVenta: p.tipoVenta || 'unidad'
           });
         }
         /* Precio de catalogo al momento de procesar, para poder comparar contra lo

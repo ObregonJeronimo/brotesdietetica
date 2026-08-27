@@ -216,6 +216,26 @@ async function correr(pedido, vivo) {
   t('el costo se compara por kilo contra el precio por kilo', p.revisarPrecio === true);
   t('y dice cual fue', !!p.itemsBajoCosto && p.itemsBajoCosto[0].nombre === 'Nueces');
 
+  /* stockFaltante no guardaba tipoVenta, asi que el aviso "Falto stock" del panel decia
+     "Nueces (pidio 250, habia 100)" para un producto a granel: los numeros estaban bien,
+     la unidad no se decia, y 250 gramos se leen como 250 paquetes. */
+  grupo('Caso 9h - el faltante de un granel dice que se vende por peso');
+  PRODUCTOS = { n: { nombre: 'Nueces', tipoVenta: 'peso', precio: 18000, costo: 12000, descuento: 0, stock: 100 } };
+  p = await correr({ origen: 'web', subtotalProductos: 4500, total: 4500,
+    items: [{ id: 'n', nombre: 'Nueces', tipoVenta: 'peso', precio: 18000, cantidad: 250 }] });
+  t('anota el faltante', !!p.stockFaltante && p.stockFaltante.length === 1, JSON.stringify(p.stockFaltante));
+  t('con los gramos pedidos y los que habia',
+    p.stockFaltante[0].pedido === 250 && p.stockFaltante[0].disponible === 100);
+  t('y DICE que se vende por peso, para que el panel escriba "250 g"',
+    p.stockFaltante[0].tipoVenta === 'peso', p.stockFaltante[0].tipoVenta);
+
+  grupo('Caso 9i - y el de un producto por unidad lo dice tambien');
+  PRODUCTOS = { y: { nombre: 'Yerba', precio: 10000, costo: 6000, descuento: 0, stock: 1 } };
+  p = await correr({ origen: 'web', subtotalProductos: 40000, total: 40000,
+    items: [{ id: 'y', nombre: 'Yerba', precio: 10000, cantidad: 4 }] });
+  t('tipoVenta viene como "unidad", no ausente',
+    p.stockFaltante[0].tipoVenta === 'unidad', p.stockFaltante[0].tipoVenta);
+
   grupo('Caso 10 - cantidades: el costo se compara por UNIDAD');
   PRODUCTOS = { y: { nombre: 'Yerba', precio: 10000, costo: 6000, descuento: 0, stock: 20 } };
   p = await correr({ origen: 'web', subtotalProductos: 70000, total: 70000,
