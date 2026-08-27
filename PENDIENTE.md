@@ -9,11 +9,11 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 381 en 16 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
+| Pruebas | 481 en 19 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **prácticamente vacíos — ver abajo** |
-| Último deploy | 27/08/2026: Vercel, `firestore:rules` y las functions `descontarStockPedido` + `notifyTelegramOnNewOrder` |
+| Último deploy | 27/08/2026: Vercel, `firestore:rules` y las functions `descontarStockPedido` + `notifyTelegramOnNewOrder`. **La tanda 4 está sin commitear y sin desplegar** (§3). |
 
 ---
 
@@ -38,9 +38,15 @@ con `pedidosCount` inexistente, el objeto exacto que arma `app.js`, envío, cup�
 Mis Pedidos, reseñas. 55 asertos, todos verdes. Lo que **no** puede verificar es lo
 que pasa del lado de las Cloud Functions y de Google Auth.
 
+La tanda 4 (§3) agregó la otra mitad: **con 0 pedidos, el lado del comercio tampoco
+corrió nunca**. Cuando entre el primero, el panel lo va a dibujar por primera vez en su
+vida, y ahí había cuatro cosas rotas —entre ellas que la dirección del envío no se veía
+en ninguna pantalla—. Ya están arregladas y probadas, pero **falta desplegarlas**.
+
 Cómo cerrarlo: anotá el stock de un producto, compralo desde la tienda con otra
-cuenta de Google, y confirmá que el pedido queda con número correlativo (no 1) y que
-el stock baja.
+cuenta de Google, y confirmá que el pedido queda con número correlativo (no 1), que el
+stock baja, y —si es con envío— que en el panel se ve la dirección. Si podés, metele un
+producto **a granel** al pedido: es lo que menos kilometraje tiene.
 
 ```bash
 firebase functions:log --only descontarStockPedido
@@ -115,7 +121,7 @@ desde la consola de Firebase.
 
 ---
 
-## 3. Las tres tandas — todas hechas y desplegadas
+## 3. Las tandas de arreglos
 
 ### Tanda 1 — el catálogo (`admin.html`) · HECHA, salió con el deploy de Vercel
 
@@ -149,7 +155,7 @@ desde la consola de Firebase.
 
 Cubierto por `pruebas/t-importar.js` (54 asertos).
 
-### Tanda 2 — el pedido (`app.js`) · HECHA, sale con el próximo deploy de Vercel
+### Tanda 2 — el pedido (`app.js`) · HECHA Y DESPLEGADA (27/08/2026, con la tanda 3)
 
 - **`_onUserLogin` ya no corre dos veces.** Firebase avisa la misma sesión por dos
   caminos (`onAuthStateChanged` y el `.then` de `signInWithPopup`; en móvil,
@@ -211,6 +217,137 @@ firebase deploy --only functions:descontarStockPedido,functions:notifyTelegramOn
   habría visto nadie hasta empezar a vender. Los casos 9f y 9g de
   `test-funcion-precios.js` fallan contra el código previo.
 
+### Tanda 4 — lo que el merge de la venta por peso dejó a medias
+
+> **Estado: hecha y probada, SIN COMMITEAR y SIN DESPLEGAR.** Está en el working tree.
+> Toca sólo `admin.html` y `app.js`: no cambian ni las reglas ni las functions, así que
+> el deploy es un `git push origin main` y listo — Vercel corre `npm run build`, que
+> falla y corta el deploy si algo está roto.
+>
+> ```bash
+> git push origin main
+> ```
+
+Salió de mirar el camino que nunca se ejecutó. Con **0 pedidos**, el lado del comercio
+tampoco corrió nunca: cuando entre el primer pedido web, el panel lo va a dibujar por
+primera vez en su vida.
+
+#### a) La familia del x1000
+
+**El merge quedó bien SÓLO en el camino que se probó.** `addVentaItem()` —el alta de una
+venta desde el mostrador, que es lo que escribió Thiago— sí guarda `tipoVenta`. Todo el
+resto se había escrito antes de que existiera el granel y no se volvió a mirar: cada vez
+que un item **guardado** volvía a la pantalla, el campo se caía por el camino.
+
+Y `subtotalItem()` decide el `/1000` mirando justamente `i.tipoVenta`. Medido corriendo
+las funciones reales del archivo, con 250 g de nueces a $18.000 el kilo:
+
+| | con `tipoVenta` | sin él |
+|---|---|---|
+| el renglón | **$4.500** | **$4.500.000** |
+| el costo del renglón | $3.000 | $3.000.000 |
+| la ganancia | $1.500 | $1.500.000 |
+| la cantidad en pantalla | `250 g` | `250` |
+
+Y no se quedaba en la pantalla. `saveVenta()` guarda `tipoVenta: i.tipoVenta || 'unidad'`:
+ese `|| 'unidad'` **convierte la pérdida en corrupción**. Abrir una venta a granel para
+cambiarle el medio de pago y guardarla la reescribía como venta por unidad, con el total
+mil veces más alto, y ya no quedaba forma de saber que había sido a granel.
+
+Ojo con esto: **no hacía falta ningún pedido web para dispararlo.** Editar una venta de
+mostrador ya cargada bien alcanzaba.
+
+En el panel (`admin.html`), ahora todos toman el `tipoVenta` con el helper nuevo
+`tipoVentaDe()`, que lo saca del item y, si el documento es viejo y no lo trae, del
+catálogo:
+
+- `openEditVentaModal()` — abrir una venta guardada para editarla
+- `openVentaMayModal()` — lo mismo en mayorista
+- `openPedidoModal()` — abrir un pedido
+- `convertirPedidoEnVentaDesdeModal()` — pasar un pedido web a venta
+- `addPedItem()` — agregar un producto a un pedido desde el panel
+- `savePedidoDesdeModal()` — lo que queda escrito en el documento del pedido
+- `gananciaDe()` — la ficha del cliente y las estadísticas
+- `setVentaItemDsc()`, `setPedItemDsc()`, `setVentaMayItemDsc()` — tocar el `%` de
+  descuento de un renglón lo disparaba a x1000 en el acto
+- el costo total del pedido en el modal (ahora `costoItem()`)
+- `buildFacturaA4Items()` y `buildEtiquetaItems()` — la columna *Cant* y el ticket
+  térmico decían `x250` al lado de un producto a granel, que es justo lo que lee el que
+  arma el pedido
+- `buildEtiquetaFooter()` — el respaldo del subtotal, que volvía a multiplicar derecho
+- los dos listados de ventas — ahora `250 g x $18.000 el kilo`
+- el texto de aviso al guardar un pedido
+
+En la tienda (`app.js`):
+
+- **el resumen del checkout** — la pantalla donde el cliente aprieta *Confirmar*. El
+  carrito ya mostraba bien el granel, pero el resumen es **otro render** y quedó afuera:
+  el renglón decía `x250 Nueces $4.500.000` justo arriba de un `TOTAL $4.500`. De todos,
+  este es el peor: es el único que el cliente ve antes de decidir si compra.
+- **el `subtotal` de cada item del pedido** — el total del pedido estaba bien, pero el
+  subtotal por item que se guarda adentro del documento era x1000, y de ahí salen el
+  ticket impreso y la factura A4.
+- **`repetirPedido()`** — rearmaba el carrito sin `tipoVenta`. Ahora lo toma del catálogo,
+  que es quien manda hoy sobre qué significa `cantidad`, y si el comercio le cambió la
+  forma de venta al producto desde que se hizo el pedido, **omite el item con aviso** en
+  vez de cobrar mil veces de más o de menos.
+- **Mis Pedidos** — decía `x250` en vez de `250 g`.
+
+De paso, el nombre del producto en el resumen del checkout ahora se escapa con `esc()`,
+como ya hacía el carrito. No es paranoia: los nombres del catálogo entran por el **Excel
+del proveedor**, que no lo escribe el comercio.
+
+Cubierto por `pruebas/t-granel-panel.js` (38 asertos) y los casos nuevos de
+`pruebas/t-ganancia.js`. Contra el código anterior la suite **falla en 8 asertos**.
+
+#### b) Volver un pedido a pendiente no devolvía el stock
+
+Este bug ya se había arreglado una vez (está en §8). La corrección busca la venta y le
+suma el stock de vuelta… pero la buscaba **sólo en `ventasData`**, que es la caché de la
+sección Ventas.
+
+Esa caché la llena únicamente `loadVentas()`, o sea *entrar a la sección Ventas*, y
+encima acotada al mes del filtro. Abrir el panel e ir derecho a Pedidos —que es lo que
+hace cualquiera a la mañana— la deja **vacía**. Con la caché vacía:
+
+- `vAsoc` quedaba `undefined` y no se devolvía una sola unidad;
+- la venta se borraba igual, porque ese `.delete()` estaba **afuera** del `if`;
+- y el historial anotaba *"stock devuelto"*. Esa es la peor parte: confirma algo que no
+  pasó, así que nadie sale a buscar la mercadería.
+
+Después, al volver a facturar el pedido, se descontaba por segunda vez: 4 unidades
+vendidas dejaban 8 menos en góndola.
+
+Ahora, si la venta no está en la caché, se lee **de la base**, que es la fuente de verdad.
+Y si el documento ya no existe, el historial lo dice: *"la venta ya no existía: NO se
+devolvió stock"*.
+
+Cubierto por `pruebas/t-pedido-revertir.js` (16 asertos), que **ejecuta `kanbanDrop` de
+verdad** con dobles para el DOM y para Firestore y mide el stock devuelto. Contra el
+código anterior falla en 5 asertos, el primero con `stockProd = null`.
+
+#### c) Un aviso que describía otro problema
+
+`descontarStockPedido` anota en `itemsDesconocidos` los items del pedido cuyo producto ya
+no está en el catálogo —pasa cuando el comercio borra y recrea un producto y el cliente
+tenía el id viejo en el carrito de `localStorage`—. A esos **no se les descuenta stock**.
+El comentario de la function dice, textual, *"para que el panel lo pueda mostrar"*.
+
+El panel no lo nombraba en ninguna línea: `itemsDesconocidos` tenía **cero apariciones**
+en `admin.html`. Y como la misma función prende `revisarPrecio` en ese caso, el pedido
+salía con la chapa **"Revisar precio"** y un tooltip que hablaba de inflación. El comercio
+revisaba los precios, no encontraba nada raro, y entregaba mercadería que el sistema
+seguía contando como disponible.
+
+Ahora hay una rama propia, antes que la del total: **"Producto borrado"**, diciendo cuáles
+y que a esos no se les descontó stock.
+
+Cubierto por `pruebas/t-avisos-pedido.js` (17 asertos). Es una prueba de **contrato entre
+dos archivos**, como `t-topes-pedido.js`: lee del fuente de `functions/index.js` todos los
+campos que las functions le escriben al pedido y exige que cada uno esté leído en el
+panel, o clasificado a mano como "de auditoría" con su razón. Si alguien agrega un campo
+nuevo al `patch`, la prueba falla hasta que lo muestre o lo justifique.
+
 ### Lo que queda de la auditoría y NO se tocó
 
 - `rateLimitPedidos` sigue usando `creadoEn`, que lo elige el cliente. Cerrarlo pide
@@ -221,12 +358,51 @@ firebase deploy --only functions:descontarStockPedido,functions:notifyTelegramOn
   sin poder comprar: el cliente lo tolera con `parseInt`, la regla no. Sólo pasa si
   alguien lo edita a mano desde la consola de Firebase.
 
+- **`devolverStockPedido` decide con la copia en memoria, no adentro de la transacción.**
+  La guarda `if(!pedido||!pedido.stockDescontado)return false;` mira el objeto que le
+  pasan (de `pedidosData`), y recién después abre la transacción que devuelve el stock.
+  Es la misma forma del bug de las Cloud Functions que ya está en §5: la decisión y la
+  escritura tienen que ser coherentes. La ventana es angosta —el panel escucha los
+  pedidos con `onSnapshot`, así que la copia está fresca— pero un doble click alcanza.
+  La receta ya está escrita en este archivo: leer el pedido **adentro** del
+  `runTransaction`, con todas las lecturas antes de la primera escritura.
+- **`stockFaltante` no guarda `tipoVenta`.** El aviso "Faltó stock" muestra
+  *"Nueces (pidió 250, había 100)"* para un producto a granel: los números están bien,
+  la unidad no se dice. Son dos líneas —`tipoVenta: p.tipoVenta || 'unidad'` en el
+  `falt.push()` de `functions/index.js`, y `fmtPeso()` en el panel— pero **obliga a
+  redesplegar `descontarStockPedido`**, así que queda para cuando se toquen las
+  functions.
+- **El ranking de productos de estadísticas suma gramos y unidades en la misma columna**
+  (`admin-stats.js`, `p.unidades += Number(i.cantidad||0)`). El monto está bien —sale de
+  `i.subtotal`, que ahora es correcto—, pero *"más vendidos por unidades"* pone a
+  cualquier producto a granel arriba de todo con números de cuatro cifras. No se tocó
+  porque no es mecánico: hay que decidir **cómo se presenta** (dos columnas, o rankear
+  por monto). El dato para hacerlo ya está: los items guardan `tipoVenta`.
+
+**Reportado por la auditoría y NO verificado a mano — tratar como "hay que mirarlo", no
+como "es así".** Salió de una pasada de agentes sobre el camino del pedido; cada hallazgo
+pasó por un refutador, pero estos no los comprobé yo:
+
+- el modal de cambiar estado dejaría confirmar y entregar un pedido web sin registrar la
+  venta;
+- borrar la venta desde la sección Ventas no le saca el `ventaId` al pedido, que quedaría
+  sin poder facturarse;
+- guardar un pedido web desde el modal graba `costo:0` en los items (el pedido web no
+  trae costo; `convertirPedidoEnVentaDesdeModal` sí lo completa desde el catálogo, este
+  camino no);
+- el cupón del pedido web se dibujaría como `(-undefined%)`;
+- convertir un pedido web recotiza el envío con la tarifa de hoy en vez de usar el
+  `envio` guardado;
+- `clienteWeb` lo lee el panel en cuatro lugares y no lo escribe nadie (siempre cae al
+  `|| p.cliente`);
+- las estadísticas cuentan pedidos en estado `cancelado`, que ningún flujo escribe.
+
 ---
 
 ## 4. Cómo verificar que no rompiste nada
 
 ```bash
-npm test          # 381 pruebas, 16 suites — no necesita nada instalado
+npm test          # 481 pruebas, 19 suites — no necesita nada instalado
 npm run build     # corre check-admin.js y luego minifica
 npm run test:reglas   # 55 asertos contra firestore.rules, con el emulador
 ```
@@ -240,12 +416,28 @@ Del HTML controla dos cosas: cierres que no cierran nada y aperturas que nunca
 cierran (con archivo y línea), y que ninguna sección del panel quede adentro de otra
 —que es cómo se manifiesta un cierre de más y lo que rompe `switchSection`.
 
-**`npm run test:reglas` necesita un JDK 21 y hoy no hay uno instalado.** El sistema
-tiene un JRE 1.8 y firebase-tools rechaza todo lo anterior a 21 con
-*"no longer supports Java version before 21"*. Está aparte de `npm test` a propósito:
-así `npm test` sigue andando en cualquier máquina. La suite no toca producción — el
-emulador es un proceso local en memoria sobre un proyecto `demo-brotes` que no existe
-en Firebase.
+**El JDK 21 ya está instalado y la suite 20 corre en esta máquina.** Quedó un Temurin
+portable —sin instalador y sin tocar el PATH del sistema— en:
+
+```
+C:\Users\Usuario\.jdks\jdk-21.0.12.1+1
+```
+
+El sistema sigue teniendo un JRE 1.8, y `java` a secas sigue siendo ese. Para correr las
+reglas hay que ponerle el 21 adelante nada más para ese comando:
+
+```bash
+JAVA_HOME="C:\Users\Usuario\.jdks\jdk-21.0.12.1+1" PATH="/c/Users/Usuario/.jdks/jdk-21.0.12.1+1/bin:$PATH" npm run test:reglas
+```
+
+Ojo con el formato de la ruta: en git bash el `PATH` necesita `/c/Users/...`; con
+`C:/Users/...` no la encuentra y vuelve a agarrar el JRE 1.8 sin decir nada (se ve
+porque `java -version` sigue diciendo 1.8). `JAVA_HOME` sí va con la ruta de Windows.
+
+Sigue aparte de `npm test` a propósito: así `npm test` anda en cualquier máquina, sin
+nada instalado. La suite no toca producción — el emulador es un proceso local en
+memoria sobre un proyecto `demo-brotes` que no existe en Firebase. **Verificado:
+55 asertos, 0 fallaron.**
 
 **Lo que las pruebas NO pueden ver.** Cada suite saca la función del archivo y la
 corre aislada, así que no se entera si en el navegador **otro módulo la reemplaza**.
@@ -316,6 +508,34 @@ empezar: ya pasó que el remoto estuviera 6 commits adelante.
 congeladas en su valor inicial y las capturas fallan. Si vas a medir un color animado,
 comprobá antes con `requestAnimationFrame`.
 
+**Un campo que se cae al rehidratar no se queda en la pantalla: se escribe.** El patrón
+`tipoVenta: i.tipoVenta || 'unidad'` en el guardado parece defensivo y es lo contrario:
+si el campo no llegó hasta ahí, ese `||` lo reemplaza por el default y lo graba. Lo que
+era un error de pantalla queda en el documento y ya no hay cómo saber qué era. Cada vez
+que un item guardado vuelve a un formulario, el `map` que lo rehidrata tiene que traer
+**todos** los campos que alguien va a leer después, no sólo los que se editan.
+
+**Una caché en memoria no es fuente de verdad.** `ventasData` sólo se llena entrando a la
+sección Ventas, y encima acotada al mes del filtro; `allProducts`, `insumosData` y
+`clientesAuthData` se llenan al entrar a *su* sección. Cualquier decisión importante
+—devolver stock, comparar contra el catálogo— que se tome con `X.find(...)` sobre una de
+esas listas funciona mientras se prueba (porque el que prueba ya pasó por esa pantalla) y
+falla en el uso normal, en silencio y sin error de consola. Si la decisión importa, leé el
+documento.
+
+**Cuando la misma cosa se dibuja en varias pantallas, arreglar una no arregla las otras.**
+Un item de venta se muestra en el modal, en el listado, en el ticket térmico, en la
+factura A4, en el resumen del checkout y en Mis Pedidos: seis renders distintos del mismo
+dato. La venta por peso se arregló en el carrito y quedó mal en el resumen del checkout,
+que está a dos pantallas de distancia. Antes de dar por cerrado un arreglo de este tipo,
+buscá **todos** los lugares (`grep` por `cantidad`, por `precio*`, por `'x'+`).
+
+**Al sacar una función del archivo para una prueba, llevate el `async`.** Los extractores
+(`cuerpo()`, `extraer()`) buscan `'function ' + nombre` y arrancan ahí, así que de
+`async function foo(){...}` se llevan `function foo(){...}`. Sigue siendo sintaxis válida
+y revienta recién al ejecutar, con *"await is only valid in async functions"*. Es la misma
+trampa que documenta `check-admin.js`, del otro lado.
+
 **El puerto 5173 lo usa también el server de YERCO.** Por eso `.claude/launch.json`
 tiene una segunda entrada, `brotes-dev-5174`.
 
@@ -350,6 +570,19 @@ en blanco teniendo el `displayName` de Google en el mismo objeto.
 5. **La suite de reglas** (`pruebas/reglas-cliente.js` + `npm run test:reglas`). Es
    genérica salvo el mail del dueño y los nombres de colección; es la única forma de
    probar el camino del cliente sin una segunda cuenta de Google.
+
+6. **Toda la tanda 4.** Si YERCO tiene venta por peso, tiene los mismos veintipico de
+   lugares: los `map` que rehidratan items sin `tipoVenta`, `gananciaDe`, los tres
+   selectores de descuento por renglón, el ticket, la factura A4, los listados, el
+   resumen del checkout, `repetirPedido` y Mis Pedidos. La forma rápida de saber si
+   está: buscar `subtotalItem` y ver si `esPorPeso` recibe algo que tenga el campo.
+7. **La devolución de stock al volver un pedido a pendiente** (`kanbanDrop`), que leía la
+   venta de la caché en memoria.
+8. **Que el panel muestre la dirección y las notas del pedido web.** En YERCO conviene
+   revisarlo aunque no tenga granel: es independiente.
+9. **Las dos pruebas de contrato entre archivos** (`t-avisos-pedido.js` y la parte de
+   `t-granel-panel.js` que compara `functions/index.js` con `admin.html`). Son las que
+   avisan cuando alguien agrega un campo de un lado y se olvida del otro.
 
 Una diferencia deliberada: en Brotes el corte del nombre de Google es una función
 aparte (`_nombreDesdeGoogle` en `app.js`) y en YERCO quedó en línea. Se hizo para

@@ -9,7 +9,11 @@ function extraer(n){
   return src.slice(i,k+1);
 }
 let allProducts=[];
-eval(extraer('_precioCobradoItem')+'\n'+extraer('gananciaDe')+'\nglobal.G=gananciaDe;global.P=_precioCobradoItem;');
+/* gananciaDe consulta esPorPeso: a granel el precio y el costo son POR KILO y la
+   cantidad viene en GRAMOS, asi que el margen hay que dividirlo por mil. Sin esta
+   dependencia la funcion tira ReferenceError, que es justo lo que tiene que pasar si
+   alguien la saca del archivo. */
+eval(extraer('esPorPeso')+'\n'+extraer('_precioCobradoItem')+'\n'+extraer('gananciaDe')+'\nglobal.G=gananciaDe;global.P=_precioCobradoItem;');
 let ok=0,fail=0;
 const t=(d,c)=>{ if(c){ok++;console.log('  OK   '+d);} else {fail++;console.log('  FALLA '+d);} };
 const g=(doc,buscar)=>{ return G(doc,buscar); };
@@ -56,6 +60,19 @@ r=g({items:[{id:'a',precio:1000,costo:1500,descuento:0,cantidad:1}]});
 t('vender bajo costo da negativo, no cero', r.ganancia===-500);
 t('descuento 150% se acota a 100', P({precio:1000,descuento:150})===0);
 t('descuento negativo se acota a 0', P({precio:1000,descuento:-50})===1000);
+
+console.log('');
+console.log('Un producto A GRANEL: precio y costo POR KILO, cantidad en GRAMOS');
+r=g({items:[{id:'n',nombre:'Nueces',precio:18000,costo:12000,descuento:0,cantidad:250,tipoVenta:'peso'}]});
+t('250 g: se cobran $4.500 y cuestan $3.000, gana $1.500', r.ganancia===1500);
+t('  (antes daba $1.500.000: el margen x1000)', r.ganancia!==1500000);
+r=g({items:[{id:'n',precio:18000,costo:12000,descuento:20,cantidad:250,tipoVenta:'peso'}]});
+t('con 20% off sobre el kilo: 3.600-3.000 = 600', r.ganancia===600);
+r=g({items:[{id:'u',precio:1000,costo:600,descuento:0,cantidad:250,tipoVenta:'unidad'}]});
+t('la misma cantidad por unidad NO se divide: 400*250 = 100.000', r.ganancia===100000);
+r=g({items:[{id:'m',precio:18000,costo:12000,descuento:0,cantidad:250,tipoVenta:'peso'},
+            {id:'u',precio:1000,costo:600,descuento:0,cantidad:2}]});
+t('mezclados en la misma venta: 1.500 + 800 = 2.300', r.ganancia===2300);
 
 console.log('\n'+ok+' pasaron, '+fail+' fallaron');
 process.exit(fail?1:0);

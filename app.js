@@ -840,8 +840,18 @@ function updateCheckoutResumen(){
     const cuponRow=_cuponAplicado?'<div class="chk-resumen-row" style="color:#24503A"><span><i class="bi bi-ticket-perforated"></i> Cupón '+_cuponAplicado.codigo+'</span><span>-$'+formatPrice(dcMonto)+'</span></div>':'';
     /* Lista de productos */
     const itemsList = carrito.map(i => {
-        const cant = i.cantidad > 1 ? '<span style="background:#E8F2E5;color:#1E3E2C;border-radius:10px;padding:1px 7px;font-size:0.75rem;font-weight:700">x'+i.cantidad+'</span> ' : '';
-        return '<div class="chk-resumen-item">'+cant+'<span class="chk-resumen-item-name">'+i.nombre+'</span><span>$'+formatPrice(i.precio*i.cantidad)+'</span></div>';
+        /* A granel la cantidad son GRAMOS: "x250" se lee como 250 unidades. Se muestra
+           igual que en el carrito (renderCartItems) y en el mensaje de WhatsApp. */
+        const _bdg = 'background:#E8F2E5;color:#1E3E2C;border-radius:10px;padding:1px 7px;font-size:0.75rem;font-weight:700';
+        const cant = esPesoProd(i)
+            ? '<span style="'+_bdg+'">'+fmtGramos(i.cantidad)+'</span> '
+            : (i.cantidad > 1 ? '<span style="'+_bdg+'">x'+i.cantidad+'</span> ' : '');
+        /* subtotalCarrito(i), NO precio*cantidad: a granel el precio es POR KILO y la
+           cantidad viene en gramos. Esta es la pantalla donde el cliente confirma la
+           compra, asi que el renglon mostraba $4.500.000 justo arriba de un TOTAL de
+           $4.500. El nombre se escapa como en el carrito: los nombres del catalogo
+           entran por el Excel del proveedor, que no lo escribe el comercio. */
+        return '<div class="chk-resumen-item">'+cant+'<span class="chk-resumen-item-name">'+esc(i.nombre)+'</span><span>$'+formatPrice(subtotalCarrito(i))+'</span></div>';
     }).join('');
     el.innerHTML=
         '<div style="margin-bottom:0.5rem;padding-bottom:0.5rem;border-bottom:1px solid #eee">'+itemsList+'</div>'+
@@ -1060,7 +1070,7 @@ async function confirmCheckout(){
                tiene que descontar al convertirlo en venta, no dar por hecho que ya
                esta hecho. */
             stockDescontado:false,
-            items:carrito.map(i=>({id:i.id,nombre:i.nombre,tipoVenta:i.tipoVenta||'unidad',precio:i.precio,precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,cantidad:i.cantidad,subtotal:i.precio*i.cantidad})),
+            items:carrito.map(i=>({id:i.id,nombre:i.nombre,tipoVenta:i.tipoVenta||'unidad',precio:i.precio,precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,cantidad:i.cantidad,subtotal:subtotalCarrito(i)})),
             subtotalProductos:subtotal,
             envio:envio,
             envioGratis:tipoEntrega==='envio'&&envio===0,
@@ -1815,7 +1825,7 @@ function _renderPedidosCliente() {
             ? NEGOCIO.nroPedido(p.numero)
             : '#' + String(p.numero || 0).padStart(5, '0');
         const fecha = p.creadoEn.toLocaleDateString('es-AR');
-        const items = (p.items || []).map(i => '<div style="font-size:0.8rem;color:#555;padding:1px 0">• '+esc(i.nombre)+' <span style="color:#888">x'+esc(i.cantidad)+'</span></div>').join('');
+        const items = (p.items || []).map(i => '<div style="font-size:0.8rem;color:#555;padding:1px 0">• '+esc(i.nombre)+' <span style="color:#888">'+esc(esPesoProd(i)?fmtGramos(i.cantidad):'x'+i.cantidad)+'</span></div>').join('');
         const estadoClass = 'estado-' + (p.estado || 'pendiente');
         const estadoLabel = { pendiente: 'Pendiente', confirmado: 'Confirmado', entregado: 'Entregado' }[p.estado] || p.estado;
         return `<div class="pedido-hist-card">
@@ -1848,9 +1858,21 @@ async function repetirPedido(pedidoId) {
            prod.precio pelado: un producto con 20% off que la web mostraba a $8.000 entraba
            al carrito a $10.000, o sea que repetir un pedido salia mas caro que armarlo a
            mano y el cliente veia un precio distinto del de la ficha. */
+        /* El tipoVenta sale del CATALOGO, que es quien manda hoy sobre que significa
+           `cantidad`. Sin este campo el carrito trataba los 250 GRAMOS de un granel
+           como 250 unidades y los cotizaba al precio del KILO: $4.500.000 en vez de
+           $4.500, y el cliente lo veia en su propio carrito.
+           Y si el comercio le cambio la forma de venta al producto desde que se hizo
+           el pedido, la cantidad guardada ya no significa lo mismo: se omite con aviso
+           en vez de cobrar mil veces de mas o de menos. */
+        const modoAhora = prod.tipoVenta || 'unidad';
+        if ((item.tipoVenta || 'unidad') !== modoAhora) {
+            omitidos.push(item.nombre + ' (cambio la forma de venta)');
+            continue;
+        }
         carrito.push({ id: prod.id, nombre: prod.nombre, precio: precioFinal(prod),
             precioOriginal: prod.precio, descuento: prod.descuento || 0,
-            imagen: prod.imagen, cantidad: item.cantidad });
+            imagen: prod.imagen, cantidad: item.cantidad, tipoVenta: modoAhora });
         agregados++;
     }
     saveCart(); updateCartUI();
