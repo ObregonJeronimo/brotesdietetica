@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 729 en 28 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
+| Pruebas | 752 en 29 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **prácticamente vacíos — ver abajo** |
@@ -130,10 +130,17 @@ Y los documentos de `config`, que no son colecciones pero deciden lo que ve el c
 | `config/ventasCount` | `{count: 0}` | mismo fósil (traía 2), misma limpieza |
 | `config/clientesAuthCount` | `{count: 0}` | mismo fósil (traía 6) |
 
-> **Los contadores no se tocan más.** Bajarlos sólo era seguro con la base vacía. Una vez
-> que entren pedidos y ventas reales, reescribirlos hace que se repitan números que ya
-> existen. Y tienen que quedar como **número**: un `count` guardado como texto deja a
-> **todos** los clientes sin poder comprar (el cliente lo tolera con `parseInt`, la regla no).
+> **Los contadores ya no se tocan a mano.** Hay un botón en **Configuración → Numeración**
+> que los corrige solo: cuenta los documentos y deja cada contador en el número **más alto
+> que existe de verdad**. Baja si quedó adelantado (pruebas borradas) y **sube** si quedó por
+> debajo —que es el caso grave, porque los próximos documentos chocarían con los viejos—, y
+> no toca nada si no puede averiguar el máximo. Escribe siempre **número**, nunca texto: un
+> `count` de texto deja a **todos** los clientes sin poder comprar (el cliente lo tolera con
+> `parseInt`, la regla no).
+>
+> Cuesta 3 lecturas por contador, no una por documento: con 880 documentos hace 9 lecturas.
+> Por eso no se ejecuta solo al entrar a Configuración, se pide a mano.
+> Cubierto por `pruebas/t-contadores.js` (23 asertos).
 
 Un cliente que entre hoy a la tienda ve **dos productos**. Para cargar en tanda está
 **Productos → Importar Nuevos** (Excel).
@@ -851,7 +858,7 @@ hechos**: son la tanda 6.
 ## 4. Cómo verificar que no rompiste nada
 
 ```bash
-npm test          # 729 pruebas, 28 suites — no necesita nada instalado
+npm test          # 752 pruebas, 29 suites — no necesita nada instalado
 npm run build     # corre check-admin.js y luego minifica
 npm run test:reglas   # 55 asertos contra firestore.rules, con el emulador
 ```

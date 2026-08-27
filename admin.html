@@ -720,6 +720,27 @@
     </div>
     <div id="listaAdmins"></div>
   </div>
+
+  <div class="toolbar" style="margin-bottom:1.25rem;margin-top:2rem"><h3 style="font-size:1.05rem;font-weight:700;flex:1">Numeraci&oacute;n</h3></div>
+  <div class="card" style="max-width:720px;padding:1.5rem;margin-bottom:1rem">
+    <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:0.35rem">Reiniciar la numeraci&oacute;n</h4>
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.9rem;line-height:1.5">
+      Los n&uacute;meros de pedido, de venta y de cliente salen de tres contadores que <b>nunca bajan
+      solos</b>. Eso es a prop&oacute;sito: bajarlos repetir&iacute;a n&uacute;meros que ya existen. Pero despu&eacute;s de
+      hacer pruebas y borrarlas quedan adelantados, y el primer pedido de verdad sale con el
+      n&uacute;mero equivocado.
+      <br><br>
+      Este bot&oacute;n <b>cuenta los documentos que hay</b> y deja cada contador en el n&uacute;mero m&aacute;s alto
+      que exista de verdad. Con la colecci&oacute;n vac&iacute;a lo deja en 0 y el pr&oacute;ximo arranca en 1. Si
+      un contador qued&oacute; <b>por debajo</b> de lo que ya hay &mdash;eso s&iacute; es grave, porque los
+      pr&oacute;ximos chocar&iacute;an con los viejos&mdash; tambi&eacute;n lo corrige, subi&eacute;ndolo.
+    </p>
+    <div id="contadoresEstado" style="font-family:var(--mono);font-size:0.82rem;color:var(--text-dim);margin-bottom:0.9rem;line-height:1.7"></div>
+    <button class="btn btn-secondary" style="width:auto;flex:0 0 auto" id="btnVerContadores" onclick="verContadores()">
+      <i class="bi bi-eye"></i> Ver c&oacute;mo est&aacute;n</button>
+    <button class="btn btn-primary" style="width:auto;flex:0 0 auto;margin-left:0.5rem" id="btnResetContadores" onclick="reiniciarContadores()">
+      <i class="bi bi-arrow-counterclockwise"></i> Corregir numeraci&oacute;n</button>
+  </div>
 </div><div class="section-content" id="sec-editor"><div class="editor-layout"><div class="editor-panel"><div class="toolbar" style="margin-bottom:1rem"><h3 style="font-size:1rem;font-weight:700;flex:1">Editor Web</h3><button class="btn btn-secondary btn-sm" style="width:auto" onclick="refreshEditorPreview()"><i class="bi bi-arrow-clockwise"></i></button><button class="btn btn-primary" style="width:auto" onclick="saveSiteContent()" id="saveSiteBtn"><i class="bi bi-check-lg"></i> Guardar</button></div><div class="editor-scroll"><div class="editor-section"><h4 class="editor-title"><i class="bi bi-house"></i> Hero</h4><div class="form-group"><label>Imagen de fondo</label><div class="img-upload-row"><img id="sc_heroImgPreview" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-vacio="1" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_heroImgFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_heroImgFile" accept="image/*" onchange="previewEditorImg(this,'heroImg')"></div></div><div class="form-group"><label>Badge</label><input type="text" class="form-input" id="sc_heroBadge"></div><div class="form-row"><div class="form-group"><label>Titulo linea 1</label><input type="text" class="form-input" id="sc_heroTitle1"></div><div class="form-group"><label>Titulo linea 2</label><input type="text" class="form-input" id="sc_heroTitle2"></div></div><div class="form-group"><label>Subtitulo</label><textarea class="form-input" id="sc_heroSubtitle" rows="2"></textarea></div><div class="form-row"><div class="form-group"><label>Stat 1 num</label><input type="text" class="form-input" id="sc_stat1Num"></div><div class="form-group"><label>Stat 1 txt</label><input type="text" class="form-input" id="sc_stat1Label"></div><div class="form-group"><label>Stat 2 num</label><input type="text" class="form-input" id="sc_stat2Num"></div><div class="form-group"><label>Stat 2 txt</label><input type="text" class="form-input" id="sc_stat2Label"></div></div></div><div class="editor-section"><h4 class="editor-title"><i class="bi bi-people"></i> Nosotros</h4><div class="form-row"><div class="form-group"><label>Tag</label><input type="text" class="form-input" id="sc_nosotrosTag"></div><div class="form-group"><label>Titulo</label><input type="text" class="form-input" id="sc_nosotrosTitulo"></div></div><div class="form-group"><label>Texto</label><textarea class="form-input" id="sc_nosotrosTexto" rows="2"></textarea></div><div class="form-row"><div class="form-group"><label>Badge 1</label><input type="text" class="form-input" id="sc_badge1"></div><div class="form-group"><label>Badge 2</label><input type="text" class="form-input" id="sc_badge2"></div></div><div class="form-row"><div class="form-group"><label>Card 1 titulo</label><input type="text" class="form-input" id="sc_card1t"></div><div class="form-group"><label>Card 1 texto</label><input type="text" class="form-input" id="sc_card1p"></div></div><div class="form-row"><div class="form-group"><label>Card 2 titulo</label><input type="text" class="form-input" id="sc_card2t"></div><div class="form-group"><label>Card 2 texto</label><input type="text" class="form-input" id="sc_card2p"></div></div><div class="form-row"><div class="form-group"><label>Card 3 titulo</label><input type="text" class="form-input" id="sc_card3t"></div><div class="form-group"><label>Card 3 texto</label><input type="text" class="form-input" id="sc_card3p"></div></div><div class="form-row"><div class="form-group"><label>Card 4 titulo</label><input type="text" class="form-input" id="sc_card4t"></div><div class="form-group"><label>Card 4 texto</label><input type="text" class="form-input" id="sc_card4p"></div></div></div><div class="editor-section"><h4 class="editor-title"><i class="bi bi-megaphone"></i> CTA</h4><div class="form-group"><label>Imagen de fondo</label><div class="img-upload-row"><img id="sc_ctaImgPreview" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-vacio="1" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_ctaImgFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_ctaImgFile" accept="image/*" onchange="previewEditorImg(this,'ctaImg')"></div></div><div class="form-group"><label>Titulo</label><input type="text" class="form-input" id="sc_ctaTitulo"></div><div class="form-group"><label>Texto</label><textarea class="form-input" id="sc_ctaTexto" rows="2"></textarea></div></div><div class="editor-section"><h4 class="editor-title"><i class="bi bi-image"></i> Logos</h4><div class="form-group"><label>Logo principal</label><div class="img-upload-row"><img id="sc_logoIconPreview" src="img/logo-brotes.svg" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_logoIconFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_logoIconFile" accept="image/*" onchange="previewEditorImg(this,'logoIcon')"></div></div><div class="form-group"><label>Logo principal 2</label><div class="img-upload-row"><img id="sc_logoTextPreview" src="img/logo-brotes-dark.svg" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_logoTextFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_logoTextFile" accept="image/*" onchange="previewEditorImg(this,'logoText')"></div></div><div class="form-group"><label>Logo footer (aparece al final)</label><div class="img-upload-row"><img id="sc_logoFooterPreview" src="img/logo-brotes-light.svg" class="editor-img-preview"><button type="button" class="btn btn-secondary btn-sm" style="width:auto" onclick="document.getElementById('sc_logoFooterFile').click()"><i class="bi bi-upload"></i></button><input type="file" class="file-input-hidden" id="sc_logoFooterFile" accept="image/*" onchange="previewEditorImg(this,'logoFooter')"></div></div></div><div class="editor-section"><h4 class="editor-title"><i class="bi bi-box-arrow-down"></i> Footer</h4><div class="form-group"><label>Descripcion</label><textarea class="form-input" id="sc_footerDesc" rows="2"></textarea></div><div class="form-row"><div class="form-group"><label>Instagram URL</label><input type="text" class="form-input" id="sc_instagram"></div><div class="form-group"><label>WhatsApp numero</label><input type="text" class="form-input" id="sc_whatsapp" placeholder="5493516872770"><small style="color:var(--text-dim);font-size:0.72rem">Solo números, con 54 y 9 adelante. Es el destino de los pedidos.</small></div></div><div class="form-group"><label>Teléfono como se muestra</label><input type="text" class="form-input" id="sc_telefonoDisplay" placeholder="+54 9 351 687-2770"><small style="color:var(--text-dim);font-size:0.72rem">Cómo lo ve el cliente en la web. Escríbalo con el formato deseado; si se deja vacío se usa el número de arriba.</small></div><div class="form-group"><label>Email</label><input type="text" class="form-input" id="sc_email"></div></div></div></div><div class="editor-preview"><iframe id="editorIframe" src="/"></iframe></div></div></div></div>
     </div></div>
     <div class="modal-overlay" id="productModal"><div class="modal-box"><div class="modal-header"><h3 id="modalTitle">Nuevo Producto</h3><button class="modal-close" onclick="closeModal()"><i class="bi bi-x-lg"></i></button></div><form id="productForm" onsubmit="saveProduct(event)"><div id="prodImgCarousel" style="position:relative;margin-bottom:0.75rem">
@@ -4669,6 +4690,93 @@ let HACE_ENVIOS=true;
 /* Mismo interruptor que usa la tienda (app.js lee config/pedidos.descontarStock).
    Si esta en false, ni el local ni la web tocan el stock: queda todo a mano. */
 let DESCONTAR_STOCK=true;
+/* ======================= NUMERACION =======================
+   Los numeros de pedido, de venta y de cliente salen de tres contadores en /config, y
+   NUNCA bajan solos. Eso es a proposito: bajar uno repetiria numeros que ya existen.
+   Pero quedan adelantados despues de cada prueba que se borra, y el primer pedido de
+   verdad sale con el numero equivocado.
+   Y hay un estado peor, que ya paso: un contador POR DEBAJO de lo que hay. Ahi los
+   proximos documentos chocan con los viejos, en silencio. Este boton corrige los dos
+   casos, dejando cada contador en el maximo que EXISTE.
+   No se llama solo al entrar a Configuracion a proposito: son seis lecturas y casi
+   siempre no hace falta. Se pide a mano. */
+const CONTADORES=[
+    {doc:'pedidosCount',      col:'pedidos',      campo:'numero',    que:'Pedidos'},
+    {doc:'ventasCount',       col:'ventas',       campo:'numero',    que:'Ventas'},
+    {doc:'clientesAuthCount', col:'clientesAuth', campo:'clienteId', que:'Clientes de la tienda'},
+];
+/* El numero mas alto que existe DE VERDAD. Se cuenta con dos lecturas por coleccion
+   -hay algo, y cual es el mayor- y no una por documento: con tres años de ventas,
+   traerlas todas para mirar un numero se paga. Preguntarle al contador no sirve: es
+   justo el que puede estar mal. */
+async function _estadoContador(c){
+    const r={c:c,actual:null,real:null,hay:null,error:null};
+    try{
+        const d=await db.collection('config').doc(c.doc).get();
+        r.actual=d.exists?(parseInt(d.data().count)||0):0;
+    }catch(e){ r.error='no se pudo leer el contador'; return r; }
+    try{
+        const uno=await db.collection(c.col).limit(1).get();
+        r.hay=!uno.empty;
+        if(!r.hay){ r.real=0; return r; }
+        const s=await db.collection(c.col).orderBy(c.campo,'desc').limit(1).get();
+        /* Si hay documentos pero ninguno trae el campo, el orderBy los saltea y vuelve
+           vacio. Ahi NO se sabe cual es el maximo, y sin saber no se toca nada. */
+        if(s.empty){ r.error='hay documentos pero ninguno tiene "'+c.campo+'": no se puede saber el maximo'; return r; }
+        r.real=Number(s.docs[0].data()[c.campo]||0)||0;
+    }catch(e){ r.error='no se pudo contar: '+e.message; }
+    return r;
+}
+function _lineaContador(r){
+    if(r.error)return r.c.que+': '+r.error;
+    const estado=(r.actual===r.real)?'al dia'
+        :(r.actual>r.real?'adelantado (el proximo saldria '+(r.actual+1)+' y deberia ser '+(r.real+1)+')'
+                         :'ATRASADO: va a repetir numeros que ya existen');
+    return r.c.que+': contador '+r.actual+' | mas alto real '+r.real+'  ->  '+estado;
+}
+async function verContadores(){
+    const cont=document.getElementById('contadoresEstado');
+    const btn=document.getElementById('btnVerContadores');
+    if(btn)btn.disabled=true;
+    if(cont)cont.textContent='Contando...';
+    try{
+        const filas=[];
+        for(const c of CONTADORES)filas.push(await _estadoContador(c));
+        if(cont)cont.innerHTML=filas.map(r=>esc(_lineaContador(r))).join('<br>');
+        return filas;
+    }catch(e){ if(cont)cont.textContent='Error: '+e.message; return []; }
+    finally{ if(btn)btn.disabled=false; }
+}
+async function reiniciarContadores(){
+    const btn=document.getElementById('btnResetContadores');
+    if(btn)btn.disabled=true;
+    try{
+        const filas=await verContadores();
+        const rotos=filas.filter(r=>r.error);
+        const cambian=filas.filter(r=>!r.error&&r.actual!==r.real);
+        if(!cambian.length){
+            showAdminToast(rotos.length?'No se pudo averiguar el maximo de '+rotos.length+' contador(es); el resto ya esta al dia.'
+                                       :'Los tres contadores ya estan en su numero.','info');
+            return;
+        }
+        const detalle=cambian.map(r=>'- '+r.c.que+': '+r.actual+' -> '+r.real+
+            (r.actual<r.real?'   (estaba ATRASADO: iba a repetir numeros)':'')).join('\n');
+        const aviso=rotos.length?'\n\nOjo: '+rotos.length+' contador(es) no se pudieron averiguar y NO se tocan.':'';
+        if(!await pedirConfirmacion('Se corrigen '+cambian.length+' contador(es):\n\n'+detalle+
+            '\n\nCada uno queda en el numero mas alto que existe de verdad, asi el proximo es el siguiente libre.'+aviso,
+            {titulo:'Corregir numeracion'}))return;
+        for(const r of cambian){
+            /* NUMERO, nunca texto. Un count guardado como texto lo tolera el cliente con
+               parseInt pero la regla no, y deja a TODOS los clientes sin poder comprar. */
+            await db.collection('config').doc(r.c.doc).set({count:Number(r.real)});
+        }
+        if(typeof logAction==='function')
+            logAction('editar','Numeracion corregida',cambian.map(r=>r.c.doc+': '+r.actual+' -> '+r.real).join(' | '));
+        showAdminToast('Numeracion corregida','success');
+        await verContadores();
+    }catch(e){ showAdminToast('Error: '+e.message,'error'); }
+    finally{ if(btn)btn.disabled=false; }
+}
 async function loadPedidosCfgEditor(){
   let d={};
   try{const snap=await db.collection('config').doc('pedidos').get();if(snap.exists)d=snap.data();}catch(e){}
