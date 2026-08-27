@@ -150,11 +150,23 @@ tienda, ni el panel—:
 O sea que el riesgo no es para el negocio sino para **los datos de los clientes**. Si
 alguna vez entra un pedido real y el bot sigue con el token viejo, conviene revisarlo.
 
-**Si el bot no se va a usar**, no hay nada que hacer: `notifyTelegramOnNewOrder` lee
-`config/telegram` y, si no hay `token` o `chatId`, escribe *"Telegram no está configurado,
-omito notificación"* en el log y **corta sin error**. El pedido se guarda igual y el stock
-se descuenta igual. Lo único que se pierde es el aviso — que para un comercio sin el panel
-abierto suele ser lo único que ve.
+**El bot SÍ está configurado y funcionando.** Verificado el 27/08/2026: `config/telegram`
+tiene `token` (46 caracteres, con la forma `<id>:<secreto>` de un token de bot) y `chatId`,
+así que `notifyTelegramOnNewOrder` **manda el aviso**. Jero ya lo probó haciendo un pedido
+desde la página y el mensaje llegó.
+
+> Ojo con esto al leer este archivo: en una vuelta anterior quedó escrito que el bot no
+> estaba configurado. Era un supuesto, no una medición — `config/telegram` no se puede leer
+> sin sesión de admin (`allow read: if doc != 'telegram' || isAdmin()`) y se dio por hecho
+> lo que no se pudo ver. Está corregido.
+
+Como el bot está vivo, el aviso de cada pedido real va a viajar con el nombre, el teléfono y
+—si algún día se prenden los envíos— la dirección del cliente. Eso es lo que hay que tener en
+la cabeza si alguna vez se revisa la decisión de no rotar el token.
+
+Si en algún momento se quisiera apagar el bot, alcanza con vaciar `token` o `chatId`: la
+function escribe *"Telegram no está configurado, omito notificación"* en el log y **corta sin
+error**. El pedido se guarda igual y el stock se descuenta igual.
 
 ---
 
