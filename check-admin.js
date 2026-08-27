@@ -327,12 +327,16 @@ function revisarCss(archivo, textoQueUsa, cssDisponible, textoConGanchos) {
      admin-pagination.js crea .admin-pagination y admin-caja.js la busca. */
   const ganchos = ganchosDeJs(textoConGanchos || textoQueUsa);
 
-  /* Una clase sin definir NO rompe: el elemento se dibuja sin estilo. Va como
-     aviso para no cortar el build por algo cosmetico que ya venia de antes. */
+  /* Cuando se escribio esto habia ~20 clases sin definir de arrastre y cortar el
+     build por ellas lo habria hecho inusable, asi que iban como aviso. Ya estan
+     todas resueltas, asi que ahora cortan igual que las variables: el punto es que
+     no se cuele una nueva. Si aparece una que de verdad no necesita estilo —un
+     marcador que solo lee el JS— va a CLASES_SIN_ESTILO_PROPIO con su motivo, no
+     se baja la severidad. */
   [...uso.clases.entries()].sort((a, b) => b[1] - a[1]).forEach(([cl, n]) => {
     if (def.clases.has(cl) || CLASES_AJENAS.test(cl) || CLASES_SIN_ESTILO_PROPIO.has(cl) ||
         ganchos.has(cl)) return;
-    avisos.push('CSS: .' + cl + ' se usa ' + n + ' vez/veces en ' + archivo + ' y no esta definida');
+    fallas.push('CSS: .' + cl + ' se usa ' + n + ' vez/veces en ' + archivo + ' y no esta definida');
   });
   [...uso.vars.entries()].sort((a, b) => b[1] - a[1]).forEach(([vr, n]) => {
     if (def.vars.has(vr)) return;
@@ -366,6 +370,21 @@ problemas.push(...revisarCss('admin.html', html, CSS_ADMIN, JS_PANEL));
     if (!fs.existsSync(ruta)) return;
     problemas.push(...revisarCss(f, fs.readFileSync(ruta, 'utf8'), CSS_ADMIN, JS_PANEL));
   });
+
+/* app.js es el que define los ganchos de TODA la tienda, no solo de index.html:
+   .wa-dev, por ejemplo, la marca politicas.html y la lee app.js. Se pasa como fuente
+   de ganchos a todas las paginas del lado del cliente. */
+const APP_JS = fs.existsSync(path.join(__dirname, 'app.js'))
+  ? fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8') : '';
+
+/* Las paginas sueltas, contra las mismas hojas de la tienda. Son las que ve el
+   cliente: si una queda sin estilo, se nota afuera. */
+['mayoristas.html', 'politicas.html', 'resena.html', 'setup-inicial.html'].forEach((f) => {
+  const r = path.join(__dirname, f);
+  if (!fs.existsSync(r)) return;
+  const t = fs.readFileSync(r, 'utf8');
+  problemas.push(...revisarCss(f, t, cssDe(t, ['styles.css', 'toolbar.css', 'footer-dev.css']), t + ' ' + APP_JS));
+});
 
 /* La tienda, contra sus hojas externas. */
 const idx = path.join(__dirname, 'index.html');
