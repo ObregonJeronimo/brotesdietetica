@@ -171,8 +171,10 @@ function armarAuthState() {
       this.addScope = () => {}; this.setCustomParameters = () => {};
     };
     const nombres = Object.keys(ent);
+    /* _authLoginEnCurso vive FUERA de authLogin (es el candado de "un login a la vez"),
+       asi que el sandbox tiene que declararlo igual que el modulo. */
     const fn = new Function(...nombres,
-      'let _loginActivo=false;\n' +
+      'let _loginActivo=false,_authLoginEnCurso=false;\n' +
       'function _onUserLogin(){_reg.logins++;}\n' +
       cuerpo('authLogin') + '\nreturn authLogin;')(...nombres.map(n => ent[n]));
     return { fn, reg };
@@ -207,6 +209,37 @@ function armarAuthState() {
   l.fn(); await new Promise(r => setTimeout(r, 20));
   t('en desktop, cerrar el popup a proposito NO muestra error',
     l.reg.toasts.length === 0, JSON.stringify(l.reg.toasts));
+  t('   y TAMPOCO le secuestra la pagina con un redirect',
+    l.reg.redirects === 0, 'redirects=' + l.reg.redirects);
+
+  /* Lo que se vio en pantalla: la tienda en el selector de cuentas de Google Y, al lado,
+     un popup en la pantalla de permisos que ya no le podia contestar a nadie. El redirect
+     habia navegado la pestaña de la tienda, matandole el `opener` al popup que seguia
+     abierto. Por eso el popup quedaba en blanco para siempre.
+     Estos dos casos son la diferencia con YERCO, que tiene los dos codigos en su lista. */
+  console.log('\nNUNCA UN REDIRECT CON EL POPUP TODAVIA VIVO');
+  l = armarLogin(false, 'auth/cancelled-popup-request');
+  l.fn(); await new Promise(r => setTimeout(r, 20));
+  t('cancelled-popup-request NO dispara redirect (hay otro popup abierto)',
+    l.reg.redirects === 0, 'redirects=' + l.reg.redirects);
+  l = armarLogin(true, 'auth/cancelled-popup-request');
+  l.fn(); await new Promise(r => setTimeout(r, 20));
+  t('   tampoco en movil', l.reg.redirects === 0, 'redirects=' + l.reg.redirects);
+
+  console.log('\nUN LOGIN A LA VEZ');
+  l = armarLogin(false);
+  l.fn(); l.fn(); l.fn();                     /* el clic repetido del boton que parecia colgado */
+  await new Promise(r => setTimeout(r, 20));
+  t('tres clics abren UN solo popup', l.reg.popups === 1, 'popups=' + l.reg.popups);
+  t('   y ningun redirect', l.reg.redirects === 0, 'redirects=' + l.reg.redirects);
+
+  console.log('\nPero el candado se suelta: se tiene que poder reintentar');
+  l = armarLogin(false, 'auth/popup-blocked');
+  l.fn(); await new Promise(r => setTimeout(r, 20));
+  t('el primer intento cae a redirect', l.reg.redirects === 1);
+  l.fn(); await new Promise(r => setTimeout(r, 20));
+  t('y se puede volver a intentar (el candado no quedo trabado)',
+    l.reg.popups === 2, 'popups=' + l.reg.popups);
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);

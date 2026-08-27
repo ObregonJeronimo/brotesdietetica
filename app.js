@@ -1592,7 +1592,14 @@ function _updateNavAuth(user) {
 function onMobilePersonaClick() {
     if (clienteAuth) { toggleUserMenu(); } else { authLogin(); }
 }
+/* Un login a la vez. Sin esto, un segundo clic -que es lo normal cuando el boton parece
+   colgado- hace que Firebase rechace el PRIMER popup con auth/cancelled-popup-request, y
+   el catch de abajo se lo tomaba como "el popup no es viable" y disparaba un redirect
+   ENCIMA del segundo popup, que seguia vivo. */
+let _authLoginEnCurso = false;
 function authLogin() {
+    if (_authLoginEnCurso) return;
+    _authLoginEnCurso = true;
     try {
         _loginActivo = true;
         sessionStorage.setItem('_authLoginActivo', '1');
@@ -1613,23 +1620,35 @@ function authLogin() {
                 if (result && result.user) {
                     _loginActivo = true;
                 }
+                _authLoginEnCurso = false;
                 sessionStorage.removeItem('_authLoginActivo');
             })
             .catch(e => {
                 console.error('popup error:', e.code, e.message);
-                /* Errores donde el popup no es viable -> caer a redirect */
+                /* Errores donde el popup NUNCA llego a abrirse: ahi si conviene redirect.
+                   Ojo con los dos que NO estan en esta lista, y por que:
+
+                   - auth/cancelled-popup-request significa "otra peticion de popup dejo sin
+                     efecto a esta", o sea que HAY OTRO POPUP VIVO. Disparar un redirect ahi
+                     navega la pestaña de la tienda, le mata el `opener` al popup que sigue
+                     abierto, y el popup queda en blanco para siempre sin nadie a quien
+                     devolverle el resultado. Es exactamente lo que se vio: la tienda en el
+                     selector de cuentas de Google y, al lado, un popup en la pantalla de
+                     permisos que ya no le podia contestar a nadie.
+                   - auth/popup-closed-by-user en ESCRITORIO es la persona cerrandolo a
+                     proposito: no hay que secuestrarle la pagina por eso. En movil casi
+                     siempre es el navegador bloqueandolo, y ahi si -ver esCierreEnMovil-. */
                 const necesitaRedirect = [
                     'auth/popup-blocked',
-                    'auth/cancelled-popup-request',
-                    'auth/popup-closed-by-user',
                     'auth/operation-not-supported-in-this-environment',
                     'auth/web-storage-unsupported',
                     'auth/network-request-failed'
                 ].includes(e.code);
-                /* En movil, popup-closed-by-user casi siempre es el navegador bloqueando
-                   el popup, no la persona cerrandolo: ahi tambien se cae a redirect. */
                 const esCierreEnMovil = e.code === 'auth/popup-closed-by-user' && _isMobileAuth;
                 if (necesitaRedirect || esCierreEnMovil) {
+                    /* El redirect se lleva la pagina entera: el candado ya no importa, pero
+                       se suelta por si el propio redirect falla y volvemos aca. */
+                    _authLoginEnCurso = false;
                     firebase.auth().signInWithRedirect(provider).catch(er => {
                         console.error('redirect error:', er);
                         showToast('No se pudo iniciar sesión. Probá con otro navegador.', 'error');
@@ -1642,10 +1661,12 @@ function authLogin() {
                     showToast('Error al iniciar sesión: ' + (e.message || e.code), 'error');
                 }
                 _loginActivo = false;
+                _authLoginEnCurso = false;
                 sessionStorage.removeItem('_authLoginActivo');
             });
     } catch(e) {
         console.error('authLogin error:', e);
+        _authLoginEnCurso = false;
         showToast('Error al iniciar sesión: ' + e.message, 'error');
         _loginActivo = false;
         sessionStorage.removeItem('_authLoginActivo');
