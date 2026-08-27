@@ -744,3 +744,27 @@ img { max-width: 100%; height: auto; }
    chico y en gris para que no compita con el numero, pero tiene que estar: sin el,
    $9.000 se lee como el precio del paquete. */
 .precio-por-kilo{font-size:0.62em;font-weight:600;color:var(--color-text-light);margin-left:0.3em;letter-spacing:0.2px}
+
+/* =============================================================================
+   Tres clases que la tienda usaba y no estaban definidas en ninguna hoja.
+   Ninguna daba error: el navegador ignora una clase que no existe, asi que
+   pasaron sin que nadie las viera.
+   ============================================================================= */
+
+/* toggleCategoryFilters() alterna .cat-hidden sobre #categoryFilters para
+   mostrar y esconder los filtros. Sin esta regla el boton cambiaba el icono del
+   embudo y NO ocultaba nada: parecia roto. Va en compuesto para ganarle al
+   display:flex de .category-filters sin depender del orden del archivo. */
+.category-filters.cat-hidden { display: none; }
+
+/* El boton de confirmar el pedido pasa a "Confirmando..." con un icono que
+   deberia girar. La clase no existia, asi que quedaba quieto justo en el momento
+   en que el cliente necesita ver que algo esta pasando. */
+.spin { display: inline-block; animation: girar 0.8s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+/* Estado vacio de las listas de la tienda. Estaba escrito con estilos inline en
+   el unico lugar que lo usa; se define para que el proximo no tenga que
+   repetirlos. */
+.empty-state { padding: 2rem; text-align: center; color: var(--color-text-light); }
