@@ -4,8 +4,20 @@
     {
       "name": "brotes-dev",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["dev-server.js", "5173"],
+      "runtimeArgs": [
+        "dev-server.js",
+        "5173"
+      ],
       "port": 5173
+    },
+    {
+      "name": "brotes-dev-5174",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "dev-server.js",
+        "5174"
+      ],
+      "port": 5174
     }
   ]
 }

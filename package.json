@@ -9,7 +9,8 @@
     "build:css": "cleancss -o styles.min.css styles.css && cleancss -o toolbar.min.css toolbar.css && cleancss -o footer-dev.min.css footer-dev.css",
     "check": "node check-admin.js",
     "test": "node pruebas/correr.js",
-    "build": "npm run check && npm run build:js && npm run build:css"
+    "build": "npm run check && npm run build:js && npm run build:css",
+    "test:reglas": "firebase emulators:exec --only firestore --project demo-brotes \"node pruebas/reglas-cliente.js\""
   },
   "devDependencies": {
     "clean-css-cli": "^5.6.3",
