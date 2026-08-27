@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 722 en 28 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
+| Pruebas | 729 en 28 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **prácticamente vacíos — ver abajo** |
@@ -205,11 +205,35 @@ reducido a reabrir el carrito. Cubierto por `pruebas/t-login.js` (23 asertos), q
 deja fijo **por contrato** que `_onUserLogin` tenga un solo llamador. Contra el código
 anterior la suite ni termina.
 
-> **Lo que NO está demostrado:** que esto sea *la causa* del cuelgue. Se probó que la
-> infraestructura es idéntica y que el código difería en cosas que son bugs de verdad, y se
-> alineó con la versión que funciona. Si el popup sigue colgado, **el dato que falta es la
-> consola de la ventana del popup** (F12 adentro del popup) — es lo único que no se puede
-> mirar desde acá sin iniciar sesión con una cuenta de Google real.
+#### La causa, encontrada al reintentar
+
+El port de arriba no alcanzó, y el segundo intento mostró el problema **en pantalla**: la
+pestaña de la tienda en el selector de cuentas de Google **y, al lado, un popup en la
+pantalla de permisos**. Dos flujos a la vez.
+
+La secuencia:
+
+1. Clic → se abre el popup → va a Google.
+2. Algo rechaza esa promesa con **`auth/cancelled-popup-request`** — lo típico es un segundo
+   clic, que es exactamente lo que hace cualquiera con un botón que parece colgado.
+3. El `catch` lo tomaba como *"el popup no es viable"* y disparaba `signInWithRedirect`.
+4. **La pestaña de la tienda se va a Google.** Y ahí muere todo: el popup sigue abierto pero
+   su `opener` ya no existe, así que **no tiene a quién devolverle el resultado**. Queda en
+   blanco para siempre.
+
+`auth/cancelled-popup-request` significa literalmente *"otra petición de popup dejó sin
+efecto a esta"*: **hay otro popup vivo**. Redirigir ahí es romperlo, garantizado. Y
+`auth/popup-closed-by-user` en escritorio es la persona cerrándolo a propósito: tampoco hay
+que secuestrarle la página.
+
+Los dos salen de la lista de `necesitaRedirect`. En móvil `popup-closed-by-user` sigue
+cayendo a redirect por `esCierreEnMovil`, que es donde casi siempre es el navegador
+bloqueando el popup. Y se agregó un candado `_authLoginEnCurso`: **un login a la vez**, para
+que el segundo clic no genere el `cancelled-popup-request` de entrada. Se suelta en los tres
+finales posibles, así que se puede reintentar.
+
+> **Esto NO está en YERCO**: su lista tiene los dos códigos. El defecto vive en los dos
+> repos; acá está corregido y en §6 queda anotado para portarlo.
 
 ---
 
@@ -742,7 +766,7 @@ hechos**: son la tanda 6.
 ## 4. Cómo verificar que no rompiste nada
 
 ```bash
-npm test          # 722 pruebas, 28 suites — no necesita nada instalado
+npm test          # 729 pruebas, 28 suites — no necesita nada instalado
 npm run build     # corre check-admin.js y luego minifica
 npm run test:reglas   # 55 asertos contra firestore.rules, con el emulador
 ```
@@ -953,7 +977,13 @@ en blanco teniendo el `displayName` de Google en el mismo objeto.
 9. **Las dos pruebas de contrato entre archivos** (`t-avisos-pedido.js` y la parte de
    `t-granel-panel.js` que compara `functions/index.js` con `admin.html`). Son las que
    avisan cuando alguien agrega un campo de un lado y se olvida del otro.
-10. **Toda la tanda 5.** Nada de eso depende del granel, así que aplica aunque YERCO no
+10. **El redirect que le mata el `opener` al popup** ← el más urgente, porque rompe el
+    login entero. En `authLogin`, sacar `auth/cancelled-popup-request` y
+    `auth/popup-closed-by-user` de la lista de `necesitaRedirect` —el primero significa que
+    hay otro popup vivo, el segundo en escritorio es la persona cerrándolo— y agregar un
+    candado de "un login a la vez". Está explicado en §1f. Cubierto por
+    `pruebas/t-login.js`, que también se puede portar entero.
+11. **Toda la tanda 5.** Nada de eso depende del granel, así que aplica aunque YERCO no
     tenga venta por peso. Las tres que más plata cuestan:
     - el modal de estado dejando entregar un pedido web **sin registrar la venta** (buscá
       si `aplicarEstadoPedido` mira `ventaId`, y si la guarda del tablero pide el destino
