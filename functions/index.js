@@ -110,17 +110,43 @@ exports.notifyTelegramOnNewOrder = onDocumentCreated(
     }
     /* Construir mensaje */
     const num = String(pedido.numero || 0).padStart(5, '0');
-    const itemsTxt = (pedido.items || [])
-      .map(i => `${escHtml(i.nombre)} x${i.cantidad}`)
-      .join(', ');
+    /* Telegram rechaza con 400 cualquier mensaje de mas de 4096 caracteres, y esta
+       funcion trabaja sobre la carga de CREACION: los limites que pone sanitizarPedido
+       llegan despues. Las reglas no acotan `notas` ni el largo de la lista de items,
+       asi que un pedido de 100 productos -o unas notas largas- dejaban al comercio sin
+       el aviso del pedido, que muchas veces es el unico que ve. Se recorta cada parte
+       y despues el mensaje entero, para que el aviso llegue aunque venga podado. */
+    const cortar = (s, n) => { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n) + '…' : s; };
+    const items = (pedido.items || []);
+    /* Se mide el texto YA escapado: escHtml puede quintuplicar el largo (un & son 5
+       caracteres), asi que contar los nombres crudos no alcanza. Se corta por items
+       enteros para no partir una entidad al medio. */
+    const partes = [];
+    let largoItems = 0;
+    for (const i of items) {
+      const txt = `${escHtml(cortar(i && i.nombre, 60))} x${i && i.cantidad}`;
+      if (partes.length >= 40 || largoItems + txt.length > 1800) break;
+      partes.push(txt);
+      largoItems += txt.length + 2;
+    }
+    let itemsTxt = partes.join(', ');
+    if (partes.length < items.length) itemsTxt += ` … y ${items.length - partes.length} más`;
     let msg = `<b>🛒 Nuevo pedido WEB #${num}</b>\n`;
-    msg += `<b>Cliente:</b> ${escHtml(pedido.cliente || '-')}\n`;
-    msg += `<b>Tel:</b> ${escHtml(pedido.telefono || '-')}\n`;
+    msg += `<b>Cliente:</b> ${escHtml(cortar(pedido.cliente || '-', 120))}\n`;
+    msg += `<b>Tel:</b> ${escHtml(cortar(pedido.telefono || '-', 30))}\n`;
     msg += `<b>Entrega:</b> ${pedido.tipoEntrega === 'retiro' ? 'Retiro en local' : 'Envío a domicilio'}\n`;
-    if (pedido.direccion) msg += `<b>Dirección:</b> ${escHtml(pedido.direccion)}\n`;
-    if (pedido.notas) msg += `<b>Notas:</b> ${escHtml(pedido.notas)}\n`;
+    if (pedido.direccion) msg += `<b>Dirección:</b> ${escHtml(cortar(pedido.direccion, 200))}\n`;
+    if (pedido.notas) msg += `<b>Notas:</b> ${escHtml(cortar(pedido.notas, 400))}\n`;
     if (itemsTxt) msg += `<b>Items:</b> ${itemsTxt}\n`;
     msg += `<b>Total:</b> $${(pedido.total || 0).toLocaleString('es-AR')}`;
+    /* Red final. Se corta en el ultimo salto de linea completo: al ras se podria
+       partir una etiqueta <b> o una entidad HTML, y Telegram rechaza el mensaje
+       entero con 400 igual que si fuera largo. Cada linea es un par <b>..</b>
+       cerrado, asi que cortando por lineas el HTML siempre queda balanceado. */
+    if (msg.length > 4000) {
+      const corte = msg.lastIndexOf('\n', 4000);
+      msg = msg.slice(0, corte > 0 ? corte : 4000) + '\n…(mensaje recortado)';
+    }
     /* Enviar */
     const ok = await sendTelegramMessage(token, chatId, msg);
     if (ok) {
@@ -287,15 +313,18 @@ exports.descontarStockPedido = onDocumentCreated(
   const snap = event.data;
   const data = snap && snap.data();
   if (!data || data.origen !== 'web') return;
-  if (data.stockDescontado === true) return;   /* idempotente: no descontar dos veces */
-  /* Si rateLimitPedidos alcanzo a marcarlo antes, no se le descuenta stock a un
-     pedido que el comercio todavia no decidio si acepta. Corren en paralelo, asi
-     que esto no siempre llega a tiempo; por eso el pedido ya no se borra: aunque
-     el stock se descuente, queda el documento que lo explica. */
-  if (data.bloqueadoPorLimite === true) {
-    logger.info('Pedido marcado por limite, no se descuenta stock:', event.params.pedidoId);
-    return;
-  }
+  /* Las guardas de stockDescontado y bloqueadoPorLimite NO se pueden decidir aca.
+     `data` es la carga del evento de CREACION, congelada:
+       - stockDescontado nace SIEMPRE en false (lo escribe app.js a proposito), asi
+         que "no descontar dos veces" era inalcanzable: si el evento se reentrega
+         -la entrega es at-least-once- vuelve a llegar el mismo false y se descuenta
+         de nuevo.
+       - bloqueadoPorLimite ni siquiera existe en esa carga, porque rateLimitPedidos
+         lo agrega con un update POSTERIOR. Era codigo muerto: al pedido frenado por
+         limite se le descontaba el stock igual, mientras el panel afirmaba lo
+         contrario.
+     Las dos se deciden ahora adentro de la transaccion, leyendo el documento vivo,
+     que es el unico lugar donde la decision y la escritura no se pueden cruzar. */
 
   try {
     const cfg = await db.collection('config').doc('pedidos').get();
@@ -313,14 +342,27 @@ exports.descontarStockPedido = onDocumentCreated(
 
   try {
     const faltantes = await db.runTransaction(async (t) => {
+      /* Primero el pedido vivo, y TODAS las lecturas antes de cualquier escritura,
+         que es lo que exige una transaccion de Firestore. */
+      const pedSnap = await t.get(snap.ref);
+      if (!pedSnap.exists) return null;               /* lo borraron mientras tanto */
+      const ped = pedSnap.data();
+      if (ped.stockDescontado === true) return null;  /* ya se descontó: no dos veces */
+      if (ped.bloqueadoPorLimite === true) return null; /* rateLimitPedidos lo frenó */
       const refs = ids.map((id) => db.collection('productos').doc(id));
       const snaps = await t.getAll(...refs);
       const falt = [];
       const bajoCosto = [];
+      /* Un item cuyo producto ya no existe se salteaba sin dejar rastro: no descontaba,
+         no entraba en falt, no sumaba al total de catalogo, y el pedido se marcaba
+         stockDescontado:true igual. Pasa cuando el comercio borra y vuelve a crear un
+         producto y el cliente tenia el id viejo en el carrito de localStorage. Ahora
+         queda anotado en el documento para que el panel lo pueda mostrar. */
+      const desconocidos = [];
       let totalCatalogo = 0;
 
       snaps.forEach((sn, k) => {
-        if (!sn.exists) return;
+        if (!sn.exists) { desconocidos.push(ids[k]); return; }
         const p = sn.data();
         const disp = Number(p.stock || 0);
         const pedido = porProd[ids[k]];
@@ -370,8 +412,15 @@ exports.descontarStockPedido = onDocumentCreated(
       const patch = {
         stockDescontado: true,
         stockFaltante: falt.length ? falt : null,
+        /* Los items que ya no existen en el catalogo: sin esto el pedido se marcaba
+           como descontado sin decir que hubo productos que no se pudieron tocar. */
+        itemsDesconocidos: desconocidos.length ? desconocidos : null,
         subtotalCatalogo: totalCatalogo
       };
+      /* Un producto que ya no existe hace que el subtotal de catalogo no sea
+         comparable con lo cobrado, asi que la señal de "revisar precio" por monto
+         quedaria mal calibrada: se pide revisar el pedido a mano. */
+      if (desconocidos.length) patch.revisarPrecio = true;
       /* Dos motivos distintos para marcarlo, y se guarda cual fue:
          - bajoCosto: algun item se cobro por debajo de lo que le cuesta al comercio.
            Eso no lo produce un cambio de precios, asi que es el aviso fuerte.
@@ -390,6 +439,12 @@ exports.descontarStockPedido = onDocumentCreated(
       return falt;
     });
 
+    /* null = la transaccion decidio no hacer nada (ya estaba descontado, lo frenó el
+       rate limit, o el pedido ya no existe). No es un error y no se toca el pedido. */
+    if (faltantes === null) {
+      logger.info('No se descuenta stock del pedido', { pedido: event.params.pedidoId });
+      return;
+    }
     if (faltantes.length) {
       logger.warn('Pedido con stock insuficiente', {
         pedido: event.params.pedidoId,

@@ -9,6 +9,10 @@ const RAIZ = 'C:/Users/Usuario/Documents/brotesdietetica/functions';
 let PRODUCTOS = {};      /* la coleccion productos */
 let PATCH = null;        /* lo que la funcion escribio en el pedido */
 let INCREMENTOS = [];    /* los increment() de stock */
+/* El documento del pedido tal como esta VIVO en la base cuando corre la transaccion.
+   Puede ser distinto de la carga del evento: rateLimitPedidos lo marca con un update
+   posterior. Justamente por eso la funcion ya no decide con la carga del evento. */
+let PEDIDO_VIVO = null;
 
 const FieldValue = { increment: (n) => ({ __inc: n }) };
 
@@ -25,6 +29,12 @@ function crearDb() {
       })
     }),
     runTransaction: async (fn) => fn({
+      /* La funcion lee el pedido VIVO adentro de la transaccion antes que nada. */
+      get: async (ref) => {
+        if (ref && ref.__col === 'pedidos') return { exists: PEDIDO_VIVO !== null, id: ref.__id, data: () => PEDIDO_VIVO, ref: ref };
+        const d = PRODUCTOS[ref.__id];
+        return { exists: !!d, id: ref.__id, data: () => d, ref: ref };
+      },
       getAll: async (...refs) => refs.map(r => {
         const d = PRODUCTOS[r.__id];
         return { exists: !!d, id: r.__id, data: () => d, ref: r };
@@ -67,8 +77,13 @@ let ok = 0, fail = 0;
 function t(n, c) { if (c) { ok++; console.log('  OK   ' + n); } else { fail++; console.log('  FALLA ' + n); } }
 function grupo(n) { console.log('\n' + n); }
 
-async function correr(pedido) {
+/* `pedido` es la carga del EVENTO de creacion (congelada). `vivo`, si se pasa, es
+   como quedo el documento en la base para cuando corre la transaccion. Son distintos
+   cada vez que otra funcion lo actualiza en el medio, que es exactamente el caso que
+   rompia las guardas. */
+async function correr(pedido, vivo) {
   PATCH = null; INCREMENTOS = [];
+  PEDIDO_VIVO = vivo === undefined ? pedido : vivo;
   await fn({ data: { data: () => pedido, ref: { __col: 'pedidos', __id: 'ped1' } }, params: { pedidoId: 'ped1' } });
   return PATCH;
 }
@@ -144,6 +159,40 @@ async function correr(pedido) {
   p = await correr({ origen: 'web', stockDescontado: true, subtotalProductos: 1, total: 1,
     items: [{ id: 'y', precio: 1, cantidad: 1 }] });
   t('si ya se desconto, no lo vuelve a hacer', p === null && INCREMENTOS.length === 0);
+
+  /* Los tres casos que siguen son la razon del arreglo. La funcion decidia con
+     `event.data.data()`, que es la carga del evento de CREACION y esta congelada: el
+     pedido nace SIEMPRE con stockDescontado:false y sin bloqueadoPorLimite, asi que
+     las dos guardas eran inalcanzables. La carga del evento y el documento vivo se
+     pasan por separado justamente para poder probar la diferencia. */
+  grupo('Caso 9b - la reentrega del mismo evento no descuenta dos veces');
+  PRODUCTOS = { y: { nombre: 'Yerba', precio: 10000, costo: 6000, descuento: 0, stock: 20 } };
+  const cargaCreacion = { origen: 'web', stockDescontado: false, subtotalProductos: 10000, total: 10000,
+    items: [{ id: 'y', nombre: 'Yerba', precio: 10000, cantidad: 1 }] };
+  p = await correr(cargaCreacion, Object.assign({}, cargaCreacion, { stockDescontado: true }));
+  t('la carga dice false, el documento vivo dice true: no descuenta', p === null && INCREMENTOS.length === 0);
+
+  grupo('Caso 9c - al pedido frenado por rate limit no se le descuenta stock');
+  PRODUCTOS = { y: { nombre: 'Yerba', precio: 10000, costo: 6000, descuento: 0, stock: 20 } };
+  /* rateLimitPedidos marca el documento con un update POSTERIOR a la creacion, asi
+     que el campo no puede estar en la carga del evento. */
+  p = await correr(cargaCreacion, Object.assign({}, cargaCreacion, { bloqueadoPorLimite: true }));
+  t('no descuenta', p === null && INCREMENTOS.length === 0);
+
+  grupo('Caso 9d - un item cuyo producto ya no existe deja rastro');
+  PRODUCTOS = { y: { nombre: 'Yerba', precio: 10000, costo: 6000, descuento: 0, stock: 20 } };
+  p = await correr({ origen: 'web', subtotalProductos: 10000, total: 10000,
+    items: [{ id: 'y', nombre: 'Yerba', precio: 10000, cantidad: 1 },
+            { id: 'borrado', nombre: 'Producto viejo', precio: 5000, cantidad: 2 }] });
+  t('anota el id que no existe', !!p.itemsDesconocidos && p.itemsDesconocidos.indexOf('borrado') !== -1);
+  t('pide revisar el pedido a mano', p.revisarPrecio === true);
+  t('descuenta igual lo que si existe', INCREMENTOS.length === 1 && INCREMENTOS[0].id === 'y');
+  t('y no inventa un faltante de stock', !p.stockFaltante);
+
+  grupo('Caso 9e - el pedido borrado mientras tanto no se toca');
+  PRODUCTOS = { y: { nombre: 'Yerba', precio: 10000, costo: 6000, descuento: 0, stock: 20 } };
+  p = await correr(cargaCreacion, null);
+  t('no descuenta ni escribe nada', p === null && INCREMENTOS.length === 0);
 
   grupo('Caso 10 - cantidades: el costo se compara por UNIDAD');
   PRODUCTOS = { y: { nombre: 'Yerba', precio: 10000, costo: 6000, descuento: 0, stock: 20 } };

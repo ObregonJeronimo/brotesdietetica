@@ -68,7 +68,18 @@ service cloud.firestore {
     /* ===== PEDIDOS ===== */
     match /pedidos/{doc} {
       /* Crear: solo usuarios autenticados, validando estructura */
+      /* clienteAuthUid tiene que ser el de quien escribe. Antes la regla no lo miraba,
+         asi que un cliente logueado podia mandarlo en null o con el uid de otro. Los
+         dos casos hacen daño y ninguno da error:
+           - en null, rateLimitPedidos corta con `if (!uid) return` y el pedido no
+             cuenta para el limite de 5 por hora, o sea que el limite se saltea
+             simplemente omitiendo el campo;
+           - con el uid de otro, el pedido aparece en "Mis Pedidos" de esa persona,
+             con su nombre, su telefono y su direccion.
+         Medido en el emulador: pruebas/reglas-cliente.js probaba que hoy los dos
+         pasaban. */
       allow create: if isAuthUser()
+        && request.resource.data.clienteAuthUid == request.auth.uid
         && request.resource.data.keys().hasAll(['cliente','telefono','items','total','origen','estado','creadoEn'])
         && validString(request.resource.data.cliente, 120)
         && validString(request.resource.data.telefono, 30)
