@@ -1330,15 +1330,13 @@ loadReviews();
 /* ===== AUTH CLIENTES ===== */
 const authClient = firebase.auth();
 
-/* Refresh del estado de auth cuando el DOM esté listo */
+/* Refresh del estado de auth cuando el DOM esté listo. SOLO redibuja el nav: ya no
+   vuelve a llamar a _onUserLogin. Este era el cuarto llamador, compitiendo con los
+   otros tres; onAuthStateChanged se dispara igual al cargar si hay sesion, asi que
+   este bloque nunca hizo falta para cargar los datos. (En YERCO no existe.) */
 document.addEventListener('DOMContentLoaded', function() {
     const user = authClient.currentUser;
-    if (user && clienteAuth) {
-        _updateNavAuth(user);
-    } else if (user && !clienteAuth) {
-        /* Sesión existe pero clienteAuth no cargó aún - recargar */
-        _onUserLogin(user, false);
-    }
+    if (user) _updateNavAuth(user);
 });
 let clienteAuth = null; // datos del cliente en Firestore
 let _pedidosListener = null;
@@ -1347,36 +1345,70 @@ let _pedidosListener = null;
 const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 const _isMobileAuth = _isIOS || /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-/* Inicializar auth */
+/* Inicializar auth.
+
+   ESTE BLOQUE ES EL DE YERCO, PORTADO TAL CUAL, y el orden importa.
+
+   Antes, en Brotes, _onUserLogin lo llamaban CUATRO lugares: el DOMContentLoaded de
+   arriba, el .then de getRedirectResult, el .then de signInWithPopup, y este
+   onAuthStateChanged. Firebase avisa la misma sesion por varios de esos caminos a la
+   vez, asi que se pisaban entre ellos. La tanda 2 le puso un candado por uid adentro
+   de _onUserLogin para sobrevivir a eso; el candado se deja, pero ahora hay UN solo
+   llamador y el candado pasa a ser red de seguridad en vez de la unica defensa.
+
+   Ahora, igual que YERCO:
+     1) setPersistence PRIMERO;
+     2) onAuthStateChanged es la unica fuente de verdad -se dispara al cargar si hay
+        sesion, despues del popup, y al volver de un redirect-, con un guarda de
+        reentrada y otro de "mismo uid ya procesado";
+     3) getRedirectResult NO inicia sesion: solo detecta que volvimos de un redirect
+        para reabrir el carrito. */
 let _loginActivo = sessionStorage.getItem('_authLoginActivo') === '1';
+let _authProcesando = false;      /* evita ejecuciones concurrentes de _onUserLogin */
+let _ultimoUidProcesado = null;   /* evita reprocesar el mismo usuario */
 
-/* getRedirectResult ANTES de setPersistence para no perderse el resultado en iOS */
-authClient.getRedirectResult().then(result => {
-    if (result && result.user) {
-        sessionStorage.setItem('_authLoginActivo', '1');
-        _loginActivo = true;
-        _onUserLogin(result.user, true);
-        sessionStorage.removeItem('_authLoginActivo');
-        /* Si el usuario venía intentando comprar, abrir el carrito al volver del login */
-        if(sessionStorage.getItem('_intentoCompra')==='1'){
-            sessionStorage.removeItem('_intentoCompra');
-            setTimeout(()=>{if(carrito.length>0&&typeof openCart==='function')openCart();},800);
-        }
-    }
-}).catch(e => { console.error('getRedirectResult error:', e); });
+/* 1) Persistencia LOCAL primero: la sesion sobrevive a recargas y cierres del navegador */
+authClient.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    .catch(e => console.error('setPersistence error:', e));
 
-authClient.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.error('setPersistence error:', e));
-
+/* 2) La UNICA fuente de verdad del login */
 authClient.onAuthStateChanged(async user => {
     if (user) {
+        if (_authProcesando) return;
+        if (_ultimoUidProcesado === user.uid && clienteAuth) {
+            _updateNavAuth(user);
+            return;
+        }
+        _authProcesando = true;
         const wasActive = _loginActivo;
         _loginActivo = false;
         sessionStorage.removeItem('_authLoginActivo');
-        await _onUserLogin(user, wasActive);
+        try {
+            await _onUserLogin(user, wasActive);
+            _ultimoUidProcesado = user.uid;
+        } catch (e) {
+            /* Sin este catch, una excepcion dejaba _authProcesando en true para
+               siempre y ningun login posterior volvia a procesarse. */
+            console.error('_onUserLogin error:', e);
+        } finally {
+            _authProcesando = false;
+        }
     } else {
+        _ultimoUidProcesado = null;
         _onUserLogout();
     }
 });
+
+/* 3) getRedirectResult: SOLO para saber que volvimos de un redirect y reabrir el
+   carrito si la persona estaba intentando comprar. El login lo hace onAuthStateChanged. */
+authClient.getRedirectResult().then(result => {
+    if (result && result.user) {
+        if (sessionStorage.getItem('_intentoCompra') === '1') {
+            sessionStorage.removeItem('_intentoCompra');
+            setTimeout(() => { if (carrito.length > 0 && typeof openCart === 'function') openCart(); }, 1000);
+        }
+    }
+}).catch(e => { console.error('getRedirectResult error:', e); });
 
 /* Google ya nos dice como se llama la persona: displayName viene en el mismo objeto
    `user` y de hecho se usa mas abajo para las iniciales del avatar. Pero el alta lo
@@ -1568,33 +1600,36 @@ function authLogin() {
         provider.addScope('email');
         provider.addScope('profile');
         provider.setCustomParameters({ prompt: 'select_account' });
-        /* En móvil: redirect (ahora funciona porque authDomain=dominio propio via proxy, sin bug de cookies de terceros).
-           En desktop: popup (mejor UX, no recarga la página). */
-        if (_isMobileAuth) {
-            firebase.auth().signInWithRedirect(provider).catch(e => {
-                console.error('redirect error:', e.code, e.message);
-                showToast('No se pudo iniciar sesión. Probá de nuevo.', 'error');
-                _loginActivo = false;
-                sessionStorage.removeItem('_authLoginActivo');
-            });
-            return;
-        }
+        /* POPUP-FIRST en TODOS los dispositivos, igual que YERCO.
+           Antes, en movil, Brotes arrancaba directo con signInWithRedirect. El redirect
+           depende de cookies de terceros -que Safari, Firefox y Chrome bloquean- y por eso
+           es MENOS confiable que el popup, no mas. El redirect queda solo como fallback
+           automatico cuando el popup no es viable. */
         firebase.auth().signInWithPopup(provider)
             .then(result => {
-                if (result.user) {
+                /* NO se llama a _onUserLogin aca: onAuthStateChanged ya lo procesa cuando
+                   el popup sale bien. Aca solo se deja la marca de que fue un login ACTIVO
+                   (para que despues se abra el modal de datos) y se limpia la bandera. */
+                if (result && result.user) {
                     _loginActivo = true;
-                    _onUserLogin(result.user, true);
                 }
+                sessionStorage.removeItem('_authLoginActivo');
             })
             .catch(e => {
                 console.error('popup error:', e.code, e.message);
+                /* Errores donde el popup no es viable -> caer a redirect */
                 const necesitaRedirect = [
                     'auth/popup-blocked',
                     'auth/cancelled-popup-request',
+                    'auth/popup-closed-by-user',
                     'auth/operation-not-supported-in-this-environment',
-                    'auth/web-storage-unsupported'
+                    'auth/web-storage-unsupported',
+                    'auth/network-request-failed'
                 ].includes(e.code);
-                if (necesitaRedirect) {
+                /* En movil, popup-closed-by-user casi siempre es el navegador bloqueando
+                   el popup, no la persona cerrandolo: ahi tambien se cae a redirect. */
+                const esCierreEnMovil = e.code === 'auth/popup-closed-by-user' && _isMobileAuth;
+                if (necesitaRedirect || esCierreEnMovil) {
                     firebase.auth().signInWithRedirect(provider).catch(er => {
                         console.error('redirect error:', er);
                         showToast('No se pudo iniciar sesión. Probá con otro navegador.', 'error');
