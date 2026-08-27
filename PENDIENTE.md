@@ -90,10 +90,7 @@ desde la consola de Firebase.
    el ticket impreso siguen en tono cercano — *"Dejá tu opinión"*, *"Volvé a pedir"* —
    porque no es la misma audiencia. Falta decidir si eso también cambia.
 
-4. **`check-admin.js` no revisa el balance del HTML**, sólo el JavaScript. Un `</div>`
-   de más ya rompió el panel una vez (ver más abajo). Se le puede agregar.
-
-5. **Token de GitHub en `Autoleads`.** Está en texto plano en
+4. **Token de GitHub en `Autoleads`.** Está en texto plano en
    `C:\Users\Usuario\Desktop\Autoleads\.git\config` y en el historial de PowerShell.
    Decidiste no revocarlo. Queda anotado: un `ghp_` clásico con scope `repo` alcanza a
    **todos** los repos, no sólo a ese.
@@ -108,8 +105,13 @@ npm run build     # corre check-admin.js y luego minifica
 ```
 
 `npm run build` **falla y corta el deploy** si el JS de `admin.html` revienta al
-cargar. Eso es a propósito: Vercel lo ejecuta al desplegar, así que un JS roto hace
-fallar el deploy en vez de salir al aire.
+cargar **o si el HTML queda desbalanceado** en cualquiera de las seis páginas. Eso es
+a propósito: Vercel lo ejecuta al desplegar, así que algo roto hace fallar el deploy
+en vez de salir al aire.
+
+Del HTML controla dos cosas: cierres que no cierran nada y aperturas que nunca
+cierran (con archivo y línea), y que ninguna sección del panel quede adentro de otra
+—que es cómo se manifiesta un cierre de más y lo que rompe `switchSection`.
 
 **Lo que las pruebas NO pueden ver.** Cada suite saca la función del archivo y la
 corre aislada, así que no se entera si en el navegador **otro módulo la reemplaza**.
@@ -139,8 +141,9 @@ pantallas chicas**, y en escritorio no se nota que falta hasta que algo se ve ma
 **`.btn{flex:1}` y `.btn{width:100%}`** existen en esas media queries. Cualquier botón
 en una barra necesita `width:auto; flex:0 0 auto` o se estira a todo el ancho.
 
-**El balance de `<div>` del archivo es −1 de fábrica.** No es un error nuevo: si al
-comparar te da −1, está bien. Si da otra cosa, rompiste algo.
+**El HTML ya está balanceado y `npm run build` lo exige.** Tenía un cierre de más de
+fábrica en la zona del Editor Web; se quitó. Si el build se queja del HTML, es algo
+que acabás de romper.
 
 **Finales de línea.** El repo tiene LF y la copia local CRLF. Comparar hashes contra
 producción da distinto aunque el contenido sea idéntico: normalizá `\r\n` → `\n` antes.
