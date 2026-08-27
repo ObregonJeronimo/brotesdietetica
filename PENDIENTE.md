@@ -158,7 +158,33 @@ producto** en la base.
 > no entre el catálogo **no se puede hacer el pedido de prueba** — o hay que bajar el mínimo
 > un rato desde Editor Web.
 
-### d) La foto del hero
+### d) La pantalla de permisos de Google dice `brotesdietetica.vercel.app`
+
+Cuando alguien inicia sesión por primera vez, Google le muestra *"Accede a
+**brotesdietetica.vercel.app**"* y después le manda un mail avisando que le compartió datos
+a esa app. **El mail es inevitable**: lo manda Google cada vez que una cuenta autoriza una
+app nueva, y YERCO manda exactamente el mismo. Lo que sí se puede cambiar es **el nombre**.
+
+Google muestra el dominio pelado porque la pantalla de consentimiento de OAuth no tiene
+nombre de app cargado. Con el nombre puesto, el cliente lee *"Accede a Brotes Dietética"* —
+que es lo que uno quiere que vea— en lugar de una URL, que es lo que uno esperaría de una
+estafa.
+
+**Dónde:** [Google Cloud Console → APIs y servicios → Pantalla de consentimiento de OAuth](https://console.cloud.google.com/apis/credentials/consent?project=brotesdietetica-2f78e)
+→ campo **Nombre de la aplicación** → `Brotes Dietética` → Guardar.
+
+Dos cosas para saber antes de tocar:
+
+- La app pide sólo `email` y `profile`, que son scopes **no sensibles**. Por eso cambiar el
+  **nombre** no dispara ninguna verificación de Google: es inmediato.
+- **Subir el logo sí la dispara.** La verificación de marca de Google puede tardar semanas y
+  mientras tanto no cambia nada. Si hay apuro por entregar, poné el nombre ahora y dejá el
+  logo para después.
+
+No se puede hacer desde acá: es una pantalla de la consola, y leerla por API pediría
+habilitar la API de IAP en el proyecto.
+
+### e) La foto del hero
 
 En `config/siteContent`, `heroImg` y `ctaImg` siguen guardados como
 `https://brotesdietetica.vercel.app/admin` — la página del panel, no una imagen.
@@ -168,7 +194,7 @@ Es basura de un bug viejo ya arreglado.
 El panel detecta los valores inválidos, no los muestra en la vista previa y los borra
 del documento al guardar. No hay que tocar la base a mano.
 
-### e) ~~Rotar el token del bot de Telegram~~ · DECIDIDO NO ROTARLO (27/08/2026)
+### f) ~~Rotar el token del bot de Telegram~~ · DECIDIDO NO ROTARLO (27/08/2026)
 
 El token estuvo un rato legible sin login por una regla de Firestore. La regla **ya está
 cerrada**. Jero decidió **no rotarlo**.
@@ -204,7 +230,7 @@ error**. El pedido se guarda igual y el stock se descuenta igual.
 
 ---
 
-### f) El popup de Google se colgaba · PORTADO DE YERCO (27/08/2026)
+### g) El popup de Google se colgaba · PORTADO DE YERCO (27/08/2026)
 
 Al ir a hacer el pedido de prueba, el popup de login quedaba **en blanco y cargando para
 siempre** en `brotesdietetica.vercel.app/__/auth/handler?state=...`. En YERCO el mismo login
@@ -1015,7 +1041,7 @@ en blanco teniendo el `displayName` de Google en el mismo objeto.
     login entero. En `authLogin`, sacar `auth/cancelled-popup-request` y
     `auth/popup-closed-by-user` de la lista de `necesitaRedirect` —el primero significa que
     hay otro popup vivo, el segundo en escritorio es la persona cerrándolo— y agregar un
-    candado de "un login a la vez". Está explicado en §1f. Cubierto por
+    candado de "un login a la vez". Está explicado en §1g. Cubierto por
     `pruebas/t-login.js`, que también se puede portar entero.
 11. **Toda la tanda 5.** Nada de eso depende del granel, así que aplica aunque YERCO no
     tenga venta por peso. Las tres que más plata cuestan:
