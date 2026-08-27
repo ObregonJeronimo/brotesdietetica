@@ -267,6 +267,25 @@ function definidas(css) {
   return { clases, vars };
 }
 
+/* Clases que el JS nombra en un selector: querySelector('.x'), closest('.x'),
+   matches('.x'), y tambien adentro de un :not(.x). Son ganchos con proposito
+   —marcadores para buscar o excluir elementos— y no tienen por que estar
+   estiladas. .wa-dev es el ejemplo claro: existe solo para que
+   `a[href*="wa.me"]:not(.wa-dev)` deje afuera el link del desarrollador cuando
+   se reescriben los numeros de WhatsApp. */
+function ganchosDeJs(texto) {
+  const set = new Set();
+  const re = /(?:querySelector|querySelectorAll|closest|matches|getElementsByClassName)\s*\(\s*(?:'([^']*)'|"([^"]*)")/g;
+  let m;
+  while ((m = re.exec(texto))) {
+    const sel = m[1] || m[2] || '';
+    let c;
+    const r = /\.(-?[_a-zA-Z][\w-]*)/g;
+    while ((c = r.exec(sel))) set.add(c[1]);
+  }
+  return set;
+}
+
 function usadas(texto) {
   const clases = new Map();
   const vars = new Map();
@@ -275,7 +294,12 @@ function usadas(texto) {
   let u;
   const reAttr = /class\s*=\s*(?:"([^"]*)"|'([^']*)'|\\"([^"\\]*)\\")/g;
   while ((u = reAttr.exec(texto))) {
-    (u[1] || u[2] || u[3] || '').split(/\s+/).forEach((cl) => {
+    const valor = u[1] || u[2] || u[3] || '';
+    /* Si el atributo se arma concatenando ('bi ' + icono + '"'), sus pedazos no son
+       nombres de clase: `icono` es una variable, no una clase. Se descarta entero,
+       porque quedarse con los trozos que "parecen" nombre inventa huerfanos. */
+    if (/['"+`${}]/.test(valor)) continue;
+    valor.split(/\s+/).forEach((cl) => {
       cl = cl.trim();
       /* pedazos que el JS arma concatenando: no son un nombre de clase */
       /* Un nombre de clase valido y nada mas. Lo que sale de concatenar en el JS
@@ -295,15 +319,19 @@ function usadas(texto) {
   return { clases, vars };
 }
 
-function revisarCss(archivo, textoQueUsa, cssDisponible) {
+function revisarCss(archivo, textoQueUsa, cssDisponible, textoConGanchos) {
   const fallas = [];
   const def = definidas(cssDisponible);
   const uso = usadas(textoQueUsa);
+  /* Los ganchos se buscan en TODO el proyecto, no solo en el archivo que dibuja:
+     admin-pagination.js crea .admin-pagination y admin-caja.js la busca. */
+  const ganchos = ganchosDeJs(textoConGanchos || textoQueUsa);
 
   /* Una clase sin definir NO rompe: el elemento se dibuja sin estilo. Va como
      aviso para no cortar el build por algo cosmetico que ya venia de antes. */
   [...uso.clases.entries()].sort((a, b) => b[1] - a[1]).forEach(([cl, n]) => {
-    if (def.clases.has(cl) || CLASES_AJENAS.test(cl) || CLASES_SIN_ESTILO_PROPIO.has(cl)) return;
+    if (def.clases.has(cl) || CLASES_AJENAS.test(cl) || CLASES_SIN_ESTILO_PROPIO.has(cl) ||
+        ganchos.has(cl)) return;
     avisos.push('CSS: .' + cl + ' se usa ' + n + ' vez/veces en ' + archivo + ' y no esta definida');
   });
   [...uso.vars.entries()].sort((a, b) => b[1] - a[1]).forEach(([vr, n]) => {
@@ -317,7 +345,16 @@ function revisarCss(archivo, textoQueUsa, cssDisponible) {
 
 /* El panel: su HTML y su JS embebido, contra su propio <style>. */
 const CSS_ADMIN = cssDe(html, []);
-problemas.push(...revisarCss('admin.html', html, CSS_ADMIN));
+
+/* Todo el JS del panel junto: los ganchos pueden estar en otro archivo. */
+const JS_PANEL = ['admin-caja.js', 'admin-alertas.js', 'admin-dialogo.js', 'admin-stats.js',
+                  'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js']
+  .map((f) => {
+    const r = path.join(__dirname, f);
+    return fs.existsSync(r) ? fs.readFileSync(r, 'utf8') : '';
+  }).join('\n') + '\n' + html;
+
+problemas.push(...revisarCss('admin.html', html, CSS_ADMIN, JS_PANEL));
 
 /* Los modulos sueltos dibujan HTML con las clases del panel, asi que se comparan
    contra el CSS de admin.html. Se pasa SOLO el modulo como texto que usa, para no
@@ -327,7 +364,7 @@ problemas.push(...revisarCss('admin.html', html, CSS_ADMIN));
   .forEach((f) => {
     const ruta = path.join(__dirname, f);
     if (!fs.existsSync(ruta)) return;
-    problemas.push(...revisarCss(f, fs.readFileSync(ruta, 'utf8'), CSS_ADMIN));
+    problemas.push(...revisarCss(f, fs.readFileSync(ruta, 'utf8'), CSS_ADMIN, JS_PANEL));
   });
 
 /* La tienda, contra sus hojas externas. */
@@ -335,9 +372,11 @@ const idx = path.join(__dirname, 'index.html');
 if (fs.existsSync(idx)) {
   const htmlIdx = fs.readFileSync(idx, 'utf8');
   const cssTienda = cssDe(htmlIdx, ['styles.css', 'toolbar.css', 'footer-dev.css']);
-  problemas.push(...revisarCss('index.html', htmlIdx, cssTienda));
+  const jsTienda = htmlIdx + '\n' +
+    (fs.existsSync(path.join(__dirname, 'app.js')) ? fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8') : '');
+  problemas.push(...revisarCss('index.html', htmlIdx, cssTienda, jsTienda));
   const appjs = path.join(__dirname, 'app.js');
-  if (fs.existsSync(appjs)) problemas.push(...revisarCss('app.js', fs.readFileSync(appjs, 'utf8'), cssTienda));
+  if (fs.existsSync(appjs)) problemas.push(...revisarCss('app.js', fs.readFileSync(appjs, 'utf8'), cssTienda, jsTienda));
 }
 
 /* ------------------------------------------------------------------ informe */
