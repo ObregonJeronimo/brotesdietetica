@@ -19,7 +19,30 @@ el negocio adentro y probarlo una vez de punta a punta.
 
 ## 1. Lo que bloquea la entrega
 
-### a) Probar un pedido web desde una cuenta que NO sea admin ← lo más importante
+### a) ~~Probar un pedido web desde una cuenta que NO sea admin~~ · **HECHO** (27/08/2026)
+
+> **El pedido #00001 entró en producción**, desde `elhacker0920@gmail.com`, que no es admin.
+> Era el bloqueante más importante de todo el proyecto: el camino del cliente nunca se
+> había ejecutado de verdad, ni una vez.
+>
+> | verificación | resultado |
+> |---|---|
+> | número | **#00001** — el primero de verdad (el contador fósil se había limpiado antes) |
+> | `origen` · `clienteAuthUid` | `web` · puesto (la regla de la tanda 3 lo exige) |
+> | entrega | `retiro`, `envio: 0`, `direccion: null` — exactamente lo que predice `t-sin-envios.js` con `haceEnvios:false` |
+> | total | $80.500 = 35 × $2.300 |
+> | `stockDescontado` | **true** — `descontarStockPedido` corrió |
+> | `subtotalCatalogo` | 80.500 con `diferenciaCatalogo: 0` y **sin** chapa de "revisar precio" |
+> | `stockFaltante` · `itemsDesconocidos` | null · null |
+> | stock | **206 → 171**, exactamente −35 |
+> | aviso de Telegram | llegó |
+>
+> Lo que este pedido **no** ejerció, por tenerlo apagado: dirección, envío y cupón. Los tres
+> están cubiertos por pruebas y se verificaron contra el emulador (tandas 4 y 5).
+
+#### Lo que costó, y la lección
+
+
 
 Hay **0 pedidos** en la base: el camino más crítico de toda la app —que un cliente
 compre— nunca se ejecutó de verdad, ni una vez.
@@ -75,6 +98,17 @@ metele un producto **a granel** al pedido: es lo que menos kilometraje tiene.
 ```bash
 firebase functions:log --only descontarStockPedido
 ```
+
+**El contador de clientes se rompió por creerle a este archivo en vez de medir.** Esta tabla
+decía `clientesAuth: 0`, y sobre eso se puso `clientesAuthCount` en 0. **Había 4 documentos**,
+con `clienteId` 1, 4, 5 y 6: el próximo cliente habría recibido el 2, después el 3, y el
+siguiente **habría chocado con el 4**. Se corrigió dejando el contador en **6**, que es el más
+alto que existe, así el próximo es el 7.
+
+La colección no se puede leer sin sesión de admin —por eso el chequeo por API pública decía
+`PERMISSION_DENIED` y se completó con lo que decía el documento— pero el token de admin
+estaba a mano. **Antes de tocar un contador hay que contar los documentos, no leer el
+contador ni este archivo.**
 
 ### b) Cargar el catálogo
 
