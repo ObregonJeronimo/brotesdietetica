@@ -757,6 +757,24 @@ inicializar. Un error en la línea 1750 rompe las 3.100 que siguen.
 sintaxis válida (`async` es un identificador) y explota recién al ejecutar. Para eso
 está `check-admin.js`.
 
+**Una clase o variable CSS que no existe no da ningún error.** El navegador ignora
+la clase y el elemento se dibuja sin estilo; nadie se entera hasta que alguien mira
+la pantalla. Aparecieron once así: `.card` (la sección Caja entera sin fondo),
+`.modal-footer` y `.modal-body` (los botones de los nueve modales apilados),
+`.insumo-usado-row`, las cinco de la tarjeta de venta mayorista, `.spin`,
+`.cat-hidden` (el botón de filtros de la tienda no ocultaba nada) y `--accent-dark`.
+
+Las **variables** son peores que las clases: `background: var(--no-existe)` no cae a
+un valor por defecto, **invalida la declaración entera** y la propiedad toma su valor
+inicial. Eso fue `--accent-dark`: el botón seleccionado de los toggles quedaba
+transparente y el control parecía no existir.
+
+`check-admin.js` ahora compara lo que se **usa** contra lo que se **define**, en el
+panel, sus ocho módulos, la tienda y las cuatro páginas sueltas, y corta el build.
+Si aparece una clase que de verdad no necesita estilo —un marcador que solo lee el
+JS— va a `CLASES_SIN_ESTILO_PROPIO` con su motivo; las que el JS nombra en un
+selector (`querySelector('.x')`, `:not(.x)`) las detecta solo.
+
 **En una Cloud Function, `event.data.data()` está congelado.** Es la foto del
 documento en el instante del disparo, no el documento. Cualquier guarda que mire un
 campo que otra función escribe después es código muerto, y cualquier guarda sobre un

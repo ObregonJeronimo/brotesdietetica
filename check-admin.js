@@ -48,6 +48,8 @@ const ARCHIVO = path.join(__dirname, 'admin.html');
 const CLAVES_COLGADAS = ['async', 'await', 'static', 'yield', 'new', 'typeof', 'void', 'delete'];
 
 let problemas = [];
+/* Cosas que conviene mirar pero que no justifican cortar el build. */
+let avisos = [];
 
 /* ------------------------------------------------------------------ extraer */
 const html = fs.readFileSync(ARCHIVO, 'utf8');
@@ -189,6 +191,213 @@ problemas.push(...revisarHtml('admin.html', html));
     problemas.push(...revisarHtml(f, fs.readFileSync(p, 'utf8')));
   });
 
+
+/* ------------------------------------- 6) CSS fantasma: usado y nunca definido
+
+   Una clase que no existe no rompe nada visible: el navegador la ignora y el
+   elemento se dibuja sin estilo. Por eso se acumulan sin que nadie se entere. En
+   este panel aparecieron seis antes de escribir esto: .card (13 usos, toda la
+   seccion Caja sin fondo), .modal-footer y .modal-body (los botones de los nueve
+   modales apilados uno arriba del otro), .spin, --text-main y --accent-dark.
+
+   Las VARIABLES son peores que las clases. `background: var(--no-existe)` no cae
+   a un valor por defecto: invalida la declaracion entera, y la propiedad toma su
+   valor inicial. Un fondo se vuelve transparente. Eso fue exactamente
+   --accent-dark: el boton SELECCIONADO de los toggles quedaba sin relleno, y como
+   el no seleccionado usa un gris casi igual al del panel, el control entero
+   parecia no existir.
+
+   Se comparan las clases y variables que se USAN contra las que se DEFINEN. */
+
+/* Clases que se aplican solo desde el JS para marcar estado y que se estilan
+   SIEMPRE en compuesto (.modal-overlay.show, .vprod-chip.ok). El extractor ya las
+   entiende; esta lista es para las que ademas ningun selector nombra, porque el
+   estilo lo pone el JS inline. */
+const CLASES_SIN_ESTILO_PROPIO = new Set([
+  'dragover', 'drag-over', 'dragging', 'editor-highlight',
+  'tk-page', 'tk-header', 'tk-items', 'tk-footer',   /* ticket: el CSS se arma en un string al imprimir */
+  'fa4-page', 'fa4-header', 'fa4-items', 'fa4-footer',
+  'wp-sel-rem', 'wp-new-chk', 'wp-sel-reapp', 'rl-check', 'dsc-chk',  /* solo se leen con querySelectorAll */
+  'pgt-si', 'pgt-no', 'pgt-total', 'pgt-aviso', 'pgt-input',          /* tienda: estilos inline */
+  'dlg-si', 'dlg-no', 'pz-rap', 'pz-input', 'alertas-refresh',       /* solo se buscan con querySelector */
+  'stock-chk', 'vprod-row', 'menu-acciones'
+]);
+
+/* Librerias externas: no se definen en este repo y no tiene sentido reportarlas.
+   index.html carga Bootstrap 5 y Bootstrap Icons desde un CDN, asi que toda su
+   grilla y sus utilidades caen aca. */
+const CLASES_AJENAS = new RegExp('^(' + [
+  'bi', 'fa', 'swiper', 'leaflet',
+  /* grilla y utilidades de Bootstrap */
+  'container', 'container-fluid', 'row', 'col', 'g', 'gx', 'gy',
+  'd', 'm', 'mt', 'mb', 'ms', 'me', 'mx', 'my', 'p', 'pt', 'pb', 'ps', 'pe', 'px', 'py',
+  'text', 'bg', 'border', 'rounded', 'w', 'h', 'position', 'top', 'bottom', 'start', 'end',
+  'fixed', 'sticky', 'navbar', 'nav', 'collapse', 'dropdown', 'modal', 'offcanvas',
+  'btn', 'form', 'input', 'spinner', 'badge', 'alert', 'card', 'justify', 'align', 'flex',
+  'fs', 'fw', 'lh', 'order', 'gap', 'shadow', 'overflow', 'visually'
+].join('|') + ')($|-)');
+
+function cssDe(texto, hojasExtra) {
+  let css = '';
+  let mm;
+  const reStyle = /<style[^>]*>([\s\S]*?)<\/style>/g;
+  while ((mm = reStyle.exec(texto))) css += mm[1] + '\n';
+  (hojasExtra || []).forEach((h) => {
+    const ruta = path.join(__dirname, h);
+    if (fs.existsSync(ruta)) css += fs.readFileSync(ruta, 'utf8') + '\n';
+  });
+  return css;
+}
+
+function definidas(css) {
+  const clases = new Set();
+  const vars = new Set();
+  /* Se corta en la llave para mirar SOLO los selectores, y se toma cada .nombre
+     aunque venga pegado a otro: en `.modal-overlay.show` estan las dos. */
+  css.replace(/\/\*[\s\S]*?\*\//g, ' ').split('}').forEach((trozo) => {
+    const sel = trozo.split('{')[0];
+    if (!sel) return;
+    let c;
+    const r = /\.(-?[_a-zA-Z][\w-]*)/g;
+    while ((c = r.exec(sel))) clases.add(c[1]);
+  });
+  let v;
+  const rv = /(--[\w-]+)\s*:/g;
+  while ((v = rv.exec(css))) vars.add(v[1]);
+  return { clases, vars };
+}
+
+/* Clases que el JS nombra en un selector: querySelector('.x'), closest('.x'),
+   matches('.x'), y tambien adentro de un :not(.x). Son ganchos con proposito
+   —marcadores para buscar o excluir elementos— y no tienen por que estar
+   estiladas. .wa-dev es el ejemplo claro: existe solo para que
+   `a[href*="wa.me"]:not(.wa-dev)` deje afuera el link del desarrollador cuando
+   se reescriben los numeros de WhatsApp. */
+function ganchosDeJs(texto) {
+  const set = new Set();
+  const re = /(?:querySelector|querySelectorAll|closest|matches|getElementsByClassName)\s*\(\s*(?:'([^']*)'|"([^"]*)")/g;
+  let m;
+  while ((m = re.exec(texto))) {
+    const sel = m[1] || m[2] || '';
+    let c;
+    const r = /\.(-?[_a-zA-Z][\w-]*)/g;
+    while ((c = r.exec(sel))) set.add(c[1]);
+  }
+  return set;
+}
+
+function usadas(texto) {
+  const clases = new Map();
+  const vars = new Map();
+  const sumar = (m, k) => m.set(k, (m.get(k) || 0) + 1);
+
+  let u;
+  const reAttr = /class\s*=\s*(?:"([^"]*)"|'([^']*)'|\\"([^"\\]*)\\")/g;
+  while ((u = reAttr.exec(texto))) {
+    const valor = u[1] || u[2] || u[3] || '';
+    /* Si el atributo se arma concatenando ('bi ' + icono + '"'), sus pedazos no son
+       nombres de clase: `icono` es una variable, no una clase. Se descarta entero,
+       porque quedarse con los trozos que "parecen" nombre inventa huerfanos. */
+    if (/['"+`${}]/.test(valor)) continue;
+    valor.split(/\s+/).forEach((cl) => {
+      cl = cl.trim();
+      /* pedazos que el JS arma concatenando: no son un nombre de clase */
+      /* Un nombre de clase valido y nada mas. Lo que sale de concatenar en el JS
+         ('alertas-item ' + a.nivel) deja restos como ".a.nivel" o ".?" que no son
+         clases de nadie. */
+      if (!/^-?[_a-zA-Z][\w-]*$/.test(cl)) return;
+      sumar(clases, cl);
+    });
+  }
+  const reCl = /classList\.(?:add|toggle|remove)\(\s*'([\w-]+)'/g;
+  while ((u = reCl.exec(texto))) sumar(clases, u[1]);
+  const reCn = /className\s*=\s*'([^']*)'/g;
+  while ((u = reCn.exec(texto))) u[1].split(/\s+/).forEach((cl) => { if (/^-?[_a-zA-Z][\w-]*$/.test(cl)) sumar(clases, cl); });
+
+  const rv = /var\(\s*(--[\w-]+)/g;
+  while ((u = rv.exec(texto))) sumar(vars, u[1]);
+  return { clases, vars };
+}
+
+function revisarCss(archivo, textoQueUsa, cssDisponible, textoConGanchos) {
+  const fallas = [];
+  const def = definidas(cssDisponible);
+  const uso = usadas(textoQueUsa);
+  /* Los ganchos se buscan en TODO el proyecto, no solo en el archivo que dibuja:
+     admin-pagination.js crea .admin-pagination y admin-caja.js la busca. */
+  const ganchos = ganchosDeJs(textoConGanchos || textoQueUsa);
+
+  /* Cuando se escribio esto habia ~20 clases sin definir de arrastre y cortar el
+     build por ellas lo habria hecho inusable, asi que iban como aviso. Ya estan
+     todas resueltas, asi que ahora cortan igual que las variables: el punto es que
+     no se cuele una nueva. Si aparece una que de verdad no necesita estilo —un
+     marcador que solo lee el JS— va a CLASES_SIN_ESTILO_PROPIO con su motivo, no
+     se baja la severidad. */
+  [...uso.clases.entries()].sort((a, b) => b[1] - a[1]).forEach(([cl, n]) => {
+    if (def.clases.has(cl) || CLASES_AJENAS.test(cl) || CLASES_SIN_ESTILO_PROPIO.has(cl) ||
+        ganchos.has(cl)) return;
+    fallas.push('CSS: .' + cl + ' se usa ' + n + ' vez/veces en ' + archivo + ' y no esta definida');
+  });
+  [...uso.vars.entries()].sort((a, b) => b[1] - a[1]).forEach(([vr, n]) => {
+    if (def.vars.has(vr)) return;
+    fallas.push('CSS: la variable ' + vr + ' se usa ' + n + ' vez/veces en ' + archivo +
+                ' y no esta definida (una variable inexistente invalida la declaracion ' +
+                'entera: el fondo se vuelve transparente)');
+  });
+  return fallas;
+}
+
+/* El panel: su HTML y su JS embebido, contra su propio <style>. */
+const CSS_ADMIN = cssDe(html, []);
+
+/* Todo el JS del panel junto: los ganchos pueden estar en otro archivo. */
+const JS_PANEL = ['admin-caja.js', 'admin-alertas.js', 'admin-dialogo.js', 'admin-stats.js',
+                  'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js']
+  .map((f) => {
+    const r = path.join(__dirname, f);
+    return fs.existsSync(r) ? fs.readFileSync(r, 'utf8') : '';
+  }).join('\n') + '\n' + html;
+
+problemas.push(...revisarCss('admin.html', html, CSS_ADMIN, JS_PANEL));
+
+/* Los modulos sueltos dibujan HTML con las clases del panel, asi que se comparan
+   contra el CSS de admin.html. Se pasa SOLO el modulo como texto que usa, para no
+   volver a reportar lo que ya se reporto arriba. */
+['admin-caja.js', 'admin-alertas.js', 'admin-dialogo.js', 'admin-stats.js',
+ 'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js']
+  .forEach((f) => {
+    const ruta = path.join(__dirname, f);
+    if (!fs.existsSync(ruta)) return;
+    problemas.push(...revisarCss(f, fs.readFileSync(ruta, 'utf8'), CSS_ADMIN, JS_PANEL));
+  });
+
+/* app.js es el que define los ganchos de TODA la tienda, no solo de index.html:
+   .wa-dev, por ejemplo, la marca politicas.html y la lee app.js. Se pasa como fuente
+   de ganchos a todas las paginas del lado del cliente. */
+const APP_JS = fs.existsSync(path.join(__dirname, 'app.js'))
+  ? fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8') : '';
+
+/* Las paginas sueltas, contra las mismas hojas de la tienda. Son las que ve el
+   cliente: si una queda sin estilo, se nota afuera. */
+['mayoristas.html', 'politicas.html', 'resena.html', 'setup-inicial.html'].forEach((f) => {
+  const r = path.join(__dirname, f);
+  if (!fs.existsSync(r)) return;
+  const t = fs.readFileSync(r, 'utf8');
+  problemas.push(...revisarCss(f, t, cssDe(t, ['styles.css', 'toolbar.css', 'footer-dev.css']), t + ' ' + APP_JS));
+});
+
+/* La tienda, contra sus hojas externas. */
+const idx = path.join(__dirname, 'index.html');
+if (fs.existsSync(idx)) {
+  const htmlIdx = fs.readFileSync(idx, 'utf8');
+  const cssTienda = cssDe(htmlIdx, ['styles.css', 'toolbar.css', 'footer-dev.css']);
+  const jsTienda = htmlIdx + '\n' +
+    (fs.existsSync(path.join(__dirname, 'app.js')) ? fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8') : '');
+  problemas.push(...revisarCss('index.html', htmlIdx, cssTienda, jsTienda));
+  const appjs = path.join(__dirname, 'app.js');
+  if (fs.existsSync(appjs)) problemas.push(...revisarCss('app.js', fs.readFileSync(appjs, 'utf8'), cssTienda, jsTienda));
+}
+
 /* ------------------------------------------------------------------ informe */
 const lineas = bloques.reduce((s, b) => s + b.codigo.split('\n').length, 0);
 if (problemas.length) {
@@ -205,5 +414,10 @@ if (problemas.length) {
   console.error('Abri la pagina y mirala antes de dar esto por bueno.\n');
   process.exit(1);
 }
+if (avisos.length) {
+  console.log('\ncheck-admin: ' + avisos.length + ' aviso(s) de CSS sin definir');
+  avisos.forEach((a) => console.log('  ' + a));
+  console.log('  (no cortan el build: una clase sin definir no rompe, solo deja el elemento sin estilo)\n');
+}
 console.log('check-admin: ' + bloques.length + ' bloque(s) de JS, ' + lineas +
-            ' lineas, HTML balanceado, sin problemas');
+            ' lineas, HTML balanceado, CSS revisado, sin problemas');
