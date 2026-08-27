@@ -173,16 +173,41 @@ estafa.
 **Dónde:** [Google Cloud Console → APIs y servicios → Pantalla de consentimiento de OAuth](https://console.cloud.google.com/apis/credentials/consent?project=brotesdietetica-2f78e)
 → campo **Nombre de la aplicación** → `Brotes Dietética` → Guardar.
 
-Dos cosas para saber antes de tocar:
+**Cómo está hoy** (visto en la consola, 27/08/2026):
 
-- La app pide sólo `email` y `profile`, que son scopes **no sensibles**. Por eso cambiar el
-  **nombre** no dispara ninguna verificación de Google: es inmediato.
-- **Subir el logo sí la dispara.** La verificación de marca de Google puede tardar semanas y
-  mientras tanto no cambia nada. Si hay apuro por entregar, poné el nombre ahora y dejá el
-  logo para después.
+| campo | valor |
+|---|---|
+| Nombre de la aplicación | `project-365050888270` ← el número del proyecto, sin tocar |
+| Correo de asistencia | `deftinternal@gmail.com` ← **es de Deft, y esto lo ve el cliente** |
+| Logo, página principal, privacidad, condiciones | vacíos |
+| Dominios autorizados | `brotesdietetica.vercel.app`, `brotesdietetica-2f78e.firebaseapp.com` |
 
-No se puede hacer desde acá: es una pantalla de la consola, y leerla por API pediría
-habilitar la API de IAP en el proyecto.
+**Qué poner:** nombre `Brotes Dietética`; página principal
+`https://brotesdietetica.vercel.app`; privacidad y condiciones
+`https://brotesdietetica.vercel.app/politicas` (esa página existe y responde 200). **El
+logotipo no se sube.**
+
+El correo de asistencia es **decisión del dueño**: aparece en la pantalla de permisos para
+que el cliente escriba si tiene dudas. Hoy es el interno de Deft; el del comercio es
+`brotesdietetica@gmail.com`, que es el que ya sale en sus comprobantes.
+
+> **CORRECCIÓN.** Antes acá decía que cambiar el nombre era inmediato porque los scopes son
+> no sensibles. **Es falso**, y la propia consola lo desmiente: *"La información de tu marca
+> debe verificarse antes de que se pueda mostrar a los usuarios"*. Los datos se cargan igual
+> —hacen falta para poder verificar algún día— pero **hasta que la marca no se verifique, la
+> pantalla de permisos va a seguir mostrando el dominio**.
+
+**Y la verificación choca con el dominio.** Google pide que los dominios autorizados estén
+verificados en Search Console, y hoy el sitio **no tiene ninguna verificación** (no hay
+`google*.html` ni el `<meta name="google-site-verification">`). Peor: `brotesdietetica.vercel.app`
+no es un dominio propio, es un subdominio de Vercel. **El camino limpio es el dominio propio**
+(`brotesdietetica.com.ar`), y ahí sí se verifica y la marca queda con el nombre del negocio.
+
+Cuando llegue ese dominio hay que tocarlo en tres lugares a la vez —están anotados en el
+comentario de `firebase-config.js`—: `DOMINIOS_PROPIOS`, los dominios autorizados de Firebase
+Auth, y el `frame-src` del CSP en `vercel.json`.
+
+Nada de esto se puede hacer desde acá: es una pantalla de la consola.
 
 ### e) La foto del hero
 
