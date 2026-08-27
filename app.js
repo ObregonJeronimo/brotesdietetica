@@ -140,12 +140,7 @@ async function loadProductsFromFirebase(retries) {
                excluia al hijo (dos tarjetas de almendras en la grilla, una de 250g y otra de 1kg)
                y el padre nunca mostraba los botones de gramaje. Todo el agrupado estaba muerto. */
             gramajePadreId:r.gramajePadreId||null, tipoVenta:r.tipoVenta||'unidad' }; })
-            /* Los que se venden POR PESO no salen en la tienda. El precio que tienen
-               cargado es el del KILO, y comprar online "1 unidad" de algo que se pesa
-               en el mostrador no significa nada: el carrito cobraria un kilo entero.
-               Venderlos por internet necesita decidir antes como elige los gramos el
-               cliente, y eso todavia no esta definido. Se venden en el local. */
-            .filter(p => !p.oculto && p.tipoVenta !== 'peso');
+            .filter(p => !p.oculto);
         renderCategoryFilters(getCategoriasConSub(productos)); aplicarFiltros();
         _searchCache.clear();
         let carritoActualizado=false;
@@ -267,6 +262,21 @@ function hideAllSubFilters() { document.querySelectorAll('.sub-filters-row').for
 
 function formatPrice(v) { const n=Number(v)||0; return n.toLocaleString('es-AR',{minimumFractionDigits:0}); }
 /* Precio final que paga el cliente (aplica descuento del producto si tiene) */
+/* ===== PRODUCTOS POR PESO =====
+   Los que se venden sueltos tienen el precio POR KILO y la cantidad en GRAMOS,
+   igual que en el panel. El subtotal nunca se calcula a mano: siempre por
+   subtotalCarrito(), porque la multiplicacion estaba repetida en siete lugares
+   y con dos formas de vender una copia sin dividir por 1000 cobra mil veces de
+   mas. */
+function esPesoProd(x){return !!(x&&x.tipoVenta==='peso');}
+function fmtGramos(gr){const g=Number(gr||0);
+    if(Math.abs(g)<1000)return g.toLocaleString('es-AR')+' g';
+    return (g/1000).toLocaleString('es-AR',{maximumFractionDigits:3})+' kg';}
+function subtotalCarrito(i){const c=Number(i.cantidad||0),pr=Number(i.precio||0);
+    return esPesoProd(i)?Math.round(pr*c/1000):pr*c;}
+/* Cuanto suma o resta cada toque de + / -. En gramos, de a 100. */
+function pasoCantidad(i){return esPesoProd(i)?100:1;}
+
 function precioFinal(p){const dsc=Math.min(100,Math.max(0,p.descuento||0));return dsc>0?Math.round(p.precio*(1-dsc/100)):p.precio;}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
@@ -335,9 +345,12 @@ function renderProducts(list) {
         const nombreDisplay=p.nombreMostrado||p.nombre;
         const badgeDesc=dscPct>0?'<span class="product-discount-ribbon">-'+(p.descuento||0)+'%</span>':'';
         const precioConDesc=dscPct>0?Math.round(p.precio*(1-dscPct/100)):p.precio;
+        /* En los que se venden sueltos el precio es POR KILO, y hay que decirlo:
+           si no, el cliente ve $9.000 y cree que esa es la bolsa. */
+        const sufKilo=esPesoProd(p)?'<span class="precio-por-kilo">el kilo</span>':'';
         const precioHtml=dscPct>0
-            ?'<span class="product-price product-price-off" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer"><span class="price-original">$'+formatPrice(p.precio)+'</span> $'+formatPrice(precioConDesc)+'</span>'
-            :'<span class="product-price" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">$'+formatPrice(p.precio)+'</span>';
+            ?'<span class="product-price product-price-off" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer"><span class="price-original">$'+formatPrice(p.precio)+'</span> $'+formatPrice(precioConDesc)+sufKilo+'</span>'
+            :'<span class="product-price" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">$'+formatPrice(p.precio)+sufKilo+'</span>';
         return '<article class="product-card" data-id="'+p.id+'">' +
             '<div class="product-image" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">' +
             badgeDesc +
@@ -399,11 +412,100 @@ function _acusarCarrito(){
         el.classList.add('acusa');
     });
 }
-function addToCart(id) {
+/* =============================================================================
+   SELECTOR DE GRAMOS (tienda)
+   =============================================================================
+   Los productos que se venden sueltos no se agregan "de a uno": el cliente elige
+   cuanto lleva. Se abre al tocar Agregar, con los pesos de siempre a un click y
+   el precio calculandose en vivo.
+
+   Va con los colores de la tienda (--color-primary, --color-cream), que son otros
+   que los del panel. Y con estilos inline en vez de tocar styles.css: es un solo
+   componente y asi no hay que acordarse de correr el build del CSS.
+
+   Devuelve los GRAMOS, o null si se cerro sin elegir.
+   ============================================================================= */
+function pedirGramosTienda(p){
+    const RAPIDOS=[100,250,500,1000];
+    const precioKg=precioFinal(p);
+    const stock=Number(p.stock||0);
+    const nombre=p.nombreMostrado||p.nombre||'';
+    return new Promise(resolve=>{
+        const ov=document.createElement('div');
+        ov.setAttribute('role','dialog');
+        ov.setAttribute('aria-modal','true');
+        ov.style.cssText='position:fixed;inset:0;z-index:10050;background:rgba(20,37,26,0.55);display:flex;align-items:center;justify-content:center;padding:1rem';
+        const btnRap=RAPIDOS.filter(g=>!stock||g<=stock).map(g=>
+            '<button type="button" data-g="'+g+'" style="flex:1 1 auto;min-width:70px;padding:0.6rem 0.4rem;border:1.5px solid var(--color-beige);background:#fff;color:var(--color-primary);font-family:inherit;font-weight:700;font-size:0.9rem;border-radius:10px;cursor:pointer">'
+            +fmtGramos(g)+'</button>').join('');
+        ov.innerHTML=
+            '<div style="background:#fff;border-radius:16px;padding:1.5rem;width:100%;max-width:380px;box-shadow:0 20px 50px rgba(0,0,0,0.3)">'+
+              '<h3 style="font-family:var(--font-display);color:var(--color-primary);font-size:1.15rem;margin:0 0 0.2rem">&iquest;Cu&aacute;nto quer&eacute;s?</h3>'+
+              '<p style="color:var(--color-text-light);font-size:0.88rem;margin:0 0 0.15rem">'+esc(nombre)+'</p>'+
+              '<p style="color:var(--color-text-light);font-size:0.82rem;margin:0 0 0.9rem">$'+formatPrice(precioKg)+' el kilo'+
+                 (stock>0?' &middot; hay '+fmtGramos(stock):'')+'</p>'+
+              '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.7rem">'+btnRap+'</div>'+
+              '<div style="display:flex;align-items:center;gap:0.5rem">'+
+                '<input type="number" min="1" step="50" inputmode="numeric" placeholder="gramos" '+
+                  'style="flex:1;padding:0.7rem 0.8rem;border:1.5px solid var(--color-beige);border-radius:10px;font-family:inherit;font-size:1rem;text-align:right;color:var(--color-text)">'+
+                '<span style="color:var(--color-text-light);font-size:0.9rem">gramos</span>'+
+              '</div>'+
+              '<div class="pgt-total" aria-live="polite" style="display:flex;justify-content:space-between;align-items:center;margin-top:0.8rem;min-height:1.7rem;color:var(--color-text-light);font-size:0.9rem"></div>'+
+              '<div class="pgt-aviso" style="color:var(--color-brown);font-size:0.8rem;min-height:1.1rem"></div>'+
+              '<div style="display:flex;gap:0.6rem;margin-top:1rem">'+
+                '<button type="button" class="pgt-no" style="flex:0 0 auto;padding:0.75rem 1.1rem;border:1.5px solid var(--color-beige);background:#fff;color:var(--color-text);font-family:inherit;font-weight:600;border-radius:10px;cursor:pointer">Cancelar</button>'+
+                '<button type="button" class="pgt-si" disabled style="flex:1;padding:0.75rem 1rem;border:none;background:var(--color-primary);color:#fff;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer">Agregar</button>'+
+              '</div>'+
+            '</div>';
+        document.body.appendChild(ov);
+        const inp=ov.querySelector('input');
+        const ok=ov.querySelector('.pgt-si');
+        const tot=ov.querySelector('.pgt-total');
+        const avi=ov.querySelector('.pgt-aviso');
+        let cerrado=false;
+        const cerrar=v=>{if(cerrado)return;cerrado=true;document.removeEventListener('keydown',tecla,true);ov.remove();resolve(v);};
+        function pintar(){
+            const g=parseInt(inp.value,10);
+            const valido=Number.isFinite(g)&&g>0&&(!stock||g<=stock);
+            ok.disabled=!valido;
+            ok.style.opacity=valido?'1':'0.5';
+            tot.innerHTML=(Number.isFinite(g)&&g>0)
+                ?'<span>'+fmtGramos(g)+'</span><b style="color:var(--color-primary);font-size:1.1rem">$'+formatPrice(Math.round(precioKg*g/1000))+'</b>':'';
+            /* Aca SI se bloquea si no alcanza: a diferencia del mostrador, el pedido
+               web se prepara despues y prometer stock que no hay es peor. */
+            avi.textContent=(Number.isFinite(g)&&g>0&&stock&&g>stock)?('Solo quedan '+fmtGramos(stock)+'.'):'';
+        }
+        function tecla(e){
+            if(e.key==='Escape'){e.preventDefault();e.stopPropagation();cerrar(null);}
+            else if(e.key==='Enter'&&!ok.disabled){e.preventDefault();cerrar(parseInt(inp.value,10));}
+        }
+        ov.querySelectorAll('[data-g]').forEach(b=>b.addEventListener('click',()=>{inp.value=b.getAttribute('data-g');pintar();inp.focus();}));
+        inp.addEventListener('input',pintar);
+        ok.addEventListener('click',()=>{if(!ok.disabled)cerrar(parseInt(inp.value,10));});
+        ov.querySelector('.pgt-no').addEventListener('click',()=>cerrar(null));
+        ov.addEventListener('mousedown',e=>{if(e.target===ov)cerrar(null);});
+        document.addEventListener('keydown',tecla,true);
+        setTimeout(()=>inp.focus(),40);
+    });
+}
+
+async function addToCart(id) {
     if(!clienteAuth){requireLoginToBuy();return;}
     _acusarCarrito();
     const p=productos.find(x=>x.id===id); if(!p||(p.stock||0)<=0)return;
     const existing=carrito.find(i=>i.id===id);
+    /* Por peso: se pregunta cuanto ANTES de tocar el carrito. Si ya estaba, los
+       gramos se suman, que es lo que espera alguien que agrega dos veces. */
+    if(esPesoProd(p)){
+        const yaHay=existing?Number(existing.cantidad||0):0;
+        const gr=await pedirGramosTienda(Object.assign({},p,{stock:Math.max(0,(p.stock||0)-yaHay)}));
+        if(gr==null)return;
+        if(existing){existing.cantidad=yaHay+gr;}
+        else{carrito.push({id:p.id,nombre:p.nombreMostrado||p.nombre,tipoVenta:'peso',precio:precioFinal(p),precioOriginal:p.precio||0,descuento:Math.min(100,Math.max(0,p.descuento||0)),cantidad:gr,imagen:p.imagen||''});}
+        showToast(fmtGramos(gr)+' de '+(p.nombreMostrado||p.nombre)+' agregado','success');
+        saveCart();updateCartUI();updateProductCard(id);
+        return;
+    }
     if(existing){
         if(existing.cantidad<p.stock){existing.cantidad++;}else{showToast('Stock máximo','error');return;}
     }else{
@@ -436,7 +538,7 @@ function updateProductCard(id) {
     newEl.innerHTML=btnContent;
     oldEl.parentNode.replaceChild(newEl,oldEl);
 }
-function updateCartItemQuantity(id,ch){const p=productos.find(x=>x.id===id),idx=carrito.findIndex(i=>i.id===id);if(idx===-1)return;const stock=p?p.stock:carrito[idx].cantidad;const nq=carrito[idx].cantidad+ch;if(nq<=0)removeFromCart(id);else if(nq<=stock){carrito[idx].cantidad=nq;saveCart();updateCartUI();updateProductCard(id);}else showToast('Stock máximo: '+stock,'error');}
+function updateCartItemQuantity(id,ch){const p=productos.find(x=>x.id===id),idx=carrito.findIndex(i=>i.id===id);if(idx===-1)return;const stock=p?p.stock:carrito[idx].cantidad;const nq=carrito[idx].cantidad+ch;if(nq<=0)removeFromCart(id);else if(nq<=stock){carrito[idx].cantidad=nq;saveCart();updateCartUI();updateProductCard(id);}else showToast('Stock máximo: '+(esPesoProd(carrito[idx])?fmtGramos(stock):stock),'error');}
 function removeFromCart(id){const idx=carrito.findIndex(i=>i.id===id);if(idx!==-1){const nm=carrito[idx].nombre;carrito.splice(idx,1);showToast(nm+' eliminado','info');saveCart();updateCartUI();updateProductCard(id);}}
 function saveCart(){try{localStorage.setItem('brotesCart',JSON.stringify(carrito));}catch(e){console.warn('No se pudo guardar el carrito:',e);}}
 function clearCart(){if(carrito.length===0)return;if(!confirm('Vaciar todo el carrito?'))return;const ids=carrito.map(i=>i.id);carrito=[];saveCart();updateCartUI();ids.forEach(id=>updateProductCard(id));showToast('Carrito vaciado','info');}
@@ -540,7 +642,9 @@ document.addEventListener('keydown',e=>{
 
 function updateCartUI() {
     const body=document.getElementById('cartBody'),empty=document.getElementById('cartEmpty'),footer=document.getElementById('cartFooter'),count=document.getElementById('cartCount'),total=document.getElementById('cartTotal'),cta=document.getElementById('ctaCartCount'),ckBtn=document.getElementById('checkoutBtn');
-    const ti=carrito.reduce((s,i)=>s+i.cantidad,0),tp=carrito.reduce((s,i)=>s+(i.precio*i.cantidad),0);
+    /* Los items por peso no suman al contador de unidades del carrito: 250 gramos
+       no son 250 productos. Cuentan como uno. */
+    const ti=carrito.reduce((s,i)=>s+(esPesoProd(i)?1:i.cantidad),0),tp=carrito.reduce((s,i)=>s+subtotalCarrito(i),0);
     if(count)count.textContent=ti;if(cta)cta.textContent=ti;if(total)total.textContent='$'+formatPrice(tp);
     if(carrito.length===0){if(empty)empty.style.display='block';if(footer)footer.style.display='none';body?.querySelectorAll('.cart-item').forEach(i=>i.remove());}
     else{if(empty)empty.style.display='none';if(footer){footer.style.display='';footer.style.removeProperty('display');}renderCartItems();}
@@ -550,7 +654,7 @@ function updateCartUI() {
 function renderCartItems() {
     const body=document.getElementById('cartBody'),empty=document.getElementById('cartEmpty');if(!body)return;
     body.querySelectorAll('.cart-item').forEach(i=>i.remove());
-    carrito.forEach(item=>{const p=productos.find(x=>x.id===item.id),ms=p?p.stock:item.cantidad;const el=document.createElement('div');el.className='cart-item';el.innerHTML='<img src="'+esc(optImg(item.imagen,200)||'img/default-product.svg')+'" alt="'+esc(item.nombre)+'" class="cart-item-image"><div class="cart-item-info"><h4 class="cart-item-name">'+esc(item.nombre)+'</h4><span class="cart-item-price">$'+formatPrice(item.precio)+'</span><div class="cart-item-controls"><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\',-1)"><i class="bi bi-dash"></i></button><span class="qty-value">'+item.cantidad+'</span><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\',1)"'+(item.cantidad>=ms?' disabled':'')+'><i class="bi bi-plus"></i></button><button class="cart-item-remove" onclick="removeFromCart(\''+item.id+'\')"><i class="bi bi-trash"></i></button></div></div>';body.insertBefore(el,empty);});
+    carrito.forEach(item=>{const p=productos.find(x=>x.id===item.id),ms=p?p.stock:item.cantidad;const el=document.createElement('div');el.className='cart-item';el.innerHTML='<img src="'+esc(optImg(item.imagen,200)||'img/default-product.svg')+'" alt="'+esc(item.nombre)+'" class="cart-item-image"><div class="cart-item-info"><h4 class="cart-item-name">'+esc(item.nombre)+'</h4><span class="cart-item-price">$'+formatPrice(item.precio)+(esPesoProd(item)?' el kilo':'')+'</span>'+(esPesoProd(item)?'<span class="cart-item-price" style="display:block;opacity:0.8;font-size:0.85em">'+fmtGramos(item.cantidad)+' = $'+formatPrice(subtotalCarrito(item))+'</span>':'')+'<div class="cart-item-controls"><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\',-'+pasoCantidad(item)+')"><i class="bi bi-dash"></i></button><span class="qty-value">'+(esPesoProd(item)?fmtGramos(item.cantidad):item.cantidad)+'</span><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\','+pasoCantidad(item)+')"'+(item.cantidad>=ms?' disabled':'')+'><i class="bi bi-plus"></i></button><button class="cart-item-remove" onclick="removeFromCart(\''+item.id+'\')"><i class="bi bi-trash"></i></button></div></div>';body.insertBefore(el,empty);});
 }
 
 function updateShippingBar(total) {
@@ -722,7 +826,7 @@ function setCheckoutEntrega(tipo){
 }
 
 function updateCheckoutResumen(){
-    const subtotal=carrito.reduce((s,i)=>s+i.precio*i.cantidad,0);
+    const subtotal=carrito.reduce((s,i)=>s+subtotalCarrito(i),0);
     const tipoEntrega=PEDIDOS.haceEnvios?(window._chkTipoEntrega||'envio'):'retiro';
     const dcMonto=_cuponAplicado?Math.min(_cuponAplicado.monto||0,subtotal):0;
     const subtotalConDesc=subtotal-dcMonto;
@@ -802,7 +906,7 @@ async function confirmCheckout(){
     try{
         if(!firebase||!firebase.firestore){throw new Error('Firebase no inicializado');}
         const db=firebase.firestore();
-        const subtotal=carrito.reduce((s,i)=>s+i.precio*i.cantidad,0);
+        const subtotal=carrito.reduce((s,i)=>s+subtotalCarrito(i),0);
         const dcMonto=_cuponAplicado?Math.min(_cuponAplicado.monto||0,subtotal):0;
         const subtotalConDesc=subtotal-dcMonto;
         const envio=costoEnvio(subtotalConDesc,tipoEntrega);
@@ -921,7 +1025,7 @@ async function confirmCheckout(){
                tiene que descontar al convertirlo en venta, no dar por hecho que ya
                esta hecho. */
             stockDescontado:false,
-            items:carrito.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,cantidad:i.cantidad,subtotal:i.precio*i.cantidad})),
+            items:carrito.map(i=>({id:i.id,nombre:i.nombre,tipoVenta:i.tipoVenta||'unidad',precio:i.precio,precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,cantidad:i.cantidad,subtotal:i.precio*i.cantidad})),
             subtotalProductos:subtotal,
             envio:envio,
             envioGratis:tipoEntrega==='envio'&&envio===0,
@@ -955,7 +1059,7 @@ async function confirmCheckout(){
            guardarse en la base, y sin los productos ni el total no alcanza para armar
            nada: el comercio recibia un aviso de que alguien compro algo, sin saber que. */
         msg+='\n*Pedido:*\n';
-        carrito.forEach(i=>{msg+='- '+i.cantidad+'x '+i.nombre+' = $'+(i.precio*i.cantidad).toLocaleString('es-AR')+'\n';});
+        carrito.forEach(i=>{msg+='- '+(esPesoProd(i)?fmtGramos(i.cantidad)+' de ':i.cantidad+'x ')+i.nombre+' = $'+subtotalCarrito(i).toLocaleString('es-AR')+'\n';});
         msg+='\nSubtotal: $'+subtotal.toLocaleString('es-AR')+'\n';
         if(dcMonto)msg+='Cupon '+_cuponAplicado.codigo+': -$'+dcMonto.toLocaleString('es-AR')+'\n';
         if(tipoEntrega==='envio')msg+='Envio: '+(envio?('$'+envio.toLocaleString('es-AR')):'gratis')+'\n';
@@ -1711,7 +1815,7 @@ async function aplicarCupon() {
             }
         }
         /* Verificar límite de compra */
-        const subtotal = carrito.reduce((s,i) => s + i.precio * i.cantidad, 0);
+        const subtotal = carrito.reduce((s,i) => s + subtotalCarrito(i), 0);
         if (cup.limiteCompra && subtotal < Number(cup.limiteCompra)) {
             if(msg) msg.innerHTML='<span style="color:#e53e3e">Este cupón requiere una compra mínima de $'+Number(cup.limiteCompra).toLocaleString('es-AR')+'.</span>';
             if(btn){btn.disabled=false;btn.textContent='Aplicar';}

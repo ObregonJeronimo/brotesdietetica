@@ -739,3 +739,8 @@ img { max-width: 100%; height: auto; }
 /* Resumen checkout - lista de productos */
 .chk-resumen-item{display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0;font-size:0.82rem;color:#555;justify-content:space-between}
 .chk-resumen-item-name{flex:1;color:#333}
+
+/* Los productos que se venden sueltos muestran el precio del kilo. El sufijo va
+   chico y en gris para que no compita con el numero, pero tiene que estar: sin el,
+   $9.000 se lee como el precio del paquete. */
+.precio-por-kilo{font-size:0.62em;font-weight:600;color:var(--color-text-light);margin-left:0.3em;letter-spacing:0.2px}
