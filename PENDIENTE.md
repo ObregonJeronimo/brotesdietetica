@@ -9,11 +9,11 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 481 en 19 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
+| Pruebas | 632 en 25 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **prácticamente vacíos — ver abajo** |
-| Último deploy | 27/08/2026: Vercel, `firestore:rules` y las functions `descontarStockPedido` + `notifyTelegramOnNewOrder`. **La tanda 4 está sin commitear y sin desplegar** (§3). |
+| Último deploy | 27/08/2026: Vercel, `firestore:rules` y las functions `descontarStockPedido` + `notifyTelegramOnNewOrder`. **Las tandas 4 y 5 están commiteadas y SIN desplegar**: es sólo `git push origin main` (§3). |
 
 ---
 
@@ -41,12 +41,36 @@ que pasa del lado de las Cloud Functions y de Google Auth.
 La tanda 4 (§3) agregó la otra mitad: **con 0 pedidos, el lado del comercio tampoco
 corrió nunca**. Cuando entre el primero, el panel lo va a dibujar por primera vez en su
 vida, y ahí había cuatro cosas rotas —entre ellas que la dirección del envío no se veía
-en ninguna pantalla—. Ya están arregladas y probadas, pero **falta desplegarlas**.
+en ninguna pantalla—. La tanda 5 encontró ocho más, del mismo lado. Todas arregladas y
+probadas, pero **falta desplegarlas**.
+
+**Lo que YA se verificó de punta a punta (contra el emulador, no contra producción).**
+Se levantaron Firestore + Auth + las 10 functions reales con las reglas de verdad, se
+compró desde la tienda con una cuenta que **no** es admin, y después se abrió el panel
+con la cuenta del dueño. Medido:
+
+| | |
+|---|---|
+| pedido | **#2** correlativo (no 1), con `clienteAuthUid` puesto |
+| granel en el resumen del checkout | `300 g … $5.400` (antes: `x300 … $5.400.000`) |
+| dirección y notas | guardadas, **y visibles en el modal del panel** |
+| envío $2.000 → total | $34.800 |
+| `stockDescontado` | `true`; stock 5.000 → **4.700 g** (−300 g, no −300.000) |
+| `subtotalCatalogo` | 32.800 con `diferenciaCatalogo: 0` (no lo marcó sospechoso) |
+| candado del doble login | `clientesAuthCount` subió **exactamente 1** (6 → 7) |
+| ticket térmico · factura A4 · listado | `300 g` y `$18.000/kg`, subtotal $5.400 en los tres |
+| conversión a venta | envío **$2.000** aunque la tarifa del día fuera $3.000 |
+| `repetirPedido` con la forma de venta cambiada | *"Omitidos: Nueces mariposa (cambió la forma de venta)"* |
+
+**Lo que falta y no se puede hacer desde acá:** el pedido real **en producción**, que
+necesita iniciar sesión con una cuenta de Google de verdad. Antes de hacerlo, acordate de
+que hoy `haceEnvios` está en **false** (§1b): si querés probar la dirección en el panel,
+prendelo desde **Editor Web → Pedidos y envío**.
 
 Cómo cerrarlo: anotá el stock de un producto, compralo desde la tienda con otra
-cuenta de Google, y confirmá que el pedido queda con número correlativo (no 1), que el
-stock baja, y —si es con envío— que en el panel se ve la dirección. Si podés, metele un
-producto **a granel** al pedido: es lo que menos kilometraje tiene.
+cuenta de Google, y confirmá que el pedido queda con número correlativo (**va a ser el #2**,
+§1b), que el stock baja, y —si es con envío— que en el panel se ve la dirección. Si podés,
+metele un producto **a granel** al pedido: es lo que menos kilometraje tiene.
 
 ```bash
 firebase functions:log --only descontarStockPedido
@@ -58,10 +82,19 @@ Estado real de la base, verificado por API:
 
 | colección | cuántos |
 |---|---|
-| productos | **2** — uno es *"Producto de ejemplo (ocultalo o borralo)"* del setup |
+| productos | **2** — uno es *"Producto de ejemplo (ocultalo o borralo)"* del setup. **Ninguno de los dos tiene `codigo` ni `tipoVenta`**: son anteriores al merge de la venta por peso (tanda 5g) |
 | categorías | **0** |
 | pedidos · ventas · cupones · clientesAuth | 0 |
 | listas | 1 (FRUTICOR) |
+
+Y los documentos de `config`, que no son colecciones pero deciden lo que ve el cliente:
+
+| documento | valor | por qué importa |
+|---|---|---|
+| `config/pedidos` | **`haceEnvios: false`** | **el comercio hoy NO hace envíos**, así que un pedido web real no va a traer dirección. Para probar en producción que el panel la muestra hay que prenderlo antes desde **Editor Web → Pedidos y envío** |
+| `config/pedidosCount` | `{count: 1}` con **cero** pedidos | **el primer pedido real va a ser el #2, no el #1.** Es el fósil de los intentos que fallaban en silencio antes de la tanda 2. No es un bug: el contador nunca baja a propósito |
+| `config/ventasCount` | `{count: 2}` con 0 ventas | mismo fósil |
+| `config/clientesAuthCount` | `{count: 6}` con 0 documentos en `clientesAuth` | los seis se consumieron en los intentos viejos y en el doble login. **Habría que confirmarlo con el panel logueado**: el contador se lee sin sesión, la colección no |
 
 Un cliente que entre hoy a la tienda ve **dos productos**. Para cargar en tanda está
 **Productos → Importar Nuevos** (Excel).
@@ -219,7 +252,8 @@ firebase deploy --only functions:descontarStockPedido,functions:notifyTelegramOn
 
 ### Tanda 4 — lo que el merge de la venta por peso dejó a medias
 
-> **Estado: hecha y probada, SIN COMMITEAR y SIN DESPLEGAR.** Está en el working tree.
+> **Estado: hecha, probada, commiteada (`e40aaee`) y verificada de punta a punta contra el
+> emulador. Falta desplegarla.**
 > Toca sólo `admin.html` y `app.js`: no cambian ni las reglas ni las functions, así que
 > el deploy es un `git push origin main` y listo — Vercel corre `npm run build`, que
 > falla y corta el deploy si algo está roto.
@@ -348,6 +382,207 @@ campos que las functions le escriben al pedido y exige que cada uno esté leído
 panel, o clasificado a mano como "de auditoría" con su razón. Si alguien agrega un campo
 nuevo al `patch`, la prueba falla hasta que lo muestre o lo justifique.
 
+Los siete puntos que este archivo listaba como *"reportado por la auditoría y NO verificado
+a mano"* **ya están verificados y arreglados**: son la tanda 5, acá abajo. Uno de los siete
+(`clienteWeb`) resultó inofensivo y se dejó como está.
+
+### Tanda 5 — lo que sólo se ve cuando el panel abre un pedido web
+
+> **Estado: hecha, probada y verificada contra el emulador con un pedido web real.**
+> Toca sólo `admin.html` y `admin-stats.js`: **no cambian ni las reglas ni las functions**,
+> así que el deploy vuelve a ser `git push origin main` y Vercel corre `npm run build`.
+
+Cada uno se midió dos veces: con una prueba que **ejecuta la función real** del archivo, y
+después abriendo el panel contra un pedido hecho desde la tienda con una cuenta que no es
+admin. Contra el código anterior (`e40aaee`) las suites nuevas **fallan en 43 asertos**, y
+dos de ellas ni siquiera arrancan.
+
+#### a) Se podía entregar un pedido web sin registrar la venta ← la peor
+
+El tablero tiene **dos** caminos para cambiar de estado: arrastrar la tarjeta (`kanbanDrop`)
+y el modal de estado (`aplicarEstadoPedido`). **En celular no hay drag&drop: el modal es el
+único que existe.** Todas las guardas estaban escritas una sola vez, adentro de `kanbanDrop`;
+el modal hacía un `update` pelado que no miraba `ventaId` en ninguna línea.
+
+Y la guarda del tablero tampoco alcanzaba: exigía que el destino fuera **exactamente**
+`'confirmado'`, así que arrastrar de pendiente **directo a entregado** —que es lo normal
+cuando el cliente retira en el momento— salteaba la facturación igual.
+
+Lo que se perdía es **la plata, no el stock**: el stock lo descuenta la Cloud Function al
+crearse el pedido, así que la góndola queda bien y no se nota nada. Pero la venta no entra
+a caja ni a estadísticas, el cliente queda con 0 compras en su ficha, y el botón *"Convertir
+a venta"* **desaparecía** justo cuando el estado pasaba a `entregado` (se escondía con
+`p.estado!=='entregado'`), o sea que el pedido quedaba sin ninguna forma de facturarse.
+
+Ahora las dos entradas comparten `transicionEstadoPedido()`, la guarda pregunta por
+`!p.ventaId` en vez de por el estado de origen, y el botón sólo se esconde si el pedido **ya
+tiene** venta. De paso, volver a pendiente desde el modal ya no saltea la reversión —borrar
+la venta y devolver el stock—, que antes sólo hacía el arrastre.
+
+Medido en el panel, contra el pedido web real: `aplicarEstadoPedido('entregado')` sobre un
+pedido sin venta devuelve `derivado`, **el estado en la base sigue en `pendiente`** y se abre
+el modal para facturar. Con la venta ya hecha devuelve `hecho` y escribe `entregado`.
+
+#### b) Borrar la venta dejaba el pedido sin poder facturarse nunca más
+
+`deleteVenta` no le sacaba el `ventaId` al pedido. Como `openPedidoModal` esconde *"Convertir
+a venta"* con `!!p.ventaId`, el pedido quedaba apuntando a un documento borrado y **sin
+cartel ni error**: la única salida era arrastrarlo a pendiente y contestar que SÍ a un cartel
+que invita a contestar que no.
+
+Ahora `deleteVenta` lee `venta.pedidoId` **antes** de borrar —de la caché y, si no está ahí,
+del documento, porque `ventasData` sólo se llena entrando a la sección Ventas— y después
+libera el pedido y lo vuelve a `pendiente`. Medido: la venta se borra, el pedido vuelve a
+`pendiente` con `ventaId` en null, el botón vuelve a estar habilitado, el stock se devuelve
+**exacto** (5.000 g → 4.700 → 5.000, sin devolver de más) y el historial dice
+*"pedido … vuelto a pendiente y liberado"*.
+
+#### c) La ganancia de todo pedido web era la facturación entera
+
+Un pedido nacido en la web **nunca trae costo**: `app.js` arma los items sólo con precio.
+`openPedidoModal` hacía `costo:i.costo||0` y `savePedidoDesdeModal` escribía ese 0.
+
+Y **0 no es lo mismo que null**: los dos rescates que existen —el de
+`convertirPedidoEnVentaDesdeModal` y el de `gananciaDe`— preguntan por `costo!=null`, así que
+un 0 los **apaga**. La venta nacía con costo 0 y el panel mostraba como ganancia toda la
+facturación.
+
+Ahora los dos rescatan del catálogo y dejan **null** cuando no se sabe: null significa *"no
+se sabe"* y prende el rescate; 0 significa *"regalado"* y lo apaga. Medido en el pedido real
+(3 productos, $32.800): ganancia **$5.200**, y con el `costo:0` de antes **$32.800** — **x6,3**,
+y encima con `completa:false`, o sea que el panel ni siquiera sabía que no sabía. En pantalla,
+la fila *"Costo total $27.600"* del modal antes ni se dibujaba.
+
+#### d) El cupón del pedido web se dibujaba "(-undefined%)"
+
+`app.js` guarda el cupón del pedido como `{codigo, monto}` y nada más: el `porcentaje` vive en
+el documento de `/cupones` —donde `renderCupones` lo lee bien—, no adentro del pedido. El
+panel imprimía `_pedidoCupon.porcentaje` y salía `(-undefined%)`; peor, al guardar escribía
+`porcentaje:null`, así que la **segunda** apertura decía `(-null%)`. La plata siempre estuvo
+bien: manda el monto. Se sacó del render y del guardado.
+
+#### e) Convertir un pedido web recotizaba el envío con la tarifa de hoy
+
+`convertirPedidoEnVentaDesdeModal` no leía `p.envio`: sólo arrastraba `p.tipoEntrega`, y
+`calcularTotalesVenta` volvía a cotizar con `ENVIO_PRECIO` y `ENVIO_GRATIS_DESDE`, **los de
+hoy**. La protección ya existía —es la que respeta el envío al editar una venta vieja— pero
+estaba atada a `editingVentaId`, que en la conversión entra en null.
+
+Así que subir el envío de $2.000 a $3.000 le cambiaba el precio **solo** a todos los pedidos
+sin facturar, y el ticket salía con un total distinto del que el cliente confirmó y tiene por
+escrito en el teléfono.
+
+Medido de punta a punta: con el pedido guardado en $2.000 y la tarifa del día en $3.000, la
+venta se registró con **envío $2.000 y total $34.800** —el mismo que vio la clienta— y el
+comprobante A4 en pantalla lo imprime igual. Si se cambia el tipo de entrega a retiro, ahí sí
+recotiza (envío $0), porque ahí el envío cambió de verdad.
+
+De paso: las asignaciones `window._pedido*` estaban **después** de `renderVentaItems`, que es
+quien dibuja el total, así que la primera pantalla salía sin el cupón tampoco. Se movieron
+antes del render.
+
+#### f) Las estadísticas se olvidaban de los pedidos entregados
+
+`totalesMes` contaba `'confirmado'` y `'cancelado'`. `'cancelado'` **no lo escribe ningún
+flujo** (rama muerta e inofensiva); el que sí se escribe —y es el estado final normal de un
+pedido cumplido— es `'entregado'`, y estaba afuera de las dos ramas. Cada pedido entregado se
+caía del contador de confirmados y aparecía en **"Sin resolver", en amarillo**. O sea: cuanto
+mejor trabaja el negocio, peor se veía la conversión.
+
+Medido en la pantalla de estadísticas: *Recibidos 1 · Confirmados 1 · Sin resolver 0 ·
+100%*. Antes: Confirmados 0, Sin resolver 1, 0%.
+
+#### g) Los productos sin código no se podían editar
+
+El formulario hacía `c.value = p ? (p.codigo || '') : sugerirCodigoProducto()`: sugerir un
+código era sólo para productos **nuevos**. Los **2 productos que hay hoy en producción** son
+anteriores al merge de la venta por peso y no tienen `codigo`, así que abrían el campo
+**vacío** y `saveProduct` los rechazaba con *"El código no puede quedar vacío"* — sobre un
+input cuyo placeholder dice *"Se completa solo"*. La tienda los vende bien y el importador los
+ve bien: lo único roto era editarlos a mano.
+
+Medido en el panel: los dos abren con un código sugerido y guardan sin error; guardar el
+primero como `P-0004` hace que el segundo pase a sugerir `P-0005`, sin choque. El producto que
+sí tiene código (`P-0003`) no se toca.
+
+#### h) `clienteWeb` — el único de los siete que no era nada
+
+Se lee en cuatro lugares del panel y no lo escribe nadie en todo el repo, pero siempre cae al
+`|| p.cliente`, que trae lo que la persona tipeó. **No se pierde nada.** Se dejó como está:
+sacarlo son cuatro ediciones sin ningún beneficio.
+
+Cubierto por `pruebas/t-pedido-estado.js` (34 asertos), `t-pedido-modal.js` (29),
+`t-venta-envio.js` (19), `t-stats-entregado.js` (15) y `t-codigo-editar.js` (15).
+
+#### i) La segunda vuelta: lo que estos mismos arreglos rompieron
+
+Los arreglos de arriba pasaron por una **pasada adversarial** que buscaba justamente lo que
+hubieran roto, y por abrir la página. Entre las dos aparecieron **seis cosas más**. Cuatro
+eran regresiones de esta misma tanda: el arreglo estaba a medio camino y había que
+terminarlo. Están todas arregladas y cubiertas por `pruebas/t-pedido-regresiones.js`
+(39 asertos), que **falla en 19** contra la primera versión de estos arreglos.
+
+- **El destino se perdía al derivar a facturar.** La guarda nueva manda a facturar, pero
+  `saveVenta` escribía `estado:'confirmado'` con un **literal**: pedir *Entregado* terminaba
+  dejando la tarjeta en *Confirmado*. Había que repetir el gesto entero y nada lo avisaba, y
+  el cliente veía "Confirmado" en Mis Pedidos —que escucha con `onSnapshot`— sobre algo que
+  ya tenía en la mano. Ahora el destino viaja en `window._pedidoEstadoDestino`.
+  **Ojo con este**: el primer intento de arreglarlo *no funcionó*, y las pruebas decían que
+  sí. `convertirPedidoEnVentaDesdeModal` llama a `openVentaModal()`, que es justo donde se
+  limpian los `window._pedido*`: el destino se borraba antes de que `saveVenta` lo leyera.
+  La prueba no lo veía porque seteaba el destino a mano y salteaba ese paso. **Lo cazó abrir
+  la página.** Es exactamente la clase de bug que este archivo ya documenta en §4.
+- **`deleteVenta` bajaba a `pendiente` un pedido ya ENTREGADO.** Borrar la venta para
+  rehacerla con otro medio de pago le retrocedía dos casilleros a mercadería que ya salió del
+  local, y al cliente le cambiaba la etiqueta en vivo. Ahora sólo vuelve a pendiente si
+  todavía no se entregó; si ya se entregó, se le saca el `ventaId` y se lo deja donde está
+  —el botón *"Convertir a venta"* vuelve a aparecer igual, porque ahora sólo se esconde por
+  tener venta—.
+- **Y el historial afirmaba "liberado" aunque el update hubiera fallado**, o aunque el pedido
+  ya no existiera. Es la misma forma de mentir que ya costó mercadería en `kanbanDrop`. Ahora
+  el pedido se **lee** antes de escribirle —así tampoco se le manda un `update` a un documento
+  borrado, que tiraba `NOT_FOUND`— y el detalle dice lo que pasó.
+- **El envío congelado pisaba el ENVÍO GRATIS del propio negocio.** Si el admin agregaba
+  mercadería en el mostrador y el pedido cruzaba el mínimo, se le seguía cobrando el flete.
+  Congelar el envío está para no cobrarle **más** de lo que confirmó, nunca para cobrarle algo
+  que según la regla del negocio hoy no se paga.
+- **`openVentaModal` no soltaba `_pedidoOrigenVentaId`** (sólo lo hacía `closeVentaModal`), y
+  **Escape** cierra el modal sacándole la clase `show` sin pasar por ahí (`admin-atajos.js`).
+  Convertir un pedido, arrepentirse con Escape y después cargar una venta de mostrador la
+  guardaba como origen `web` colgada de aquel pedido, y le marcaba el pedido como confirmado
+  con la venta equivocada. Este ya estaba de antes; se arregló porque es una palabra en una
+  línea que igual había que tocar.
+- **La conversión también escribía `costo:0`** cuando el producto tiene costo 0 en el catálogo
+  —un estado que el propio panel rastrea con la pantalla *"Productos sin costo"*—. Es el mismo
+  0-que-apaga-los-rescates de (c), por la otra puerta. Ahora deja `null`.
+
+### h10 — guardar un pedido web desde el modal recotizaba el envío
+
+Lo encontré midiendo en el navegador, y **anulaba el arreglo del envío de (e)**.
+`calcPedTotales` nunca miraba `p.envio`: guardar un pedido web desde el modal —aunque fuera
+sólo para elegirle el cliente— lo recotizaba con la tarifa de **hoy** y lo escribía encima
+del que el cliente confirmó. Y como la conversión a venta después lee `p.envio`, alcanzaba
+con abrir y guardar el pedido **una sola vez** para perder la protección.
+
+Medido: pedido guardado en $2.000, tarifa del día $3.000 → el documento quedaba en **$3.000**.
+Ahora queda en $2.000, y si el admin agrega mercadería y cruza el mínimo, pasa a $0. Un
+pedido nuevo cargado desde el panel sigue cotizando con la tarifa de hoy, como corresponde.
+
+### h9 — /admin desloguea al cliente de la tienda (FALTA DECIDIR)
+
+`admin.html` hace `auth.signOut()` a cualquiera que no sea admin, y **/admin y la tienda son
+el mismo origen**. Firebase comparte la sesión entre pestañas, así que un cliente que abra
+/admin por curiosidad **queda deslogueado de la tienda en todas sus pestañas**, en silencio.
+
+Medido en el navegador: con `ana.cliente@gmail.com` logueada y con su pedido hecho, abrir
+/admin dejó `currentUser` en `null` y mostró *"Tu cuenta no tiene permisos para acceder."*
+
+**Falta decidir**: mostrar el cartel sin desloguear —el panel no se abre igual, y la sesión de
+la tienda sobrevive— o dejarlo así y documentarlo. No es pérdida de datos: el carrito vive en
+`localStorage` y sigue ahí. Es fricción, y de la que el cliente no entiende.
+
+---
+
 ### Lo que queda de la auditoría y NO se tocó
 
 - `rateLimitPedidos` sigue usando `creadoEn`, que lo elige el cliente. Cerrarlo pide
@@ -378,31 +613,14 @@ nuevo al `patch`, la prueba falla hasta que lo muestre o lo justifique.
   cualquier producto a granel arriba de todo con números de cuatro cifras. No se tocó
   porque no es mecánico: hay que decidir **cómo se presenta** (dos columnas, o rankear
   por monto). El dato para hacerlo ya está: los items guardan `tipoVenta`.
-
-**Reportado por la auditoría y NO verificado a mano — tratar como "hay que mirarlo", no
-como "es así".** Salió de una pasada de agentes sobre el camino del pedido; cada hallazgo
-pasó por un refutador, pero estos no los comprobé yo:
-
-- el modal de cambiar estado dejaría confirmar y entregar un pedido web sin registrar la
-  venta;
-- borrar la venta desde la sección Ventas no le saca el `ventaId` al pedido, que quedaría
-  sin poder facturarse;
-- guardar un pedido web desde el modal graba `costo:0` en los items (el pedido web no
-  trae costo; `convertirPedidoEnVentaDesdeModal` sí lo completa desde el catálogo, este
-  camino no);
-- el cupón del pedido web se dibujaría como `(-undefined%)`;
-- convertir un pedido web recotiza el envío con la tarifa de hoy en vez de usar el
-  `envio` guardado;
-- `clienteWeb` lo lee el panel en cuatro lugares y no lo escribe nadie (siempre cae al
-  `|| p.cliente`);
-- las estadísticas cuentan pedidos en estado `cancelado`, que ningún flujo escribe.
-
----
+  **Visto en pantalla** durante el ensayo de la tanda 5, con datos reales: el ranking
+  *"Lo que más se vendió"* mostró **`Nueces mariposa 300u`** por 300 **gramos**, arriba de
+  un producto que se vendió de a 2 unidades por $22.800. Ya no es una sospecha.
 
 ## 4. Cómo verificar que no rompiste nada
 
 ```bash
-npm test          # 481 pruebas, 19 suites — no necesita nada instalado
+npm test          # 632 pruebas, 25 suites — no necesita nada instalado
 npm run build     # corre check-admin.js y luego minifica
 npm run test:reglas   # 55 asertos contra firestore.rules, con el emulador
 ```
@@ -501,6 +719,18 @@ que acabás de romper.
 **Finales de línea.** El repo tiene LF y la copia local CRLF. Comparar hashes contra
 producción da distinto aunque el contenido sea idéntico: normalizá `\r\n` → `\n` antes.
 
+**El emulador de functions rompe `admin.firestore.FieldValue`, y no es culpa de este código.**
+`functionsEmulatorRuntime.js` intercepta `admin.firestore` y devuelve `value.bind(target)`, y
+`bind()` se lleva puestas las propiedades estáticas: adentro del emulador `FieldValue` queda
+`undefined`. En el runtime desplegado funciona perfecto. Para ensayar en local hay que
+parchear `functions/index.js` con `const _FV = require('firebase-admin/firestore').FieldValue`
+—la importación modular no pasa por ese proxy— y **acordarse de revertirlo antes de commitear**.
+
+**`innerText` devuelve vacío en el panel del navegador.** Depende del layout, y el panel no
+compone frames: `screenshot` y `read_page` fallan con viewport 0x0 y `innerText` da `''`
+aunque el texto esté ahí. Usar `textContent` y `javascript_tool`. Y el popup del emulador de
+Auth secuestra el tabId: trabajar con **una sola pestaña**.
+
 **Thiago trabaja en paralelo** (`thiagojoel17@hotmail.com`). Hacé `git fetch` antes de
 empezar: ya pasó que el remoto estuviera 6 commits adelante.
 
@@ -583,6 +813,17 @@ en blanco teniendo el `displayName` de Google en el mismo objeto.
 9. **Las dos pruebas de contrato entre archivos** (`t-avisos-pedido.js` y la parte de
    `t-granel-panel.js` que compara `functions/index.js` con `admin.html`). Son las que
    avisan cuando alguien agrega un campo de un lado y se olvida del otro.
+10. **Toda la tanda 5.** Nada de eso depende del granel, así que aplica aunque YERCO no
+    tenga venta por peso. Las tres que más plata cuestan:
+    - el modal de estado dejando entregar un pedido web **sin registrar la venta** (buscá
+      si `aplicarEstadoPedido` mira `ventaId`, y si la guarda del tablero pide el destino
+      `'confirmado'` en vez de preguntar por la venta);
+    - `costo:0` al abrir y guardar un pedido web, que convierte la ganancia en facturación
+      (buscá `costo:i.costo||0`);
+    - la conversión a venta recotizando el envío con la tarifa de hoy (buscá si
+      `convertirPedidoEnVentaDesdeModal` lee `p.envio` en alguna línea).
+    Y las tres baratas: `deleteVenta` sin liberar el pedido, el cupón `(-undefined%)`, y
+    `'entregado'` afuera del contador de pedidos confirmados en las estadísticas.
 
 Una diferencia deliberada: en Brotes el corte del nombre de Google es una función
 aparte (`_nombreDesdeGoogle` en `app.js`) y en YERCO quedó en línea. Se hizo para

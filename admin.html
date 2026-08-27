@@ -1769,7 +1769,11 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const p = id ? (allProducts || []).find(x => x.id === id) : null;
             setTipoVenta(p ? (p.tipoVenta || 'unidad') : 'unidad');
             const c = document.getElementById('pCodigo');
-            if (c) c.value = p ? (p.codigo || '') : sugerirCodigoProducto();
+            /* Un producto viejo sin codigo -los 2 que hay en produccion son anteriores al
+               merge de la venta por peso- abria el formulario con el campo VACIO, y Guardar
+               lo rechazaba con "El codigo no puede quedar vacio" sobre un input cuyo
+               placeholder dice "Se completa solo". No habia forma de editarlos a mano. */
+            if (c) c.value = (p && p.codigo) || sugerirCodigoProducto();
         };
         async function saveProduct(e){e.preventDefault();const _listaVal=document.getElementById('pLista')?.value||'';if(!_listaVal){showAdminToast('Seleccioná una lista de proveedor','error');document.getElementById('pLista').focus();return;}
             /* El codigo es obligatorio y unico. Se valida ANTES de subir la imagen:
@@ -2374,9 +2378,18 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 const _vOrig=(typeof ventasData!=='undefined'&&Array.isArray(ventasData))?ventasData.find(x=>x.docId===editingVentaId):null;
                 if(_vOrig&&_vOrig.envio!=null&&(_vOrig.tipoEntrega||'envio')===ventaTipoEntrega)envio=Number(_vOrig.envio)||0;
             }
+            /* Y lo mismo al convertir un pedido web en venta, que es el otro caso donde el
+               precio ya se lo dijimos al cliente. Solo si no cambio el tipo de entrega: si
+               pasa de envio a retiro, el envio cambio de verdad y hay que recotizar. */
+            /* El `envio!==0` es la salida: si con los items de AHORA el envio sale gratis -porque
+               el admin agrego mercaderia en el mostrador y el pedido cruzo el minimo, o porque
+               es retiro- se respeta lo gratis. Congelar el envio del cliente esta para que no
+               le cobremos MAS de lo que confirmo, nunca para cobrarle algo que segun la regla
+               del propio negocio hoy no se paga. */
+            else if(window._pedidoEnvioVenta&&window._pedidoEnvioVenta.tipoEntrega===ventaTipoEntrega&&envio!==0)envio=Number(window._pedidoEnvioVenta.envio)||0;
             return {subtotal,descuentoPct,descuentoMonto,subtotalConDesc,envio,total:subtotalConDesc+envio};
         }
-        function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='envio';window._pedidoCuponVenta=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='envio'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
+        function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='envio';window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;/* _pedidoOrigenVentaId lo soltaba SOLO closeVentaModal, y Escape (admin-atajos.js) cierra el modal sacandole la clase 'show' sin pasar por ahi: convertir un pedido, arrepentirse con Escape y despues cargar una venta de mostrador la guardaba como origen 'web' colgada de aquel pedido, y le marcaba el pedido como confirmado con la venta equivocada. */window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='envio'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
         async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio',stockDescontado:!!v.stockDescontado}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i)}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';/* El uid del cliente registrado vive en clienteAuthUid, no en clienteId: precargando solo clienteId el input oculto quedaba VACIO, y al guardar cualquier cambio (por ejemplo pasar de Efectivo a Transferencia) saveVenta lee ese mismo input y escribe clienteId:null Y clienteAuthUid:null, con lo que la venta se desengancha del cliente para siempre y deja de aparecer en su ficha (admin.html:1265). El formato 'auth:<uid>' es el que ya usa el flujo de pedido a venta. */document.getElementById('ventaClienteId').value=v.clienteAuthUid?('auth:'+v.clienteAuthUid):(v.clienteId||'');document.getElementById('ventaMedio').value=v.medioPago||'Efectivo';/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+nroVta(v.numero||0);const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;
             /* Restaurar cupón si la venta lo tiene */
             window._pedidoCuponVenta=v.cupon||null;
@@ -2402,7 +2415,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                SIGUIENTE venta de mostrador —una cualquiera, sin relacion— se guardaba con
                origen 'web', se ataba a ese pedido viejo, y le marcaba el pedido como
                confirmado apuntando a la venta equivocada. */
-            window._pedidoOrigenVentaId=null;window._pedidoCuponVenta=null;
+            window._pedidoOrigenVentaId=null;window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;window._pedidoEstadoDestino=null;
             /* El buscador de productos no se limpiaba nunca: al volver a abrir Nueva Venta (o Editar
                en otra venta) el campo seguia diciendo "yerba" y, como los tres caminos de apertura
                llaman a filterVentaProducts(), el desplegable aparecia ya cargado con los resultados
@@ -2653,7 +2666,10 @@ const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente
    y nadie se enteraba. Ahora: se descuenta salvo que alguien ya lo haya hecho. */
 if(!_yaDescontado)await aplicarStockProductos(deltasDeItems(ventaItems,-1));/* Descontar insumos */await aplicarStockInsumos(deltasDeInsumos(ventaInsumosUsados,-1));logAction('crear','Venta #'+num+' - $'+total.toLocaleString('es-AR'),venta.cliente+' | '+venta.medioPago+' | '+(ventaTipoEntrega==='envio'?'Envio':'Retiro')+' | '+ventaItems.length+' items'+(ventaInsumosUsados.length?' | insumos: '+ventaInsumosUsados.map(u=>u.nombre+'x'+u.cantidad).join(', '):''));showAdminToast('Venta #'+num+' registrada','success');/* Marcar pedido origen como confirmado */if(window._pedidoOrigenVentaId){try{/* Usamos el id que devolvio add(): buscar "la venta con el numero mas alto" ataba el pedido a la venta equivocada si el otro admin registraba una en el medio */const ventaDocId=ventaRefNueva.id;/* stockDescontado:false traspasa la responsabilidad del stock a la venta:
    sin esto, borrar el pedido Y la venta devolveria la mercaderia dos veces. */
-await db.collection('pedidos').doc(window._pedidoOrigenVentaId).update({estado:'confirmado',ventaId:ventaDocId,stockDescontado:false,confirmedAt:firebase.firestore.FieldValue.serverTimestamp()});const ped=pedidosData.find(x=>x.docId===window._pedidoOrigenVentaId);if(ped){ped.estado='confirmado';ped.stockDescontado=false;if(ventaDocId)ped.ventaId=ventaDocId;}}catch(e){console.warn('No se pudo marcar pedido como confirmado:',e);}window._pedidoOrigenVentaId=null;}}sessionStorage.removeItem(STOCK_BAJO_VISTOS_KEY);closeVentaModal();editingVentaId=null;editingVentaOriginal=null;loadVentas();if(ventaInsumosUsados.length)checkStockBajoInsumos();}catch(e){showAdminToast('Error: '+e.message,'error');}finally{btn.disabled=false;btn.innerHTML=editingVentaId?'<i class="bi bi-check-lg"></i> Guardar cambios':'<i class="bi bi-check-lg"></i> Registrar Venta';}}
+/* 'confirmado' era un literal. Si el admin pidio ENTREGADO y lo derivamos a facturar,
+   el pedido tiene que terminar en entregado, no un casillero mas atras. */
+const _destinoPed=(window._pedidoEstadoDestino==='entregado')?'entregado':'confirmado';
+await db.collection('pedidos').doc(window._pedidoOrigenVentaId).update({estado:_destinoPed,ventaId:ventaDocId,stockDescontado:false,confirmedAt:firebase.firestore.FieldValue.serverTimestamp()});const ped=pedidosData.find(x=>x.docId===window._pedidoOrigenVentaId);if(ped){ped.estado=_destinoPed;ped.stockDescontado=false;if(ventaDocId)ped.ventaId=ventaDocId;}}catch(e){console.warn('No se pudo marcar pedido como confirmado:',e);}window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;}}sessionStorage.removeItem(STOCK_BAJO_VISTOS_KEY);closeVentaModal();editingVentaId=null;editingVentaOriginal=null;loadVentas();if(ventaInsumosUsados.length)checkStockBajoInsumos();}catch(e){showAdminToast('Error: '+e.message,'error');}finally{btn.disabled=false;btn.innerHTML=editingVentaId?'<i class="bi bi-check-lg"></i> Guardar cambios':'<i class="bi bi-check-lg"></i> Registrar Venta';}}
 
         /* Genera un link de resena anonimo (sin venta asociada) y lo muestra en un modal para copiar */
         async function generarLinkResena(){
@@ -2847,7 +2863,42 @@ await db.collection('pedidos').doc(window._pedidoOrigenVentaId).update({estado:'
    La bandera se baja ANTES del await, igual que en devolverStockPedido: dos clics
    seguidos en Eliminar alcanzaban para devolver la mercaderia dos veces. */
 if(venta&&venta.stockDescontado){venta.stockDescontado=false;await aplicarStockProductos(deltasDeItems(venta.items,1));}
-await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta #'+num+' eliminada','DocID: '+docId);ventasData=ventasData.filter(v=>v.docId!==docId);filterVentas();}catch(e){showAdminToast('Error: '+e.message,'error');}}
+/* El pedidoId hay que leerlo ANTES de borrar la venta: despues no queda de donde
+   sacarlo. Y no alcanza con la cache -ventasData solo se llena entrando a la seccion
+   Ventas, y acotada al mes del filtro- asi que si no esta ahi se lee el documento. */
+let _pedDeVenta=venta?(venta.pedidoId||null):null;
+if(!_pedDeVenta){try{const _vs=await db.collection('ventas').doc(docId).get();if(_vs.exists)_pedDeVenta=(_vs.data()||{}).pedidoId||null;}catch(e){}}
+await db.collection('ventas').doc(docId).delete();
+/* Sin esto el pedido quedaba con ventaId apuntando a una venta borrada. openPedidoModal
+   esconde "Convertir a venta" con !!p.ventaId, asi que el pedido no se podia facturar
+   NUNCA MAS, sin cartel y sin error: la unica salida era arrastrarlo a pendiente y
+   contestar que SI a un cartel que invita a contestar que no.
+   Vuelve a pendiente a proposito: confirmado sin venta es exactamente el estado que las
+   guardas de transicionEstadoPedido no dejan armar a mano. */
+let _liberado='';
+if(_pedDeVenta){try{
+/* Se LEE el pedido antes de escribirle. Puede no existir: borrarlo del tablero no mira
+   ventaId, asi que la venta se queda con un pedidoId colgado, y un update() sobre un
+   documento borrado tira NOT_FOUND y llena la pantalla de un error que no le sirve a nadie. */
+const _pSnap=await db.collection('pedidos').doc(_pedDeVenta).get();
+if(_pSnap.exists){
+  const _estadoPed=(_pSnap.data()||{}).estado||'pendiente';
+  /* Vuelve a 'pendiente' SOLO si todavia no se entrego. Un pedido entregado ya salio del
+     local: bajarlo a pendiente le cambia la etiqueta al cliente EN VIVO -Mis Pedidos
+     escucha con onSnapshot- sobre mercaderia que ya recibio, y encima lo saca del contador
+     de resueltos. Se le saca el ventaId y se lo deja donde esta: el boton "Convertir a
+     venta" vuelve a aparecer igual, porque ahora solo se esconde por tener venta. */
+  const _upd={ventaId:firebase.firestore.FieldValue.delete()};
+  if(_estadoPed!=='entregado')_upd.estado='pendiente';
+  await db.collection('pedidos').doc(_pedDeVenta).update(_upd);
+  _liberado=' | pedido '+_pedDeVenta+(_upd.estado?' liberado y vuelto a pendiente':' liberado (se deja entregado: ya salio del local)');
+  if(typeof pedidosData!=='undefined'&&pedidosData.find){const _pm=pedidosData.find(x=>x.docId===_pedDeVenta);if(_pm){delete _pm.ventaId;if(_upd.estado)_pm.estado=_upd.estado;}}
+  if(typeof renderPedidos==='function')renderPedidos();
+}else{_liberado=' | el pedido '+_pedDeVenta+' ya no existia';}
+}catch(e){_liberado=' | NO se pudo liberar el pedido '+_pedDeVenta+': '+e.message;showAdminToast('La venta se borro, pero el pedido quedo enganchado a ella: '+e.message,'error');}}
+/* El historial dice lo que PASO, no lo que se intento. Afirmar "liberado" cuando el update
+   fallo es exactamente la forma de mentir que ya costo mercaderia en kanbanDrop. */
+showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta #'+num+' eliminada','DocID: '+docId+_liberado);ventasData=ventasData.filter(v=>v.docId!==docId);filterVentas();}catch(e){showAdminToast('Error: '+e.message,'error');}}
         function _buildMesOptions(selId,noDefault){const sel=document.getElementById(selId);if(!sel)return;const now=new Date();let opts='<option value="">Todos los meses</option>';for(let i=0;i<12;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');const label=d.toLocaleDateString('es-AR',{month:'long',year:'numeric'});opts+='<option value="'+val+'"'+(!noDefault&&i===0?' selected':'')+'>'+label.charAt(0).toUpperCase()+label.slice(1)+'</option>';}sel.innerHTML=opts;}
         /* Se trae SOLO el mes elegido, no la coleccion entera.
            Antes esto hacia un get() de todas las ventas ordenadas por fecha y recien
@@ -3171,13 +3222,40 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
             e.currentTarget.classList.remove('drag-over');
             var docId=kanbanDraggingId;
             if(!docId)return;
+            await transicionEstadoPedido(docId,nuevoEstado);
+        }
+        /* EL nucleo de los DOS caminos que cambian el estado de un pedido: arrastrar la
+           tarjeta en el tablero (kanbanDrop) y el modal de estado (aplicarEstadoPedido).
+           En celular no hay drag&drop, asi que el modal es el UNICO camino que existe.
+           Todas las guardas estaban escritas una sola vez, adentro de kanbanDrop, y el
+           modal hacia un update pelado sin mirar nunca ventaId. Medido, y las dos cosas
+           pasan desde el telefono:
+             - confirmar o entregar un pedido web SIN registrar la venta. El stock igual
+               queda bien -lo descuenta la Cloud Function al crearse el pedido- asi que no
+               se nota nada: lo que se pierde es la plata. No entra a caja ni a
+               estadisticas, el cliente queda con 0 compras, y el boton "Convertir a
+               venta" desaparecia justo ahi (ver la guarda del boton, mas abajo).
+             - volverlo a pendiente sin borrar la venta ni devolver el stock.
+           Devuelve 'hecho' | 'derivado' (se abrio el modal para facturar) | 'nada' | 'error'. */
+        async function transicionEstadoPedido(docId,nuevoEstado){
             var p=pedidosData.find(function(x){return x.docId===docId;});
-            if(!p||p.estado===nuevoEstado)return;
+            if(!p||p.estado===nuevoEstado)return 'nada';
             var estadoActual=p.estado||'pendiente';
-            if(estadoActual==='pendiente'&&nuevoEstado==='confirmado'){
+            /* La guarda pregunta por ventaId, NO por el estado de origen. Antes exigia que
+               el destino fuera exactamente 'confirmado', asi que arrastrar de pendiente
+               DIRECTO a entregado -que es lo normal cuando el cliente retira en el momento-
+               salteaba la facturacion entera sin decir una palabra. */
+            if((nuevoEstado==='confirmado'||nuevoEstado==='entregado')&&!p.ventaId){
+                /* A donde queria ir el admin. Sin esto se perdia: saveVenta escribia
+                   'confirmado' con un literal, asi que arrastrar de pendiente DIRECTO a
+                   entregado -el cliente retira y paga en el momento- terminaba dejando la
+                   tarjeta en Confirmado. El admin tenia que repetir el gesto entero y nada
+                   se lo decia; el cliente, mientras tanto, veia "Confirmado" en Mis Pedidos
+                   (app.js escucha con onSnapshot) sobre algo que ya tenia en la mano. */
+                window._pedidoEstadoDestino=nuevoEstado;
                 openPedidoModal(docId);
                 showAdminToast('Seleccione el cliente y presione "Convertir a venta"','info');
-                return;
+                return 'derivado';
             }
             if(nuevoEstado==='pendiente'&&(estadoActual==='confirmado'||estadoActual==='entregado')){
                 var nro=nroPed(p.numero||0);
@@ -3229,19 +3307,23 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                         return;
                     }
                 }
-                await actualizarEstadoPedido(docId,nuevoEstado);
-                return;
+                return (await actualizarEstadoPedido(docId,nuevoEstado))?'hecho':'error';
             }
-            await actualizarEstadoPedido(docId,nuevoEstado);
+            return (await actualizarEstadoPedido(docId,nuevoEstado))?'hecho':'error';
         }
         async function actualizarEstadoPedido(docId,nuevoEstado){
             try{
-                await db.collection('pedidos').doc(docId).update({estado:nuevoEstado});
+                /* actualizadoEn lo escribia solo el camino del modal. Ahora los dos pasan
+                   por aca, asi que el pedido queda igual se haya movido desde el tablero o
+                   desde el telefono. La regla de /pedidos es "allow update: if isAdmin()",
+                   sin lista de campos, asi que no hay nada que agregar del otro lado. */
+                await db.collection('pedidos').doc(docId).update({estado:nuevoEstado,actualizadoEn:firebase.firestore.FieldValue.serverTimestamp()});
                 var p=pedidosData.find(function(x){return x.docId===docId;});
                 if(p)p.estado=nuevoEstado;
                 renderPedidos();
                 showAdminToast('Estado actualizado a '+nuevoEstado,'success');
-            }catch(e){showAdminToast('Error: '+e.message,'error');}
+                return true;
+            }catch(e){showAdminToast('Error: '+e.message,'error');return false;}
         }
 
         function openEstadoPedidoModal(docId){
@@ -3269,13 +3351,15 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
         async function aplicarEstadoPedido(nuevoEstado){
             const docId=window._estadoPedidoId;
             if(!docId)return;
-            const labels={pendiente:'Pendiente',confirmado:'Confirmado',entregado:'Entregado'};
-            try{
-                await db.collection('pedidos').doc(docId).update({estado:nuevoEstado,actualizadoEn:firebase.firestore.FieldValue.serverTimestamp()});
-                showAdminToast('Estado actualizado: '+labels[nuevoEstado],'success');
-                closeEstadoPedidoModal();
-                loadPedidos();
-            }catch(e){showAdminToast('Error: '+e.message,'error');}
+            /* Esto era un update pelado que no miraba ventaId. Ahora pasa por el mismo
+               nucleo que el tablero: desde el telefono valen exactamente las mismas
+               guardas, que es donde mas falta hacen porque ahi no hay drag&drop y este
+               modal es el unico camino que tiene el comercio. */
+            const r=await transicionEstadoPedido(docId,nuevoEstado);
+            if(r==='nada')return r;
+            closeEstadoPedidoModal();
+            if(r==='hecho')loadPedidos();
+            return r;
         }
         async function cambiarEstadoPedido(docId,estadoActual){
             /* Compat: redirige al modal nuevo */
@@ -3320,6 +3404,11 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
             catch(e){showAdminToast('Error: '+e.message,'error');}
         }
         async function convertirPedidoEnVentaDesdeModal(){
+            /* openVentaModal(), unas lineas mas abajo, limpia todos los window._pedido*
+               -incluido este- para que una venta nueva no herede nada del pedido anterior.
+               Asi que el destino que pidio el admin hay que guardarlo ANTES y reponerlo
+               despues. Sin esto, pedir "entregado" volvia a terminar en "confirmado". */
+            const _destinoPedido=window._pedidoEstadoDestino||null;
             const docId=editingPedidoId;
             if(!docId){showAdminToast('Sin pedido activo','error');return;}
             const p=pedidosData.find(x=>x.docId===docId);
@@ -3344,7 +3433,7 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                precio - costo- daba el precio entero, o sea que todo el que compra por la
                web figuraba con 100% de margen. allProducts ya quedo cargado dos lineas
                arriba, no hace falta leer nada mas. */
-            ventaItems=(p.items||[]).map(function(i){const _prod=allProducts.find(x=>x.id===i.id);return{id:i.id,nombre:i.nombre,precio:(i.precioOriginal||i.precio)||0,costo:(i.costo!=null?i.costo:(_prod?(_prod.costo||0):0)),cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:i.tipoVenta||(_prod&&_prod.tipoVenta)||'unidad'};});
+            ventaItems=(p.items||[]).map(function(i){const _prod=allProducts.find(x=>x.id===i.id);return{id:i.id,nombre:i.nombre,precio:(i.precioOriginal||i.precio)||0,costo:(Number(i.costo)>0?Number(i.costo):(_prod?(Number(_prod.costo)||null):null)),cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:i.tipoVenta||(_prod&&_prod.tipoVenta)||'unidad'};});
             /* Aviso, NO correccion: los precios de estos items son los que mando el
                navegador del cliente y nadie los revalida (la regla de create de /pedidos
                mira el tipo de `total`, no lo que hay dentro de items[]). Cualquiera
@@ -3402,9 +3491,20 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                 const totalRow=document.querySelector('#ventaModal .venta-total-row');
                 if(totalRow)totalRow.parentNode.insertBefore(row,totalRow);
             }
-            renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();refreshVentaInsumosSelect();
             window._pedidoOrigenVentaId=docId;
+            window._pedidoEstadoDestino=_destinoPedido;
             window._pedidoCuponVenta=p.cupon||null;
+            /* El envio que el cliente vio, confirmo, y que le llego por WhatsApp y por
+               Telegram. Sin esto calcularTotalesVenta lo recotizaba con ENVIO_PRECIO y
+               ENVIO_GRATIS_DESDE, que son los de HOY: subirle el envio al negocio de $2.000
+               a $3.000 le cambiaba el precio solo a TODOS los pedidos sin convertir, y el
+               ticket salia con un total distinto del que el cliente tiene en la mano.
+               La proteccion ya existia, pero atada a editingVentaId, que en la conversion
+               entra en null.
+               Estas lineas estaban DESPUES de renderVentaItems, que es quien dibuja el
+               total: por eso la primera pantalla salia sin el cupon tampoco. */
+            window._pedidoEnvioVenta=(p.envio!=null)?{envio:Number(p.envio)||0,tipoEntrega:p.tipoEntrega||'envio'}:null;
+            renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();refreshVentaInsumosSelect();
             showAdminToast('Revise los datos y guarde la venta.','info');
         }
         async function convertirPedidoEnVenta(docId){
@@ -3416,7 +3516,7 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
         // Modal pedido
         function openPedidoModal(docId){
             editingPedidoId=docId||null;
-            pedItems=[];pedInsumosUsados=[];pedTipoEntrega=HACE_ENVIOS?'envio':'retiro';pedClienteSelected=false;pedidoDirty=false;_pedidoCupon=null;
+            pedItems=[];pedInsumosUsados=[];pedTipoEntrega=HACE_ENVIOS?'envio':'retiro';pedClienteSelected=false;pedidoDirty=false;_pedidoCupon=null;window._pedidoEnvioOriginal=null;
             document.getElementById('pedFecha').value=new Date().toISOString().split('T')[0];
             document.getElementById('pedCliente').value='';
             document.getElementById('pedClienteId').value='';
@@ -3481,11 +3581,22 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                     document.getElementById('pedMedio').value=p.medioPago||'Efectivo';
                     if(p.creadoEn){const d=p.creadoEn;const yyyy=d.getFullYear(),mm=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');document.getElementById('pedFecha').value=yyyy+'-'+mm+'-'+dd;}
                     pedClienteSelected=true;
-                    pedItems=(p.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:(i.precioOriginal||i.precio)||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i)}));
+                    /* costo:i.costo||0 inventaba un 0 que NO es lo mismo que null. Un pedido
+                       nacido en la web nunca trae costo -app.js arma los items solo con
+                       precio- y ese 0 apagaba los dos rescates que preguntan por costo!=null:
+                       el de convertirPedidoEnVentaDesdeModal y el de gananciaDe. La venta
+                       nacia con costo 0 y la ganancia que mostraba el panel era la
+                       facturacion entera. Medido: $17.500 facturados, $6.500 de ganancia
+                       real, el panel mostraba $17.500 (x2,7).
+                       null significa "no se sabe" y prende el rescate; 0 significa "regalado"
+                       y lo apaga. Por eso lo que no se sabe se deja en null. */
+                    pedItems=(p.items||[]).map(i=>{const _pc=(typeof allProducts!=='undefined'&&allProducts.find)?allProducts.find(x=>x.id===i.id):null;return{id:i.id,nombre:i.nombre,precio:(i.precioOriginal||i.precio)||0,costo:(Number(i.costo)>0?Number(i.costo):(_pc?(Number(_pc.costo)||null):null)),cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i)};});
                     /* Mostrar cupón si el pedido lo tiene */
                     _pedidoCupon=p.cupon||null;
                     pedInsumosUsados=(p.insumosUsados||[]).map(u=>{const ins=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:ins?Number(ins.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});
                     pedTipoEntrega=HACE_ENVIOS?(p.tipoEntrega||'envio'):'retiro';
+                    /* El envio que el cliente confirmo, para que calcPedTotales no lo recotice. */
+                    window._pedidoEnvioOriginal=(p.envio!=null)?{envio:Number(p.envio)||0,tipoEntrega:p.tipoEntrega||'envio'}:null;
                     document.querySelectorAll('[data-ped-entrega]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-ped-entrega')===pedTipoEntrega));
                     document.getElementById('savePedidoBtn').innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';
                     /* Mostrar boton Convertir a venta si no esta entregado */
@@ -3497,7 +3608,11 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                            nuevo, y pedido.ventaId pasaba a apuntar a la segunda dejando la
                            primera huerfana. */
                         const yaConvertido=!!p.ventaId;
-                        convBtn.style.display=(p.estado!=='entregado'&&!yaConvertido)?'inline-flex':'none';
+                        /* La condicion tenia ademas p.estado!=='entregado', y eso escondia el
+                           boton justo en el pedido que MAS lo necesita: uno que llego a
+                           entregado sin venta se quedaba sin ninguna forma de facturarse.
+                           Lo unico que tiene que esconderlo es que YA tenga una venta. */
+                        convBtn.style.display=(!yaConvertido)?'inline-flex':'none';
                         /* Un pedido web trae clienteAuthUid y puede no tener clienteId si ese
                            cliente nunca se sincronizo a la coleccion clientes. Pidiendo solo
                            clienteId, esos pedidos no se podian convertir NUNCA: el boton
@@ -3533,7 +3648,15 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
             const sub=pedItems.reduce((s,i)=>s+subtotalItem(i),0);
             const dc=Math.min(Math.max(0,Number((_pedidoCupon&&_pedidoCupon.monto)||0)),sub);
             const subConDc=sub-dc;
-            const envio=pedTipoEntrega==='envio'?(subConDc>=ENVIO_GRATIS_DESDE?0:ENVIO_PRECIO):0;
+            let envio=pedTipoEntrega==='envio'?(subConDc>=ENVIO_GRATIS_DESDE?0:ENVIO_PRECIO):0;
+            /* El mismo bug del envio recotizado, por la OTRA puerta. Guardar un pedido web
+               desde el modal -aunque sea solo para elegirle el cliente- recotizaba el envio con
+               la tarifa de HOY y lo escribia encima del que el cliente confirmo. Y como la
+               conversion a venta despues lee p.envio, esto ANULABA el arreglo: alcanzaba con
+               abrir y guardar el pedido una sola vez para perderlo. Medido: pedido guardado en
+               $2.000, tarifa del dia $3.000, el documento quedaba en $3.000.
+               Si hoy sale gratis se respeta lo gratis, igual que del lado de la venta. */
+            if(window._pedidoEnvioOriginal&&window._pedidoEnvioOriginal.tipoEntrega===pedTipoEntrega&&envio!==0)envio=Number(window._pedidoEnvioOriginal.envio)||0;
             return{subtotal:sub,cupon:dc,subtotalConDesc:subConDc,envio:envio,total:subConDc+envio};
         }
         function filterPedProducts(){
@@ -3579,7 +3702,7 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                     bdHtml+='<div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-dim);padding:3px 0"><span>Envío</span><span>$'+t.envio.toLocaleString('es-AR')+'</span></div>';
                 }
                 if(_pedidoCupon){
-                    bdHtml+='<div style="display:flex;justify-content:space-between;font-size:0.88rem;color:#2d6b4a;padding:3px 0;font-weight:600"><span><i class="bi bi-ticket-perforated"></i> Cupón '+esc(_pedidoCupon.codigo)+' (-'+_pedidoCupon.porcentaje+'%)</span><span>-$'+Number(_pedidoCupon.monto||0).toLocaleString('es-AR')+'</span></div>';
+                    bdHtml+='<div style="display:flex;justify-content:space-between;font-size:0.88rem;color:#2d6b4a;padding:3px 0;font-weight:600"><span><i class="bi bi-ticket-perforated"></i> Cupón '+esc(_pedidoCupon.codigo)+'</span><span>-$'+Number(_pedidoCupon.monto||0).toLocaleString('es-AR')+'</span></div>';
                 }
                 if(costoTotalPed>0){
                     bdHtml+='<div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-dim);padding:3px 0;border-top:1px dashed var(--border);margin-top:4px"><span><i class="bi bi-box-seam"></i> Costo total</span><span>$'+costoTotalPed.toLocaleString('es-AR')+'</span></div>';
@@ -3619,15 +3742,25 @@ await db.collection('ventas').doc(docId).delete();showAdminToast('Venta #'+num+'
                        coincide con el total. */
                     items:pedItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,
                         precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,
-                        costo:i.costo,cantidad:i.cantidad,tipoVenta:i.tipoVenta||'unidad',
+                        /* Ultima red antes de que quede escrito. openPedidoModal ya rescata el
+                           costo del catalogo, pero puede abrirse con allProducts todavia
+                           vacio (el loadProducts de mas abajo no se espera). Guardar 0 seria
+                           peor que no guardar nada: es justo el valor que apaga los rescates. */
+                        costo:(Number(i.costo)>0?Number(i.costo):(Number(((typeof allProducts!=='undefined'&&allProducts.find?allProducts.find(x=>x.id===i.id):null)||{}).costo)||null)),
+                        cantidad:i.cantidad,tipoVenta:i.tipoVenta||'unidad',
                         subtotal:subtotalItem(i)})),
                     insumosUsados:pedInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),
                     /* El cupon se guarda junto con el total que lo incluye. Antes el total se
                        recalculaba sin el y el campo cupon quedaba intacto: el pedido decia
                        "-$3.000 de cupon" y a la vez un total que no lo restaba. */
                     subtotal:t.subtotal,subtotalProductos:t.subtotal,
-                    cupon:_pedidoCupon?{codigo:_pedidoCupon.codigo,monto:t.cupon,
-                        porcentaje:_pedidoCupon.porcentaje||null}:null,
+                    /* Sin "porcentaje": app.js guarda el cupon del pedido como {codigo, monto}
+                       y nada mas. El porcentaje vive en el documento de /cupones -donde
+                       renderCupones lo lee bien-, no adentro del pedido. El panel imprimia
+                       _pedidoCupon.porcentaje y dibujaba "(-undefined%)"; y al guardar
+                       escribia porcentaje:null, asi que la segunda apertura decia "(-null%)".
+                       La plata siempre estuvo bien: el monto es el que manda. */
+                    cupon:_pedidoCupon?{codigo:_pedidoCupon.codigo,monto:t.cupon}:null,
                     envio:t.envio,total:t.total,
                     actualizadoEn:firebase.firestore.FieldValue.serverTimestamp()
                 };

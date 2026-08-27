@@ -203,7 +203,12 @@ function totalesMes(d) {
     });
   });
   d.pedidos.forEach(p => {
-    if (p.estado === 'confirmado') t.pedidosConfirmados++;
+    /* 'entregado' es el estado FINAL normal de un pedido que se cumplio, y estaba
+       afuera de la cuenta: cada pedido entregado se caia del contador de confirmados y
+       aparecia como "Sin resolver" en amarillo, hundiendo la conversion justo cuando el
+       negocio funciona bien. ('cancelado' no lo escribe ningun flujo hoy -es rama
+       muerta, inofensiva- y se deja por si alguna vez se agrega cancelar.) */
+    if (p.estado === 'confirmado' || p.estado === 'entregado') t.pedidosConfirmados++;
     else if (p.estado === 'cancelado') t.pedidosCancelados++;
   });
   Object.values(d.porDia).forEach(x => {

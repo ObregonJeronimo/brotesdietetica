@@ -44,7 +44,10 @@ const t = (d, c, extra) => {
 
 /* deltasDeItems y deltasDeInsumos son los REALES: asi el reparto por producto -y el
    granel, que viaja en gramos- se prueba tal como corre en el panel. */
-const REALES = cuerpo('deltasDeItems') + '\n' + cuerpo('deltasDeInsumos') + '\n' + cuerpo('kanbanDrop');
+/* kanbanDrop ya no tiene la logica adentro: la comparte con el modal de estado
+   (aplicarEstadoPedido) via transicionEstadoPedido, porque en celular no hay drag&drop
+   y el modal de estado es el UNICO camino. Hay que llevarse las dos. */
+const REALES = cuerpo('deltasDeItems') + '\n' + cuerpo('deltasDeInsumos') + '\n' + cuerpo('kanbanDrop') + '\n' + cuerpo('transicionEstadoPedido');
 
 /* Un escenario completo. `enBase` es lo que tiene Firestore; `enCache` lo que tiene
    ventasData, que es justamente lo que casi nunca esta. */
@@ -62,7 +65,7 @@ function correr({ venta, enCache, enBase }) {
     pedirConfirmacion: async () => true,
     aplicarStockProductos: async (d) => { reg.stockProd = d; },
     aplicarStockInsumos: async (d) => { reg.stockIns = d; },
-    actualizarEstadoPedido: async (id, est) => { reg.estados.push(id + '->' + est); },
+    actualizarEstadoPedido: async (id, est) => { reg.estados.push(id + '->' + est); return true; },
     logAction: (a, b, c) => reg.logs.push(c),
     firebase: { firestore: { FieldValue: { delete: () => '<<borrar>>' } } },
     db: {
