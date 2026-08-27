@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 677 en 26 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
+| Pruebas | 699 en 27 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **prácticamente vacíos — ver abajo** |
@@ -82,7 +82,7 @@ Estado real de la base, verificado por API:
 
 | colección | cuántos |
 |---|---|
-| productos | **2** — uno es *"Producto de ejemplo (ocultalo o borralo)"* del setup. **Ninguno de los dos tiene `codigo` ni `tipoVenta`**: son anteriores al merge de la venta por peso (tanda 5g) |
+| productos | **1** — *Semillas Chía*, ya con `codigo: P-0002` y `tipoVenta: unidad`. El *"Producto de ejemplo"* del setup se borró el 27/08/2026 (respaldo del documento en el scratchpad de esa sesión, por si hiciera falta) |
 | categorías | **0** |
 | pedidos · ventas · cupones · clientesAuth | 0 |
 | listas | 1 (FRUTICOR) |
@@ -91,10 +91,15 @@ Y los documentos de `config`, que no son colecciones pero deciden lo que ve el c
 
 | documento | valor | por qué importa |
 |---|---|---|
-| `config/pedidos` | **`haceEnvios: false`** | **el comercio hoy NO hace envíos**, así que un pedido web real no va a traer dirección. Para probar en producción que el panel la muestra hay que prenderlo antes desde **Editor Web → Pedidos y envío** |
-| `config/pedidosCount` | `{count: 1}` con **cero** pedidos | **el primer pedido real va a ser el #2, no el #1.** Es el fósil de los intentos que fallaban en silencio antes de la tanda 2. No es un bug: el contador nunca baja a propósito |
-| `config/ventasCount` | `{count: 2}` con 0 ventas | mismo fósil |
-| `config/clientesAuthCount` | `{count: 6}` con 0 documentos en `clientesAuth` | los seis se consumieron en los intentos viejos y en el doble login. **Habría que confirmarlo con el panel logueado**: el contador se lee sin sesión, la colección no |
+| `config/pedidos` | **`haceEnvios: false`** | **decisión tomada: Brotes no hace envíos** (§2.5). No está hardcodeado: se prende desde **Editor Web → Pedidos y envío** el día que quieran. Mientras esté apagado, ningún pedido trae dirección ni cobra flete |
+| `config/pedidosCount` | `{count: 0}` | puesto en 0 el 27/08/2026, con 0 pedidos en la base. Traía un `1` fósil de los intentos que fallaban en silencio antes de la tanda 2, que habría hecho que el primer pedido real fuera el #2. **Ahora el primero es el #1** |
+| `config/ventasCount` | `{count: 0}` | mismo fósil (traía 2), misma limpieza |
+| `config/clientesAuthCount` | `{count: 0}` | mismo fósil (traía 6) |
+
+> **Los contadores no se tocan más.** Bajarlos sólo era seguro con la base vacía. Una vez
+> que entren pedidos y ventas reales, reescribirlos hace que se repitan números que ya
+> existen. Y tienen que quedar como **número**: un `count` guardado como texto deja a
+> **todos** los clientes sin poder comprar (el cliente lo tolera con `parseInt`, la regla no).
 
 Un cliente que entre hoy a la tienda ve **dos productos**. Para cargar en tanda está
 **Productos → Importar Nuevos** (Excel).
@@ -109,7 +114,15 @@ hay algo que mirar: filas repetidas dentro del mismo archivo, filas sin `CATEGOR
 y —lo más importante— cuántos productos quedarían en **$0**. Un producto en $0 no se
 puede comprar: la regla de `/pedidos` exige `total > 0`.
 
-### c) Borrar el producto de ejemplo y lo que quedó del setup inicial
+### c) ~~Borrar el producto de ejemplo y lo que quedó del setup inicial~~ · HECHO
+
+Borrado el 27/08/2026, junto con los tres contadores fósiles (§1b). Queda **un solo
+producto** en la base.
+
+> **Ojo con esto para la prueba de fuego (§1a):** con un único producto de $2.300 y stock 6,
+> el carrito más grande posible son **$13.800**, y `minimoPedido` es **$30.000**. Hasta que
+> no entre el catálogo **no se puede hacer el pedido de prueba** — o hay que bajar el mínimo
+> un rato desde Editor Web.
 
 ### d) La foto del hero
 
@@ -130,7 +143,25 @@ desde la consola de Firebase.
 
 ---
 
-## 2. Decisiones tuyas que quedaron abiertas
+## 2. Decisiones tuyas
+
+**Ya decididas:**
+
+5. **Brotes no hace envíos** (27/08/2026) — *"no tendrá envíos, pero hay que tenerlo como
+   opción para un futuro"*. Por eso `haceEnvios` queda en **false** en `config/pedidos` y **no
+   se sacó una línea de código**: el envío está apagado por configuración y se prende desde
+   Editor Web → Pedidos y envío.
+   Eso volvió permanente un contrato que no tenía prueba del lado de la **tienda** —las
+   cuatro suites que nombraban `haceEnvios` eran todas del panel—, así que se agregó
+   `pruebas/t-sin-envios.js` (22 asertos). Prueba las dos mitades: que apagado **sólo exista
+   el retiro** (ni llamando a `setCheckoutEntrega('envio')` a mano se puede cobrar flete, y
+   el `tipoEntrega` que se guarda en el pedido sale `retiro`), y que **prendido vuelva a
+   andar todo** —selector visible, flete cobrado, envío gratis por encima del mínimo—, que
+   es justamente para lo que se deja el código puesto.
+   Si esto se rompiera, el cliente elegiría envío, pagaría flete y dejaría una dirección
+   para un pedido que el comercio no puede cumplir.
+
+**Abiertas:**
 
 1. **El QR de reseña exige iniciar sesión con Google.** Es deliberado: la colección de
    reseñas es de lectura pública porque la tienda las muestra, así que los tokens
@@ -641,7 +672,7 @@ hechos**: son la tanda 6.
 ## 4. Cómo verificar que no rompiste nada
 
 ```bash
-npm test          # 677 pruebas, 26 suites — no necesita nada instalado
+npm test          # 699 pruebas, 27 suites — no necesita nada instalado
 npm run build     # corre check-admin.js y luego minifica
 npm run test:reglas   # 55 asertos contra firestore.rules, con el emulador
 ```
