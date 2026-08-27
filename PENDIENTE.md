@@ -134,12 +134,27 @@ Es basura de un bug viejo ya arreglado.
 El panel detecta los valores inválidos, no los muestra en la vista previa y los borra
 del documento al guardar. No hay que tocar la base a mano.
 
-### e) Rotar el token del bot de Telegram
+### e) ~~Rotar el token del bot de Telegram~~ · DECIDIDO NO ROTARLO (27/08/2026)
 
-Estuvo un rato legible sin login por una regla de Firestore. La regla ya está cerrada,
-pero el token viejo hay que darlo de baja igual: `/revoke` a
-[@BotFather](https://t.me/BotFather), pedí uno nuevo, y pegalo en `config/telegram`
-desde la consola de Firebase.
+El token estuvo un rato legible sin login por una regla de Firestore. La regla **ya está
+cerrada**. Jero decidió **no rotarlo**.
+
+Queda anotado qué alcanza ese token, para que la decisión se pueda revisar con el dato y
+no de memoria. Quien lo tenga puede, **sólo sobre el bot** —no toca Firestore, ni la
+tienda, ni el panel—:
+
+- mandar mensajes **como el bot** al chat del comercio (avisos de pedido falsos);
+- y leerse los avisos que el bot recibe. Eso es lo único con peso: el aviso de pedido
+  lleva **nombre, teléfono y dirección del cliente**, más lo que compró.
+
+O sea que el riesgo no es para el negocio sino para **los datos de los clientes**. Si
+alguna vez entra un pedido real y el bot sigue con el token viejo, conviene revisarlo.
+
+**Si el bot no se va a usar**, no hay nada que hacer: `notifyTelegramOnNewOrder` lee
+`config/telegram` y, si no hay `token` o `chatId`, escribe *"Telegram no está configurado,
+omito notificación"* en el log y **corta sin error**. El pedido se guarda igual y el stock
+se descuenta igual. Lo único que se pierde es el aviso — que para un comercio sin el panel
+abierto suele ser lo único que ve.
 
 ---
 
