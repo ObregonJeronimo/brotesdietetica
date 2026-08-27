@@ -503,7 +503,7 @@
       </div>
     </div>
     <div class="section-content" id="sec-excel"><div class="toolbar" style="margin-bottom:1rem"><button class="btn btn-secondary" style="width:auto" onclick="switchSection('products')"><i class="bi bi-arrow-left"></i> Volver</button></div><div class="drop-zone" id="dropZone"><i class="bi bi-cloud-arrow-up"></i><p>Arrastre el Excel aquí o haga clic</p><p class="hint">.xlsx</p></div><input type="file" class="file-input-hidden" id="excelInput" accept=".xlsx,.xls"><div class="upload-progress" id="uploadProgress"><div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div><p class="progress-text" id="progressText">Procesando...</p></div><div class="format-info"><h4><i class="bi bi-info-circle"></i> Importar Costos</h4><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Este Excel actualiza costo y porcentaje de productos <strong>existentes</strong> (matchea por nombre).</p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas: <strong>NOMBRE, COSTO, PORCENTAJE</strong></p><p style="font-size:0.78rem;color:var(--text-dim)">El precio se recalcula automaticamente. No modifica imagen, stock ni categoria.</p></div></div>
-    <div class="section-content" id="sec-excelNew"><div class="toolbar" style="margin-bottom:1rem"><button class="btn btn-secondary" style="width:auto" onclick="switchSection('products')"><i class="bi bi-arrow-left"></i> Volver</button></div><div class="drop-zone" id="dropZoneNew"><i class="bi bi-cloud-arrow-up"></i><p>Arrastre el Excel aquí o haga clic</p><p class="hint">.xlsx</p></div><input type="file" class="file-input-hidden" id="excelInputNew" accept=".xlsx,.xls"><div class="upload-progress" id="uploadProgressNew" style="display:none"><div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBarNew"></div></div><p class="progress-text" id="progressTextNew">Procesando...</p></div><div class="format-info"><h4><i class="bi bi-info-circle"></i> Importar Nuevos Productos</h4><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Este Excel <strong>agrega productos nuevos</strong> a la base de datos.</p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas obligatorias: <strong>NOMBRE, CATEGORIA</strong></p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas opcionales: <strong>SUBCATEGORIA, COSTO, PORCENTAJE, STOCK, DESCRIPCION</strong></p><p style="font-size:0.78rem;color:var(--text-dim)">El precio se calcula: COSTO x (1 + PORCENTAJE/100). Si no hay costo, el precio queda en $0.</p></div></div>
+    <div class="section-content" id="sec-excelNew"><div class="toolbar" style="margin-bottom:1rem"><button class="btn btn-secondary" style="width:auto" onclick="switchSection('products')"><i class="bi bi-arrow-left"></i> Volver</button></div><div class="form-group" style="max-width:340px;margin-bottom:1rem"><label for="impListaNew">Lista de proveedor <span style="font-size:0.72rem;color:var(--text-dim);font-weight:normal">(se le pone a todo el lote)</span></label><select class="form-input" id="impListaNew"><option value="">Sin lista</option></select><p style="font-size:0.75rem;color:var(--text-dim);margin-top:4px">Si el Excel trae una columna LISTA con el nombre, esa manda. Sin lista el producto se importa igual, pero al editarlo a mano el formulario la va a pedir.</p></div><div class="drop-zone" id="dropZoneNew"><i class="bi bi-cloud-arrow-up"></i><p>Arrastre el Excel aquí o haga clic</p><p class="hint">.xlsx</p></div><input type="file" class="file-input-hidden" id="excelInputNew" accept=".xlsx,.xls"><div class="upload-progress" id="uploadProgressNew" style="display:none"><div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBarNew"></div></div><p class="progress-text" id="progressTextNew">Procesando...</p></div><div class="format-info"><h4><i class="bi bi-info-circle"></i> Importar Nuevos Productos</h4><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Este Excel <strong>agrega productos nuevos</strong> a la base de datos.</p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas obligatorias: <strong>NOMBRE, CATEGORIA</strong></p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas opcionales: <strong>SUBCATEGORIA, COSTO, PORCENTAJE, PRECIO, STOCK, LISTA, DESCRIPCION</strong></p><p style="font-size:0.78rem;color:var(--text-dim)">El precio sale de <strong>COSTO x (1 + PORCENTAJE/100)</strong>. Si no hay costo se usa la columna <strong>PRECIO</strong>. Si no hay ninguna de las dos, el producto queda en $0 y <strong>no se puede comprar</strong>: antes de importar se avisa cuántos quedarían así.</p><p style="font-size:0.78rem;color:var(--text-dim)">Los importes se leen como en cualquier lista argentina: <strong>20.000</strong> son veinte mil y <strong>1.234,56</strong> tiene decimales. Antes de importar se muestra un resumen con lo que se va a cargar.</p></div></div>
     <div class="section-content" id="sec-clientesAuth">
       <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
         <div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Total clientes</div><strong style="font-size:1.2rem;color:var(--accent-light)" id="caStatTotal">0</strong></div>
@@ -835,6 +835,51 @@ function netoVenta(v){return Number((v&&v.total)||0)-Number((v&&v.envio)||0);}
 function montoAR(v){
     const limpio=String(v==null?'':v).replace(/[^0-9]/g,'');
     return limpio?parseInt(limpio,10):0;
+}
+/* montoAR NO sirve para una celda de Excel. Ahi el valor puede venir como NUMERO
+   (1234.56 -> montoAR daria 123456, cien veces mas) o como texto en cualquier
+   formato del proveedor. La importacion usaba parseInt directo, que es el bug
+   historico de los miles pero en tanda:
+     parseInt('20.000')    -> 20        parseInt('1.234.567') -> 1
+     parseInt('$ 1.500')   -> NaN -> 0  parseInt('1.234,56')  -> 1
+   Un catalogo entero entra con los precios divididos por mil y nadie ve un error.
+   Regla para decidir si el ultimo separador es decimal o de miles: si estan los
+   dos (1.234,56) el ultimo manda; si hay uno solo, es decimal cuando le siguen
+   una o dos cifras (12,75 / 12.5) y de miles cuando le siguen tres (20.000). Es
+   la convencion de cualquier lista de precios argentina. */
+function montoExcel(v){
+    if(v===null||v===undefined||v==='')return 0;
+    if(typeof v==='number')return isFinite(v)?Math.round(v):0;
+    let s=String(v).trim().replace(/[^0-9.,-]/g,'');
+    if(!s||s==='-')return 0;
+    const neg=s[0]==='-';
+    s=s.replace(/-/g,'');
+    const coma=s.lastIndexOf(','),punto=s.lastIndexOf('.');
+    let ent=s,dec='';
+    if(coma>=0||punto>=0){
+        const ult=Math.max(coma,punto);
+        const cola=s.slice(ult+1);
+        const esDecimal=(coma>=0&&punto>=0)?true:(cola.length>0&&cola.length<3);
+        if(esDecimal){ent=s.slice(0,ult);dec=cola;}
+    }
+    ent=ent.replace(/[.,]/g,'');dec=dec.replace(/[.,]/g,'');
+    const n=parseFloat((ent||'0')+(dec?'.'+dec:''));
+    if(!isFinite(n))return 0;
+    return Math.round(neg?-n:n);
+}
+/* El porcentaje SI puede tener decimales de verdad (35,5%), asi que no se redondea.
+   parseFloat('35,5') daba 35: el margen se perdia sin avisar. */
+function porcentajeExcel(v){
+    if(v===null||v===undefined||v==='')return 0;
+    if(typeof v==='number')return isFinite(v)?v:0;
+    const s=String(v).trim().replace(/[^0-9.,-]/g,'').replace(/\.(?=\d{3}\b)/g,'').replace(',','.');
+    const n=parseFloat(s);
+    return isFinite(n)?n:0;
+}
+/* Un mismo producto escrito distinto es el mismo producto: "Semillas  Chía" y
+   "semillas chia" no pueden entrar las dos veces al catalogo. */
+function claveProducto(nombre){
+    return String(nombre==null?'':nombre).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 }
 /* Para el oninput: deja solo digitos y conserva la posicion del cursor. */
 function limpiarMonto(inp){
@@ -1761,11 +1806,55 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             await db.collection('productos').doc(id).update({stock:val});logAction('stock','Stock: '+(p?p.nombre:id),'stock: '+oldStock+' -> '+val);if(p)p.stock=val;updateStats();showAdminToast('Stock actualizado','success');}catch(e){showAdminToast('Error: '+e.message,'error');}}
         const dropZone=document.getElementById('dropZone'),excelInput=document.getElementById('excelInput');if(dropZone){dropZone.addEventListener('click',()=>excelInput.click());dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover')});dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');if(e.dataTransfer.files[0])processExcel(e.dataTransfer.files[0])});}if(excelInput)excelInput.addEventListener('change',e=>{if(e.target.files[0])processExcel(e.target.files[0]);});
         const dropZoneNew=document.getElementById('dropZoneNew'),excelInputNew=document.getElementById('excelInputNew');if(dropZoneNew){dropZoneNew.addEventListener('click',()=>excelInputNew.click());dropZoneNew.addEventListener('dragover',e=>{e.preventDefault();dropZoneNew.classList.add('dragover')});dropZoneNew.addEventListener('dragleave',()=>dropZoneNew.classList.remove('dragover'));dropZoneNew.addEventListener('drop',e=>{e.preventDefault();dropZoneNew.classList.remove('dragover');if(e.dataTransfer.files[0])processNewProductsExcel(e.dataTransfer.files[0])});}if(excelInputNew)excelInputNew.addEventListener('change',e=>{if(e.target.files[0])processNewProductsExcel(e.target.files[0]);});
-        async function processExcel(file){if(!file.name.match(/\.xlsx?$/i)){showAdminToast('Solo .xlsx','error');return;}const pw=document.getElementById('uploadProgress'),pb=document.getElementById('progressBar'),pt=document.getElementById('progressText');pw.style.display='block';pb.style.width='10%';pt.textContent='Leyendo...';try{const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array'});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});pb.style.width='30%';pt.textContent=rows.length+' filas. Procesando...';const keys0=rows.length?Object.keys(rows[0]).map(k=>k.toUpperCase().trim()):[];/* Un archivo se toma como "de costos" (actualiza los que ya existen) y no como alta
-               masiva por la AUSENCIA de CATEGORIA y STOCK. Es fragil, asi que esta dicho: si
-               alguna vez se agregan esas columnas a la planilla que exporta el panel,
-               reimportarla duplica todo el catalogo. */
-            const isCostosExcel=keys0.includes('PORCENTAJE')&&!keys0.includes('CATEGORIA')&&!keys0.includes('STOCK');if(isCostosExcel){await importCostosExcel(rows,pw,pb,pt,file.name);return;}const prods=[];for(const row of rows){const keys=Object.keys(row);const get=opts=>{for(const o of opts){const f=keys.find(k=>k.toUpperCase().trim()===o.toUpperCase());if(f&&row[f]!=='')return row[f];}return null;};const n=get(['NOMBRE','PRODUCTO','NAME']);if(!n)continue;const costo=parseInt(get(['COSTO','COST']))||0;const pct=parseFloat(get(['PORCENTAJE','%','MARGEN']))||0;const precio=costo>0?Math.round(costo*(1+pct/100)):(parseInt(String(get(['PRECIO','PRICE','REDONDEO'])||'0').replace(/[^\d]/g,''))||0);prods.push({nombre:String(n).trim(),costo:costo,porcentaje:pct,precio:precio,stock:parseInt(get(['STOCK','CANTIDAD']))||0,categoria:String(get(['CATEGORIA','CATEGOR\u00cdA','CATEGORY'])||'Sin categor\u00eda').trim(),subcategoria:get(['SUBCATEGORIA','SUBCATEGOR\u00cdA','SUB-CATEGORIA'])?String(get(['SUBCATEGORIA','SUBCATEGOR\u00cdA','SUB-CATEGORIA'])).trim():null,imagen:null,descripcion:get(['DESCRIPCION','DESCRIPCI\u00d3N'])?String(get(['DESCRIPCION','DESCRIPCI\u00d3N'])).trim():String(n).trim()});}if(!prods.length){pw.style.display='none';showAdminToast('Sin productos validos','error');return;}pb.style.width='50%';pt.textContent='Subiendo '+prods.length+'...';let up=0;for(let i=0;i<prods.length;i+=450){const batch=db.batch();prods.slice(i,i+450).forEach(p=>batch.set(db.collection('productos').doc(),p));await batch.commit();up+=Math.min(450,prods.length-i);pb.style.width=(50+Math.round(up/prods.length*50))+'%';pt.textContent=up+'/'+prods.length;}pb.style.width='100%';pt.textContent=prods.length+' productos cargados!';showAdminToast(prods.length+' importados','success');logAction('importar','Importacion Excel: '+prods.length+' productos desde '+file.name,'Categorias: '+[...new Set(prods.map(p=>p.categoria))].join(', '));await loadProducts();setTimeout(()=>{pw.style.display='none';pb.style.width='0%';},3000);}catch(e){pw.style.display='none';showAdminToast('Error: '+e.message,'error');}excelInput.value='';}
+        async function processExcel(file){
+            if(!file.name.match(/\.xlsx?$/i)){showAdminToast('Solo .xlsx','error');return;}
+            const pw=document.getElementById('uploadProgress'),pb=document.getElementById('progressBar'),pt=document.getElementById('progressText');
+            pw.style.display='block';pb.style.width='10%';pt.textContent='Leyendo...';
+            try{
+                const data=await file.arrayBuffer();
+                const wb=XLSX.read(data,{type:'array'});
+                const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+                pb.style.width='30%';pt.textContent=rows.length+' filas. Procesando...';
+                const keys0=rows.length?Object.keys(rows[0]).map(k=>k.toUpperCase().trim()):[];
+                /* Un archivo se toma como "de costos" (actualiza los que ya existen) y no como alta
+                   masiva por la AUSENCIA de CATEGORIA y STOCK. Es fragil, asi que esta dicho: si
+                   alguna vez se agregan esas columnas a la planilla que exporta el panel,
+                   reimportarla cae en la rama de alta. */
+                const isCostosExcel=keys0.includes('PORCENTAJE')&&!keys0.includes('CATEGORIA')&&!keys0.includes('STOCK');
+                if(isCostosExcel){await importCostosExcel(rows,pw,pb,pt,file.name);return;}
+                /* Y si NO es de costos, es un alta de catalogo: la pantalla correcta es
+                   Productos -> Importar Nuevos. Las dos se ven identicas y lo unico que las
+                   distingue es que boton se apreto antes, asi que soltar aca el Excel del
+                   catalogo era facilisimo. Antes esta rama daba de alta sin comparar contra
+                   NADA y duplicaba el catalogo entero, en silencio. Ahora arma las filas con
+                   el mismo codigo que la otra pantalla -que si compara- y avisa donde va. */
+                const r=armarProductosDesdeFilas(rows,'');
+                if(!r.prods.length){
+                    pw.style.display='none';
+                    showAdminToast(r.duplicados?'Todos los productos ya existen ('+r.duplicados+' duplicados)':'Sin productos validos','error');
+                    excelInput.value='';
+                    return;
+                }
+                pw.style.display='none';
+                const avisos=avisosDeImportacion(r);
+                const seguir=await pedirConfirmacion('Este archivo no es una lista de costos: trae CATEGORIA o STOCK, así que da de alta productos nuevos.\n\nEso se hace desde Productos → Importar Nuevos, que además deja elegir la lista de proveedor del lote.\n\nDesde acá se pueden agregar los '+r.prods.length+' nuevos'+(r.duplicados?' ('+r.duplicados+' ya existen y se omiten)':'')+', pero quedan sin lista.'+(avisos.length?'\n\n'+avisos.join('\n\n'):'')+'\n\n¿Agregarlos igual?',{titulo:'Este archivo va en Importar Nuevos',aceptar:'Agregar igual',icono:'bi-exclamation-triangle'});
+                if(!seguir){excelInput.value='';return;}
+                pw.style.display='block';
+                pb.style.width='50%';pt.textContent='Subiendo '+r.prods.length+'...';
+                await subirLoteProductos(r.prods,pb,pt);
+                pb.style.width='100%';
+                const cola=(r.duplicados?' ('+r.duplicados+' duplicados omitidos)':'')+(r.repetidosArchivo?' ('+r.repetidosArchivo+' repetidos del archivo)':'');
+                pt.textContent=r.prods.length+' productos cargados!'+cola;
+                showAdminToast(r.prods.length+' importados'+cola,'success');
+                logAction('importar','Importacion Excel: '+r.prods.length+' productos desde '+file.name,'Categorias: '+[...new Set(r.prods.map(p=>p.categoria))].join(', ')+cola+(r.sinPrecio?' | '+r.sinPrecio+' en $0':''));
+                await loadProducts();
+                setTimeout(()=>{pw.style.display='none';pb.style.width='0%';},3000);
+            }catch(e){
+                pw.style.display='none';
+                showAdminToast('Error: '+e.message,'error');
+            }
+            excelInput.value='';
+        }
         async function importCostosExcel(rows,pw,pb,pt,fileName){let matched=0,notFound=[],sinCosto=[],toUpdate=[];for(const row of rows){const keys=Object.keys(row);const get=opts=>{for(const o of opts){const f=keys.find(k=>k.toUpperCase().trim()===o.toUpperCase());if(f&&row[f]!=='')return row[f];}return null;};const n=get(['NOMBRE','PRODUCTO']);if(!n)continue;const nombre=String(n).trim().toLowerCase();const prod=allProducts.find(p=>(p.nombre||'').toLowerCase()===nombre);if(!prod){notFound.push(String(n).trim());continue;}/* Una fila con nombre pero sin costo usable NO se toca. Antes `parseInt(...)||0` la
                    dejaba en costo 0, calculaba precio 0, la contaba como actualizada y el aviso salia
                    en verde: un listado de proveedor con filas de subtotal, encabezados repetidos o
@@ -1779,7 +1868,122 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                    los precios del archivo viejo, mezclando dos listas de proveedor. Ahora la
                    lista es local y muere con la funcion. */
                 toUpdate.push({id:prod.id,nombre:prod.nombre,datos:{costo,porcentaje:pct,precio}});matched++;}if(!matched){pw.style.display='none';showAdminToast(sinCosto.length?('Ninguna fila traia un costo valido ('+sinCosto.length+' en blanco o con texto)'):'No se encontraron coincidencias por nombre','error');return;}pb.style.width='50%';pt.textContent='Actualizando '+matched+' productos...';/* toUpdate ya viene armado arriba */let up=0;for(let i=0;i<toUpdate.length;i+=450){const batch=db.batch();toUpdate.slice(i,i+450).forEach(p=>{batch.update(db.collection('productos').doc(p.id),p.datos);});await batch.commit();up+=Math.min(450,toUpdate.length-i);pb.style.width=(50+Math.round(up/toUpdate.length*50))+'%';pt.textContent=up+'/'+toUpdate.length;}/* nada que limpiar: la lista era local */pb.style.width='100%';pt.textContent=matched+' productos actualizados!';showAdminToast(matched+' costos actualizados'+(notFound.length?' | '+notFound.length+' no encontrados':'')+(sinCosto.length?' | '+sinCosto.length+' sin costo, sin tocar':''),'success');logAction('importar','Importacion costos: '+matched+' actualizados desde '+fileName,(sinCosto.length?'Sin costo (no se tocaron): '+sinCosto.slice(0,10).join(', ')+(sinCosto.length>10?' ...y '+(sinCosto.length-10)+' mas':'')+' | ':'')+notFound.length?'No encontrados: '+notFound.slice(0,10).join(', ')+(notFound.length>10?' ...y '+(notFound.length-10)+' mas':''):'');await loadProducts();setTimeout(()=>{pw.style.display='none';pb.style.width='0%';},3000);}
-        async function processNewProductsExcel(file){if(!file.name.match(/\.xlsx?$/i)){showAdminToast('Solo .xlsx','error');return;}const pw=document.getElementById('uploadProgressNew'),pb=document.getElementById('progressBarNew'),pt=document.getElementById('progressTextNew');pw.style.display='block';pb.style.width='10%';pt.textContent='Leyendo...';try{const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array'});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});pb.style.width='30%';pt.textContent=rows.length+' filas encontradas...';const prods=[];let duplicados=0;for(const row of rows){const keys=Object.keys(row);const get=opts=>{for(const o of opts){const f=keys.find(k=>k.toUpperCase().trim()===o.toUpperCase());if(f&&row[f]!=='')return row[f];}return null;};const n=get(['NOMBRE','PRODUCTO','NAME']);if(!n)continue;const nombre=String(n).trim();const existe=allProducts.find(p=>(p.nombre||'').toLowerCase()===nombre.toLowerCase());if(existe){duplicados++;continue;}const cat=String(get(['CATEGORIA','CATEGOR\u00cdA','CATEGORY'])||'Sin categoria').trim();const sub=get(['SUBCATEGORIA','SUBCATEGOR\u00cdA','SUB-CATEGORIA'])?String(get(['SUBCATEGORIA','SUBCATEGOR\u00cdA','SUB-CATEGORIA'])).trim():null;const costo=parseInt(get(['COSTO','COST']))||0;const pct=parseFloat(get(['PORCENTAJE','%','MARGEN']))||0;const precio=Math.round(costo*(1+pct/100));prods.push({nombre:nombre,costo:costo,porcentaje:pct,precio:precio,stock:parseInt(get(['STOCK','CANTIDAD']))||0,categoria:cat,subcategoria:sub,/* Ruta RELATIVA, como el resto del sistema (renderTable, app.js, el visor). Antes se guardaba el host de Vercel adentro de cada producto importado: el dia que se cambie de dominio o se apague ese deploy, todos los importados piden la imagen a un host muerto. */imagen:'img/default-product.svg',descripcion:get(['DESCRIPCION','DESCRIPCI\u00d3N'])?String(get(['DESCRIPCION','DESCRIPCI\u00d3N'])).trim():nombre,popular:false});}if(!prods.length){pw.style.display='none';showAdminToast(duplicados?'Todos los productos ya existen ('+duplicados+' duplicados)':'Sin productos validos en el archivo','error');return;}pb.style.width='50%';pt.textContent='Subiendo '+prods.length+' nuevos...';let up=0;for(let i=0;i<prods.length;i+=450){const batch=db.batch();prods.slice(i,i+450).forEach(p=>batch.set(db.collection('productos').doc(),p));await batch.commit();up+=Math.min(450,prods.length-i);pb.style.width=(50+Math.round(up/prods.length*50))+'%';pt.textContent=up+'/'+prods.length;}pb.style.width='100%';pt.textContent=prods.length+' nuevos productos agregados!'+(duplicados?' ('+duplicados+' duplicados omitidos)':'');showAdminToast(prods.length+' nuevos importados'+(duplicados?' | '+duplicados+' duplicados omitidos':''),'success');logAction('importar','Importar nuevos: '+prods.length+' productos desde '+file.name,'Categorias: '+[...new Set(prods.map(p=>p.categoria))].join(', ')+(duplicados?' | '+duplicados+' duplicados omitidos':''));await loadProducts();setTimeout(()=>{pw.style.display='none';pb.style.width='0%';},3000);}catch(e){pw.style.display='none';showAdminToast('Error: '+e.message,'error');}excelInputNew.value='';}
+        /* Las DOS pantallas de importacion daban de alta productos con codigo distinto, y
+           por eso se portaban distinto: "Importar Nuevos" comparaba contra la base y
+           "Importar Costos" -cuando el archivo no parecia de costos- daba de alta SIN
+           comparar nada, asi que soltar ahi el Excel del catalogo duplicaba todo. Ahora
+           las filas se arman en un solo lugar. */
+        function armarProductosDesdeFilas(rows,listaLote){
+            const listaPorNombre={};listasData.forEach(l=>{listaPorNombre[claveProducto(l.nombre)]=l.id;});
+            const yaEnBase=new Set(allProducts.map(p=>claveProducto(p.nombre)));
+            /* Los que ya aceptamos de ESTE archivo: un articulo repetido dentro del mismo
+               Excel -pasa siempre: el mismo producto en dos hojas, o una vez por gramaje-
+               entraba dos veces porque solo se miraba la base. */
+            const yaEnArchivo=new Set();
+            const r={prods:[],duplicados:0,repetidosArchivo:0,sinCategoria:0,sinPrecio:0,ejemploSinPrecio:[]};
+            for(const row of rows){
+                const keys=Object.keys(row);
+                const get=opts=>{for(const o of opts){const f=keys.find(k=>k.toUpperCase().trim()===o.toUpperCase());if(f&&row[f]!=='')return row[f];}return null;};
+                const n=get(['NOMBRE','PRODUCTO','NAME']);
+                if(!n)continue;
+                const nombre=String(n).trim();
+                const clave=claveProducto(nombre);
+                if(yaEnBase.has(clave)){r.duplicados++;continue;}
+                if(yaEnArchivo.has(clave)){r.repetidosArchivo++;continue;}
+                yaEnArchivo.add(clave);
+                /* La pantalla dice que CATEGORIA es obligatoria pero el codigo nunca corto:
+                   se cuentan para avisarlo ANTES de escribir. El default se escribe igual en
+                   las dos pantallas ('Sin categoría'): con dos ortografias distintas la
+                   tienda mostraba DOS filtros para la misma cosa. */
+                const catCruda=get(['CATEGORIA','CATEGORÍA','CATEGORY']);
+                if(!catCruda)r.sinCategoria++;
+                const cat=String(catCruda||'Sin categoría').trim();
+                const subCruda=get(['SUBCATEGORIA','SUBCATEGORÍA','SUB-CATEGORIA']);
+                const costo=montoExcel(get(['COSTO','COST']));
+                const pct=porcentajeExcel(get(['PORCENTAJE','%','MARGEN']));
+                /* Si no hay costo se acepta un PRECIO de venta directo. Sin esta rama, una
+                   lista que trae precios en lugar de costos -lo normal cuando el proveedor
+                   manda el precio sugerido- entraba con TODO el catalogo en $0, y un
+                   producto en $0 ni se puede comprar: la regla de /pedidos exige total > 0. */
+                const precio=costo>0?Math.round(costo*(1+pct/100)):montoExcel(get(['PRECIO','PRICE','REDONDEO']));
+                if(precio<=0){r.sinPrecio++;if(r.ejemploSinPrecio.length<5)r.ejemploSinPrecio.push(nombre);}
+                const listaFila=get(['LISTA','PROVEEDOR']);
+                const listaId=(listaFila&&listaPorNombre[claveProducto(listaFila)])||listaLote||'';
+                const descCruda=get(['DESCRIPCION','DESCRIPCIÓN']);
+                const p={nombre:nombre,costo:costo,porcentaje:pct,precio:precio,stock:montoExcel(get(['STOCK','CANTIDAD'])),categoria:cat,subcategoria:subCruda?String(subCruda).trim():null,/* Ruta RELATIVA, como el resto del sistema (renderTable, app.js, el visor). Antes se guardaba el host de Vercel adentro de cada producto importado: el dia que se cambie de dominio o se apague ese deploy, todos los importados piden la imagen a un host muerto. */imagen:'img/default-product.svg',descripcion:descCruda?String(descCruda).trim():nombre,popular:false};
+                /* Sin `lista` el producto se importa igual, pero el formulario de producto la
+                   exige: corregir a mano un importado obligaba a elegirla a mano. */
+                if(listaId)p.lista=listaId;
+                r.prods.push(p);
+            }
+            return r;
+        }
+
+        /* Un alta masiva no se deshace con un boton: si algo viene mal tiene que verse ACA
+           y no despues de escribir mil documentos. Devuelve [] cuando no hay nada que
+           avisar, asi un archivo sano importa derecho y sin friccion. */
+        function avisosDeImportacion(r){
+            const a=[];
+            if(r.repetidosArchivo)a.push('• '+r.repetidosArchivo+' fila(s) repetidas dentro del mismo archivo: se cargan una sola vez.');
+            if(r.sinCategoria)a.push('• '+r.sinCategoria+' sin CATEGORIA: quedan en "Sin categoría", que en la tienda aparece como un filtro más.');
+            if(r.sinPrecio)a.push('• '+r.sinPrecio+' quedarían en $0 y NO se pueden comprar: '+r.ejemploSinPrecio.join(', ')+(r.sinPrecio>r.ejemploSinPrecio.length?', ...':'')+'. Revisá que el Excel traiga COSTO + PORCENTAJE, o una columna PRECIO.');
+            return a;
+        }
+
+        /* Escribe el lote en tandas de 450 y deja la barra al dia. */
+        async function subirLoteProductos(prods,pb,pt){
+            let up=0;
+            for(let i=0;i<prods.length;i+=450){
+                const batch=db.batch();
+                prods.slice(i,i+450).forEach(p=>batch.set(db.collection('productos').doc(),p));
+                await batch.commit();
+                up+=Math.min(450,prods.length-i);
+                pb.style.width=(50+Math.round(up/prods.length*50))+'%';
+                pt.textContent=up+'/'+prods.length;
+            }
+        }
+
+        async function processNewProductsExcel(file){
+            if(!file.name.match(/\.xlsx?$/i)){showAdminToast('Solo .xlsx','error');return;}
+            const pw=document.getElementById('uploadProgressNew'),pb=document.getElementById('progressBarNew'),pt=document.getElementById('progressTextNew');
+            pw.style.display='block';pb.style.width='10%';pt.textContent='Leyendo...';
+            try{
+                const data=await file.arrayBuffer();
+                const wb=XLSX.read(data,{type:'array'});
+                const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+                pb.style.width='30%';pt.textContent=rows.length+' filas encontradas...';
+                /* La lista elegida arriba vale para todo el lote; una columna LISTA la pisa
+                   fila por fila, para el archivo que junta varios proveedores. */
+                const selLista=document.getElementById('impListaNew');
+                const r=armarProductosDesdeFilas(rows,selLista?selLista.value:'');
+                if(!r.prods.length){
+                    pw.style.display='none';
+                    showAdminToast(r.duplicados?'Todos los productos ya existen ('+r.duplicados+' duplicados)':'Sin productos validos en el archivo','error');
+                    excelInputNew.value='';
+                    return;
+                }
+                const avisos=avisosDeImportacion(r);
+                if(avisos.length){
+                    pw.style.display='none';
+                    const seguir=await pedirConfirmacion('Se van a agregar '+r.prods.length+' productos'+(r.duplicados?' ('+r.duplicados+' ya existen y se omiten)':'')+'.\n\n'+avisos.join('\n\n')+'\n\n¿Importar igual?',{titulo:'Revisá antes de importar',aceptar:'Importar igual',icono:'bi-exclamation-triangle'});
+                    if(!seguir){excelInputNew.value='';return;}
+                    pw.style.display='block';
+                }
+                pb.style.width='50%';pt.textContent='Subiendo '+r.prods.length+' nuevos...';
+                await subirLoteProductos(r.prods,pb,pt);
+                pb.style.width='100%';
+                const cola=(r.duplicados?' ('+r.duplicados+' duplicados omitidos)':'')+(r.repetidosArchivo?' ('+r.repetidosArchivo+' repetidos del archivo)':'');
+                pt.textContent=r.prods.length+' nuevos productos agregados!'+cola;
+                showAdminToast(r.prods.length+' nuevos importados'+cola,'success');
+                logAction('importar','Importar nuevos: '+r.prods.length+' productos desde '+file.name,'Categorias: '+[...new Set(r.prods.map(p=>p.categoria))].join(', ')+cola+(r.sinPrecio?' | '+r.sinPrecio+' en $0':''));
+                await loadProducts();
+                setTimeout(()=>{pw.style.display='none';pb.style.width='0%';},3000);
+            }catch(e){
+                pw.style.display='none';
+                showAdminToast('Error: '+e.message,'error');
+            }
+            excelInputNew.value='';
+        }
         async function cleanDuplicates(){if(!allProducts.length){showAdminToast('Cargando productos...','info');return;}const norm=s=>(s||'').toLowerCase().replace(/\s+/g,' ').trim();const groups={};allProducts.forEach(p=>{const key=norm(p.nombre);if(!key)return;if(!groups[key])groups[key]=[];groups[key].push(p);});const dupes=Object.values(groups).filter(g=>g.length>1);if(!dupes.length){showAdminToast('No hay duplicados','success');return;}let totalDupes=0;dupes.forEach(g=>totalDupes+=g.length-1);let msg='Se encontraron '+dupes.length+' nombres repetidos ('+totalDupes+' copias a eliminar).\n\n';msg+='Ejemplos:\n'+dupes.slice(0,8).map(g=>'"'+g[0].nombre+'" ('+g.length+' veces)').join('\n');if(dupes.length>8)msg+='\n...y '+(dupes.length-8)+' mas';msg+='\n\nSe conserva el que tenga imagen. Continuar?';if(!await pedirConfirmacion(msg,{titulo:'Eliminar duplicados',aceptar:'Eliminar duplicados',peligro:true}))return;showAdminToast('Eliminando duplicados...','info');let deleted=0;for(const group of dupes){group.sort((a,b)=>{let sa=0,sb=0;if(a.imagen)sa+=100;if(a.costo>0)sa+=10;if(a.categoria&&a.categoria!=='POR CLASIFICAR'&&a.categoria!=='Sin categoria')sa+=5;if(a.stock>0)sa+=2;if(b.imagen)sb+=100;if(b.costo>0)sb+=10;if(b.categoria&&b.categoria!=='POR CLASIFICAR'&&b.categoria!=='Sin categoria')sb+=5;if(b.stock>0)sb+=2;return sb-sa;});const toDelete=group.slice(1);for(let i=0;i<toDelete.length;i+=450){const batch=db.batch();toDelete.slice(i,i+450).forEach(p=>batch.delete(db.collection('productos').doc(p.id)));await batch.commit();deleted+=Math.min(450,toDelete.length-i);}}logAction('eliminar','Limpieza duplicados: '+deleted+' eliminados de '+dupes.length+' grupos','');showAdminToast(deleted+' duplicados eliminados','success');await loadProducts();}
         let roundMode='all',roundSelectedIds=[],roundPreviewData=[],roundPage=0;
         function roundPrice(p){if(p<=100)return Math.ceil(p/10)*10;if(p<=1000)return Math.ceil(p/50)*50;return Math.ceil(p/100)*100;}
@@ -4335,7 +4539,7 @@ async function previewEditorImg(input,field){
         function buildFacturaA4Items(items){let h='<div class="fa4-items">';items.forEach(i=>{const dsc=i.descuento||0;const precioUnit=dsc>0?Math.round((i.precioOriginal||i.precio||0)*(1-dsc/100)):(i.precio||0);const nombreCol=esc(i.nombre)+(dsc>0?' <span style="color:#c62828;font-weight:700;font-size:0.62rem">(-'+dsc+'%)</span>':'');h+='<div class="factura-line" style="display:flex;justify-content:space-between;font-size:0.68rem"><span style="flex:1">'+nombreCol+'</span><span style="width:35px;text-align:center">'+i.cantidad+'</span><span style="width:70px;text-align:right">$'+precioUnit.toLocaleString('es-AR')+'</span><span style="width:80px;text-align:right">$'+(i.subtotal||0).toLocaleString('es-AR')+'</span></div>';});h+='</div>';return h;}
         function buildFacturaA4Footer(fc,v,esRetiro,pageInfo){const subtProd=v.subtotalProductos||v.total||0;const envio=v.envio!=null?v.envio:0;const total=v.total||0;const descPct=v.descuentoPct||0;const descMonto=v.descuentoMonto||0;let h='<div class="fa4-footer"><div style="border-top:1px solid #999;margin-top:8px;padding-top:6px;font-size:0.85rem"><div style="display:flex;justify-content:space-between"><span>Subtotal productos</span><span>$'+subtProd.toLocaleString('es-AR')+'</span></div>';if(descPct>0)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Descuento ('+descPct+'%)</span><span>-$'+descMonto.toLocaleString('es-AR')+'</span></div>';/* El cupon se restaba del total al guardar la venta pero no se imprimia como renglon: subtotal - descuento + envio daba MAS que el TOTAL de abajo, y ni el cliente que suma el papel ni el que atiende tenian con que explicar la diferencia. Se topea igual que en calcularTotalesVenta (contra lo que queda despues del descuento) para que los renglones sumen EXACTO el TOTAL guardado. */var _cupA4=v.cupon||null;var _cupMontoA4=_cupA4?Math.min(Math.max(0,Number(_cupA4.monto||0)),Math.max(0,subtProd-descMonto)):0;if(_cupMontoA4>0)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Cupón '+esc(_cupA4.codigo||'')+'</span><span>-$'+_cupMontoA4.toLocaleString('es-AR')+'</span></div>';if(!esRetiro)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Env\u00edo</span><span style="'+(envio===0?'color:#27ae60;font-weight:600':'')+'">'+(envio===0?'GRATIS':'$'+envio.toLocaleString('es-AR'))+'</span></div>';h+='</div>';h+='<div class="factura-total" style="display:flex;justify-content:space-between;border-top:2px solid #111;margin-top:8px;padding-top:8px;font-size:1.1rem;font-weight:700"><span>TOTAL</span><span>$'+total.toLocaleString('es-AR')+'</span></div>';if(fc.pie)h+='<div style="text-align:center;margin-top:12px;font-size:0.7rem;color:#888">'+esc(fc.pie)+'</div>';h+='<div style="text-align:center;margin-top:8px;font-size:0.6rem;color:#aaa;letter-spacing:1px;text-transform:uppercase">No valido como factura</div>';/* pageInfo NO se muestra */h+='</div>';return h;}
         function buildFacturaA4HTML(docId){const v=ventasData.find(x=>x.docId===docId);if(!v)return'';const f=v.fecha;const fecha=f.toLocaleDateString('es-AR');const nro='00001-'+String(v.numero||0).padStart(8,'0');const fc=facturaConfig;const esRetiro=v.tipoEntrega==='retiro';const allItems=v.items||[];const pages=splitItemsContinuous(allItems,a4CapPrimera(),a4CapMedio(),a4CapUltima());let out='';for(let p=0;p<pages.length;p++){const pg=pages[p];let pageContent='';if(pg.type==='single'){pageContent=buildFacturaA4Header(fc,v,fecha,nro,esRetiro)+buildFacturaA4Items(pg.items)+buildFacturaA4Footer(fc,v,esRetiro,'');}else if(pg.type==='first'){pageContent=buildFacturaA4Header(fc,v,fecha,nro,esRetiro)+buildFacturaA4Items(pg.items);}else if(pg.type==='middle'){pageContent=buildFacturaA4Items(pg.items);}else if(pg.type==='last'){pageContent=buildFacturaA4Items(pg.items)+buildFacturaA4Footer(fc,v,esRetiro,'');}out+='<div class="fa4-page fa4-page-'+pg.type+'">'+pageContent+'</div>';}return out;}
-        function renderFcePreview(){const g=id=>document.getElementById(id)?.value||'';const p=document.getElementById('fcePreview');if(!p)return;const fc={logo:fceLogoFile?URL.createObjectURL(fceLogoFile):(document.getElementById('fce_logoPreview')?.src||''),agradecimiento:g('fce_agradecimiento'),subtitulo:g('fce_subtitulo'),nombre:g('fce_nombre'),direccion:g('fce_direccion'),telefono:facturaConfig.telefono||'',email:g('fce_email'),cuit:g('fce_cuit'),instagram:g('fce_instagram'),whatsapp:g('fce_whatsapp'),slogan:g('fce_slogan')};if(fc.logo&&fc.logo.endsWith('admin.html'))fc.logo='';const items=[{nombre:'Producto ejemplo',cantidad:2,precio:5000,subtotal:10000},{nombre:'Otro producto',cantidad:1,precio:3500,subtotal:3500},{nombre:'Tercer producto',cantidad:3,precio:8200,subtotal:24600}];p.innerHTML=buildEtiquetaHTML(fc,items,new Date().toLocaleDateString('es-AR'),'00001','https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://brotesdietetica.vercel.app','Cliente Ejemplo');}
+        function renderFcePreview(){const g=id=>document.getElementById(id)?.value||'';const p=document.getElementById('fcePreview');if(!p)return;const fc={logo:fceLogoFile?URL.createObjectURL(fceLogoFile):(document.getElementById('fce_logoPreview')?.src||''),agradecimiento:g('fce_agradecimiento'),subtitulo:g('fce_subtitulo'),nombre:g('fce_nombre'),direccion:g('fce_direccion'),telefono:facturaConfig.telefono||'',email:g('fce_email'),cuit:g('fce_cuit'),instagram:g('fce_instagram'),whatsapp:g('fce_whatsapp'),slogan:g('fce_slogan')};if(fc.logo&&fc.logo.endsWith('admin.html'))fc.logo='';const items=[{nombre:'Producto ejemplo',cantidad:2,precio:5000,subtotal:10000},{nombre:'Otro producto',cantidad:1,precio:3500,subtotal:3500},{nombre:'Tercer producto',cantidad:3,precio:8200,subtotal:24600}];p.innerHTML=buildEtiquetaHTML(fc,items,new Date().toLocaleDateString('es-AR'),'00001','https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://brotesdietetica.vercel.app','Cliente Ejemplo',/* La vista previa cortaba los argumentos en el cliente y no pasaba tipoEntrega. buildEtiquetaHTML hace `esRetiro = tipoEntrega==='retiro'`, asi que undefined caia siempre en la rama de envio: la etiqueta de ejemplo mostraba "Envio a domicilio" y, como el ejemplo no tiene costo de envio, "Envio GRATIS", aunque el comercio tuviera los envios apagados en Configuracion. */HACE_ENVIOS?'envio':'retiro');}
         async function saveFacturaFromEditor(){const btn=document.getElementById('saveFcEditorBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{let logoUrl=facturaConfig.logo||'';if(fceLogoFile){const c=await compressImage(fceLogoFile,400,0.8);if(!hayEspacio(c.size))throw new Error('Sin espacio disponible');const ref=storage.ref('config/logo-factura.jpg');await ref.put(c,{contentType:'image/jpeg'});logoUrl=await ref.getDownloadURL();}let qrUrl=facturaConfig.qr||'';facturaConfig={nombre:document.getElementById('fce_nombre').value.trim(),direccion:document.getElementById('fce_direccion').value.trim(),/* El telefono se imprime en el ticket y no habia forma de cambiarlo: el editor no
                    tenia el campo y esta linea lo unico que hacia era arrastrar el valor sembrado.
                    Si el comercio cambiaba de numero, seguia imprimiendo el viejo para siempre. */
@@ -4442,12 +4646,15 @@ async function previewEditorImg(input,field){
         }
 
         function renderListaFilterSelect(){
-            ['filterLista','rlFiltroLista','rlDestinoLista'].forEach(sid=>{
+            ['filterLista','rlFiltroLista','rlDestinoLista','impListaNew'].forEach(sid=>{
                 const sel=document.getElementById(sid);
                 if(!sel)return;
                 const isDestino=sid==='rlDestinoLista';
+                /* El de Importar Nuevos no filtra nada: elige a que lista queda atado
+                   el lote entero, y "sin lista" es una opcion valida. */
+                const isImport=sid==='impListaNew';
                 const cur=sel.value;
-                sel.innerHTML=(isDestino?'<option value="">Elegir lista...</option>':'<option value="">Todas las listas</option>')+
+                sel.innerHTML=(isDestino?'<option value="">Elegir lista...</option>':isImport?'<option value="">Sin lista</option>':'<option value="">Todas las listas</option>')+
                     listasData.map(l=>'<option value="'+l.id+'">'+l.nombre+'</option>').join('');
                 if(cur)sel.value=cur;
             });
