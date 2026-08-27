@@ -347,7 +347,10 @@
         .venta-descuento-row input:focus{outline:none;border-color:var(--accent-light)}
         .p-items-toggle{cursor:pointer}
         .p-items-toggle:hover{color:var(--accent-light)}
-        .venta-card{padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s}.venta-card:hover{background:var(--bg-input)}.venta-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}.venta-card-num{font-family:var(--mono);font-size:0.75rem;color:var(--accent-light)}.venta-card-total{font-family:var(--mono);font-weight:700;color:var(--accent-light)}.venta-card-mid{font-size:0.82rem;margin-bottom:3px}.venta-card-bot{display:flex;gap:10px;font-size:0.72rem;color:var(--text-dim)}.venta-card-actions{display:flex;gap:6px;margin-top:6px}.venta-card-actions button{font-size:0.75rem;padding:3px 8px}.v-items{display:none}.v-items.show{display:block}
+        .venta-card{padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s}.venta-card:hover{background:var(--bg-input)}.venta-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}.venta-card-num{font-family:var(--mono);font-size:0.75rem;color:var(--accent-light)}
+        /* Solo la tarjeta mayorista lleva el nombre del cliente en la fila de arriba.
+           Va flexible y recortado: un nombre largo no puede empujar el total fuera. */
+        .venta-card-cliente{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.82rem;color:var(--text);margin:0 0.6rem}.venta-card-total{font-family:var(--mono);font-weight:700;color:var(--accent-light)}.venta-card-mid{font-size:0.82rem;margin-bottom:3px}.venta-card-bot{display:flex;gap:10px;font-size:0.72rem;color:var(--text-dim)}.venta-card-actions{display:flex;gap:6px;margin-top:6px}.venta-card-actions button{font-size:0.75rem;padding:3px 8px}.v-items{display:none}.v-items.show{display:block}
         .cliente-card{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--border);transition:background 0.15s;gap:12px}.cliente-card:hover{background:var(--bg-input)}.cliente-info{flex:1;min-width:0}.cliente-name{font-weight:600;font-size:0.9rem;margin-bottom:2px}.cliente-detail{font-size:0.75rem;color:var(--text-dim);display:flex;gap:12px;flex-wrap:wrap}.cliente-actions{display:flex;gap:6px;flex-shrink:0}.cliente-actions button{font-size:0.75rem;padding:3px 8px}
         .ch-items.show{display:block!important}
         .cliente-select-wrap{position:relative}.cliente-select-list{display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:210;box-shadow:0 4px 12px rgba(0,0,0,0.3)}.cliente-select-list.open{display:block}.cliente-select-item{padding:8px 12px;cursor:pointer;font-size:0.82rem;transition:background 0.15s;display:flex;justify-content:space-between}.cliente-select-item:hover{background:var(--bg-hover)}.cliente-select-item small{color:var(--text-dim)}
@@ -5356,10 +5359,10 @@ async function previewEditorImg(input,field){
             var nitems=(v.items||[]).length;
             var id=v.id;
             var html='<div class="venta-card">';
-            html+='<div class="venta-card-header"><span class="venta-num">'+num+'</span>';
-            html+='<span class="venta-cliente">'+esc(v.cliente||'\u2014')+'</span>';
-            html+='<span class="venta-total">$'+(v.total||0).toLocaleString('es-AR')+'</span></div>';
-            html+='<div class="venta-card-meta">';
+            html+='<div class="venta-card-top"><span class="venta-card-num">'+num+'</span>';
+            html+='<span class="venta-card-cliente">'+esc(v.cliente||'\u2014')+'</span>';
+            html+='<span class="venta-card-total">$'+(v.total||0).toLocaleString('es-AR')+'</span></div>';
+            html+='<div class="venta-card-bot">';
             html+='<span>'+fecha+'</span>';
             html+='<span>'+esc(v.medioPago||'\u2014')+'</span>';
             html+='<span>'+nitems+' item'+(nitems!==1?'s':'')+'</span>';
