@@ -519,7 +519,7 @@
       </div>
     </div>
     <div class="section-content" id="sec-excel"><div class="toolbar" style="margin-bottom:1rem"><button class="btn btn-secondary" style="width:auto" onclick="switchSection('products')"><i class="bi bi-arrow-left"></i> Volver</button></div><div class="drop-zone" id="dropZone"><i class="bi bi-cloud-arrow-up"></i><p>Arrastre el Excel aquí o haga clic</p><p class="hint">.xlsx</p></div><input type="file" class="file-input-hidden" id="excelInput" accept=".xlsx,.xls"><div class="upload-progress" id="uploadProgress"><div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div><p class="progress-text" id="progressText">Procesando...</p></div><div class="format-info"><h4><i class="bi bi-info-circle"></i> Importar Costos</h4><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Este Excel actualiza costo y porcentaje de productos <strong>existentes</strong> (matchea por nombre).</p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas: <strong>NOMBRE, COSTO, PORCENTAJE</strong></p><p style="font-size:0.78rem;color:var(--text-dim)">El precio se recalcula automaticamente. No modifica imagen, stock ni categoria.</p></div></div>
-    <div class="section-content" id="sec-excelNew"><div class="toolbar" style="margin-bottom:1rem"><button class="btn btn-secondary" style="width:auto" onclick="switchSection('products')"><i class="bi bi-arrow-left"></i> Volver</button></div><div class="form-group" style="max-width:340px;margin-bottom:1rem"><label for="impListaNew">Lista de proveedor <span style="font-size:0.72rem;color:var(--text-dim);font-weight:normal">(se le pone a todo el lote)</span></label><select class="form-input" id="impListaNew"><option value="">Sin lista</option></select><p style="font-size:0.75rem;color:var(--text-dim);margin-top:4px">Si el Excel trae una columna LISTA con el nombre, esa manda. Sin lista el producto se importa igual, pero al editarlo a mano el formulario la va a pedir.</p></div><div class="drop-zone" id="dropZoneNew"><i class="bi bi-cloud-arrow-up"></i><p>Arrastre el Excel aquí o haga clic</p><p class="hint">.xlsx</p></div><input type="file" class="file-input-hidden" id="excelInputNew" accept=".xlsx,.xls"><div class="upload-progress" id="uploadProgressNew" style="display:none"><div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBarNew"></div></div><p class="progress-text" id="progressTextNew">Procesando...</p></div><div class="format-info"><h4><i class="bi bi-info-circle"></i> Importar Nuevos Productos</h4><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Este Excel <strong>agrega productos nuevos</strong> a la base de datos.</p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas obligatorias: <strong>NOMBRE, CATEGORIA</strong></p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas opcionales: <strong>SUBCATEGORIA, COSTO, PORCENTAJE, PRECIO, STOCK, LISTA, DESCRIPCION</strong></p><p style="font-size:0.78rem;color:var(--text-dim)">El precio sale de <strong>COSTO x (1 + PORCENTAJE/100)</strong>. Si no hay costo se usa la columna <strong>PRECIO</strong>. Si no hay ninguna de las dos, el producto queda en $0 y <strong>no se puede comprar</strong>: antes de importar se avisa cuántos quedarían así.</p><p style="font-size:0.78rem;color:var(--text-dim)">Los importes se leen como en cualquier lista argentina: <strong>20.000</strong> son veinte mil y <strong>1.234,56</strong> tiene decimales. Antes de importar se muestra un resumen con lo que se va a cargar.</p></div></div>
+    <div class="section-content" id="sec-excelNew"><div class="toolbar" style="margin-bottom:1rem"><button class="btn btn-secondary" style="width:auto" onclick="switchSection('products')"><i class="bi bi-arrow-left"></i> Volver</button></div><div class="form-group" style="max-width:340px;margin-bottom:1rem"><label for="impListaNew">Lista de proveedor <span style="font-size:0.72rem;color:var(--text-dim);font-weight:normal">(se le pone a todo el lote)</span></label><select class="form-input" id="impListaNew"><option value="">Sin lista</option></select><p style="font-size:0.75rem;color:var(--text-dim);margin-top:4px">Si el Excel trae una columna LISTA con el nombre, esa manda. Sin lista el producto se importa igual, pero al editarlo a mano el formulario la va a pedir.</p></div><div class="drop-zone" id="dropZoneNew"><i class="bi bi-cloud-arrow-up"></i><p>Arrastre el Excel aquí o haga clic</p><p class="hint">.xlsx</p></div><input type="file" class="file-input-hidden" id="excelInputNew" accept=".xlsx,.xls"><div class="upload-progress" id="uploadProgressNew" style="display:none"><div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBarNew"></div></div><p class="progress-text" id="progressTextNew">Procesando...</p></div><div class="format-info"><h4><i class="bi bi-info-circle"></i> Importar Nuevos Productos</h4><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Este Excel <strong>agrega productos nuevos</strong> a la base de datos.</p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas obligatorias: <strong>NOMBRE, CATEGORIA</strong></p><p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.5rem">Columnas opcionales: <strong>CODIGO, SUBCATEGORIA, COSTO, PORCENTAJE, PRECIO, STOCK, TIPOVENTA, LISTA, DESCRIPCION</strong></p><p style="font-size:0.78rem;color:var(--text-dim)">Sin columna <strong>CODIGO</strong> se asigna uno solo (P-0001, P-0002…). Con <strong>TIPOVENTA</strong> en <em>peso</em> el producto se vende a granel y el precio se toma <strong>por kilo</strong>; cualquier otra cosa es por unidad.</p><p style="font-size:0.78rem;color:var(--text-dim)">El precio sale de <strong>COSTO x (1 + PORCENTAJE/100)</strong>. Si no hay costo se usa la columna <strong>PRECIO</strong>. Si no hay ninguna de las dos, el producto queda en $0 y <strong>no se puede comprar</strong>: antes de importar se avisa cuántos quedarían así.</p><p style="font-size:0.78rem;color:var(--text-dim)">Los importes se leen como en cualquier lista argentina: <strong>20.000</strong> son veinte mil y <strong>1.234,56</strong> tiene decimales. Antes de importar se muestra un resumen con lo que se va a cargar.</p></div></div>
     <div class="section-content" id="sec-clientesAuth">
       <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
         <div style="flex:1;min-width:120px;background:var(--bg-card);padding:0.75rem;border-radius:var(--radius)"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Total clientes</div><strong style="font-size:1.2rem;color:var(--accent-light)" id="caStatTotal">0</strong></div>
@@ -2043,11 +2043,26 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function armarProductosDesdeFilas(rows,listaLote){
             const listaPorNombre={};listasData.forEach(l=>{listaPorNombre[claveProducto(l.nombre)]=l.id;});
             const yaEnBase=new Set(allProducts.map(p=>claveProducto(p.nombre)));
+            /* El codigo de producto es obligatorio y unico (validarCodigoProducto), asi
+               que la importacion tiene que asignarlo: si no, un catalogo de 800 filas
+               entra sin codigo y el formulario lo pide de a uno al editar cualquiera.
+               Se respeta una columna CODIGO si viene, y para el resto se genera con el
+               mismo formato que sugiere el panel (P-0001). El contador arranca en la
+               cantidad de productos que ya hay, igual que sugerirCodigoProducto. */
+            const codigosUsados=new Set(allProducts.map(p=>normCodigo(p.codigo)).filter(Boolean));
+            let proximoNro=allProducts.length+1;
+            const codigoLibre=()=>{
+                for(let i=0;i<100000;i++){
+                    const c='P-'+String(proximoNro++).padStart(4,'0');
+                    if(!codigosUsados.has(c))return c;
+                }
+                return 'P-'+String(Date.now()).slice(-8);
+            };
             /* Los que ya aceptamos de ESTE archivo: un articulo repetido dentro del mismo
                Excel -pasa siempre: el mismo producto en dos hojas, o una vez por gramaje-
                entraba dos veces porque solo se miraba la base. */
             const yaEnArchivo=new Set();
-            const r={prods:[],duplicados:0,repetidosArchivo:0,sinCategoria:0,sinPrecio:0,ejemploSinPrecio:[]};
+            const r={prods:[],duplicados:0,repetidosArchivo:0,sinCategoria:0,sinPrecio:0,ejemploSinPrecio:[],codigosCorregidos:0,ejemploCodigo:[]};
             for(const row of rows){
                 const keys=Object.keys(row);
                 const get=opts=>{for(const o of opts){const f=keys.find(k=>k.toUpperCase().trim()===o.toUpperCase());if(f&&row[f]!=='')return row[f];}return null;};
@@ -2077,7 +2092,25 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 const listaFila=get(['LISTA','PROVEEDOR']);
                 const listaId=(listaFila&&listaPorNombre[claveProducto(listaFila)])||listaLote||'';
                 const descCruda=get(['DESCRIPCION','DESCRIPCIÓN']);
-                const p={nombre:nombre,costo:costo,porcentaje:pct,precio:precio,stock:montoExcel(get(['STOCK','CANTIDAD'])),categoria:cat,subcategoria:subCruda?String(subCruda).trim():null,/* Ruta RELATIVA, como el resto del sistema (renderTable, app.js, el visor). Antes se guardaba el host de Vercel adentro de cada producto importado: el dia que se cambie de dominio o se apague ese deploy, todos los importados piden la imagen a un host muerto. */imagen:'img/default-product.svg',descripcion:descCruda?String(descCruda).trim():nombre,popular:false};
+                /* Codigo: se respeta el del archivo si es valido y no choca; si no, se
+                   genera. Se avisa solo cuando VENIA uno y hubo que reemplazarlo, que es
+                   lo unico sorpresivo: que un archivo sin columna CODIGO reciba codigos
+                   automaticos es lo esperable y no tiene por que interrumpir. */
+                let codigo=normCodigo(get(['CODIGO','COD','SKU']));
+                if(codigo&&(codigo.length>40||!/^[A-Z0-9._\-]+$/.test(codigo)||codigosUsados.has(codigo))){
+                    r.codigosCorregidos++;
+                    if(r.ejemploCodigo.length<5)r.ejemploCodigo.push(nombre+' ('+codigo+')');
+                    codigo='';
+                }
+                if(!codigo)codigo=codigoLibre();
+                codigosUsados.add(codigo);
+                /* tipoVenta se escribe siempre y no se deja ausente: con 'peso' el precio
+                   es POR KILO y la cantidad va en gramos (subtotalCarrito divide por
+                   1000). Un producto a granel importado como 'unidad' se cobraria mil
+                   veces de menos, asi que es mejor que el campo este explicito. */
+                const ventaCruda=String(get(['TIPOVENTA','TIPO DE VENTA','VENTA','UNIDAD'])||'').trim().toLowerCase();
+                const tipoVenta=/^(peso|kg|kilo|gramo|granel)/.test(ventaCruda)?'peso':'unidad';
+                const p={nombre:nombre,codigo:codigo,tipoVenta:tipoVenta,costo:costo,porcentaje:pct,precio:precio,stock:montoExcel(get(['STOCK','CANTIDAD'])),categoria:cat,subcategoria:subCruda?String(subCruda).trim():null,/* Ruta RELATIVA, como el resto del sistema (renderTable, app.js, el visor). Antes se guardaba el host de Vercel adentro de cada producto importado: el dia que se cambie de dominio o se apague ese deploy, todos los importados piden la imagen a un host muerto. */imagen:'img/default-product.svg',descripcion:descCruda?String(descCruda).trim():nombre,popular:false};
                 /* Sin `lista` el producto se importa igual, pero el formulario de producto la
                    exige: corregir a mano un importado obligaba a elegirla a mano. */
                 if(listaId)p.lista=listaId;
@@ -2094,6 +2127,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             if(r.repetidosArchivo)a.push('• '+r.repetidosArchivo+' fila(s) repetidas dentro del mismo archivo: se cargan una sola vez.');
             if(r.sinCategoria)a.push('• '+r.sinCategoria+' sin CATEGORIA: quedan en "Sin categoría", que en la tienda aparece como un filtro más.');
             if(r.sinPrecio)a.push('• '+r.sinPrecio+' quedarían en $0 y NO se pueden comprar: '+r.ejemploSinPrecio.join(', ')+(r.sinPrecio>r.ejemploSinPrecio.length?', ...':'')+'. Revisá que el Excel traiga COSTO + PORCENTAJE, o una columna PRECIO.');
+            if(r.codigosCorregidos)a.push('• '+r.codigosCorregidos+' traían un CODIGO inválido o ya usado y se les asignó uno nuevo: '+r.ejemploCodigo.join(', ')+(r.codigosCorregidos>r.ejemploCodigo.length?', ...':'')+'. El código admite letras, números, punto, guion y guion bajo, hasta 40.');
             return a;
         }
 

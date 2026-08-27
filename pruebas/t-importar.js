@@ -37,12 +37,13 @@ const montoExcel = new Function(cuerpo('montoExcel') + '\nreturn montoExcel;')()
 const porcentajeExcel = new Function(cuerpo('porcentajeExcel') + '\nreturn porcentajeExcel;')();
 const claveProducto = new Function(cuerpo('claveProducto') + '\nreturn claveProducto;')();
 const avisosDeImportacion = new Function(cuerpo('avisosDeImportacion') + '\nreturn avisosDeImportacion;')();
+const normCodigo = new Function(cuerpo('normCodigo') + '\nreturn normCodigo;')();
 /* armarProductosDesdeFilas mira listasData y allProducts, que en el panel son
    globales. Se las inyectamos. */
 const armarCon = (allProducts, listasData) => new Function(
-  'allProducts', 'listasData', 'claveProducto', 'montoExcel', 'porcentajeExcel',
+  'allProducts', 'listasData', 'claveProducto', 'montoExcel', 'porcentajeExcel', 'normCodigo',
   cuerpo('armarProductosDesdeFilas') + '\nreturn armarProductosDesdeFilas;'
-)(allProducts, listasData, claveProducto, montoExcel, porcentajeExcel);
+)(allProducts, listasData, claveProducto, montoExcel, porcentajeExcel, normCodigo);
 
 let ok = 0, fail = 0;
 const t = (d, c, extra) => {
@@ -113,6 +114,53 @@ t('sin CATEGORIA queda "Sin categoría" (con acento, igual que la otra pantalla)
 t('se cuenta para avisarlo antes de escribir', r.sinCategoria === 1, r.sinCategoria);
 t('la lista del lote se estampa en todos', porNombre('Almendras').lista === 'lst-lote', porNombre('Almendras').lista);
 t('una columna LISTA pisa a la del lote', porNombre('Con lista propia').lista === 'lst-1', porNombre('Con lista propia').lista);
+
+/* ---------- codigo de producto y tipo de venta ---------- */
+/* Desde que existe la venta por peso, el codigo es obligatorio y unico
+   (validarCodigoProducto en admin.html). Si la importacion no lo asigna, un
+   catalogo de 800 filas entra sin codigo y el formulario lo pide de a uno. */
+console.log('\nEl codigo de producto: obligatorio y unico');
+const filasCod = [
+  { NOMBRE: 'Uno', CATEGORIA: 'A', PRECIO: 100 },
+  { NOMBRE: 'Dos', CATEGORIA: 'A', PRECIO: 100 },
+  { NOMBRE: 'Tres', CATEGORIA: 'A', PRECIO: 100, CODIGO: 'yerba-1kg' },
+  { NOMBRE: 'Cuatro', CATEGORIA: 'A', PRECIO: 100, CODIGO: 'P-0001' },
+  { NOMBRE: 'Cinco', CATEGORIA: 'A', PRECIO: 100, CODIGO: 'yerba 1kg' },
+  { NOMBRE: 'Seis', CATEGORIA: 'A', PRECIO: 100, CODIGO: 'con espacio y $imbolo!' }
+];
+const rc = armarCon([{ nombre: 'Existente', codigo: 'P-0001' }], [])(filasCod, '');
+const cod = (n) => (rc.prods.find(p => p.nombre === n) || {}).codigo;
+t('todos los productos salen con codigo', rc.prods.every(p => !!p.codigo), rc.prods.map(p => p.codigo).join(','));
+t('los codigos del lote no se repiten', new Set(rc.prods.map(p => p.codigo)).size === rc.prods.length, rc.prods.map(p => p.codigo).join(','));
+t('ninguno pisa un codigo que ya esta en la base', !rc.prods.some(p => p.codigo === 'P-0001'), cod('Cuatro'));
+t('el formato generado es el que sugiere el panel', /^P-\d{4}$/.test(cod('Uno')), cod('Uno'));
+t('un CODIGO del archivo se respeta, normalizado', cod('Tres') === 'YERBA-1KG', cod('Tres'));
+t('un CODIGO repetido en el archivo se reemplaza', cod('Cinco') !== 'YERBA-1KG' && /^P-\d{4}$/.test(cod('Cinco')), cod('Cinco'));
+t('un CODIGO con caracteres invalidos se reemplaza', /^P-\d{4}$/.test(cod('Seis')), cod('Seis'));
+t('se cuentan los reemplazados para avisarlos', rc.codigosCorregidos === 3, rc.codigosCorregidos);
+t('avisa de los codigos reemplazados', avisosDeImportacion(rc).some(a => /CODIGO inválido o ya usado/.test(a)));
+t('pero un archivo SIN columna CODIGO no interrumpe',
+  avisosDeImportacion(armarCon([], [])([{ NOMBRE: 'Sal', CATEGORIA: 'A', PRECIO: 100 }], '')).length === 0);
+
+console.log('\nTipo de venta: por unidad o a granel');
+const filasVenta = [
+  { NOMBRE: 'Fideos', CATEGORIA: 'A', PRECIO: 100 },
+  { NOMBRE: 'Nueces', CATEGORIA: 'A', PRECIO: 18000, TIPOVENTA: 'peso' },
+  { NOMBRE: 'Avena', CATEGORIA: 'A', PRECIO: 4000, TIPOVENTA: 'KG' },
+  { NOMBRE: 'Granola', CATEGORIA: 'A', PRECIO: 5000, TIPOVENTA: 'granel' },
+  { NOMBRE: 'Yerba', CATEGORIA: 'A', PRECIO: 9000, TIPOVENTA: 'unidad' }
+];
+const rv = armarCon([], [])(filasVenta, '');
+const tv = (n) => (rv.prods.find(p => p.nombre === n) || {}).tipoVenta;
+/* Se escribe SIEMPRE y no se deja ausente: con 'peso' el precio es por kilo y la
+   cantidad va en gramos (subtotalCarrito divide por 1000). Un producto a granel
+   importado como 'unidad' se cobraria mil veces de menos. */
+t('sin columna queda por unidad', tv('Fideos') === 'unidad', tv('Fideos'));
+t('"peso" es a granel', tv('Nueces') === 'peso', tv('Nueces'));
+t('"KG" tambien, sin importar mayusculas', tv('Avena') === 'peso', tv('Avena'));
+t('"granel" tambien', tv('Granola') === 'peso', tv('Granola'));
+t('"unidad" es por unidad', tv('Yerba') === 'unidad', tv('Yerba'));
+t('el campo nunca queda ausente', rv.prods.every(p => p.tipoVenta === 'peso' || p.tipoVenta === 'unidad'));
 
 console.log('\nEl aviso previo a escribir');
 t('cuenta los que quedarian en $0', r.sinPrecio === 2, r.sinPrecio);
