@@ -801,12 +801,37 @@ async function confirmCheckout(){
         const subtotalConDesc=subtotal-dcMonto;
         const envio=costoEnvio(subtotalConDesc,tipoEntrega);
         const total=subtotalConDesc+envio;
-        const clienteNombreCompleto=nombre+' '+apellido;
-        /* firestore.rules exige `total > 0` al crear un pedido. Con un cupon que
-           cubre todo el carrito y retiro en local el total da 0, la regla rechaza el
-           create, y el pedido se perdia sin que nadie se enterara. Se corta antes. */
+        /* firestore.rules pide validString(cliente,120), pero nombre y apellido se
+           sanitizan a 80 CADA UNO y ningun input tiene maxlength: el tope real era
+           80+1+80=161. Un nombre largo hacia que la regla rechazara el create.
+           Se recorta en vez de frenar: al cliente no le importa el limite, y el
+           comercio prefiere el pedido con el nombre cortado antes que ningun pedido. */
+        const clienteNombreCompleto=(nombre+' '+apellido).slice(0,120);
+        /* Los tres topes que siguen son los de firestore.rules. Estan aca porque si la
+           regla rechaza el create, el catch de mas abajo NO frena: el numero de pedido
+           ya se consumio (queda un hueco en la numeracion), el uso del cupon se
+           registra igual contra un pedido que no existe, el carrito se vacia, y el
+           unico rastro es el WhatsApp que el cliente tiene que acordarse de mandar.
+           Es exactamente el modo de falla del bug historico: nadie ve un error. */
+        /* 1. total > 0. Con un cupon que cubre todo el carrito y retiro en local el
+              total da 0 y la regla rechaza el create. */
         if(!(total>0)){
             showToast('El total del pedido queda en $0. Revisa el cupon o el carrito.','error');
+            const b=document.getElementById('chkConfirmBtn');
+            if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
+            return;
+        }
+        /* 2. total < 10.000.000. */
+        if(total>=10000000){
+            showToast('El total supera el maximo por pedido. Escribinos por WhatsApp para un pedido de este tamaño.','error');
+            const b=document.getElementById('chkConfirmBtn');
+            if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
+            return;
+        }
+        /* 3. items.size() <= 100. Se llega repitiendo un pedido viejo grande
+              (repetirPedido) o armando un carrito enorme a mano. */
+        if(carrito.length>100){
+            showToast('El pedido no puede tener mas de 100 productos distintos (tenes '+carrito.length+'). Sacá algunos y confirmá el resto.','error');
             const b=document.getElementById('chkConfirmBtn');
             if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
             return;
@@ -903,7 +928,17 @@ async function confirmCheckout(){
             numero:pedidoNum,
             estado:'pendiente',
             cliente:clienteNombreCompleto,
-            clienteAuthUid:clienteAuth?clienteAuth.uid:null,
+            /* El uid sale de Auth y no de clienteAuth. clienteAuth se arma leyendo
+               /clientesAuth y puede quedar en null si esa lectura falla; el pedido se
+               guardaba entonces con clienteAuthUid:null, y ese pedido no aparece nunca
+               en "Mis Pedidos" del cliente ni lo puede contar rateLimitPedidos, que
+               corta con `if (!uid) return`. Se lee firebase.auth() en vez de la
+               constante authClient a proposito: authClient se declara con const mas
+               abajo en este mismo archivo, y si algo revienta antes queda en zona
+               muerta y tirar aca seria peor.
+               Ademas firestore.rules ahora exige que este campo sea el uid de quien
+               escribe, asi que tiene que salir de la misma fuente que mira la regla. */
+            clienteAuthUid:(firebase.auth().currentUser&&firebase.auth().currentUser.uid)||(clienteAuth?clienteAuth.uid:null),
             clienteEmail:clienteAuth?clienteAuth.email:null,
             clienteId:clienteAuth?clienteAuth.clienteId:null,
             telefono:telefonoLimpio,
@@ -1223,10 +1258,58 @@ authClient.onAuthStateChanged(async user => {
     }
 });
 
-async function _onUserLogin(user, showModal=false) {
+/* Google ya nos dice como se llama la persona: displayName viene en el mismo objeto
+   `user` y de hecho se usa mas abajo para las iniciales del avatar. Pero el alta lo
+   guardaba en blanco, asi que en el panel el cliente quedaba como "Sin nombre /
+   datos incompletos" para siempre si nunca completaba el modal — que solo aparece
+   en el login ACTIVO, no al restaurar la sesion.
+   Se parte por el primer espacio: lo que sigue es apellido. El telefono no lo da
+   Google, asi que "datos incompletos" se mantiene hasta que lo carguen, que es lo
+   correcto.
+   Los topes son los de firestore.rules (80 por campo): un displayName largo hacia
+   que el alta entera se rechazara y el cliente quedaba sin documento.
+   NOTA: en YERCO esto quedo en linea dentro de _onUserLogin. Aca es una funcion
+   aparte para que las pruebas puedan ejecutarla; si se portan cambios entre los dos
+   repos, es la unica diferencia. */
+function _nombreDesdeGoogle(displayName) {
+    const dn = String(displayName || '').trim().replace(/\s+/g, ' ');
+    const corte = dn.indexOf(' ');
+    return {
+        nombre: (corte > 0 ? dn.slice(0, corte) : dn).slice(0, 80),
+        apellido: (corte > 0 ? dn.slice(corte + 1) : '').slice(0, 80)
+    };
+}
+
+/* Firebase avisa la MISMA sesión por DOS caminos y los dos estaban enganchados sin
+   ningún candado: onAuthStateChanged y el .then de signInWithPopup (en móvil,
+   getRedirectResult). Las dos corridas hacían ref.get(), las dos veían que el
+   documento no existe, y las dos llamaban a ref.set(). El segundo set cae sobre un
+   documento que YA existe, así que las reglas lo evalúan como UPDATE —que sólo deja
+   tocar nombre/apellido/teléfono/direcciones— y devuelven permission-denied.
+   Medido en el emulador: pruebas/reglas-cliente.js, "el segundo set del mismo login
+   se evalúa como update y muere".
+   Como ese set no estaba en try/catch, esa corrida moría ahí: no llegaba ni al modal
+   de datos ni a _refreshCheckoutAuth. Y además se consumían DOS clienteId para el
+   mismo cliente, dejando un hueco en la numeración.
+   Pasa una sola vez por cliente, en su primer login. Por eso nunca se vio probando
+   con una cuenta de admin: su documento ya existía hacía meses. */
+let _loginEnCurso = null, _loginEnCursoUid = null, _loginPideModal = false;
+function _onUserLogin(user, showModal=false) {
+    /* El aviso que pide el modal puede ser justo el que se descarta. El pedido se
+       guarda aparte para que la corrida que sí sigue lo tenga en cuenta. */
+    if (showModal) _loginPideModal = true;
+    if (_loginEnCurso && _loginEnCursoUid === user.uid) return _loginEnCurso;
+    _loginEnCursoUid = user.uid;
+    _loginEnCurso = _onUserLoginReal(user)
+        .catch(e => { console.error('No se pudo cargar la sesión del cliente:', e); })
+        .finally(() => { _loginEnCurso = null; _loginEnCursoUid = null; _loginPideModal = false; });
+    return _loginEnCurso;
+}
+
+async function _onUserLoginReal(user) {
     /* Mostrar avatar inmediatamente mientras carga Firestore */
     _updateNavAuth(user);
-    /* checkout se refresca al final de _onUserLogin, después de cargar Firestore */
+    /* checkout se refresca al final, después de cargar Firestore */
     /* Cargar o crear doc en clientesAuth */
     const ref = db.collection('clientesAuth').doc(user.uid);
     const snap = await ref.get();
@@ -1242,22 +1325,34 @@ async function _onUserLogin(user, showModal=false) {
             });
         } catch(e) { console.warn('clienteId error:', e); }
         /* Nuevo cliente — crear doc básico */
-        await ref.set({
-            email: user.email,
-            nombre: '',
-            apellido: '',
-            telefono: '',
-            direcciones: [],
-            clienteId: clienteId,
-            creadoEn: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        clienteAuth = { uid: user.uid, email: user.email, nombre: '', apellido: '', telefono: '', direcciones: [], clienteId };
+        const _quien = _nombreDesdeGoogle(user.displayName);
+        try {
+            await ref.set({
+                email: user.email,
+                nombre: _quien.nombre,
+                apellido: _quien.apellido,
+                telefono: '',
+                direcciones: [],
+                clienteId: clienteId,
+                creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            clienteAuth = { uid: user.uid, email: user.email, nombre: _quien.nombre, apellido: _quien.apellido, telefono: '', direcciones: [], clienteId };
+        } catch(e) {
+            /* Red de seguridad para la carrera que el candado no cubre: dos pestañas
+               abiertas, u otro dispositivo creando el documento entre nuestro get y
+               nuestro set. Las reglas rechazan ese segundo set porque lo ven como
+               update. En vez de morir, nos quedamos con lo que quedó guardado. */
+            const fresco = await ref.get();
+            if (!fresco.exists) throw e;
+            console.warn('El documento del cliente ya existía; se usa el guardado.');
+            clienteAuth = { uid: user.uid, ...fresco.data(), clienteId: fresco.data().clienteId || null };
+        }
     } else {
         clienteAuth = { uid: user.uid, ...snap.data(), clienteId: snap.data().clienteId || null };
     }
     _updateNavAuth(user);
     /* Si faltan datos obligatorios Y fue un login activo, mostrar modal */
-    if (showModal && (!clienteAuth.nombre || !clienteAuth.apellido || !clienteAuth.telefono)) {
+    if (_loginPideModal && (!clienteAuth.nombre || !clienteAuth.apellido || !clienteAuth.telefono)) {
         _showModalDatos();
     }
     /* Si el checkout estaba abierto, refrescar solo la parte de auth sin resetear el formulario */
