@@ -232,7 +232,7 @@ function renderCategoryFilters(mapa) {
     if(productos.some(p=>(p.descuento||0)>0)){
         const ofBtn=document.createElement('button');
         ofBtn.className='filter-btn'+(categoriaActual==='Ofertas'?' active':'');
-        ofBtn.innerHTML='<i class="bi bi-tag-fill" style="margin-right:4px;color:#C89312"></i>Ofertas';
+        ofBtn.innerHTML='<i class="bi bi-tag-fill" style="margin-right:4px;color:#7b6b4e"></i>Ofertas';
         ofBtn.addEventListener('click',()=>{setActiveFilter(ofBtn);hideAllSubFilters();subcategoriaActual=null;paginaActual=1;filterByCategory('Ofertas');});
         container.appendChild(ofBtn);
     }
@@ -419,7 +419,7 @@ function _acusarCarrito(){
    cuanto lleva. Se abre al tocar Agregar, con los pesos de siempre a un click y
    el precio calculandose en vivo.
 
-   Va con los colores de la tienda (--color-primary, --color-cream), que son otros
+   Va con los colores de la tienda (--color-primary, --color-fondo), que son otros
    que los del panel. Y con estilos inline en vez de tocar styles.css: es un solo
    componente y asi no hay que acordarse de correr el build del CSS.
 
@@ -436,7 +436,7 @@ function pedirGramosTienda(p){
         ov.setAttribute('aria-modal','true');
         ov.style.cssText='position:fixed;inset:0;z-index:10050;background:rgba(20,37,26,0.55);display:flex;align-items:center;justify-content:center;padding:1rem';
         const btnRap=RAPIDOS.filter(g=>!stock||g<=stock).map(g=>
-            '<button type="button" data-g="'+g+'" style="flex:1 1 auto;min-width:70px;padding:0.6rem 0.4rem;border:1.5px solid var(--color-beige);background:#fff;color:var(--color-primary);font-family:inherit;font-weight:700;font-size:0.9rem;border-radius:10px;cursor:pointer">'
+            '<button type="button" data-g="'+g+'" style="flex:1 1 auto;min-width:70px;padding:0.6rem 0.4rem;border:1.5px solid var(--brand-crudo);background:#fff;color:var(--color-primary);font-family:inherit;font-weight:700;font-size:0.9rem;border-radius:10px;cursor:pointer">'
             +fmtGramos(g)+'</button>').join('');
         ov.innerHTML=
             '<div style="background:#fff;border-radius:16px;padding:1.5rem;width:100%;max-width:380px;box-shadow:0 20px 50px rgba(0,0,0,0.3)">'+
@@ -447,13 +447,13 @@ function pedirGramosTienda(p){
               '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.7rem">'+btnRap+'</div>'+
               '<div style="display:flex;align-items:center;gap:0.5rem">'+
                 '<input type="number" min="1" step="50" inputmode="numeric" placeholder="gramos" '+
-                  'style="flex:1;padding:0.7rem 0.8rem;border:1.5px solid var(--color-beige);border-radius:10px;font-family:inherit;font-size:1rem;text-align:right;color:var(--color-text)">'+
+                  'style="flex:1;padding:0.7rem 0.8rem;border:1.5px solid var(--brand-crudo);border-radius:10px;font-family:inherit;font-size:1rem;text-align:right;color:var(--color-text)">'+
                 '<span style="color:var(--color-text-light);font-size:0.9rem">gramos</span>'+
               '</div>'+
               '<div class="pgt-total" aria-live="polite" style="display:flex;justify-content:space-between;align-items:center;margin-top:0.8rem;min-height:1.7rem;color:var(--color-text-light);font-size:0.9rem"></div>'+
-              '<div class="pgt-aviso" style="color:var(--color-brown);font-size:0.8rem;min-height:1.1rem"></div>'+
+              '<div class="pgt-aviso" style="color:var(--color-secondary-dark);font-size:0.8rem;min-height:1.1rem"></div>'+
               '<div style="display:flex;gap:0.6rem;margin-top:1rem">'+
-                '<button type="button" class="pgt-no" style="flex:0 0 auto;padding:0.75rem 1.1rem;border:1.5px solid var(--color-beige);background:#fff;color:var(--color-text);font-family:inherit;font-weight:600;border-radius:10px;cursor:pointer">Cancelar</button>'+
+                '<button type="button" class="pgt-no" style="flex:0 0 auto;padding:0.75rem 1.1rem;border:1.5px solid var(--brand-crudo);background:#fff;color:var(--color-text);font-family:inherit;font-weight:600;border-radius:10px;cursor:pointer">Cancelar</button>'+
                 '<button type="button" class="pgt-si" disabled style="flex:1;padding:0.75rem 1rem;border:none;background:var(--color-primary);color:#fff;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer">Agregar</button>'+
               '</div>'+
             '</div>';
@@ -569,7 +569,7 @@ function openProductDetailModal(id){
     const nombreDisplay=p.nombreMostrado||p.nombre;
     const dscPct=Math.min(100,Math.max(0,p.descuento||0));
     const precioRowHtml=dscPct>0
-        ?'<div class="pdm-price-row"><span class="pdm-price product-price-off">$'+formatPrice(Math.round(p.precio*(1-dscPct/100)))+'</span><span class="price-original" style="font-size:1rem">$'+formatPrice(p.precio)+'</span><span style="background:linear-gradient(135deg,#EDB833,#C89312);color:#fff;font-size:0.72rem;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:6px">-'+(p.descuento||0)+'% OFF</span>'+(noStock?'<span class="pdm-stock-tag">Sin stock</span>':'')+'</div>'
+        ?'<div class="pdm-price-row"><span class="pdm-price product-price-off">$'+formatPrice(Math.round(p.precio*(1-dscPct/100)))+'</span><span class="price-original" style="font-size:1rem">$'+formatPrice(p.precio)+'</span><span style="background:linear-gradient(135deg,#a79066,#8a7856);color:#161616;font-size:0.72rem;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:6px">-'+(p.descuento||0)+'% OFF</span>'+(noStock?'<span class="pdm-stock-tag">Sin stock</span>':'')+'</div>'
         :'<div class="pdm-price-row"><span class="pdm-price">$'+formatPrice(p.precio)+'</span>'+(noStock?'<span class="pdm-stock-tag">Sin stock</span>':'')+'</div>';
     /* Gramajes asociados */
     const pdmHijos=productos.filter(h=>h.gramajePadreId===p.id);
@@ -673,7 +673,7 @@ function updateShippingBar(total) {
         msg.className='shipping-msg under-min'; fill.style.width=pct+'%'; fill.style.background='#c0392b';
     } else if(GRATIS && total<GRATIS){
         msg.textContent='Faltan $'+formatPrice(GRATIS-total)+' para envio gratis!';
-        msg.className='shipping-msg near-free'; fill.style.width=pct+'%'; fill.style.background='#EDB833';
+        msg.className='shipping-msg near-free'; fill.style.width=pct+'%'; fill.style.background='#a79066';
     } else if(GRATIS){
         msg.textContent='Tenes envio gratis!';
         msg.className='shipping-msg free-shipping'; fill.style.width='100%'; fill.style.background='var(--color-primary)';
@@ -835,14 +835,14 @@ function updateCheckoutResumen(){
     const el=document.getElementById('chkResumen');
     if(!el)return;
     const envioRow=tipoEntrega==='retiro'
-        ?'<div class="chk-resumen-row"><span><i class="bi bi-shop"></i> Retiro en local</span><span style="color:#1E3E2C">sin cargo</span></div>'
-        :('<div class="chk-resumen-row"><span><i class="bi bi-truck"></i> Envío</span><span'+(envio===0?' style="color:#1E3E2C;font-weight:600"':'')+'>'+(envio===0?'GRATIS':'$'+formatPrice(envio))+'</span></div>');
-    const cuponRow=_cuponAplicado?'<div class="chk-resumen-row" style="color:#24503A"><span><i class="bi bi-ticket-perforated"></i> Cupón '+_cuponAplicado.codigo+'</span><span>-$'+formatPrice(dcMonto)+'</span></div>':'';
+        ?'<div class="chk-resumen-row"><span><i class="bi bi-shop"></i> Retiro en local</span><span style="color:#3d402f">sin cargo</span></div>'
+        :('<div class="chk-resumen-row"><span><i class="bi bi-truck"></i> Envío</span><span'+(envio===0?' style="color:#3d402f;font-weight:600"':'')+'>'+(envio===0?'GRATIS':'$'+formatPrice(envio))+'</span></div>');
+    const cuponRow=_cuponAplicado?'<div class="chk-resumen-row" style="color:#3d402f"><span><i class="bi bi-ticket-perforated"></i> Cupón '+_cuponAplicado.codigo+'</span><span>-$'+formatPrice(dcMonto)+'</span></div>':'';
     /* Lista de productos */
     const itemsList = carrito.map(i => {
         /* A granel la cantidad son GRAMOS: "x250" se lee como 250 unidades. Se muestra
            igual que en el carrito (renderCartItems) y en el mensaje de WhatsApp. */
-        const _bdg = 'background:#E8F2E5;color:#1E3E2C;border-radius:10px;padding:1px 7px;font-size:0.75rem;font-weight:700';
+        const _bdg = 'background:#e7e8dd;color:#3d402f;border-radius:10px;padding:1px 7px;font-size:0.75rem;font-weight:700';
         const cant = esPesoProd(i)
             ? '<span style="'+_bdg+'">'+fmtGramos(i.cantidad)+'</span> '
             : (i.cantidad > 1 ? '<span style="'+_bdg+'">x'+i.cantidad+'</span> ' : '');
@@ -1253,6 +1253,29 @@ function esUrlImagen(u) {
 }
 
 /**
+ * Un logo SUBIDO desde el Editor Web: vive en Firebase Storage.
+ * ---------------------------------------------------------------------------
+ * Los tres logos existen en dos lados a la vez: como archivo del repo (que es lo
+ * que dice el HTML) y como valor en config/siteContent. Mientras el valor
+ * guardado sea un puntero a un archivo del repo, no agrega NADA —muestra el mismo
+ * archivo que el HTML— y en cambio se queda viejo solo: el dia que el archivo del
+ * repo cambia de nombre o de formato, el puntero sigue apuntando al anterior y el
+ * logo se rompe en produccion.
+ *
+ * Paso exactamente eso al cambiar la marca: siteContent tenia guardado
+ * ".../img/logo-brotes-dark.svg", un archivo que ya no existe, y pisaba al PNG
+ * nuevo que el HTML traia bien.
+ *
+ * Asi que el puntero al repo se ignora y manda el HTML, que es el que se
+ * actualiza junto con los archivos. Firestore solo pisa cuando el comercio subio
+ * un logo de verdad, que es para lo que esta el campo.
+ */
+function esSubidaDelPanel(u) {
+    if (!esUrlImagen(u)) return false;
+    return /(firebasestorage\.googleapis\.com|\.firebasestorage\.app|storage\.googleapis\.com)/i.test(u);
+}
+
+/**
  * Un logo del repo guardado con URL absoluta del dominio de hoy deja de cargar el
  * dia que el cliente se muda a su propio dominio. Se pasa a ruta relativa, que
  * muestra exactamente el mismo archivo y sobrevive a la mudanza.
@@ -1269,7 +1292,7 @@ function urlImagenPortable(u) {
 function _aplicarSiteContent(d){ if(!d) return;const s=(id,val)=>{const el=document.querySelector(id);if(el&&val)el.textContent=val;};s('.hero-badge span',d.heroBadge);const tl=document.querySelectorAll('.title-line');if(tl[0]&&d.heroTitle1)tl[0].textContent=d.heroTitle1;const th=document.querySelectorAll('.title-highlight');if(th[0]&&d.heroTitle2)th[0].textContent=d.heroTitle2;s('.hero-subtitle',d.heroSubtitle);const stats=document.querySelectorAll('.stat-item');if(stats[0]&&d.stat1Num){stats[0].querySelector('.stat-number').textContent=d.stat1Num;stats[0].querySelector('.stat-label').textContent=d.stat1Label||'';}if(stats[1]&&d.stat2Num){stats[1].querySelector('.stat-number').textContent=d.stat2Num;stats[1].querySelector('.stat-label').textContent=d.stat2Label||'';}s('.why-us-section .section-tag',d.nosotrosTag);s('.why-us-section .section-title',d.nosotrosTitulo);s('.why-us-text',d.nosotrosTexto);const badges=document.querySelectorAll('.trust-badge span');if(badges[0]&&d.badge1)badges[0].textContent=d.badge1;if(badges[1]&&d.badge2)badges[1].textContent=d.badge2;const cards=document.querySelectorAll('.feature-card');if(cards[0]){if(d.card1t)cards[0].querySelector('h4').textContent=d.card1t;if(d.card1p)cards[0].querySelector('p').textContent=d.card1p;}if(cards[1]){if(d.card2t)cards[1].querySelector('h4').textContent=d.card2t;if(d.card2p)cards[1].querySelector('p').textContent=d.card2p;}if(cards[2]){if(d.card3t)cards[2].querySelector('h4').textContent=d.card3t;if(d.card3p)cards[2].querySelector('p').textContent=d.card3p;}if(cards[3]){if(d.card4t)cards[3].querySelector('h4').textContent=d.card4t;if(d.card4p)cards[3].querySelector('p').textContent=d.card4p;}s('.cta-title',d.ctaTitulo);s('.cta-text',d.ctaTexto);s('.footer-description',d.footerDesc);if(d.instagram){const ig=document.querySelector('.social-links a[aria-label="Instagram"]');if(ig)ig.href=d.instagram;}if(d.whatsapp){const _num=String(d.whatsapp).replace(/[^0-9]/g,'');if(_num.length>=8){/* El mismo numero para los botones Y para el pedido: si divergen, el comercio ve los botones bien y no le entran las ventas. */WHATSAPP_NUMBER=_num;const wa=document.querySelectorAll('a[href*="wa.me"]:not(.wa-dev)');wa.forEach(a=>{a.href=a.href.replace(/wa\.me\/[0-9]+/,'wa.me/'+_num);});}}if(d.email){const em=document.querySelector('.social-links a[aria-label="Email"]');if(em)em.href='mailto:'+d.email;}/* El telefono que se muestra tambien sale del panel. Sin esto, cambiar el numero
    en el Editor Web arreglaba los links de WhatsApp pero el texto seguia mostrando el
    viejo: el cliente leia un numero y el boton lo mandaba a otro. */
-if(d.telefonoDisplay){document.querySelectorAll('[data-negocio="telefonoDisplay"]').forEach(el=>{el.textContent=d.telefonoDisplay;});if(typeof NEGOCIO!=='undefined')NEGOCIO.telefonoDisplay=d.telefonoDisplay;}if(esUrlImagen(d.heroImg)){const ho=document.querySelector('.hero-overlay');if(ho){const heroOptim=optImg(d.heroImg,1600);const pre=new Image();pre.fetchPriority='high';pre.onload=()=>{ho.style.backgroundImage='url('+heroOptim+')';ho.style.backgroundSize='cover';ho.style.backgroundPosition='center';ho.style.opacity='0.45';};pre.onerror=()=>{ho.style.backgroundImage='url('+d.heroImg+')';ho.style.backgroundSize='cover';ho.style.backgroundPosition='center';ho.style.opacity='0.45';};pre.src=heroOptim;}}else{const ho=document.querySelector('.hero-overlay');if(ho)ho.style.opacity='0.45';}if(esUrlImagen(d.ctaImg)){const cta=document.querySelector('.cta-background');if(cta){const st=document.createElement('style');st.textContent='.cta-background::before{background-image:url('+d.ctaImg+')!important}';document.head.appendChild(st);}}if(esUrlImagen(d.logoIcon)){const li=document.querySelector('.logo-img');if(li)li.src=urlImagenPortable(d.logoIcon);}if(esUrlImagen(d.logoText)){const lt=document.querySelector('.brand-text-img');if(lt)lt.src=urlImagenPortable(d.logoText);}if(esUrlImagen(d.logoFooter)){const lf=document.querySelector('.footer-brand img');if(lf)lf.src=urlImagenPortable(d.logoFooter);}}
+if(d.telefonoDisplay){document.querySelectorAll('[data-negocio="telefonoDisplay"]').forEach(el=>{el.textContent=d.telefonoDisplay;});if(typeof NEGOCIO!=='undefined')NEGOCIO.telefonoDisplay=d.telefonoDisplay;}if(esUrlImagen(d.heroImg)){const ho=document.querySelector('.hero-overlay');if(ho){const heroOptim=optImg(d.heroImg,1600);const pre=new Image();pre.fetchPriority='high';pre.onload=()=>{ho.style.backgroundImage='url('+heroOptim+')';ho.style.backgroundSize='cover';ho.style.backgroundPosition='center';ho.style.opacity='0.45';};pre.onerror=()=>{ho.style.backgroundImage='url('+d.heroImg+')';ho.style.backgroundSize='cover';ho.style.backgroundPosition='center';ho.style.opacity='0.45';};pre.src=heroOptim;}}else{const ho=document.querySelector('.hero-overlay');if(ho)ho.style.opacity='0.45';}if(esUrlImagen(d.ctaImg)){const cta=document.querySelector('.cta-background');if(cta){const st=document.createElement('style');st.textContent='.cta-background::before{background-image:url('+d.ctaImg+')!important}';document.head.appendChild(st);}}if(esSubidaDelPanel(d.logoIcon)){const li=document.querySelector('.logo-img');if(li)li.src=d.logoIcon;}if(esSubidaDelPanel(d.logoText)){const lt=document.querySelector('.brand-text-img');if(lt)lt.src=d.logoText;}if(esSubidaDelPanel(d.logoFooter)){const lf=document.querySelector('.footer-brand img');if(lf)lf.src=d.logoFooter;}}
 async function loadSiteContent(){
     try{ _aplicarSiteContent(JSON.parse(localStorage.getItem(_SC_CACHE)||'null')); }catch(e){}
     try{
@@ -1997,8 +2020,8 @@ async function aplicarCupon() {
         /* Aplicar — deshabilitar input y botón para evitar doble aplicación */
         _cuponAplicado = { codigo, monto: monto, id: cupDoc.id };
         if(input){input.disabled=true;input.style.opacity='0.6';}
-        if(btn){btn.disabled=true;btn.textContent='Aplicado ✓';btn.style.background='#24503A';}
-        if(msg) msg.innerHTML='<span style="color:#24503A;font-weight:600">✓ $'+monto.toLocaleString('es-AR')+' de descuento aplicado.</span> <button onclick="quitarCupon()" style="background:none;border:none;color:#888;cursor:pointer;font-size:0.8rem;text-decoration:underline">Quitar</button>';
+        if(btn){btn.disabled=true;btn.textContent='Aplicado ✓';btn.style.background='#3d402f';}
+        if(msg) msg.innerHTML='<span style="color:#3d402f;font-weight:600">✓ $'+monto.toLocaleString('es-AR')+' de descuento aplicado.</span> <button onclick="quitarCupon()" style="background:none;border:none;color:#888;cursor:pointer;font-size:0.8rem;text-decoration:underline">Quitar</button>';
         updateCheckoutResumen();
     } catch(e) {
         if(msg) msg.innerHTML='<span style="color:#e53e3e">Error al verificar el cupón.</span>';
