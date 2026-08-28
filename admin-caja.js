@@ -171,11 +171,19 @@ async function cargarVentasSueltas(fecha) {
 
 function calcularTotalesCaja() {
   const porMedio = { efectivo: 0, tarjeta: 0, transferencia: 0, cuenta_corriente: 0, otro: 0 };
+  /* Minorista y mayorista por separado. La caja decia "Ventas (3)" y para saber
+     QUE se vendio habia que irse a la seccion de ventas y fijarse una por una.
+     El dato ya estaba: cargarVentasDeCaja() etiqueta cada una con _tipo al
+     traerlas de sus dos colecciones. */
+  const porTipo = { minorista: { count: 0, total: 0 }, mayorista: { count: 0, total: 0 } };
   let bruto = 0, envio = 0;
   cajaVentas.forEach(v => {
     const k = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
     const t = Number(v.total || 0);
     porMedio[k] = (porMedio[k] || 0) + t;
+    const tipo = (v._tipo === 'mayorista') ? 'mayorista' : 'minorista';
+    porTipo[tipo].count++;
+    porTipo[tipo].total += t;
     bruto += t;
     envio += Number(v.envio || 0);
   });
@@ -183,7 +191,7 @@ function calcularTotalesCaja() {
   const egresos  = cajaMovs.filter(m => m.tipo === 'egreso').reduce((s, m) => s + Number(m.monto || 0), 0);
   /* SOLO efectivo: lo demás no pasó por el cajón */
   const esperado = Number((cajaActual && cajaActual.montoInicial) || 0) + porMedio.efectivo + ingresos - egresos;
-  return { porMedio, bruto, envio, ingresos, egresos, esperado, count: cajaVentas.length };
+  return { porMedio, porTipo, bruto, envio, ingresos, egresos, esperado, count: cajaVentas.length };
 }
 
 /* ============================ RENDER ============================ */
@@ -232,6 +240,13 @@ function renderCaja() {
           : '') +
         fila('Fondo inicial', _pesos(cajaActual.montoInicial)) +
         fila('Ventas (' + t.count + ')', _pesos(t.bruto)) +
+        fila('&nbsp;&nbsp;· Minorista - ' + _nVentas(t.porTipo.minorista.count), _pesos(t.porTipo.minorista.total)) +
+        fila('&nbsp;&nbsp;· Mayorista - ' + _nVentas(t.porTipo.mayorista.count), _pesos(t.porTipo.mayorista.total)) +
+        (t.count
+          ? '<div style="display:flex;justify-content:flex-end;padding:0.1rem 0 0.35rem">' +
+              '<button class="btn btn-secondary" style="width:auto;flex:0 0 auto;padding:0.3rem 0.75rem;font-size:0.78rem" ' +
+              'onclick="openCajaVentasModal()"><i class="bi bi-list-ul"></i> Ver ventas</button></div>'
+          : '') +
         fila('&nbsp;&nbsp;· en efectivo', _pesos(t.porMedio.efectivo)) +
         fila('&nbsp;&nbsp;· tarjeta / transferencia', _pesos(t.porMedio.tarjeta + t.porMedio.transferencia)) +
         (t.porMedio.cuenta_corriente ? fila('&nbsp;&nbsp;· fiado (no entra al cajón)', _pesos(t.porMedio.cuenta_corriente)) : '') +
@@ -557,6 +572,80 @@ async function openCajaDetalle(cajaId) {
   }
 }
 function closeCajaDetalleModal() { document.getElementById('cajaDetalleModal').classList.remove('show'); }
+
+/* ============================ VENTAS DE LA CAJA ============================
+   Las ventas de la caja abierta, minoristas de un lado y mayoristas del otro.
+   Antes la caja solo decia cuantas eran en total: para saber que se habia
+   vendido habia que salir a la seccion de ventas y revisar una por una.
+
+   Se arma con lo que ya esta en memoria (cajaVentas), asi que no cuesta ninguna
+   lectura de Firebase. */
+
+function _nVentas(n) {
+  n = Number(n || 0);
+  return n + (n === 1 ? ' venta' : ' ventas');
+}
+
+const _MEDIO_NOMBRE = {
+  efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia',
+  cuenta_corriente: 'Fiado', otro: 'Otro',
+};
+
+function _columnaVentas(titulo, icono, lista) {
+  const total = lista.reduce((s, v) => s + Number(v.total || 0), 0);
+  const filas = lista.length
+    ? lista.map(v => {
+        const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+        const items = Array.isArray(v.items) ? v.items : [];
+        const detalle = items.map(i => {
+          const cant = (typeof fmtCantidad === 'function') ? fmtCantidad(i) : String(i.cantidad || 0);
+          return '<div style="display:flex;justify-content:space-between;gap:0.6rem;font-size:0.76rem;color:var(--text-dim);padding:0.08rem 0">' +
+            '<span>' + esc(i.nombre || '(sin nombre)') + ' <span style="opacity:0.75">x' + esc(cant) + '</span></span>' +
+            '<span style="white-space:nowrap">' + _pesos((typeof subtotalItem === 'function') ? subtotalItem(i) : 0) + '</span></div>';
+        }).join('');
+        return '<div style="border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.7rem;margin-bottom:0.5rem">' +
+          '<div style="display:flex;justify-content:space-between;gap:0.6rem;align-items:baseline;margin-bottom:0.25rem">' +
+            '<span style="font-weight:700;font-size:0.86rem">' + esc(_nroVenta(v)) + '</span>' +
+            '<span style="font-weight:700;font-size:0.9rem;white-space:nowrap">' + _pesos(v.total) + '</span>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;gap:0.6rem;font-size:0.78rem;color:var(--text-dim);margin-bottom:' +
+            (detalle ? '0.4rem' : '0') + '">' +
+            '<span>' + esc(v.cliente || 'Consumidor final') + '</span>' +
+            '<span style="white-space:nowrap">' + _hora(v.fecha) + ' &middot; ' + esc(_MEDIO_NOMBRE[medio] || medio) + '</span>' +
+          '</div>' + detalle +
+        '</div>';
+      }).join('')
+    : '<p style="font-size:0.83rem;color:var(--text-dim);padding:0.5rem 0">No hubo ventas de este tipo en la caja.</p>';
+
+  return '<div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.6rem;' +
+      'border-bottom:1px solid var(--border);padding-bottom:0.45rem;margin-bottom:0.6rem">' +
+      '<h4 style="font-size:0.92rem;font-weight:700"><i class="bi ' + icono + '"></i> ' + titulo + '</h4>' +
+      '<span style="font-size:0.78rem;color:var(--text-dim);white-space:nowrap">' +
+        _nVentas(lista.length) + ' &middot; ' + _pesos(total) + '</span>' +
+    '</div>' + filas + '</div>';
+}
+
+function openCajaVentasModal() {
+  const body = document.getElementById('cajaVentasBody');
+  const modal = document.getElementById('cajaVentasModal');
+  if (!body || !modal) return;
+  const men = cajaVentas.filter(v => v._tipo !== 'mayorista');
+  const may = cajaVentas.filter(v => v._tipo === 'mayorista');
+  body.innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1.25rem">' +
+      _columnaVentas('Ventas minoristas', 'bi-bag', men) +
+      _columnaVentas('Ventas mayoristas', 'bi-box-seam', may) +
+    '</div>';
+  modal.classList.add('show');
+}
+
+function closeCajaVentasModal() { document.getElementById('cajaVentasModal').classList.remove('show'); }
+
+function irASeccionVentas(cual) {
+  closeCajaVentasModal();
+  if (typeof switchSection === 'function') switchSection(cual === 'mayorista' ? 'ventasMay' : 'ventas');
+}
 
 function abrirExportDesdeDetalle() {
   if (!_cajaDetalle) return;
