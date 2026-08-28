@@ -93,8 +93,8 @@ img { max-width: 100%; height: auto; }
    isologotipo completo cuando hay ancho, y el brote solo cuando no. Mostrar las
    dos juntas dibujaria el brote dos veces, porque el isologotipo ya lo lleva
    adentro de la O. */
-.logo-img { display: none; height: 32px; width: auto; transition: transform var(--transition-normal); }
-.brand-text-img { height: 34px; width: auto; transition: transform var(--transition-normal); }
+.logo-img { display: none; height: 28px; width: auto; transition: transform var(--transition-normal); }
+.brand-text-img { height: 30px; width: auto; transition: transform var(--transition-normal); }
 .navbar-brand:hover .logo-img, .navbar-brand:hover .brand-text-img { transform: scale(1.04); }
 @media (max-width: 575.98px) {
     .logo-img { display: block; }
