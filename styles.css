@@ -214,22 +214,56 @@ img { max-width: 100%; height: auto; }
 .stat-number { display: block; font-family: var(--font-display); font-size: 1.42rem; font-weight: 700; color: var(--color-primary-dark); line-height: 1.2; }
 .stat-label { font-size: 0.75rem; color: #393c2d; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; text-shadow: none; }
 
-/* --- El brote --- */
+/* --- La marca en el hero ---
+   Es el ISOTIPO del brandbook, no un dibujo parecido. Antes habia un brote de
+   siete trazos finos que se dibujaban solos: sobre la foto se perdia, y el pase
+   duraba dos segundos, asi que el que entraba y bajaba no veia nada.
+
+   Tres capas:
+     .hm-fantasma  copia gigante y translucida, en verde, que deriva muy despacio.
+                   Es la marca de agua que el brandbook usa en las bolsas, las
+                   etiquetas y las tarjetas. Se pinta con mask + color y no con
+                   una imagen tenida, asi queda el verde exacto a cualquier opacidad.
+     .hm-halo      resplandor mostaza que se abre detras.
+     .hm-brote     la marca, que emerge desde abajo.
+
+   EL REPOSO ESTA EN EL CSS BASE Y LO ESCONDIDO EN EL `from` DE CADA ANIMACION.
+   Al reves —lo habitual— si las animaciones no corren la marca queda invisible
+   para siempre. Asi, si no corren, aparece igual en su sitio. Es la misma razon
+   por la que el brote anterior tenia una regla aparte en prefers-reduced-motion;
+   con este orden ya no hace falta.
+
+   Todo lo que se mueve es transform y opacity: se resuelve en el compositor, sin
+   recalcular layout ni repintar. */
 .hero-brote { position: relative; z-index: 3; display: flex; justify-content: center; align-items: center; pointer-events: none; }
-.brote-svg { width: min(100%, 320px); height: auto; overflow: visible; }
-/* Se mece muy despacio, como si lo moviera el aire. Solo en equipos capaces. */
-.motion-rica .brote-svg { animation: mecer 7s ease-in-out 2.4s infinite; transform-origin: 50% 92%; }
-@keyframes mecer { 0%, 100% { transform: rotate(-0.9deg); } 50% { transform: rotate(0.9deg); } }
-/* El estado "sin dibujar" vive en el keyframe from y el fill-mode es both: si las
-   animaciones no corren, el brote aparece dibujado en vez de invisible. */
-.brote-svg [data-crece] { stroke-dasharray: 1; animation: crecer 1.2s cubic-bezier(.33,.7,.3,1) both; }
-.brote-svg [data-crece="tallo"]  { animation-delay: 0.3s; }
-.brote-svg [data-crece="hoja-a"] { animation-delay: 0.9s; animation-duration: 0.95s; }
-.brote-svg [data-crece="hoja-b"] { animation-delay: 1.08s; animation-duration: 0.95s; }
-.brote-svg [data-crece="raiz"]   { animation-delay: 1.05s; animation-duration: 0.85s; }
-.brote-svg .brote-semilla { animation: aparecer 0.5s ease 0.12s both; }
-@keyframes crecer { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+.hero-marca { position: relative; display: flex; align-items: center; justify-content: center; width: min(100%, 340px); aspect-ratio: 1; }
+/* Fondo y no <img> a proposito: el navegador no baja el fondo de un elemento
+   oculto, asi que en celular —donde .hero-brote es d-none— no se pide nunca. */
+.hm-brote {
+    position: relative; z-index: 2; width: 72%; aspect-ratio: 560/419;
+    background: url('img/hero-brote.png') center/contain no-repeat;
+    animation: hmEntra 1.5s cubic-bezier(.2,.75,.3,1) 0.35s both;
+}
+.hm-halo {
+    position: absolute; z-index: 1; width: 116%; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle, rgba(var(--brand-mostaza-rgb),0.34) 0%, rgba(var(--brand-mostaza-rgb),0) 68%);
+    animation: hmHalo 2.4s cubic-bezier(.22,.7,.3,1) 0.15s both;
+}
+.hm-fantasma {
+    position: absolute; z-index: 0; width: 165%; aspect-ratio: 560/419; opacity: 0.15;
+    background: var(--color-primary);
+    -webkit-mask: url('img/hero-brote.png') center/contain no-repeat;
+            mask: url('img/hero-brote.png') center/contain no-repeat;
+    animation: hmFantasma 2.6s ease 0.1s both;
+}
+@keyframes hmEntra    { from { opacity: 0; transform: translateY(28px) scale(0.86); } }
+@keyframes hmHalo     { from { opacity: 0; transform: scale(0.5); } }
+@keyframes hmFantasma { from { opacity: 0; } }
+/* Ambiente en bucle: respira y deriva. Solo bajo .motion-rica, igual que el resto. */
+.motion-rica .hm-brote { animation: hmEntra 1.5s cubic-bezier(.2,.75,.3,1) 0.35s both, hmRespira 9s ease-in-out 2.1s infinite; }
+.motion-rica .hm-fantasma { animation: hmFantasma 2.6s ease 0.1s both, hmDeriva 26s ease-in-out 2.8s infinite; }
+@keyframes hmRespira { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.025); } }
+@keyframes hmDeriva  { 0%, 100% { transform: rotate(-2.2deg) scale(1); } 50% { transform: rotate(2.2deg) scale(1.06); } }
 
 .scroll-indicator { position: absolute; bottom: clamp(74px, 9vw, 104px); left: 50%; text-align: center; cursor: pointer; z-index: 5; animation: aparecer 0.6s ease 1.6s both; }
 .scroll-indicator span { display: block; font-size: 0.7rem; color: #393c2d; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 0.25rem; text-shadow: none; }
@@ -658,9 +692,8 @@ img { max-width: 100%; height: auto; }
 .category-btn:active, .sort-btn:active, .rv-filter-btn:active, .add-to-cart-btn:active { transform: scale(0.97); }
 
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}
-  /* Sin animacion, el brote quedaria invisible (su estado inicial es "sin dibujar").
-     Lo mostramos ya crecido, y las capas que entran con fadeInUp visibles. */
-  .brote-svg .brote-semilla{opacity:1!important}
+  /* Las capas que entran con fadeInUp, visibles. La marca del hero no necesita
+     excepcion: su estado de reposo ya es el del CSS base. */
   .hero-title,.hero-subtitle,.hero-buttons,.hero-stats{opacity:1!important}}
 
 /* === POPULARES SECTION === */
