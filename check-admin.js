@@ -398,6 +398,93 @@ if (fs.existsSync(idx)) {
   if (fs.existsSync(appjs)) problemas.push(...revisarCss('app.js', fs.readFileSync(appjs, 'utf8'), cssTienda, jsTienda));
 }
 
+/* ---------------------------------------------- variables que se muerden la cola
+   `--x: var(--x)` es CSS valido de escribir y no rompe nada visible: la variable
+   simplemente no resuelve, y todo lo que la use se queda con el valor inicial de
+   la propiedad. O sea que el color desaparece y la pagina sigue.
+
+   Pasa solo, sin querer: un reemplazo masivo de un color por su variable tambien
+   pisa la linea donde ESA variable se define. Me paso dos veces en el mismo
+   cambio, con --color-danger y con --brand-verde en resena.html, y el chequeo de
+   CSS fantasma no lo vio porque la variable existe: lo que no tiene es valor. */
+['styles.css', 'index.html', 'politicas.html', 'mayoristas.html', 'resena.html',
+ 'toolbar.css', 'footer-dev.css', 'admin.html'].forEach((f) => {
+  const r = path.join(__dirname, f);
+  if (!fs.existsSync(r)) return;
+  const t = fs.readFileSync(r, 'utf8');
+  const re = /(--[\w-]+)\s*:\s*var\(\s*(--[\w-]+)\s*\)/g;
+  let m;
+  while ((m = re.exec(t))) {
+    if (m[1] === m[2]) {
+      problemas.push('CSS: ' + f + ' define ' + m[1] + ' como var(' + m[1] +
+                     '), que se muerde la cola y deja la variable sin valor');
+    }
+  }
+});
+
+/* ------------------------------------------------ texto que no se puede leer
+   Un color de texto escrito a mano y demasiado claro no da ningun error: se ve,
+   pero no se lee. Aparecieron doce asi, todos en mensajes que ve el cliente:
+   "Aun no hay opiniones", "No tenes direcciones guardadas", "Sin pedidos aun",
+   la fecha de cada pedido y el mail en el menu de la cuenta. Estaban en #999 y
+   #888, que sobre blanco dan 2.85 y 3.54 cuando el minimo para texto chico es
+   4.5. La paleta ya tenia --color-text-light, que da 6.44 y si se lee.
+
+   La tienda es de fondo claro: salvo el pie y el CTA, que llevan texto blanco o
+   crudo, todo el texto cae sobre blanco o sobre un derivado del crudo. Asi que
+   la regla es: un color de texto escrito a mano tiene que pasar AA sobre BLANCO,
+   que es la superficie mas exigente. Los que van sobre fondo oscuro estan
+   listados aparte.
+
+   Solo mira colores literales. `color: var(--algo)` no se revisa a proposito:
+   usar la paleta es justamente lo que se quiere, y esos ya estan medidos.
+
+   El panel queda afuera: tiene tema oscuro propio y otras superficies. */
+const SOBRE_FONDO_OSCURO = new Set([
+  '#fff', '#ffffff', '#dfe0d2', '#a79066', '#f1f1eb', '#e4e4e7',
+]);
+
+function aRgb(h) {
+  h = h.replace('#', '');
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  return [0, 2, 4].map((i) => parseInt(h.substr(i, 2), 16));
+}
+function canal(c) {
+  c /= 255;
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+function luz(h) {
+  const [r, g, b] = aRgb(h);
+  return 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b);
+}
+function contraste(a, b) {
+  const la = luz(a), lb = luz(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+['styles.css', 'app.js', 'index.html', 'politicas.html', 'mayoristas.html',
+ 'resena.html', 'toolbar.css', 'footer-dev.css'].forEach((f) => {
+  const r = path.join(__dirname, f);
+  if (!fs.existsSync(r)) return;
+  const t = fs.readFileSync(r, 'utf8');
+  const re = /color\s*:\s*(#[0-9A-Fa-f]{3,6})\b/g;
+  const vistos = new Map();
+  let m;
+  while ((m = re.exec(t))) {
+    const c = m[1].toLowerCase();
+    if (SOBRE_FONDO_OSCURO.has(c)) continue;
+    if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(c)) continue;
+    vistos.set(c, (vistos.get(c) || 0) + 1);
+  }
+  vistos.forEach((n, c) => {
+    const v = contraste(c, '#ffffff');
+    if (v < 4.5) {
+      problemas.push('CONTRASTE: ' + f + ' usa ' + c + ' como color de texto (' + n +
+                     ' vez/veces) y sobre blanco da ' + v.toFixed(2) + ', por debajo de 4.5');
+    }
+  });
+});
+
 /* ------------------------------------------------- los colores de la marca
    Los cuatro colores del brandbook estan definidos en MAS DE UN ARCHIVO, y no por
    descuido: politicas.html, mayoristas.html y resena.html no cargan styles.css,
@@ -467,6 +554,11 @@ if (problemas.length) {
   }
   if (deHtml < problemas.length) {
     console.error('\nUn error de ejecucion en el bloque de JS aborta TODO lo que viene despues.');
+  }
+  if (problemas.some((p) => p.startsWith('CONTRASTE:'))) {
+    console.error('\nUn texto sin contraste se VE pero no se LEE, asi que pasa');
+    console.error('cualquier revision a ojo. Usa var(--color-text-light) para el');
+    console.error('texto tenue: esta medido y da 6.44 sobre blanco.');
   }
   if (problemas.some((p) => p.startsWith('MARCA:'))) {
     console.error('\nUn color de marca que no coincide no rompe nada: la pagina se ve');
