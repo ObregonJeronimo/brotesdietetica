@@ -4,7 +4,8 @@
  * esta prueba se cae.
  */
 const fs=require('fs');
-const P='C:/Users/Usuario/Documents/brotesdietetica/admin.html';
+const path=require('path');
+const P=path.join(__dirname,'..','admin.html');
 const src=fs.readFileSync(P,'utf8');
 
 function extraer(nombre){

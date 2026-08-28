@@ -38,11 +38,22 @@ for (const s of suites) {
     fallo = true;
   }
   const m = salida.match(/(\d+) pasaron, (\d+) fallaron/);
-  if (m) {
+  if (m && !fallo) {
     totalOk += Number(m[1]);
     totalMal += Number(m[2]);
     if (Number(m[2]) > 0) suitesMal.push(s);
     console.log('  %s %s  %s', Number(m[2]) ? 'MAL ' : 'ok  ', s.padEnd(26), m[0]);
+  } else if (m) {
+    /* Imprimio su resumen y DESPUES se cayo, o salio con codigo != 0. El resumen
+       de una suite es lo que ella misma dice de si misma; el codigo de salida es
+       lo que de verdad paso. Antes ganaba el resumen: `fallo` se calculaba y no
+       se usaba, asi que una suite que reventaba despues de imprimir "0 fallaron"
+       salia en verde. */
+    totalOk += Number(m[1]);
+    totalMal += Number(m[2]);
+    suitesMal.push(s);
+    console.log('  MAL   %s  %s, pero termino con error', s.padEnd(26), m[0]);
+    console.log(salida.split('\n').slice(-6).map(l => '        ' + l).join('\n'));
   } else {
     suitesMal.push(s);
     fallo = true;

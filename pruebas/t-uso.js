@@ -2,7 +2,7 @@
    con firebase-admin mockeado. Prueba el codigo que se desplego. */
 const path = require('path');
 const Module = require('module');
-const RAIZ = 'C:/Users/Usuario/Documents/brotesdietetica/functions';
+const RAIZ = path.join(__dirname, '..', 'functions');
 
 let ESCRITO = null;
 let ARCHIVOS = [];

@@ -3,7 +3,8 @@
 const fs = require('fs');
 const vm = require('vm');
 
-const SRC = fs.readFileSync('C:/Users/Usuario/Documents/brotesdietetica/admin-caja.js', 'utf8');
+const path = require('path');
+const SRC = fs.readFileSync(path.join(__dirname, '..', 'admin-caja.js'), 'utf8');
 
 /* keyDeMedio / medioKeyDeVenta son los de admin.html (Capa 0), copiados tal cual */
 const HELPERS = `
@@ -97,6 +98,61 @@ cajaMovs = [ { tipo: 'ingreso' }, { tipo: 'egreso', monto: null } ];
 t = calcularTotalesCaja();
 chk('total/monto ausentes cuentan como 0', t.esperado, 1500);
 chk('sin NaN', Number.isFinite(t.esperado), true);
+
+/* ---------- Minorista y mayorista por separado ----------
+   La caja decia "Ventas (3)" y para saber QUE se habia vendido habia que irse a
+   la seccion de ventas y revisar una por una. El dato ya estaba: cada venta
+   viene etiquetada con _tipo segun de cual de las dos colecciones salio. */
+console.log('\\nCaso 5 - la caja separa minorista de mayorista');
+cajaActual = { montoInicial: 0, estado: 'abierta' };
+cajaMovs = [];
+cajaVentas = [
+  { total: 1000, medioPago: 'Efectivo', _tipo: 'minorista' },
+  { total: 2500, medioPago: 'Efectivo', _tipo: 'minorista' },
+  { total: 9000, medioPago: 'Transferencia', _tipo: 'mayorista' }
+];
+let tt = calcularTotalesCaja();
+chk('cuenta 2 minoristas', tt.porTipo.minorista.count, 2);
+chk('suma 3500 en minorista', tt.porTipo.minorista.total, 3500);
+chk('cuenta 1 mayorista', tt.porTipo.mayorista.count, 1);
+chk('suma 9000 en mayorista', tt.porTipo.mayorista.total, 9000);
+chk('los dos suman el bruto', tt.porTipo.minorista.total + tt.porTipo.mayorista.total, tt.bruto);
+chk('y las cuentas suman el total', tt.porTipo.minorista.count + tt.porTipo.mayorista.count, tt.count);
+
+/* Sin _tipo se cuenta como minorista: es lo que eran todas las ventas antes de
+   que existiera la mayorista, asi que una venta vieja no puede desaparecer. */
+cajaVentas = [{ total: 500, medioPago: 'Efectivo' }];
+tt = calcularTotalesCaja();
+chk('una venta sin _tipo cuenta como minorista', tt.porTipo.minorista.count, 1);
+chk('y no se pierde del total', tt.count, 1);
+
+console.log('\\nCaso 6 - el texto de la cantidad');
+chk('una sola', _nVentas(1), '1 venta');
+chk('varias', _nVentas(4), '4 ventas');
+chk('ninguna', _nVentas(0), '0 ventas');
+
+
+console.log('');
+console.log('Caso 7 - la columna del modal de ventas');
+const _col = _columnaVentas('Ventas minoristas', 'bi-bag', [
+  { numero: 12, total: 1500, cliente: 'Ana', medioPago: 'Efectivo',
+    items: [{ nombre: 'Nueces', cantidad: 2, precio: 750 }] },
+  { numero: 13, total: 900, medioPago: 'Tarjeta', items: [] }
+]);
+const tiene = (h, t) => h.indexOf(t) >= 0;
+chk('pone el titulo', tiene(_col, 'Ventas minoristas'), true);
+chk('dice cuantas son', tiene(_col, '2 ventas'), true);
+chk('suma el total de la columna', tiene(_col, '2.400'), true);
+chk('lista el cliente', tiene(_col, 'Ana'), true);
+chk('el que no tiene queda como consumidor final', tiene(_col, 'Consumidor final'), true);
+chk('muestra el medio de pago', tiene(_col, 'Tarjeta'), true);
+chk('detalla el item', tiene(_col, 'Nueces'), true);
+chk('las etiquetas div abren y cierran igual',
+    _col.split('<div').length, _col.split('</div>').length);
+
+const _vacia = _columnaVentas('Ventas mayoristas', 'bi-box-seam', []);
+chk('sin ventas avisa en vez de quedar en blanco', tiene(_vacia, 'No hubo ventas'), true);
+chk('y dice 0 ventas', tiene(_vacia, '0 ventas'), true);
 
 console.log('\\n' + pasados + ' pasaron, ' + fallos + ' fallaron');
 globalThis.__fallos = fallos;

@@ -4,7 +4,7 @@
  */
 const path = require('path');
 const Module = require('module');
-const RAIZ = 'C:/Users/Usuario/Documents/brotesdietetica/functions';
+const RAIZ = path.join(__dirname, '..', 'functions');
 
 let PRODUCTOS = {};      /* la coleccion productos */
 let PATCH = null;        /* lo que la funcion escribio en el pedido */
