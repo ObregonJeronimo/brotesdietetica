@@ -120,12 +120,14 @@ const escrito = (reg, doc) => (reg.escrituras.find(e => e.doc === doc) || {});
   /* Exactamente lo que quedo en produccion: contador en 1 con clienteId 1, 4, 5 y 6. */
   a = armar({ clientes: [{ clienteId: 1 }, { clienteId: 4 }, { clienteId: 5 }, { clienteId: 6 }],
               contadores: { pedidosCount: 0, ventasCount: 0, clientesAuthCount: 1 } });
+  /* contador 1 -> el proximo seria el n° 2, y tiene que ser el n° 7 */
   await a.api.corregir();
   t('SUBE el contador a 6', escrito(a.reg, 'clientesAuthCount').count === 6,
     JSON.stringify(a.reg.escrituras));
   t('   (si no, los proximos sacarian 2, 3 y despues 4, que ya existe)',
     escrito(a.reg, 'clientesAuthCount').count > 1);
-  t('el aviso dice que estaba atrasado', /ATRASADO/.test(a.reg.confirmaciones.join(' ')),
+  t('la confirmacion dice de que numero a que numero pasa',
+    /Cliente: el próximo pasa de n° 2 a n° 7/.test(a.reg.confirmaciones.join(' ')),
     a.reg.confirmaciones.join(' ').slice(0, 160));
 
   console.log('\nYA ESTA BIEN: no escribe nada');
@@ -171,14 +173,28 @@ const escrito = (reg, doc) => (reg.escrituras.find(e => e.doc === doc) || {});
   t('anota que contador cambio y de cuanto a cuanto',
     /pedidosCount: 9 -> 2/.test(a.reg.logs.join(' ')), a.reg.logs.join(' | '));
 
+  /* La tarjeta dice UNA cosa: que numero sale la proxima vez. El detalle aparece solo
+     cuando no coincide, que es cuando hay algo que hacer. */
   console.log('\nLO QUE MUESTRA EN PANTALLA');
-  a = armar({ pedidos: [{ numero: 3 }], contadores: { pedidosCount: 9, ventasCount: 0, clientesAuthCount: 0 } });
+  a = armar({ pedidos: [{ numero: 3 }], ventas: [{ numero: 8 }], clientes: [{ clienteId: 2 }],
+              contadores: { pedidosCount: 9, ventasCount: 8, clientesAuthCount: 2 } });
   await a.api.ver();
   const txt = a.DOM.contadoresEstado.innerHTML;
-  t('dice el contador y el maximo real', /contador 9/.test(txt) && /mas alto real 3/.test(txt),
-    txt.replace(/<br>/g, ' | ').slice(0, 200));
-  t('y que el proximo saldria mal', /proximo saldria 10 y deberia ser 4/.test(txt),
-    txt.replace(/<br>/g, ' | ').slice(0, 200));
+  const plano = txt.replace(/<[^>]*>/g, ' | ').replace(/\s+/g, ' ');
+  t('lo que esta bien es una sola linea corta', /Venta n° 9/.test(txt) && !/Venta[^|]*deber[ií]a/.test(plano),
+    plano.slice(0, 220));
+  t('   y no se resalta', !/color:#e6a23c[^<]*>[^<]*Venta/.test(txt));
+  t('lo que esta mal dice el numero que deberia salir', /Pedido n° 10\s+→\s+deber[ií]a ser 4/.test(txt),
+    plano.slice(0, 220));
+  t('   y ese si se resalta en ambar', /color:#e6a23c/.test(txt));
+  t('no aparece ninguna explicacion larga en la tarjeta',
+    !/contador|mas alto real|al dia/.test(plano), plano.slice(0, 220));
+
+  console.log('\nEL CASO GRAVE SI SE EXPLICA, porque no se entiende solo');
+  a = armar({ clientes: [{ clienteId: 6 }], contadores: { pedidosCount: 0, ventasCount: 0, clientesAuthCount: 1 } });
+  await a.api.ver();
+  t('avisa que repetiria numeros', /repetir[ií]a n[uú]meros/.test(a.DOM.contadoresEstado.innerHTML),
+    a.DOM.contadoresEstado.innerHTML.replace(/<[^>]*>/g, ' ').slice(0, 200));
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);

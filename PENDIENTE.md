@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 752 en 29 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
+| Pruebas | 756 en 29 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **prácticamente vacíos — ver abajo** |
@@ -140,7 +140,7 @@ Y los documentos de `config`, que no son colecciones pero deciden lo que ve el c
 >
 > Cuesta 3 lecturas por contador, no una por documento: con 880 documentos hace 9 lecturas.
 > Por eso no se ejecuta solo al entrar a Configuración, se pide a mano.
-> Cubierto por `pruebas/t-contadores.js` (23 asertos).
+> Cubierto por `pruebas/t-contadores.js` (27 asertos).
 
 Un cliente que entre hoy a la tienda ve **dos productos**. Para cargar en tanda está
 **Productos → Importar Nuevos** (Excel).
@@ -858,7 +858,7 @@ hechos**: son la tanda 6.
 ## 4. Cómo verificar que no rompiste nada
 
 ```bash
-npm test          # 752 pruebas, 29 suites — no necesita nada instalado
+npm test          # 756 pruebas, 29 suites — no necesita nada instalado
 npm run build     # corre check-admin.js y luego minifica
 npm run test:reglas   # 55 asertos contra firestore.rules, con el emulador
 ```
