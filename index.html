@@ -163,7 +163,7 @@
                         <input type="text" id="chkDireccion" placeholder="Calle, número, barrio" autocomplete="street-address">
                         <div id="chkNombreDirWrap" style="margin-top:0.4rem;display:none">
                             <input type="text" id="chkNombreDir" class="auth-input" placeholder="Nombre de esta dirección (ej: Mi casa)" style="font-size:0.88rem">
-                            <small style="color:#888;font-size:0.75rem">Se guardará en tu perfil para próximos pedidos</small>
+                            <small style="color:var(--color-text-light);font-size:0.75rem">Se guardará en tu perfil para próximos pedidos</small>
                         </div>
                     </div>
                 </div>
@@ -229,7 +229,7 @@
         <div class="auth-form-group"><label>Nombre *</label><input type="text" id="cdNombre" class="auth-input" placeholder="Tu nombre"></div>
         <div class="auth-form-group"><label>Apellido *</label><input type="text" id="cdApellido" class="auth-input" placeholder="Tu apellido"></div>
         <div class="auth-form-group"><label>Teléfono *</label><input type="tel" id="cdTelefono" class="auth-input" placeholder="Ej: 3512345678"></div>
-        <div id="cdError" style="color:#e53e3e;font-size:0.82rem;margin-bottom:0.75rem;display:none"></div>
+        <div id="cdError" style="color:var(--color-danger);font-size:0.82rem;margin-bottom:0.75rem;display:none"></div>
         <button class="btn-auth-primary" onclick="guardarDatosCliente()"><i class="bi bi-check-lg"></i> Guardar y continuar</button>
       </div>
     </div>
@@ -271,7 +271,7 @@
           <button onclick="closeHistorialModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#666"><i class="bi bi-x-lg"></i></button>
         </div>
         <div class="hist-tabs"><button class="hist-tab active" onclick="filterHistPedidos('todos')">Todos</button><button class="hist-tab" onclick="filterHistPedidos('pendiente')">Pendientes</button><button class="hist-tab" onclick="filterHistPedidos('confirmado')">Confirmados</button><button class="hist-tab" onclick="filterHistPedidos('entregado')">Entregados</button></div>
-        <div id="listaPedidosCliente"><div style="text-align:center;padding:2rem;color:#999">Cargando...</div></div>
+        <div id="listaPedidosCliente"><div style="text-align:center;padding:2rem;color:var(--color-text-light)">Cargando...</div></div>
       </div>
     </div>
 

@@ -670,7 +670,7 @@ function updateShippingBar(total) {
     _renderMarcadoresEnvio(MIN, GRATIS, meta);
     if(MIN>0 && total<MIN){
         msg.textContent='Faltan $'+formatPrice(MIN-total)+' para el pedido minimo ($'+formatPrice(MIN)+')';
-        msg.className='shipping-msg under-min'; fill.style.width=pct+'%'; fill.style.background='#c0392b';
+        msg.className='shipping-msg under-min'; fill.style.width=pct+'%'; fill.style.background='var(--color-danger)';
     } else if(GRATIS && total<GRATIS){
         msg.textContent='Faltan $'+formatPrice(GRATIS-total)+' para envio gratis!';
         msg.className='shipping-msg near-free'; fill.style.width=pct+'%'; fill.style.background='#a79066';
@@ -1210,9 +1210,8 @@ function revelar(raiz, obs){
     });
 }
 
-function toggleCategoryFilters(){const f=document.getElementById('categoryFilters');const btn=document.getElementById('toggleCatsBtn');f.classList.toggle('cat-hidden');if(f.classList.contains('cat-hidden')){btn.innerHTML='<i class="bi bi-funnel"></i> Categorias';}else{btn.innerHTML='<i class="bi bi-funnel-fill"></i> Categorias';}}
 
-window.filterByCategory=filterByCategory;window.filterBySubCategory=filterBySubCategory;window.updateProductQuantity=updateProductQuantity;window.addToCart=addToCart;window.updateCartItemQuantity=updateCartItemQuantity;window.removeFromCart=removeFromCart;window.onSearchInput=onSearchInput;window.toggleSortPrice=toggleSortPrice;window.toggleSortAlfa=toggleSortAlfa;window.goToPage=goToPage;window.toggleCategoryFilters=toggleCategoryFilters;window.openProductDetailModal=openProductDetailModal;window.closeProductDetailModal=closeProductDetailModal;window.pdmCarouselNav=pdmCarouselNav;window.pdmCarouselGoTo=pdmCarouselGoTo;window.refreshProductDetailModal=refreshProductDetailModal;window.clearCart=clearCart;window.openCheckoutModal=openCheckoutModal;window.closeCheckoutModal=closeCheckoutModal;window.setCheckoutEntrega=setCheckoutEntrega;window.confirmCheckout=confirmCheckout;window.onSelectDireccion=onSelectDireccion;window.aplicarCupon=aplicarCupon;window.quitarCupon=quitarCupon;window.authLogin=authLogin;window.onMobilePersonaClick=onMobilePersonaClick;window.authLogout=authLogout;window.toggleUserMenu=toggleUserMenu;window.closeUserMenu=closeUserMenu;window.guardarDatosCliente=guardarDatosCliente;window.openPerfilModal=openPerfilModal;window.closePerfilModal=closePerfilModal;window.switchPerfilTab=switchPerfilTab;window.guardarPerfil=guardarPerfil;window.mostrarFormDir=mostrarFormDir;window.cancelarFormDir=cancelarFormDir;window.guardarDireccion=guardarDireccion;window.eliminarDireccion=eliminarDireccion;window.openHistorialModal=openHistorialModal;window.closeHistorialModal=closeHistorialModal;window.filterHistPedidos=filterHistPedidos;window.repetirPedido=repetirPedido;
+window.filterByCategory=filterByCategory;window.filterBySubCategory=filterBySubCategory;window.updateProductQuantity=updateProductQuantity;window.addToCart=addToCart;window.updateCartItemQuantity=updateCartItemQuantity;window.removeFromCart=removeFromCart;window.onSearchInput=onSearchInput;window.toggleSortPrice=toggleSortPrice;window.toggleSortAlfa=toggleSortAlfa;window.goToPage=goToPage;window.openProductDetailModal=openProductDetailModal;window.closeProductDetailModal=closeProductDetailModal;window.pdmCarouselNav=pdmCarouselNav;window.pdmCarouselGoTo=pdmCarouselGoTo;window.refreshProductDetailModal=refreshProductDetailModal;window.clearCart=clearCart;window.openCheckoutModal=openCheckoutModal;window.closeCheckoutModal=closeCheckoutModal;window.setCheckoutEntrega=setCheckoutEntrega;window.confirmCheckout=confirmCheckout;window.onSelectDireccion=onSelectDireccion;window.aplicarCupon=aplicarCupon;window.quitarCupon=quitarCupon;window.authLogin=authLogin;window.onMobilePersonaClick=onMobilePersonaClick;window.authLogout=authLogout;window.toggleUserMenu=toggleUserMenu;window.closeUserMenu=closeUserMenu;window.guardarDatosCliente=guardarDatosCliente;window.openPerfilModal=openPerfilModal;window.closePerfilModal=closePerfilModal;window.switchPerfilTab=switchPerfilTab;window.guardarPerfil=guardarPerfil;window.mostrarFormDir=mostrarFormDir;window.cancelarFormDir=cancelarFormDir;window.guardarDireccion=guardarDireccion;window.eliminarDireccion=eliminarDireccion;window.openHistorialModal=openHistorialModal;window.closeHistorialModal=closeHistorialModal;window.filterHistPedidos=filterHistPedidos;window.repetirPedido=repetirPedido;
 
 // Cargar contenido editable desde Firestore
 /* Los textos e imagenes de la tienda viven en Firestore y pisan a los del HTML.
@@ -1275,20 +1274,6 @@ function esSubidaDelPanel(u) {
     return /(firebasestorage\.googleapis\.com|\.firebasestorage\.app|storage\.googleapis\.com)/i.test(u);
 }
 
-/**
- * Un logo del repo guardado con URL absoluta del dominio de hoy deja de cargar el
- * dia que el cliente se muda a su propio dominio. Se pasa a ruta relativa, que
- * muestra exactamente el mismo archivo y sobrevive a la mudanza.
- */
-function urlImagenPortable(u) {
-    if (!esUrlImagen(u)) return null;
-    try {
-        var p = new URL(u, location.href);
-        if (p.origin === location.origin && /^\/img\//i.test(p.pathname)) return p.pathname.slice(1);
-    } catch (e) { /* no era una URL absoluta: se deja como vino */ }
-    return u;
-}
-
 function _aplicarSiteContent(d){ if(!d) return;const s=(id,val)=>{const el=document.querySelector(id);if(el&&val)el.textContent=val;};s('.hero-badge span',d.heroBadge);const tl=document.querySelectorAll('.title-line');if(tl[0]&&d.heroTitle1)tl[0].textContent=d.heroTitle1;const th=document.querySelectorAll('.title-highlight');if(th[0]&&d.heroTitle2)th[0].textContent=d.heroTitle2;s('.hero-subtitle',d.heroSubtitle);const stats=document.querySelectorAll('.stat-item');if(stats[0]&&d.stat1Num){stats[0].querySelector('.stat-number').textContent=d.stat1Num;stats[0].querySelector('.stat-label').textContent=d.stat1Label||'';}if(stats[1]&&d.stat2Num){stats[1].querySelector('.stat-number').textContent=d.stat2Num;stats[1].querySelector('.stat-label').textContent=d.stat2Label||'';}s('.why-us-section .section-tag',d.nosotrosTag);s('.why-us-section .section-title',d.nosotrosTitulo);s('.why-us-text',d.nosotrosTexto);const badges=document.querySelectorAll('.trust-badge span');if(badges[0]&&d.badge1)badges[0].textContent=d.badge1;if(badges[1]&&d.badge2)badges[1].textContent=d.badge2;const cards=document.querySelectorAll('.feature-card');if(cards[0]){if(d.card1t)cards[0].querySelector('h4').textContent=d.card1t;if(d.card1p)cards[0].querySelector('p').textContent=d.card1p;}if(cards[1]){if(d.card2t)cards[1].querySelector('h4').textContent=d.card2t;if(d.card2p)cards[1].querySelector('p').textContent=d.card2p;}if(cards[2]){if(d.card3t)cards[2].querySelector('h4').textContent=d.card3t;if(d.card3p)cards[2].querySelector('p').textContent=d.card3p;}if(cards[3]){if(d.card4t)cards[3].querySelector('h4').textContent=d.card4t;if(d.card4p)cards[3].querySelector('p').textContent=d.card4p;}s('.cta-title',d.ctaTitulo);s('.cta-text',d.ctaTexto);s('.footer-description',d.footerDesc);if(d.instagram){const ig=document.querySelector('.social-links a[aria-label="Instagram"]');if(ig)ig.href=d.instagram;}if(d.whatsapp){const _num=String(d.whatsapp).replace(/[^0-9]/g,'');if(_num.length>=8){/* El mismo numero para los botones Y para el pedido: si divergen, el comercio ve los botones bien y no le entran las ventas. */WHATSAPP_NUMBER=_num;const wa=document.querySelectorAll('a[href*="wa.me"]:not(.wa-dev)');wa.forEach(a=>{a.href=a.href.replace(/wa\.me\/[0-9]+/,'wa.me/'+_num);});}}if(d.email){const em=document.querySelector('.social-links a[aria-label="Email"]');if(em)em.href='mailto:'+d.email;}/* El telefono que se muestra tambien sale del panel. Sin esto, cambiar el numero
    en el Editor Web arreglaba los links de WhatsApp pero el texto seguia mostrando el
    viejo: el cliente leia un numero y el boton lo mandaba a otro. */
@@ -1337,7 +1322,7 @@ function renderReviewsIndex(){
     const pages=Math.ceil(items.length/perPage)||1;
     if(rvPage>=pages)rvPage=pages-1;
     const shown=items.slice(rvPage*perPage,(rvPage+1)*perPage);
-    if(!shown.length){grid.innerHTML='<div style="text-align:center;padding:2rem;color:#999;grid-column:1/-1"><p>'+(rvFilter==='all'?'Aun no hay opiniones.':'No hay opiniones con este filtro.')+'</p></div>';document.getElementById('reviewsPager').innerHTML='';return;}
+    if(!shown.length){grid.innerHTML='<div style="text-align:center;padding:2rem;color:var(--color-text-light);grid-column:1/-1"><p>'+(rvFilter==='all'?'Aun no hay opiniones.':'No hay opiniones con este filtro.')+'</p></div>';document.getElementById('reviewsPager').innerHTML='';return;}
     grid.innerHTML=shown.map(r=>{
         const stars='&#9733;'.repeat(r.estrellas||0)+'&#9734;'.repeat(5-(r.estrellas||0));
         const fecha=r.fecha.toLocaleDateString('es-AR');
@@ -1797,7 +1782,7 @@ function renderDirecciones() {
     const dirs = clienteAuth?.direcciones || [];
     const c = document.getElementById('listaDirecciones');
     if (!c) return;
-    if (!dirs.length) { c.innerHTML = '<p style="color:#999;font-size:0.88rem">No tenés direcciones guardadas.</p>'; return; }
+    if (!dirs.length) { c.innerHTML = '<p style="color:var(--color-text-light);font-size:0.88rem">No tenés direcciones guardadas.</p>'; return; }
     c.innerHTML = dirs.map((d, i) => `
         <div class="dir-card">
             <div><div class="dir-card-name">${esc(d.nombre)}</div><div class="dir-card-text">${esc(d.texto)}</div></div>
@@ -1863,7 +1848,7 @@ function closeHistorialModal() {
 function _cargarPedidosCliente() {
     if (!clienteAuth) return;
     const c = document.getElementById('listaPedidosCliente');
-    c.innerHTML = '<div style="text-align:center;padding:2rem;color:#999">Cargando...</div>';
+    c.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--color-text-light)">Cargando...</div>';
     if (_pedidosListener) { _pedidosListener(); }
     _pedidosListener = db.collection('pedidos')
         .where('clienteAuthUid', '==', clienteAuth.uid)
@@ -1879,7 +1864,7 @@ function _cargarPedidosCliente() {
                     _todosPedidosCliente = snap.docs.map(d => ({ id: d.id, ...d.data(), creadoEn: d.data().creadoEn?.toDate?.() || new Date() })).sort((a,b)=>b.creadoEn-a.creadoEn);
                     _renderPedidosCliente();
                 })
-                .catch(() => { c.innerHTML = '<div style="text-align:center;padding:2rem;color:#999">Sin pedidos aún.</div>'; });
+                .catch(() => { c.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--color-text-light)">Sin pedidos aún.</div>'; });
         });
 }
 
@@ -1896,7 +1881,7 @@ function _renderPedidosCliente() {
     let pedidos = _todosPedidosCliente;
     if (_filtroHistPedidos !== 'todos') pedidos = pedidos.filter(p => p.estado === _filtroHistPedidos);
     if (!pedidos.length) {
-        c.innerHTML = '<div style="text-align:center;padding:2rem;color:#999">Sin pedidos.</div>';
+        c.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--color-text-light)">Sin pedidos.</div>';
         return;
     }
     c.innerHTML = pedidos.map(p => {
@@ -1904,7 +1889,7 @@ function _renderPedidosCliente() {
             ? NEGOCIO.nroPedido(p.numero)
             : '#' + String(p.numero || 0).padStart(5, '0');
         const fecha = p.creadoEn.toLocaleDateString('es-AR');
-        const items = (p.items || []).map(i => '<div style="font-size:0.8rem;color:#555;padding:1px 0">• '+esc(i.nombre)+' <span style="color:#888">'+esc(esPesoProd(i)?fmtGramos(i.cantidad):'x'+i.cantidad)+'</span></div>').join('');
+        const items = (p.items || []).map(i => '<div style="font-size:0.8rem;color:#555;padding:1px 0">• '+esc(i.nombre)+' <span style="color:var(--color-text-light)">'+esc(esPesoProd(i)?fmtGramos(i.cantidad):'x'+i.cantidad)+'</span></div>').join('');
         const estadoClass = 'estado-' + (p.estado || 'pendiente');
         const estadoLabel = { pendiente: 'Pendiente', confirmado: 'Confirmado', entregado: 'Entregado' }[p.estado] || p.estado;
         return `<div class="pedido-hist-card">
@@ -1913,7 +1898,7 @@ function _renderPedidosCliente() {
                 <span class="pedido-hist-estado ${estadoClass}">${estadoLabel}</span>
                 <span class="pedido-hist-total">$${(p.total||0).toLocaleString('es-AR')}</span>
             </div>
-            <div style="font-size:0.78rem;color:#888;margin-bottom:0.5rem">${fecha} · ${p.tipoEntrega==='envio'?'Envío':'Retiro'}</div>
+            <div style="font-size:0.78rem;color:var(--color-text-light);margin-bottom:0.5rem">${fecha} · ${p.tipoEntrega==='envio'?'Envío':'Retiro'}</div>
             <div class="pedido-hist-items">${items}</div>
             <button class="btn-repetir" onclick="repetirPedido('${p.id}')"><i class="bi bi-arrow-repeat"></i> Repetir pedido</button>
         </div>`;
@@ -1974,12 +1959,12 @@ async function aplicarCupon() {
     if (input) input.value = codigo;
     if (!codigo) { if(msg) msg.innerHTML=''; return; }
     /* Limitar longitud para evitar abusos */
-    if (codigo.length > 30) { if(msg) msg.innerHTML='<span style="color:#e53e3e">Código inválido.</span>'; return; }
+    if (codigo.length > 30) { if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Código inválido.</span>'; return; }
     if (btn) { btn.disabled=true; btn.textContent='Verificando...'; }
     try {
         const snap = await db.collection('cupones').where('codigo', '==', codigo).where('activo', '==', true).get();
         if (snap.empty) {
-            if(msg) msg.innerHTML='<span style="color:#e53e3e">Cupón no válido o inactivo.</span>';
+            if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Cupón no válido o inactivo.</span>';
             if(btn){btn.disabled=false;btn.textContent='Aplicar';}
             return;
         }
@@ -1987,14 +1972,14 @@ async function aplicarCupon() {
         const cup = cupDoc.data();
         const monto = parseInt(cup.monto || 0);
         if (isNaN(monto) || monto < 1) {
-            if(msg) msg.innerHTML='<span style="color:#e53e3e">Cupón inválido.</span>';
+            if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Cupón inválido.</span>';
             if(btn){btn.disabled=false;btn.textContent='Aplicar';}
             return;
         }
         /* Verificar máximo de usos global */
         const usos = parseInt(cup.usos || 0);
         if (cup.maxUsos && usos >= parseInt(cup.maxUsos)) {
-            if(msg) msg.innerHTML='<span style="color:#e53e3e">Este cupón ya alcanzó el máximo de usos.</span>';
+            if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Este cupón ya alcanzó el máximo de usos.</span>';
             if(btn){btn.disabled=false;btn.textContent='Aplicar';}
             return;
         }
@@ -2005,7 +1990,7 @@ async function aplicarCupon() {
                 .where('uid', '==', clienteAuth.uid)
                 .get();
             if (!yaUsado.empty) {
-                if(msg) msg.innerHTML='<span style="color:#e53e3e">Ya usaste este cupón anteriormente.</span>';
+                if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Ya usaste este cupón anteriormente.</span>';
                 if(btn){btn.disabled=false;btn.textContent='Aplicar';}
                 return;
             }
@@ -2013,7 +1998,7 @@ async function aplicarCupon() {
         /* Verificar límite de compra */
         const subtotal = carrito.reduce((s,i) => s + subtotalCarrito(i), 0);
         if (cup.limiteCompra && subtotal < Number(cup.limiteCompra)) {
-            if(msg) msg.innerHTML='<span style="color:#e53e3e">Este cupón requiere una compra mínima de $'+Number(cup.limiteCompra).toLocaleString('es-AR')+'.</span>';
+            if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Este cupón requiere una compra mínima de $'+Number(cup.limiteCompra).toLocaleString('es-AR')+'.</span>';
             if(btn){btn.disabled=false;btn.textContent='Aplicar';}
             return;
         }
@@ -2021,10 +2006,10 @@ async function aplicarCupon() {
         _cuponAplicado = { codigo, monto: monto, id: cupDoc.id };
         if(input){input.disabled=true;input.style.opacity='0.6';}
         if(btn){btn.disabled=true;btn.textContent='Aplicado ✓';btn.style.background='#3d402f';}
-        if(msg) msg.innerHTML='<span style="color:#3d402f;font-weight:600">✓ $'+monto.toLocaleString('es-AR')+' de descuento aplicado.</span> <button onclick="quitarCupon()" style="background:none;border:none;color:#888;cursor:pointer;font-size:0.8rem;text-decoration:underline">Quitar</button>';
+        if(msg) msg.innerHTML='<span style="color:#3d402f;font-weight:600">✓ $'+monto.toLocaleString('es-AR')+' de descuento aplicado.</span> <button onclick="quitarCupon()" style="background:none;border:none;color:var(--color-text-light);cursor:pointer;font-size:0.8rem;text-decoration:underline">Quitar</button>';
         updateCheckoutResumen();
     } catch(e) {
-        if(msg) msg.innerHTML='<span style="color:#e53e3e">Error al verificar el cupón.</span>';
+        if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Error al verificar el cupón.</span>';
         if(btn){btn.disabled=false;btn.textContent='Aplicar';}
     }
 }
