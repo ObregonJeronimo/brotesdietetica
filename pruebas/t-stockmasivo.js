@@ -15,7 +15,7 @@ let allProducts = [];
 let avisos = [], confirmado = true, acciones = [];
 let LOTES = [], COMMITS = 0;
 const els = {};
-function el(id) { return els[id] || (els[id] = { checked: false, indeterminate: false, disabled: false, hidden: false, value: '', textContent: '', innerHTML: '' }); }
+function el(id) { return els[id] || (els[id] = { checked: false, indeterminate: false, disabled: false, hidden: false, value: '', classList: { toggle: function () {} }, textContent: '', innerHTML: '' }); }
 global.document = {
   getElementById: (id) => el(id),
   querySelectorAll: () => ({ forEach: () => {} })
@@ -27,6 +27,9 @@ global.confirm = () => confirmado;
 global.pedirConfirmacion = async () => confirmado;
 global.logAction = (a, b, c) => acciones.push(b);
 global._reRenderProductos = () => {};
+/* Del fuente real: un producto es "por peso" solo si lo dice tipoVenta. Ausente
+   = unidad, que es lo que eran todos antes de que existiera la venta por peso. */
+global.esPorPeso = (x) => !!(x && x.tipoVenta === 'peso');
 global.firebase = { firestore: { FieldValue: { increment: (n) => ({ __inc: n }) } } };
 global.db = {
   collection: () => ({ doc: (id) => ({ __id: id }) }),
@@ -82,8 +85,8 @@ const grupo = (n) => console.log('\n' + n);
   t('usa increment y no un valor fijo', LOTES[0][0].d.stock.__inc === 12);
   t('memoria: 10 + 12 = 22', allProducts[0].stock === 22);
   t('memoria: 4 + 12 = 16', allProducts[1].stock === 16);
-  t('avisa bien', /\+12 de stock en 2 productos/.test(avisos[0]));
-  t('queda en el historial', /\+12 a 2 productos/.test(acciones[0]));
+  t('avisa bien', /\+12 u\. a 2/.test(avisos[0]));
+  t('queda en el historial', /\+12 u\. a 2/.test(acciones[0]));
   t('limpia la seleccion', _stockSel.size === 0);
   t('y el campo', el('stockMasivoCant').value === '');
 
@@ -100,7 +103,7 @@ const grupo = (n) => console.log('\n' + n);
   _stockSel = new Set(); avisos = [];
   await G();
   t('sin seleccion avisa y no escribe', avisos.length === 1 && /al menos un producto/.test(avisos[0]));
-  _stockSel = new Set(['a']); el('stockMasivoCant').value = ''; avisos = []; LOTES = [];
+  _stockSel = new Set(['a']); el('stockMasivoCant').value = ''; el('stockMasivoCantPeso').value = ''; avisos = []; LOTES = [];
   await G();
   t('sin cantidad no escribe nada', LOTES.length === 0 && /cu.nto stock/.test(avisos[0]));
   el('stockMasivoCant').value = '0'; avisos = []; LOTES = [];
@@ -119,10 +122,70 @@ const grupo = (n) => console.log('\n' + n);
   t('y no toca la memoria', allProducts[0].stock === 10);
   confirmado = true;
 
+  grupo('Unidades y gramos por separado');
+  /* EL BUG: el stock de un producto por peso esta en GRAMOS. Con un solo campo,
+     escribir 2 con una bolsa de chia y nueces sueltas seleccionadas sumaba 2
+     unidades a una y 2 GRAMOS a la otra, y el cartel decia "2 unidades" para las
+     dos. Ahora cada clase tiene su campo. */
+  allProducts = [
+    { id: 'u', nombre: 'Semillas Chia', stock: 10 },
+    { id: 'p', nombre: 'Nueces', stock: 4000, tipoVenta: 'peso' }
+  ];
+  _stockSel = new Set(['u', 'p']); _stockVisibles = ['u', 'p'];
+  el('stockMasivoCant').value = '2';
+  el('stockMasivoCantPeso').value = '500';
+  LOTES = []; COMMITS = 0; avisos = []; acciones = [];
+  await G();
+  t('al unitario le suma unidades', allProducts[0].stock === 12);
+  t('al de peso le suma GRAMOS, no 2', allProducts[1].stock === 4500);
+  const porId = Object.fromEntries(LOTES[0].map(o => [o.id, o.d.stock.__inc]));
+  t('cada uno con su propio incremento', porId.u === 2 && porId.p === 500);
+  t('el aviso distingue las dos', /\+2 u\./.test(avisos[0]) && /\+500 g/.test(avisos[0]));
+  t('limpia los dos campos', el('stockMasivoCant').value === '' && el('stockMasivoCantPeso').value === '');
+
+  grupo('Usar un solo campo no toca a los del otro tipo');
+  allProducts = [
+    { id: 'u', nombre: 'Chia', stock: 10 },
+    { id: 'p', nombre: 'Nueces', stock: 4000, tipoVenta: 'peso' }
+  ];
+  _stockSel = new Set(['u', 'p']);
+  el('stockMasivoCant').value = '5'; el('stockMasivoCantPeso').value = '';
+  LOTES = []; avisos = [];
+  await G();
+  t('solo se escribe uno', LOTES[0].length === 1 && LOTES[0][0].id === 'u');
+  t('el de peso queda intacto', allProducts[1].stock === 4000);
+
+  allProducts = [
+    { id: 'u', nombre: 'Chia', stock: 10 },
+    { id: 'p', nombre: 'Nueces', stock: 4000, tipoVenta: 'peso' }
+  ];
+  _stockSel = new Set(['u', 'p']);
+  el('stockMasivoCant').value = ''; el('stockMasivoCantPeso').value = '-1000';
+  LOTES = []; avisos = [];
+  await G();
+  t('descontar gramos solo afecta al de peso', allProducts[1].stock === 3000 && allProducts[0].stock === 10);
+
+  grupo('Un numero en el campo que no aplica a nada');
+  /* En silencio no pasaria nada y el usuario se queda esperando. */
+  allProducts = [{ id: 'u', nombre: 'Chia', stock: 10 }];
+  _stockSel = new Set(['u']);
+  el('stockMasivoCant').value = ''; el('stockMasivoCantPeso').value = '300';
+  LOTES = []; avisos = [];
+  await G();
+  t('avisa que no hay productos por peso', LOTES.length === 0 && /por peso/.test(avisos[0]));
+  t('y no toca el stock', allProducts[0].stock === 10);
+
+  allProducts = [{ id: 'p', nombre: 'Nueces', stock: 4000, tipoVenta: 'peso' }];
+  _stockSel = new Set(['p']);
+  el('stockMasivoCant').value = '7'; el('stockMasivoCantPeso').value = '';
+  LOTES = []; avisos = [];
+  await G();
+  t('avisa que no hay productos por unidad', LOTES.length === 0 && /por unidad/.test(avisos[0]));
+
   grupo('Muchos productos');
   allProducts = Array.from({ length: 1000 }, (_, i) => ({ id: 'p' + i, nombre: 'P' + i, stock: 0 }));
   _stockSel = new Set(allProducts.map(p => p.id));
-  el('stockMasivoCant').value = '1';
+  el('stockMasivoCant').value = '1'; el('stockMasivoCantPeso').value = '';
   LOTES = []; COMMITS = 0;
   await G();
   t('1.000 productos en 3 lotes de 450', COMMITS === 3);
