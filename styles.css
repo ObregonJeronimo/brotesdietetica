@@ -93,8 +93,8 @@ img { max-width: 100%; height: auto; }
    isologotipo completo cuando hay ancho, y el brote solo cuando no. Mostrar las
    dos juntas dibujaria el brote dos veces, porque el isologotipo ya lo lleva
    adentro de la O. */
-.logo-img { display: none; height: 46px; width: auto; transition: transform var(--transition-normal); }
-.brand-text-img { height: 50px; width: auto; transition: transform var(--transition-normal); }
+.logo-img { display: none; height: 32px; width: auto; transition: transform var(--transition-normal); }
+.brand-text-img { height: 34px; width: auto; transition: transform var(--transition-normal); }
 .navbar-brand:hover .logo-img, .navbar-brand:hover .brand-text-img { transform: scale(1.04); }
 @media (max-width: 575.98px) {
     .logo-img { display: block; }
@@ -127,6 +127,7 @@ img { max-width: 100%; height: auto; }
    resuelven en el compositor, sin recalcular layout ni repintar. */
 .hero-section {
     position: relative; min-height: 100svh; overflow: hidden; isolation: isolate;
+    display: flex; flex-direction: column; justify-content: center;
     color: var(--color-primary-dark);
     background: linear-gradient(158deg, #eaebe2 0%, var(--brand-crudo) 46%, #c8cabb 100%);
 }
@@ -163,7 +164,7 @@ img { max-width: 100%; height: auto; }
     50%      { transform: translate3d(14px,-88px,0) rotate(190deg); }
 }
 
-.hero-content { position: relative; z-index: 3; padding-top: 92px; padding-bottom: clamp(96px, 11vw, 150px); }
+.hero-content { position: relative; z-index: 3; padding-top: 96px; padding-bottom: clamp(120px, 12vw, 168px); }
 .hero-text { padding: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1.25rem; }
 
 .hero-badge {
@@ -238,6 +239,16 @@ img { max-width: 100%; height: auto; }
 /* transform:translateX(-50%) esta en el elemento, asi que las animaciones de
    arriba mueven el icono, no el contenedor: evita pelear con el centrado. */
 .scroll-indicator { transform: translateX(-50%); }
+
+/* Pantallas bajas (portatiles de 720, ventanas a medio abrir). El bloque de texto
+   ya ocupa casi todo el alto: quedaban 3 px hasta el "descubri mas". Y el titulo
+   y la bajada los edita el comercio desde el panel, asi que pueden crecer y
+   pisarlo. Se esconde antes de que eso pase; es decorativo, y en una pantalla
+   baja se ve solo que hay mas abajo. */
+@media (max-height: 780px) {
+    .scroll-indicator { display: none; }
+    .hero-content { padding-bottom: 64px; }
+}
 
 @media (max-width: 991.98px) {
     .hero-section { min-height: auto; }
@@ -733,8 +744,6 @@ img { max-width: 100%; height: auto; }
 .btn-auth-icon-mobile{background:none;border:none;color:var(--color-primary-dark);font-size:1.6rem;cursor:pointer;padding:0.2rem;display:flex;align-items:center;line-height:1}
 .btn-auth-icon-mobile:hover{color:var(--color-primary)}
 
-.brand-text-img{height:44px !important}
-.logo-img{height:40px !important;width:auto !important}
 
 @media (max-width: 991px) {
   .btn-login-desktop{display:none !important}
@@ -753,8 +762,6 @@ img { max-width: 100%; height: auto; }
   .btn-login-desktop{display:flex}
   #loginNavBtnMobile{display:none !important}
   #authNavBtn .btn-auth-icon-mobile{display:none !important}
-  .brand-text-img{height:46px !important}
-  .logo-img{height:42px !important;width:auto !important}
 }
 
 /* Resumen checkout - lista de productos */
