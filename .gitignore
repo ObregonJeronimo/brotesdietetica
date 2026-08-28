@@ -25,3 +25,4 @@ Thumbs.db
 # falso. No deben desplegarse: el sitio es estatico y publico.
 _test-*.html
 respaldo-limpieza-*.json
+productos-pag*.xlsx
