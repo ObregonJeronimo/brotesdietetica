@@ -5,26 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ventas Mayoristas | Brotes Dietética</title>
     <meta name="description" content="Distribuidores y revendedores de productos naturales. Conocé las condiciones mayoristas de Brotes Dietética.">
-    <link rel="icon" type="image/jpeg" href="img/favicon-brotes.svg">
+    <link rel="icon" type="image/jpeg" href="img/favicon-brotes.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@300..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+        /* Los cuatro de marca y sus derivados. Ojo: esta pagina NO carga
+           styles.css, asi que tiene su propia copia. check-admin.js verifica que
+           los cuatro coincidan con los del resto para que no vuelvan a separarse. */
         :root {
-            --green: #1E3E2C;
-            --green-dark: #14251A;
-            --green-light: #E8F2E5;
-            --cream: #F4F8F2;
-            --beige: #E3EDDF;
-            --brown: #B9922E;
-            --text: #26261F;
-            --text-light: #5C5C50;
+            --brand-verde: #3d402f;
+            --brand-mostaza: #a79066;
+            --brand-crudo: #dfe0d2;
+            --brand-negro: #161616;
+            --green: var(--brand-verde);
+            --green-dark: #26281d;
+            --green-light: #e7e8dd;
+            --cream: #f1f1eb;
+            --beige: var(--brand-crudo);
+            --brown: #7b6b4e;
+            --text: var(--brand-negro);
+            --text-light: #5e5f5a;
             --wa: #25D366;
             --font-display: 'Playfair Display', Georgia, serif;
-            --font-body: 'Source Sans 3', sans-serif;
+            --font-body: 'Montserrat', sans-serif;
         }
 
         body {
@@ -101,7 +108,7 @@
         }
         .hero h1 em {
             font-style: italic;
-            color: #b8d4a0;
+            color: var(--brand-mostaza);
         }
         .hero p {
             font-size: 1.05rem;
@@ -308,7 +315,7 @@
 
 <nav class="top-nav">
     <a href="/" class="back"><i class="bi bi-arrow-left"></i> Volver al catálogo</a>
-    <img src="img/logo-brotes-light.svg" alt="Brotes" class="logo">
+    <img src="img/logo-brotes-light.png" alt="Brotes" class="logo">
 </nav>
 
 <section class="hero">

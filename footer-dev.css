@@ -16,7 +16,7 @@
 .dev-card-info { display:flex; align-items:center; gap:0.9rem; min-width:0; }
 .dev-card-icon {
     flex:0 0 auto; width:42px; height:42px; border-radius:11px;
-    background:linear-gradient(135deg, var(--color-secondary), #C89312);
+    background:linear-gradient(135deg, var(--color-secondary), #8a7856);
     color:var(--color-primary-dark);
     display:flex; align-items:center; justify-content:center; font-size:1.2rem;
 }
@@ -62,7 +62,7 @@
 .chat-float-header button:hover { color:white; }
 .chat-float-body { padding:1.25rem; }
 .chat-float-body p { font-size:0.85rem; color:var(--color-text-light); margin-bottom:1rem; }
-.chat-float-body input, .chat-float-body textarea { width:100%; border:1.5px solid var(--color-beige); border-radius:10px; padding:0.7rem 0.9rem; font-family:var(--font-body); font-size:0.9rem; color:var(--color-text); outline:none; margin-bottom:0.65rem; transition:border-color 0.2s; resize:none; }
+.chat-float-body input, .chat-float-body textarea { width:100%; border:1.5px solid var(--brand-crudo); border-radius:10px; padding:0.7rem 0.9rem; font-family:var(--font-body); font-size:0.9rem; color:var(--color-text); outline:none; margin-bottom:0.65rem; transition:border-color 0.2s; resize:none; }
 .chat-float-body input:focus, .chat-float-body textarea:focus { border-color:var(--color-primary); }
 .chat-float-body button[type="submit"] { width:100%; background:var(--color-whatsapp); color:white; border:none; border-radius:10px; padding:0.75rem; font-weight:600; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem; transition:all 0.2s; }
 .chat-float-body button[type="submit"]:hover { background:#1da851; }

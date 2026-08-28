@@ -398,6 +398,63 @@ if (fs.existsSync(idx)) {
   if (fs.existsSync(appjs)) problemas.push(...revisarCss('app.js', fs.readFileSync(appjs, 'utf8'), cssTienda, jsTienda));
 }
 
+/* ------------------------------------------------- los colores de la marca
+   Los cuatro colores del brandbook estan definidos en MAS DE UN ARCHIVO, y no por
+   descuido: politicas.html, mayoristas.html y resena.html no cargan styles.css,
+   asi que cada una lleva su propia copia.
+
+   Eso ya se separo una vez. Al cambiar la marca en 2026 esas tres paginas se
+   quedaron con la paleta anterior entera —verde #1E3E2C, oro #EDB833— mientras el
+   resto del sitio ya estaba con la nueva. No dio ningun error: simplemente eran
+   otra marca, y son paginas que ve el cliente.
+
+   Asi que se comparan contra un unico canon. Si alguien cambia un color, o lo
+   cambia en todos lados o el build se corta.
+
+   Ojo: esto NO es "no uses otros colores". Derivar tonos de estos cuatro esta
+   perfecto y la hoja esta llena de derivados. Lo que se controla es que los
+   CUATRO de origen digan lo mismo en todas partes, y que no reaparezca ninguno
+   de los viejos. */
+const MARCA = {
+  '--brand-negro': '#161616',
+  '--brand-verde': '#3d402f',
+  '--brand-mostaza': '#a79066',
+  '--brand-crudo': '#dfe0d2',
+};
+/* Los de la marca anterior. Si vuelve a aparecer alguno es que quedo algo sin
+   migrar, o que se copio y pego una regla vieja. */
+const MARCA_VIEJA = ['#1E3E2C', '#14251A', '#EDB833', '#F5EEDA', '#F4F8F2',
+                     '#E3EDDF', '#CBDCC6', '#B9922E', '#26261F', '#8FCBA3', '#C89312'];
+
+const ARCHIVOS_TIENDA = ['index.html', 'styles.css', 'app.js', 'toolbar.css', 'footer-dev.css',
+                         'politicas.html', 'mayoristas.html', 'resena.html'];
+
+ARCHIVOS_TIENDA.forEach((f) => {
+  const r = path.join(__dirname, f);
+  if (!fs.existsSync(r)) return;
+  const t = fs.readFileSync(r, 'utf8');
+
+  Object.keys(MARCA).forEach((v) => {
+    const re = new RegExp(v + '\\s*:\\s*([^;}\\s]+)', 'g');
+    let m;
+    while ((m = re.exec(t))) {
+      const val = m[1].trim().toLowerCase();
+      if (val !== MARCA[v]) {
+        problemas.push('MARCA: ' + f + ' define ' + v + ' como ' + val +
+                       ' y el brandbook dice ' + MARCA[v]);
+      }
+    }
+  });
+
+  MARCA_VIEJA.forEach((c) => {
+    const n = (t.match(new RegExp(c, 'gi')) || []).length;
+    if (n) {
+      problemas.push('MARCA: ' + f + ' todavia usa ' + c + ' (' + n +
+                     ' vez/veces), que es de la paleta anterior');
+    }
+  });
+});
+
 /* ------------------------------------------------------------------ informe */
 const lineas = bloques.reduce((s, b) => s + b.codigo.split('\n').length, 0);
 if (problemas.length) {
@@ -410,6 +467,10 @@ if (problemas.length) {
   }
   if (deHtml < problemas.length) {
     console.error('\nUn error de ejecucion en el bloque de JS aborta TODO lo que viene despues.');
+  }
+  if (problemas.some((p) => p.startsWith('MARCA:'))) {
+    console.error('\nUn color de marca que no coincide no rompe nada: la pagina se ve');
+    console.error('igual de bien, pero con OTRA marca. Es de lo que menos se nota solo.');
   }
   console.error('Abri la pagina y mirala antes de dar esto por bueno.\n');
   process.exit(1);
