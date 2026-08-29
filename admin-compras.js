@@ -406,7 +406,7 @@ async function ofrecerActualizarCostos(items) {
   }).join('\n');
   if (!await pedirConfirmacion(
       'En esta compra pagaste distinto de lo que el producto tiene cargado como costo:\n\n' + detalle +
-      '\n\nSi los actualizo, el precio de venta NO cambia: cambia el margen que muestra Ganancia.',
+      '\n\nSi los actualizó, el precio de venta NO cambia: cambia el margen que muestra Ganancia.',
       { titulo: 'Actualizar costos', aceptar: 'Actualizar' })) return;
   try {
     const lote = db.batch();
@@ -472,6 +472,29 @@ function closeCompraVerModal() {
   if (m) m.classList.remove('show');
 }
 
+/* El stock que queda al devolver una compra. El piso es 0: si de lo que entro
+   ya se vendio parte, restar todo lo comprado daria negativo, y un stock
+   negativo rompe los avisos de stock bajo y deja el inventario sin sentido.
+   Aparte para poder probarla sola. */
+function _cpStockTrasDevolver(antes, quita) {
+  return Math.max(0, Number(antes || 0) - Number(quita || 0));
+}
+
+/* Lo que va a quedar clavado en 0 por haberse vendido. Se calcula con lo que
+   ya está en memoria: es solo para avisar antes de confirmar, la cuenta de
+   verdad la hace la transacción. */
+function _cpAvisoVendidos(c, devuelve) {
+  if (!devuelve) return '';
+  const cortos = (c.items || []).filter(i => {
+    const p = (allProducts || []).find(x => x.id === i.id);
+    return p && Number(p.stock || 0) < Number(i.cantidad || 0);
+  });
+  if (!cortos.length) return '';
+  return '\n\nOJO: de ' + cortos.map(i => i.nombre).join(', ') +
+    ' ya se vendió parte de lo que entró con esta compra. Su stock va a quedar en 0, ' +
+    'no en negativo, así que el inventario no va a coincidir con la resta exacta.';
+}
+
 async function borrarCompra(docId) {
   const c = (_comprasCache && _comprasCache.lista.find(x => x.docId === docId));
   if (!c) return;
@@ -482,20 +505,44 @@ async function borrarCompra(docId) {
       (devuelve
         ? 'Como esta compra sumó stock, se le va a RESTAR a esos productos lo que había sumado.'
         : 'Esta compra no había sumado stock, así que el inventario no se toca.') +
+      _cpAvisoVendidos(c, devuelve) +
       '\n\nEsto no se puede deshacer.',
       { titulo: 'Eliminar compra', peligro: true })) return;
   try {
+    let _tocados = [];
     if (devuelve && (c.items || []).length) {
-      const lote = db.batch();
-      c.items.forEach(i => {
-        if (!i.id) return;
-        lote.update(db.collection('productos').doc(i.id),
-          { stock: firebase.firestore.FieldValue.increment(-Number(i.cantidad || 0)) });
+      /* Antes esto era un batch con increment(-cantidad), a ciegas. Si algo de lo
+         que entró con la compra YA SE VENDIÓ, restar todo lo comprado deja el
+         stock en negativo: pasó con el Hornito de Yeso, entraron 2, se vendió 1,
+         se revirtió la compra y quedó en -1.
+
+         Un stock negativo no es solo un número feo: la tienda lo trata como
+         "hay menos que cero", los avisos de stock bajo se vuelven locos y el
+         inventario deja de servir para pedir mercadería.
+
+         Ahora se lee el stock real y se baja hasta 0 como piso. Va en una
+         transacción -todas las lecturas primero, después las escrituras- para
+         que una venta que entre en el medio no se pierda. */
+      const items = (c.items || []).filter(i => i.id);
+      _tocados = await db.runTransaction(async tx => {
+        const refs = items.map(i => db.collection('productos').doc(i.id));
+        const snaps = [];
+        for (const r of refs) snaps.push(await tx.get(r));
+        const res = [];
+        snaps.forEach((sn, k) => {
+          if (!sn.exists) return;
+          const antes = Number(sn.data().stock || 0);
+          const quita = Number(items[k].cantidad || 0);
+          const despues = _cpStockTrasDevolver(antes, quita);
+          tx.update(refs[k], { stock: despues });
+          res.push({ id: items[k].id, nombre: items[k].nombre, antes: antes,
+                     quita: quita, despues: despues, faltaba: antes - quita < 0 });
+        });
+        return res;
       });
-      await lote.commit();
-      c.items.forEach(i => {
-        const p = (allProducts || []).find(x => x.id === i.id);
-        if (p) p.stock = Number(p.stock || 0) - Number(i.cantidad || 0);
+      _tocados.forEach(x => {
+        const p = (allProducts || []).find(y => y.id === x.id);
+        if (p) p.stock = x.despues;
       });
     }
     await db.collection('compras').doc(docId).delete();
@@ -503,7 +550,13 @@ async function borrarCompra(docId) {
       logAction('eliminar', 'Compra #' + String(c.numero || 0).padStart(4, '0') + ' eliminada',
         (c.proveedorNombre || '') + ' | ' + _cpPesos(c.total) + (devuelve ? ' | stock devuelto' : ' | sin stock que devolver'));
     }
-    showAdminToast('Compra eliminada', 'success');
+    const _clavados = _tocados.filter(x => x.faltaba);
+    if (_clavados.length) {
+      showAdminToast('Compra eliminada. De ' + _clavados.length + ' producto' +
+        (_clavados.length === 1 ? '' : 's') + ' ya se había vendido parte: su stock quedó en 0, no en negativo.', 'info');
+    } else {
+      showAdminToast('Compra eliminada', 'success');
+    }
     closeCompraVerModal();
     if (typeof _refrescarAlertas === 'function') _refrescarAlertas(true);
     if (typeof loadProveedores === 'function') loadProveedores();

@@ -4080,7 +4080,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                     if(_clienteDesde==='pedido'){
                         pickPedCliente(nuevoId,data.nombre);
                     }else if(_clienteDesde==='venta'){
-                        if(typeof pickVentaCliente==='function')pickVentaCliente(nuevoId,data.nombre);
+                        pickCliente(nuevoId,data.nombre);
                     }
                 }
                 _clienteDesde=null;

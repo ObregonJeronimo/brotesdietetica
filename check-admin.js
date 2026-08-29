@@ -565,6 +565,47 @@ ARCHIVOS_TIENDA.forEach((f) => {
 const FUENTES = [['admin.html', html]].concat(
   MODULOS.map((f) => [f, fs.readFileSync(path.join(__dirname, f), 'utf8')]));
 
+/* Deja solo el codigo: comentarios, textos y expresiones regulares salen y
+   quedan espacios en su lugar, para no mover los numeros de linea. Sin esto,
+   cualquier palabra seguida de un parentesis dentro de un comentario -"el
+   descuento (ver abajo)"- parece una llamada a una funcion. */
+function soloCodigo(s) {
+  const out = new Array(s.length);
+  let i = 0, prev = '';
+  const borrar = (a, b) => { for (let k = a; k < b; k++) out[k] = s[k] === '\n' ? '\n' : ' '; };
+  while (i < s.length) {
+    const c = s[i], d = s[i + 1];
+    if (c === '/' && d === '*') { const j = s.indexOf('*/', i + 2); const e = j < 0 ? s.length : j + 2; borrar(i, e); i = e; continue; }
+    if (c === '/' && d === '/') { let j = s.indexOf('\n', i); if (j < 0) j = s.length; borrar(i, j); i = j; continue; }
+    if (c === '"' || c === "'" || c === '`') {
+      let j = i + 1;
+      while (j < s.length) {
+        if (s[j] === '\\') { j += 2; continue; }
+        if (s[j] === c) { j++; break; }
+        if (c !== '`' && s[j] === '\n') break;
+        j++;
+      }
+      borrar(i, j); i = j; continue;
+    }
+    if (c === '/' && /[(,=:[!&|?{};+\-*%~^]/.test(prev)) {
+      let j = i + 1, clase = false, ok = false;
+      while (j < s.length) {
+        if (s[j] === '\\') { j += 2; continue; }
+        if (s[j] === '[') clase = true;
+        else if (s[j] === ']') clase = false;
+        else if (s[j] === '/' && !clase) { j++; ok = true; break; }
+        else if (s[j] === '\n') break;
+        j++;
+      }
+      if (ok) { while (j < s.length && /[a-z]/.test(s[j])) j++; borrar(i, j); i = j; continue; }
+    }
+    out[i] = c;
+    if (!/\s/.test(c)) prev = c;
+    i++;
+  }
+  return out.join('');
+}
+
 /* Lo que existe. Se cuenta como definicion `function nombre(`, un const/let/var
    con una funcion del otro lado, y window.nombre =. Es a proposito generoso: si
    duda, calla. Lo que buscamos son los nombres que no aparecen en NINGUN lado. */
@@ -640,6 +681,95 @@ FUENTES.forEach(([archivo, texto]) => {
 [...idsRotos.keys()].sort().forEach((n) => {
   problemas.push('FANTASMA: getElementById("' + n + '") y ese id no esta en ' +
                  'ningun lado (' + idsRotos.get(n).join(', ') + ')');
+});
+
+/* ==========================================================================
+   Y lo mismo ADENTRO del JS, no solo en los onclick.
+
+   El chequeo de arriba mira los handlers escritos en el HTML. Una llamada que
+   vive dentro de una funcion no la ve, y es peor: no falla al cargar la pagina,
+   falla recien cuando alguien llega a esa linea. Paso con irASeccionVentas(),
+   que empezaba llamando a closeCajaVentasModal() -renombrada tiempo atras a
+   cerrarVentasDetalle()-. Como era la PRIMERA linea, la funcion moria ahi y los
+   botones "Minorista" y "Mayorista" no hacian absolutamente nada. Ningun error
+   a la vista hasta que se aprieta.
+   ========================================================================== */
+const CODIGO = [];
+{
+  const reBloque = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+  const htmlPelado = soloCodigo(html);
+  let b;
+  while ((b = reBloque.exec(htmlPelado))) {
+    CODIGO.push(['admin.html', b[1], htmlPelado.slice(0, b.index).split('\n').length]);
+  }
+  MODULOS.forEach((f) => CODIGO.push([f, soloCodigo(fs.readFileSync(path.join(__dirname, f), 'utf8')), 0]));
+}
+
+/* Todo lo que puede estar del otro lado de un nombre: funciones, variables que
+   guardan una funcion, y tambien los parametros -que se llaman como uno quiera
+   y se usan como funcion adentro-. Generoso a proposito: ante la duda, calla. */
+const NOMBRES = new Set(DEFINIDAS);
+/* Un nombre puede llegar a ser una funcion por varios caminos: DEFINIDAS solo
+   trae los que tienen una funcion escrita del otro lado del igual. Aca se suma
+   todo lo demas que despues puede terminar guardando una: una variable que se
+   asigna mas adelante (`let x=null` y despues `x=db.onSnapshot(...)`), y los
+   parametros, que se llaman como quiera quien escribio la funcion. */
+const sumarNombre = (n) => { if (/^[A-Za-z_$][\w$]*$/.test(n)) NOMBRES.add(n); };
+const sumarParams = (lista) => lista.split(',').forEach((s) =>
+  sumarNombre(s.trim().replace(/^[^A-Za-z_$]+/, '').replace(/[=.].*$/, '').trim()));
+CODIGO.forEach(([, t]) => {
+  let m;
+  /* cualquier declaracion, tenga lo que tenga del otro lado */
+  const rd = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g;
+  while ((m = rd.exec(t))) NOMBRES.add(m[1]);
+  /* el resto de un `let a = 1, b = 2` y las desestructuraciones */
+  const rm = /,\s*([A-Za-z_$][\w$]*)\s*(?:=|[,;)])/g;
+  while ((m = rm.exec(t))) NOMBRES.add(m[1]);
+  const rz = /(?:const|let|var)\s*[{[]([^}\]]*)[}\]]/g;
+  while ((m = rz.exec(t))) sumarParams(m[1]);
+  const rp = /function[^(]*\(([^)]*)\)/g;
+  while ((m = rp.exec(t))) sumarParams(m[1]);
+  const ra = /\(([^)]*)\)\s*=>/g;
+  while ((m = ra.exec(t))) sumarParams(m[1]);
+  const rs = /([A-Za-z_$][\w$]*)\s*=>/g;
+  while ((m = rs.exec(t))) NOMBRES.add(m[1]);
+  /* Un `typeof x === 'function'` dice "esto puede no estar, y ya lo tuve en
+     cuenta". Es un gancho opcional a proposito, no un olvido. */
+  const rt = /typeof\s+([A-Za-z_$][\w$]*)\s*===?\s*$/g;
+  while ((m = rt.exec(t))) NOMBRES.add(m[1]);
+});
+/* El typeof queda sin su comparacion despues de pelar los textos, asi que se
+   busca sin ella. */
+CODIGO.forEach(([, t]) => {
+  let m;
+  const rt = /typeof\s+([A-Za-z_$][\w$]*)/g;
+  while ((m = rt.exec(t))) NOMBRES.add(m[1]);
+});
+
+/* Globales del navegador y de las librerias que entran por <script src>. */
+const GLOBALES = new Set([...NO_ES_FUNCION,
+  'async', 'Event', 'CustomEvent', 'jsPDF', 'XLSX', 'html2canvas', 'bootstrap',
+  'firebase', 'db', 'auth', 'storage', 'Promise', 'Set', 'Map', 'WeakMap',
+  'Error', 'RegExp', 'Symbol', 'Intl', 'Blob', 'File', 'FileReader', 'FormData',
+  'URL', 'URLSearchParams', 'Image', 'fetch', 'atob', 'btoa', 'isFinite',
+  'setInterval', 'clearInterval', 'requestAnimationFrame', 'structuredClone',
+  'localStorage', 'sessionStorage', 'AbortController', 'TextEncoder', 'encodeURI',
+  'decodeURI', 'throw', 'try', 'finally', 'class', 'yield']);
+
+const sueltas = new Map();
+CODIGO.forEach(([archivo, t, base]) => {
+  let m;
+  const re = /(?:^|[^\w$.])([A-Za-z_$][\w$]*)\s*\(/g;
+  while ((m = re.exec(t))) {
+    const n = m[1];
+    if (GLOBALES.has(n) || NOMBRES.has(n)) continue;
+    anotar(sueltas, n, archivo + ':' + (base + t.slice(0, m.index).split('\n').length));
+  }
+});
+
+[...sueltas.keys()].sort().forEach((n) => {
+  problemas.push('FANTASMA: se llama a ' + n + '() y esa funcion no existe (' +
+                 sueltas.get(n).join(', ') + ')');
 });
 
 /* ------------------------------------------------------------------ informe */

@@ -53,6 +53,8 @@ const CAJA_CFG_DEFAULTS = {
    una diferencia sin explicacion, que es justo lo que no queremos. */
 let cajaCfg = Object.assign({}, CAJA_CFG_DEFAULTS);
 let cajaActual = null;      /* la caja abierta, o null */
+/* La caja que ACABAMOS de cerrar en esta pantalla. Ver confirmarCierre(). */
+let _cajaRecienCerrada = null;
 let cajaMovs = [];
 let cajaVentas = [];
 let cajaVentasSueltas = [];
@@ -114,7 +116,7 @@ async function getCajaAbierta() {
   try {
     const p = await db.collection('config').doc('cajaEstado').get();
     const id = p.exists ? p.data().cajaAbiertaId : null;
-    if (id) {
+    if (id && id !== _cajaRecienCerrada) {
       const c = await db.collection('cajas').doc(id).get();
       if (c.exists && c.data().estado === 'abierta') return Object.assign({ docId: c.id }, c.data());
     }
@@ -122,7 +124,11 @@ async function getCajaAbierta() {
   /* Respaldo: si el puntero quedó desincronizado, buscamos la abierta igual */
   try {
     const q = await db.collection('cajas').where('estado', '==', 'abierta').limit(1).get();
-    if (!q.empty) { const d = q.docs[0]; return Object.assign({ docId: d.id }, d.data()); }
+    /* Sin descartar la que acabamos de cerrar, este respaldo la resucitaba: la
+       relectura puede volver con el estado anterior y la pantalla mostraba la
+       caja abierta de nuevo. */
+    const d = q.empty ? null : q.docs[0];
+    if (d && d.id !== _cajaRecienCerrada) return Object.assign({ docId: d.id }, d.data());
   } catch (e) { console.warn('buscar caja abierta:', e); }
   return null;
 }
@@ -651,7 +657,13 @@ function openCajaVentasModal() { abrirVentasDetalle('Ventas de esta caja', cajaV
 function cerrarVentasDetalle() { document.getElementById('ventasDetalleModal').classList.remove('show'); }
 
 function irASeccionVentas(cual) {
-  closeCajaVentasModal();
+  /* Decia closeCajaVentasModal(), que dejo de existir cuando el dialogo se hizo
+     generico y paso a llamarse cerrarVentasDetalle(). Como la llamada estaba
+     adentro de una funcion y no en un onclick, no reventaba al cargar la pagina:
+     reventaba recien al apretar el boton, y como es la PRIMERA linea, la funcion
+     moria ahi y no cambiaba de seccion. Desde afuera se veia como un boton que
+     "no hace nada". */
+  cerrarVentasDetalle();
   if (typeof switchSection === 'function') switchSection(cual === 'mayorista' ? 'ventasMay' : 'ventas');
 }
 
@@ -803,7 +815,7 @@ async function abrirCaja() {
     await db.collection('config').doc('cajaEstado').set({
       cajaAbiertaId: ref.id, numero: numero, fecha: doc.fecha, abiertoPor: doc.abiertoPor
     });
-    window._cajaEstadoCache = { cajaAbiertaId: ref.id };
+    _cajaRecienCerrada = null;
     if (typeof logAction === 'function') logAction('abrir', 'Caja #' + numero + ' abierta', 'Fondo inicial ' + _pesos(monto));
     showAdminToast('Caja #' + numero + ' abierta', 'success');
     closeAbrirCajaModal();
@@ -1210,11 +1222,26 @@ async function confirmarCierre() {
       });
     });
     await db.collection('config').doc('cajaEstado').set({ cajaAbiertaId: null });
-    window._cajaEstadoCache = { cajaAbiertaId: null };
+
+    /* La pantalla se apaga ACA, sin volver a preguntar. Antes esto dependia de
+       que loadCaja() releyera la base y se enterara sola, y la relectura podia
+       volver con el estado anterior: la caja seguia mostrandose abierta hasta
+       que uno cambiaba de seccion, que es cuando loadCaja() corria de nuevo.
+
+       Lo que acabas de hacer vos no tiene por que ir a preguntarselo al
+       servidor: la caja se cerro, se sabe, y se dibuja. loadCaja() sigue
+       corriendo despues para refrescar el historial, pero ya no es de el de
+       quien depende que la pantalla diga la verdad. */
+    const numCerrada = cajaActual.numero;
+    _cajaRecienCerrada = cajaActual.docId;
+    cajaActual = null;
+    cajaMovs = []; cajaVentas = []; cajaVentasSueltas = [];
+    renderCaja();
+
     if (typeof logAction === 'function')
-      logAction('cerrar', 'Caja #' + cajaActual.numero + ' cerrada',
+      logAction('cerrar', 'Caja #' + numCerrada + ' cerrada',
         'Esperado ' + _pesos(t.esperado) + ' | Contado ' + _pesos(contado) + ' | Diferencia ' + _pesos(dif));
-    showAdminToast('Caja #' + cajaActual.numero + ' cerrada', 'success');
+    showAdminToast('Caja #' + numCerrada + ' cerrada', 'success');
     closeCierreModal();
     /* A partir de aca la caja YA ESTA CERRADA en la base. Refrescar la pantalla es
        otra cosa, y tiene que fallar aparte: cuando el refresco estaba dentro de este
