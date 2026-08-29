@@ -17,7 +17,7 @@ const path = require('path');
 const RAIZ = path.join(__dirname, '..');
 
 const MODULOS = ['admin-dialogo.js', 'admin-pagination.js', 'admin-caja.js', 'admin-alertas.js',
-                 'admin-stats.js', 'admin-proveedores.js', 'admin-atajos.js', 'admin-lector.js',
+                 'admin-stats.js', 'admin-proveedores.js', 'admin-compras.js', 'admin-atajos.js', 'admin-lector.js',
                  'admin-admins.js'].filter(f => fs.existsSync(path.join(RAIZ, f)));
 
 const donde = {};

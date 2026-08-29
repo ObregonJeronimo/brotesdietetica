@@ -129,7 +129,12 @@ async function loadProveedores() {
   const req = (window._provReq = (window._provReq || 0) + 1);
   const dias = _provDias;
   try {
-    const bruto = await _provCargarVentas(dias);
+    const [bruto] = await Promise.all([
+      _provCargarVentas(dias),
+      /* Las compras las trae admin-compras.js. Si ese modulo no cargo, la
+         pantalla sigue funcionando sin la mitad de gasto en vez de romperse. */
+      (typeof cargarCompras === 'function') ? cargarCompras(dias) : Promise.resolve(null),
+    ]);
     if (req !== window._provReq) return;
     _provDatos = Object.assign({}, bruto, { porLista: _provAgrupar(bruto) });
     delete _provDatos.ventas;   /* ya está resumido: no se guardan cientos de docs */
@@ -165,6 +170,10 @@ function _provResumen(lista) {
     porPeso: prods.filter(p => p.tipoVenta === 'peso').length,
     facturado: d.facturado,
     ventas: d.ventas,
+    /* Lo que se le pago en el periodo. Sale de las compras cargadas; sin compras
+       queda en 0 y la pantalla no muestra la fila. */
+    gastado: ((typeof _comprasCache !== 'undefined' && _comprasCache &&
+               _comprasCache.porProveedor[lista.id]) || { total: 0 }).total,
     vendidos: vendidos,
     /* Los que existen en el catálogo y NO se vendieron ni una vez en el período.
        Es el dato que dice qué dejar de comprar. */
@@ -218,6 +227,8 @@ function renderProveedores() {
         ' &middot; ' + r.ventas + ' venta' + (r.ventas === 1 ? '' : 's') +
         (r.sinVender ? ' &middot; ' + r.sinVender + ' sin vender' : '') +
       '</div>' +
+      (r.gastado ? '<div style="font-size:0.78rem;color:var(--text-dim);margin-top:0.15rem">' +
+        'Le compraste ' + _provPesos(r.gastado) + '</div>' : '') +
       (mejor ? '<div style="font-size:0.78rem;color:var(--accent-light);margin-top:0.3rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
         'Lo que más deja: ' + esc(mejor.nombre) + '</div>' : '') +
       '</button>';
@@ -269,6 +280,13 @@ function _provRenderDetalle() {
       _provCard(esc(lista.nombre) + ' <span style="font-weight:400;color:var(--text-dim);font-size:0.82rem">· últimos ' + dias + ' días</span>',
         _provFila('Facturado', _provPesos(r.facturado)) +
         _provFila('Ventas con productos suyos', String(r.ventas)) +
+        (r.gastado
+          ? _provFila('Le compraste', _provPesos(r.gastado)) +
+            /* La resta cruda, sin llamarla "ganancia": lo comprado no es lo
+               vendido. Lo que entro puede seguir en la gondola y lo que salio
+               puede haberse comprado el mes pasado. */
+            _provFila('Diferencia del período', _provPesos(r.facturado - r.gastado))
+          : '') +
         '<div style="margin-top:0.6rem;padding-top:0.5rem;border-top:1px solid var(--border)">' +
         _provFila('Productos en el catálogo', String(r.productos)) +
         _provFila('Se vendieron', String(r.vendidos), true) +
@@ -279,6 +297,8 @@ function _provRenderDetalle() {
         '</div>') +
       _provCard('Los 10 que más dejan',
         top.length ? top.map(filaProd).join('') : nadaVendido) +
+      ((typeof renderComprasDeProveedor === 'function')
+        ? renderComprasDeProveedor(lista.id, dias) : '') +
     '</div>' +
     (resto.length ? '<div style="margin-top:1rem">' + _provCard(
         'El resto de lo vendido (' + resto.length + ')',

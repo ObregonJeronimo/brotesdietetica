@@ -76,6 +76,26 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    /* Facturas y remitos de las compras a proveedores.
+       DOS DIFERENCIAS con todo lo de arriba, a proposito:
+
+       1) La LECTURA no es publica. Las fotos de productos se muestran en la
+          tienda, por eso van abiertas; una factura de proveedor es un documento
+          interno del comercio, con precios de costo y datos del proveedor
+          adentro. Publica seria regalar la estructura de costos a cualquiera
+          que adivine la URL.
+
+       2) Se aceptan PDF ademas de imagenes: la mitad de los proveedores manda
+          la factura en PDF y no como foto. */
+    match /compras/{allPaths=**} {
+      allow read: if isAdmin();
+      allow write: if isAdmin()
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf')
+        && request.resource.size < 10 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
     /* Todo lo demás: cerrado. Sin esta regla, cualquier ruta nueva que agregue
        el panel en el futuro quedaría sin cubrir y Storage la denegaría igual,
        pero dejarlo explícito evita sorpresas. */
