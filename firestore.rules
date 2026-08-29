@@ -196,6 +196,17 @@ service cloud.firestore {
        subcolecciones. Sin el segundo, toda escritura de movimientos se rechaza,
        y como el panel envuelve todo en try/catch el error no se ve: la caja
        parece andar y no guarda nada. */
+    /* Compras a proveedores. Solo admins, igual que las cajas: adentro estan los
+       costos y los datos de los proveedores, que no son publicos ni para el
+       cliente logueado de la tienda.
+
+       Sin esta regla Firestore DENIEGA por defecto -no hay catch-all permisivo en
+       este archivo-, asi que la carga de compras no habria funcionado en
+       produccion: se veia el formulario y al guardar tiraba permission-denied. */
+    match /compras/{doc} {
+      allow read, write: if isAdmin();
+    }
+
     match /cajas/{doc} {
       allow read, write: if isAdmin();
     }
@@ -253,8 +264,17 @@ service cloud.firestore {
     }
 
     /* ===== LISTAS PROVEEDORES ===== */
+    /* Los proveedores. La lectura estaba en `if true`, o sea que la lista completa
+       de a quien le compra el negocio -con el PDF de precios semanal- se bajaba
+       con una sola URL, sin cuenta ni nada:
+
+         GET firestore.googleapis.com/v1/projects/<proyecto>/databases/(default)/documents/listas
+
+       Ninguna pagina de la tienda lee esta coleccion: la usan admin.html y
+       setup-inicial.html, y las dos piden login de admin antes de tocar nada.
+       Asi que cerrarla no le saca nada a nadie. */
     match /listas/{doc} {
-      allow read: if true;
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
