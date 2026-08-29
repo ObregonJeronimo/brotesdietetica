@@ -351,8 +351,13 @@ function revisarCss(archivo, textoQueUsa, cssDisponible, textoConGanchos) {
 const CSS_ADMIN = cssDe(html, []);
 
 /* Todo el JS del panel junto: los ganchos pueden estar en otro archivo. */
-const JS_PANEL = ['admin-caja.js', 'admin-alertas.js', 'admin-dialogo.js', 'admin-stats.js',
-                  'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js']
+/* La lista estaba escrita a mano y se quedo en 8 cuando ya habia 10 modulos:
+   los dos ultimos no los revisaba nadie. Se lee la carpeta. */
+const MODULOS = fs.readdirSync(__dirname)
+  .filter((f) => /^admin-.*\.js$/.test(f) && !/\.min\.js$/.test(f))
+  .sort();
+
+const JS_PANEL = MODULOS
   .map((f) => {
     const r = path.join(__dirname, f);
     return fs.existsSync(r) ? fs.readFileSync(r, 'utf8') : '';
@@ -542,6 +547,101 @@ ARCHIVOS_TIENDA.forEach((f) => {
   });
 });
 
+/* ==========================================================================
+   HANDLERS Y ELEMENTOS FANTASMA
+
+   Un onclick="hacerAlgo()" que apunta a una funcion que no existe no se nota
+   nunca: el boton se dibuja igual, con su icono y su texto, y recien cuando
+   alguien lo aprieta salta un ReferenceError en la consola y no pasa nada. No
+   hay pantalla rota que lo delate. Ya paso con toggleCategoryFilters(), que
+   estaba escrito en el HTML y no existia en ningun lado.
+
+   Lo mismo con getElementById('algo'): devuelve null, y la linea de al lado
+   revienta o -peor- esta guardada tras un `if (!el) return;` y la funcion se
+   va en silencio sin hacer lo que le pediste.
+
+   Las dos cosas se pueden ver sin abrir el navegador, asi que se ven aca.
+   ========================================================================== */
+const FUENTES = [['admin.html', html]].concat(
+  MODULOS.map((f) => [f, fs.readFileSync(path.join(__dirname, f), 'utf8')]));
+
+/* Lo que existe. Se cuenta como definicion `function nombre(`, un const/let/var
+   con una funcion del otro lado, y window.nombre =. Es a proposito generoso: si
+   duda, calla. Lo que buscamos son los nombres que no aparecen en NINGUN lado. */
+const DEFINIDAS = new Set();
+[
+  /function\s+([A-Za-z_$][\w$]*)/g,
+  /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?(?:function\b|\(|[A-Za-z_$][\w$]*\s*=>)/g,
+  /window\.([A-Za-z_$][\w$]*)\s*=/g,
+].forEach((re) => {
+  FUENTES.forEach(([, t]) => {
+    let m;
+    re.lastIndex = 0;
+    while ((m = re.exec(t))) DEFINIDAS.add(m[1]);
+  });
+});
+
+/* Palabras que en un handler parecen una llamada y no lo son. */
+const NO_ES_FUNCION = new Set(['if', 'for', 'while', 'switch', 'catch', 'return',
+  'typeof', 'new', 'function', 'else', 'do', 'delete', 'void', 'in', 'of', 'case',
+  'await', 'alert', 'confirm', 'prompt', 'print', 'open', 'close', 'event', 'this',
+  'window', 'document', 'console', 'Number', 'String', 'Boolean', 'JSON', 'Math',
+  'Date', 'parseInt', 'parseFloat', 'isNaN', 'setTimeout', 'clearTimeout',
+  'encodeURIComponent', 'decodeURIComponent', 'Object', 'Array', 'navigator',
+  'location', 'history', 'require']);
+
+const fantasmas = new Map();
+const anotar = (mapa, clave, donde) => {
+  if (!mapa.has(clave)) mapa.set(clave, []);
+  if (mapa.get(clave).length < 3) mapa.get(clave).push(donde);
+};
+
+FUENTES.forEach(([archivo, texto]) => {
+  /* Los handlers escritos en el HTML y los que se arman dentro de un string de
+     JS para meterlos con innerHTML: los dos terminan igual en el navegador. */
+  const reAttr = /\son[a-z]+\s*=\s*\\?["']([^"'\\]*)/g;
+  let h;
+  while ((h = reAttr.exec(texto))) {
+    const linea = texto.slice(0, h.index).split('\n').length;
+    const reCall = /(?:^|[^\w$.])([A-Za-z_$][\w$]*)\s*\(/g;
+    let c;
+    while ((c = reCall.exec(h[1]))) {
+      if (!NO_ES_FUNCION.has(c[1]) && !DEFINIDAS.has(c[1])) {
+        anotar(fantasmas, c[1], archivo + ':' + linea);
+      }
+    }
+  }
+});
+
+[...fantasmas.keys()].sort().forEach((n) => {
+  problemas.push('FANTASMA: se llama a ' + n + '() desde un handler y esa funcion ' +
+                 'no existe (' + fantasmas.get(n).join(', ') + ')');
+});
+
+/* Los ids que existen, vengan del HTML o de un string de JS. */
+const IDS = new Set();
+FUENTES.forEach(([, t]) => {
+  let m;
+  const re = /\bid\s*=\s*\\?["']([A-Za-z_][\w-]*)\\?["']/g;
+  while ((m = re.exec(t))) IDS.add(m[1]);
+});
+
+const idsRotos = new Map();
+FUENTES.forEach(([archivo, texto]) => {
+  let m;
+  const re = /getElementById\(\s*['"]([^'"]+)['"]\s*\)/g;
+  while ((m = re.exec(texto))) {
+    if (!IDS.has(m[1])) {
+      anotar(idsRotos, m[1], archivo + ':' + texto.slice(0, m.index).split('\n').length);
+    }
+  }
+});
+
+[...idsRotos.keys()].sort().forEach((n) => {
+  problemas.push('FANTASMA: getElementById("' + n + '") y ese id no esta en ' +
+                 'ningun lado (' + idsRotos.get(n).join(', ') + ')');
+});
+
 /* ------------------------------------------------------------------ informe */
 const lineas = bloques.reduce((s, b) => s + b.codigo.split('\n').length, 0);
 if (problemas.length) {
@@ -559,6 +659,11 @@ if (problemas.length) {
     console.error('\nUn texto sin contraste se VE pero no se LEE, asi que pasa');
     console.error('cualquier revision a ojo. Usa var(--color-text-light) para el');
     console.error('texto tenue: esta medido y da 6.44 sobre blanco.');
+  }
+  if (problemas.some((p) => p.startsWith('FANTASMA:'))) {
+    console.error('\nUn boton que llama a una funcion que no existe se DIBUJA igual.');
+    console.error('No se rompe nada a la vista: se aprieta y no pasa nada. Revisa si');
+    console.error('el nombre esta mal escrito o si quedo el handler de algo que borraste.');
   }
   if (problemas.some((p) => p.startsWith('MARCA:'))) {
     console.error('\nUn color de marca que no coincide no rompe nada: la pagina se ve');
