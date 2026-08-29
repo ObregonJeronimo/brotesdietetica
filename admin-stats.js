@@ -137,12 +137,21 @@ async function cargarDatosMes(mes) {
 
 function agruparPorDia(d) {
   const dias = {};
-  const tocar = f => (dias[f] = dias[f] || { fecha:f, ventas:0, count:0, local:0, online:0, caja:null, cajas:[], movs:0 });
+  const tocar = f => (dias[f] = dias[f] || { fecha:f, ventas:0, count:0, local:0, online:0,
+    caja:null, cajas:[], movs:0,
+    /* Con que medio se cobro y de que tipo fue cada venta. El panel del dia decia
+       "Ventas: 1" y ahi terminaba: para saber QUE se habia vendido y como se
+       habia cobrado habia que irse a la seccion de ventas y buscarlo a mano. */
+    porMedio:{}, porTipo:{ minorista:{ count:0, total:0 }, mayorista:{ count:0, total:0 } } });
   d.ventas.forEach(v => {
     if (!v._dia) return;
     const x = tocar(v._dia);
     x.ventas += v._neto; x.count++;
     if (v._online) x.online += v._neto; else x.local += v._neto;
+    const k = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+    x.porMedio[k] = (x.porMedio[k] || 0) + v._neto;
+    const t = (v._tipo === 'mayorista') ? 'mayorista' : 'minorista';
+    x.porTipo[t].count++; x.porTipo[t].total += v._neto;
   });
   /* Un mismo dia puede tener DOS cajas: corte de turno, o una que se cerro por error y se
      abrio otra a la tarde. Esto asignaba de a una, asi que la ultima que salia de la
@@ -351,8 +360,7 @@ function renderDetalleDia() {
       '<span style="width:9px;height:9px;border-radius:50%;background:' + est.color + '"></span>' + est.etq + '</div>' +
     _fila('Facturado (sin envíos)', _sp(x.ventas)) +
     _fila('Ventas', String(x.count)) +
-    _fila('Mostrador', _sp(x.local)) +
-    _fila('Web', _sp(x.online));
+    _detalleVentasDelDia(f, x);
   if (c) {
     cuerpo += '<div style="margin-top:0.9rem;padding-top:0.7rem;border-top:1px solid var(--border)">' +
       '<div style="font-size:0.78rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:0.4rem">Caja #' + String(c.numero || 0).padStart(4, '0') + '</div>' +
@@ -376,6 +384,51 @@ function renderDetalleDia() {
       'Hubo ventas pero no se abrió la caja, así que ese día no tiene arqueo.</p>';
   }
   return _card(titulo.charAt(0).toUpperCase() + titulo.slice(1), cuerpo);
+}
+
+/* Todo lo que se sabe de las ventas de ese dia: cuantas de cada tipo, con que
+   medio se cobraron, y el boton para verlas una por una. Antes el panel mostraba
+   el total y la cantidad, y nada mas. */
+const _STATS_MEDIOS = { efectivo:'Efectivo', tarjeta:'Tarjeta', transferencia:'Transferencia',
+                        cuenta_corriente:'Cuenta corriente', otro:'Otro' };
+
+function _detalleVentasDelDia(f, x) {
+  if (!x.count) {
+    return _fila('Mostrador', _sp(x.local)) + _fila('Web', _sp(x.online));
+  }
+  const pt = x.porTipo || { minorista:{count:0,total:0}, mayorista:{count:0,total:0} };
+  const nV = n => n + (n === 1 ? ' venta' : ' ventas');
+  const sub = (etq, val) =>
+    '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.28rem 0;font-size:0.82rem">' +
+      '<span style="color:var(--text-dim);padding-left:0.9rem">· ' + etq + '</span>' +
+      '<span style="font-weight:600;white-space:nowrap">' + val + '</span></div>';
+
+  let t = '';
+  if (pt.minorista.count) t += sub('Minorista - ' + nV(pt.minorista.count), _sp(pt.minorista.total));
+  if (pt.mayorista.count) t += sub('Mayorista - ' + nV(pt.mayorista.count), _sp(pt.mayorista.total));
+  t += _fila('Mostrador', _sp(x.local)) + _fila('Web', _sp(x.online));
+
+  const medios = Object.keys(x.porMedio || {}).filter(k => x.porMedio[k] > 0)
+    .sort((a, b) => x.porMedio[b] - x.porMedio[a]);
+  if (medios.length) {
+    t += '<div style="margin-top:0.7rem;padding-top:0.55rem;border-top:1px solid var(--border)">' +
+      '<div style="font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:0.25rem">Cómo se cobró</div>' +
+      medios.map(k => sub(_STATS_MEDIOS[k] || k, _sp(x.porMedio[k]))).join('') +
+      '</div>';
+  }
+  t += '<div style="display:flex;justify-content:flex-end;margin-top:0.7rem">' +
+    '<button class="btn btn-secondary" style="width:auto;flex:0 0 auto;padding:0.32rem 0.8rem;font-size:0.79rem" ' +
+    'onclick="statsVerVentasDelDia(\'' + f + '\')">' +
+    '<i class="bi bi-list-ul"></i> Ver ' + (x.count === 1 ? 'la venta' : 'las ' + x.count + ' ventas') + '</button></div>';
+  return t;
+}
+
+/* Abre el mismo dialogo que usa la caja, con las ventas de ESTE dia. */
+function statsVerVentasDelDia(f) {
+  if (!_statsDatos || typeof abrirVentasDetalle !== 'function') return;
+  const dd = new Date(f + 'T12:00:00');
+  const titulo = 'Ventas del ' + dd.toLocaleDateString('es-AR', { day:'numeric', month:'long' });
+  abrirVentasDetalle(titulo, _statsDatos.ventas.filter(v => v._dia === f));
 }
 
 function statsVerDia(f) {

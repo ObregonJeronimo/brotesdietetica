@@ -626,12 +626,18 @@ function _columnaVentas(titulo, icono, lista) {
     '</div>' + filas + '</div>';
 }
 
-function openCajaVentasModal() {
-  const body = document.getElementById('cajaVentasBody');
-  const modal = document.getElementById('cajaVentasModal');
+/* El dialogo de ventas a detalle, en dos columnas. Lo usan la caja y el
+   calendario de Estadisticas: es el mismo dialogo con otra lista, asi que hay uno
+   solo. Duplicarlo era la forma segura de que dentro de tres meses uno tuviera un
+   arreglo que el otro no. */
+function abrirVentasDetalle(titulo, lista) {
+  const body = document.getElementById('ventasDetalleBody');
+  const modal = document.getElementById('ventasDetalleModal');
+  const tit = document.getElementById('ventasDetalleTitulo');
   if (!body || !modal) return;
-  const men = cajaVentas.filter(v => v._tipo !== 'mayorista');
-  const may = cajaVentas.filter(v => v._tipo === 'mayorista');
+  if (tit) tit.innerHTML = '<i class="bi bi-list-ul"></i> ' + esc(titulo);
+  const men = (lista || []).filter(v => v._tipo !== 'mayorista');
+  const may = (lista || []).filter(v => v._tipo === 'mayorista');
   body.innerHTML =
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1.25rem">' +
       _columnaVentas('Ventas minoristas', 'bi-bag', men) +
@@ -640,7 +646,9 @@ function openCajaVentasModal() {
   modal.classList.add('show');
 }
 
-function closeCajaVentasModal() { document.getElementById('cajaVentasModal').classList.remove('show'); }
+function openCajaVentasModal() { abrirVentasDetalle('Ventas de esta caja', cajaVentas); }
+
+function cerrarVentasDetalle() { document.getElementById('ventasDetalleModal').classList.remove('show'); }
 
 function irASeccionVentas(cual) {
   closeCajaVentasModal();

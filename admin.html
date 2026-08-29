@@ -6491,12 +6491,12 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <!-- Detalle de una caja cerrada. Todo lo que muestra sale de los totales
          CONGELADOS del documento, no se recalcula: tiene que seguir diciendo lo
          que se conto aquel dia aunque despues se edite una venta. -->
-    <div class="modal-overlay" id="cajaVentasModal"><div class="modal-box" style="max-width:900px;width:96vw">
+    <div class="modal-overlay" id="ventasDetalleModal"><div class="modal-box" style="max-width:900px;width:96vw">
       <div class="modal-header">
-        <h3><i class="bi bi-list-ul"></i> Ventas de esta caja</h3>
-        <button class="modal-close" onclick="closeCajaVentasModal()">&times;</button>
+        <h3 id="ventasDetalleTitulo"><i class="bi bi-list-ul"></i> Ventas</h3>
+        <button class="modal-close" onclick="cerrarVentasDetalle()">&times;</button>
       </div>
-      <div class="modal-body" id="cajaVentasBody"></div>
+      <div class="modal-body" id="ventasDetalleBody"></div>
       <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:0.6rem">
         <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
           <span style="font-size:0.85rem;color:var(--text-dim)">Ir a ventas</span>
@@ -6505,7 +6505,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
           <button class="btn btn-secondary" style="width:auto;flex:0 0 auto" onclick="irASeccionVentas('mayorista')">
             <i class="bi bi-box-seam"></i> Mayorista</button>
         </div>
-        <button class="btn btn-secondary" style="width:auto;flex:0 0 auto" onclick="closeCajaVentasModal()">Cerrar</button>
+        <button class="btn btn-secondary" style="width:auto;flex:0 0 auto" onclick="cerrarVentasDetalle()">Cerrar</button>
       </div>
     </div></div>
 
