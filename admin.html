@@ -6294,7 +6294,15 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         function openCuponModal(id){
             editingCuponId=id||null;
             const cup=id?cuponesData.find(x=>x.id===id):null;
-            document.getElementById('cuponCodigo').value=cup?cup.codigo:'';
+            /* El codigo es el id del documento, asi que editarlo seria mover el cupon
+               de lugar y dejar los canjes ya anotados apuntando a un id que no existe:
+               el control de "este cliente ya lo uso" dejaria de encontrarlos y el cupon
+               se podria volver a usar. Se cambia borrando y creando de nuevo. */
+            const inpCod=document.getElementById('cuponCodigo');
+            inpCod.value=cup?cup.codigo:'';
+            inpCod.disabled=!!cup;
+            inpCod.style.opacity=cup?'0.6':'';
+            document.getElementById('cuponCodigoNota').style.display=cup?'block':'none';
             document.getElementById('cuponMonto').value=cup?(cup.monto||''):'';
             document.getElementById('cuponActivo').checked=cup?cup.activo!==false:true;
             document.getElementById('cuponLimite').value=cup&&cup.limiteCompra?cup.limiteCompra:'';
@@ -6313,7 +6321,11 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         }
 
         async function saveCupon(){
-            let codigo=document.getElementById('cuponCodigo').value.trim().toUpperCase();
+            /* Mismo saneado que hace la tienda al escribir el codigo en el checkout.
+               Antes el panel solo hacia trim+toUpperCase, asi que se podia crear "CUPÓN
+               VERANO" y no lo encontraba nadie: el cliente escribia eso mismo, la tienda
+               le sacaba el acento y el espacio, y buscaba "CUPNVERANO". */
+            let codigo=document.getElementById('cuponCodigo').value.trim().toUpperCase().replace(/[^A-Z0-9\-]/g,'').slice(0,30);
             const monto=montoAR(document.getElementById('cuponMonto').value);
             const activo=document.getElementById('cuponActivo').checked;
             const limite=montoAR(document.getElementById('cuponLimite').value);
@@ -6327,17 +6339,23 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             const data={codigo,monto,tipo:'monto',activo,limiteCompra:limite,maxUsos:maxUsos||null,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};
             try{
                 if(editingCuponId){
+                    /* El codigo NO va en el update: es el id del documento. */
                     /* maxUsos tiene que ir tambien. Sin el, el limite de usos no se podia
                        cambiar NUNCA despues de crear el cupon: se ponia "maximo 10", el panel
                        avisaba "Cupon actualizado", y el campo seguia como estaba. Igual al
                        reves: destildar el limite no lo quitaba. */
-                    await db.collection('cupones').doc(editingCuponId).update({codigo,monto,tipo:'monto',activo,limiteCompra:limite,maxUsos:maxUsos||null});
+                    await db.collection('cupones').doc(editingCuponId).update({monto,tipo:'monto',activo,limiteCompra:limite,maxUsos:maxUsos||null});
                     showAdminToast('Cupón actualizado','success');
                 }else{
-                    /* Verificar que no exista el código */
-                    const exists=await db.collection('cupones').where('codigo','==',codigo).get();
-                    if(!exists.empty){showAdminToast('Ya existe un cupón con ese código','error');return;}
-                    await db.collection('cupones').add(data);
+                    /* El codigo es el id del documento. Antes esto era un .add() con id
+                       automatico y el codigo como un campo mas, y para validarlo desde la
+                       tienda habia que hacer where('codigo','==',...), o sea un LIST sobre
+                       /cupones. Eso obligaba a dejar la coleccion abierta a cualquiera, que
+                       es como se bajaban todos los codigos de una. Con el codigo de id
+                       alcanza un get, y para hacerlo hay que saber el codigo. */
+                    const exists=await db.collection('cupones').doc(codigo).get();
+                    if(exists.exists){showAdminToast('Ya existe un cupón con ese código','error');return;}
+                    await db.collection('cupones').doc(codigo).set(data);
                     showAdminToast('Cupón creado','success');
                 }
                 closeCuponModal();
@@ -6856,7 +6874,10 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     </div></div>
     <!-- MODAL CUPON -->
     <div class="modal-overlay" id="cuponModal"><div class="modal-box" style="max-width:460px"><div class="modal-header"><h3><i class="bi bi-ticket-perforated"></i> Cupón de descuento</h3><button class="modal-close" onclick="closeCuponModal()"><i class="bi bi-x-lg"></i></button></div>
-    <div class="form-group"><label>Código del cupón <span style="font-size:0.75rem;color:var(--text-dim)">(siempre en mayúsculas)</span></label><input type="text" class="form-input" id="cuponCodigo" placeholder="Ej: VERANO20" oninput="this.value=this.value.toUpperCase()" style="font-family:var(--mono);letter-spacing:2px"></div>
+    <div class="form-group"><label>Código del cupón <span style="font-size:0.75rem;color:var(--text-dim)">(siempre en mayúsculas)</span></label><input type="text" class="form-input" id="cuponCodigo" placeholder="Ej: VERANO20" maxlength="30" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9\-]/g,'')" style="font-family:var(--mono);letter-spacing:2px">
+      <span id="cuponCodigoNota" style="display:none;font-size:0.75rem;color:var(--text-dim);line-height:1.45;margin-top:0.3rem">
+        El c&oacute;digo no se puede cambiar: es el nombre con el que queda guardado el cup&oacute;n y con el que se
+        anotan los canjes. Si necesit&aacute;s otro c&oacute;digo, borr&aacute; este y cre&aacute; uno nuevo.</span></div>
     <div class="form-row" style="grid-template-columns:1fr 1fr">
       <div class="form-group"><label>Monto de descuento ($)</label><input type="text" inputmode="numeric" class="form-input" id="cuponMonto" placeholder="Ej: 5000" oninput="limpiarMonto(this)"></div>
       <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:0.25rem"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer"><label class="toggle-switch"><input type="checkbox" id="cuponActivo" checked><span class="toggle-slider"></span></label> Activo</label></div>

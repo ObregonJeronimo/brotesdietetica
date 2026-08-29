@@ -1123,7 +1123,8 @@ async function confirmCheckout(){
         /* Registrar uso del cupón ANTES de abrir WhatsApp (en móvil location.href corta la ejecución del código que sigue) */
         if (_cuponAplicado) {
             try {
-                const cuponId = _cuponAplicado.id || (await db.collection('cupones').where('codigo','==',_cuponAplicado.codigo).get()).docs[0]?.id;
+                /* El id del cupon es su codigo, asi que no hay nada que ir a buscar. */
+                const cuponId = _cuponAplicado.id || _cuponAplicado.codigo;
                 if (cuponId) {
                     /* Verificaciones finales con datos frescos de la BDD */
                     let puedeUsar = true;
@@ -1962,14 +1963,17 @@ async function aplicarCupon() {
     if (codigo.length > 30) { if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Código inválido.</span>'; return; }
     if (btn) { btn.disabled=true; btn.textContent='Verificando...'; }
     try {
-        const snap = await db.collection('cupones').where('codigo', '==', codigo).where('activo', '==', true).get();
-        if (snap.empty) {
+        /* Un get por id, no un where. El codigo ES el id del documento, asi que esto
+           trae el cupon sin necesidad de poder recorrer la coleccion: /cupones ya no
+           se puede listar sin ser admin. Antes esta linea era la razon por la que la
+           coleccion estaba abierta, y con una sola URL se bajaban todos los codigos. */
+        const cupDoc = await db.collection('cupones').doc(codigo).get();
+        const cup = cupDoc.exists ? cupDoc.data() : null;
+        if (!cup || cup.activo !== true) {
             if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Cupón no válido o inactivo.</span>';
             if(btn){btn.disabled=false;btn.textContent='Aplicar';}
             return;
         }
-        const cupDoc = snap.docs[0];
-        const cup = cupDoc.data();
         const monto = parseInt(cup.monto || 0);
         if (isNaN(monto) || monto < 1) {
             if(msg) msg.innerHTML='<span style="color:var(--color-danger)">Cupón inválido.</span>';

@@ -139,8 +139,29 @@ service cloud.firestore {
     }
 
     /* ===== CUPONES ===== */
+    /* Los cupones. `allow read: if true` dejaba bajar la coleccion ENTERA con una
+       sola URL, sin cuenta ni token:
+
+         GET .../databases/(default)/documents/cupones
+
+       o sea todos los codigos de descuento vigentes, con su monto y su maxUsos.
+       Hoy no hay ninguno cargado, pero el dia que el cliente arme una promocion
+       quedaba publica desde el primer minuto.
+
+       En Firestore `read` son DOS permisos: `get` (un documento por su id) y
+       `list` (recorrer la coleccion). El codigo del cupon ES el id del documento,
+       asi que se pueden separar: para leer un cupon hay que saber su codigo, que
+       es justo lo que el cliente escribe en el checkout, y ya no se puede pedir
+       "dame todos". Adivinar un codigo de [A-Z0-9-] a ciegas no es practico y no
+       hay forma de enumerarlos.
+
+       `get` queda abierto a proposito, sin pedir activo==true: el checkout vuelve
+       a leer el cupon justo antes de usarlo para ver si quedo desactivado. Si la
+       regla escondiera los inactivos, esa lectura fallaria, el catch se la comeria
+       y un cupon dado de baja se podria seguir usando. */
     match /cupones/{doc} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin();
       allow write: if isAdmin();
     }
     match /cuponesUsos/{doc} {

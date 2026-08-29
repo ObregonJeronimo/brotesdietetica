@@ -16,9 +16,12 @@ const fs = require('fs');
 const path = require('path');
 const RAIZ = path.join(__dirname, '..');
 
-const MODULOS = ['admin-dialogo.js', 'admin-pagination.js', 'admin-caja.js', 'admin-alertas.js',
-                 'admin-stats.js', 'admin-proveedores.js', 'admin-compras.js', 'admin-atajos.js', 'admin-lector.js',
-                 'admin-admins.js'].filter(f => fs.existsSync(path.join(RAIZ, f)));
+/* Se lee la carpeta. Escrita a mano, la lista se atrasa sola: al checker le paso
+   -se quedo en 8 cuando ya habia 10- y aca el modulo nuevo simplemente no se
+   revisaba, sin que nada avisara. */
+const MODULOS = fs.readdirSync(RAIZ)
+  .filter(f => /^admin-.*\.js$/.test(f) && !/\.min\.js$/.test(f))
+  .sort();
 
 const donde = {};
 MODULOS.forEach(f => {
