@@ -146,15 +146,29 @@ async function loadProveedores() {
 
 /* ============================ PANTALLA ============================ */
 
-function _provCard(titulo, cuerpo) {
+function _provCard(titulo, cuerpo, accion) {
   return '<div class="card" style="padding:1.15rem 1.25rem">' +
-    '<h3 style="font-size:0.92rem;font-weight:700;margin-bottom:0.85rem">' + titulo + '</h3>' + cuerpo + '</div>';
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:0.6rem;margin-bottom:0.85rem">' +
+      '<h3 style="font-size:0.92rem;font-weight:700">' + titulo + '</h3>' +
+      (accion || '') +
+    '</div>' + cuerpo + '</div>';
 }
 
 function _provFila(etq, val, sangria) {
   return '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.33rem 0;font-size:0.86rem">' +
     '<span style="color:var(--text-dim)' + (sangria ? ';padding-left:0.9rem' : '') + '">' + etq + '</span>' +
     '<span style="font-weight:600;white-space:nowrap">' + val + '</span></div>';
+}
+
+/* Los del catálogo que no aparecieron en ninguna venta del período. Es lo que
+   hay que mirar antes de volver a comprarles. Vive aparte porque lo usan la
+   pantalla y la exportación, y si se calculara dos veces el día que cambie el
+   criterio uno de los dos se quedaría con el viejo. */
+function _provNoVendidos(lista, r) {
+  const vendidosIds = new Set(r.top.map(p => p.id).filter(Boolean));
+  return (typeof allProducts !== 'undefined' ? allProducts : [])
+    .filter(p => p.lista === lista.id && !vendidosIds.has(p.id))
+    .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || '')));
 }
 
 /* Todo lo que se sabe de un proveedor, venga o no de las ventas. */
@@ -215,12 +229,22 @@ function renderProveedores() {
   const tarjetas = resumenes.map(r => {
     const abierto = _provAbierto === r.lista.id;
     const mejor = r.top[0];
+    /* El color va explicito. Esta tarjeta es un <button>, y un boton no hereda
+       el color del texto: se planta en el negro por defecto del navegador. Las
+       otras tarjetas son <div> y por eso se veian bien, mientras que aca el
+       nombre del proveedor y el monto quedaban negro sobre fondo oscuro,
+       practicamente invisibles. */
     return '<button type="button" onclick="provAbrir(\'' + r.lista.id + '\')" class="card" ' +
-      'style="padding:1rem 1.1rem;text-align:left;cursor:pointer;border:' +
+      'style="padding:1rem 1.1rem;text-align:left;cursor:pointer;color:var(--text);font:inherit;border:' +
       (abierto ? '2px solid var(--accent)' : '1px solid var(--border)') + ';width:100%">' +
-      '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.6rem;margin-bottom:0.45rem">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.6rem;margin-bottom:0.45rem">' +
         '<span style="font-weight:700;font-size:0.95rem">' + esc(r.lista.nombre) + '</span>' +
-        '<span style="font-weight:700;white-space:nowrap">' + _provPesos(r.facturado) + '</span>' +
+        /* El numero solo no decia de que era. */
+        '<span style="text-align:right;flex:0 0 auto">' +
+          '<span style="display:block;font-size:0.67rem;color:var(--text-dim);font-weight:600;line-height:1.35">' +
+            'Monto generado de este proveedor</span>' +
+          '<span style="font-weight:700;font-size:1rem">' + _provPesos(r.facturado) + '</span>' +
+        '</span>' +
       '</div>' +
       '<div style="font-size:0.78rem;color:var(--text-dim);line-height:1.5">' +
         r.productos + ' producto' + (r.productos === 1 ? '' : 's') +
@@ -268,12 +292,7 @@ function _provRenderDetalle() {
 
   const nadaVendido = '<p style="font-size:0.85rem;color:var(--text-dim)">No se vendió ningún producto de este proveedor en el período.</p>';
 
-  /* Los del catálogo que no aparecieron en ninguna venta. Es lo que hay que
-     mirar antes de volver a comprarles. */
-  const vendidosIds = new Set(r.top.map(p => p.id).filter(Boolean));
-  const quietos = (typeof allProducts !== 'undefined' ? allProducts : [])
-    .filter(p => p.lista === lista.id && !vendidosIds.has(p.id))
-    .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || '')));
+  const quietos = _provNoVendidos(lista, r);
 
   cont.innerHTML =
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem">' +
@@ -294,8 +313,10 @@ function _provRenderDetalle() {
         (r.porPeso ? _provFila('Se venden por peso', String(r.porPeso), true) : '') +
         (r.ocultos ? _provFila('Ocultos en la tienda', String(r.ocultos), true) : '') +
         (r.sinStock ? _provFila('Sin stock', String(r.sinStock), true) : '') +
-        '</div>') +
-      _provCard('Los 10 que más dejan',
+        '</div>',
+        '<button class="btn btn-secondary" style="width:auto;flex:0 0 auto;padding:0.28rem 0.7rem;font-size:0.78rem" ' +
+          'onclick="openProvExportModal()"><i class="bi bi-download"></i> Exportar</button>') +
+      _provCard('Los 10 productos más vendidos de este proveedor',
         top.length ? top.map(filaProd).join('') : nadaVendido) +
       ((typeof renderComprasDeProveedor === 'function')
         ? renderComprasDeProveedor(lista.id, dias) : '') +
@@ -318,6 +339,105 @@ function _provRenderDetalle() {
             '</span></div>').join('')) + '</div>' : '');
 }
 
+/* ============================ EXPORTAR ============================ */
+
+/* El documento que se va a bajar, en PDF o en Excel. Devuelve la estructura
+   que entiende admin-exportar.js: es el mismo objeto para los dos formatos,
+   asi que no pueden mostrar cosas distintas.
+
+   Es una funcion aparte y sin tocar el DOM a proposito: se puede probar el
+   contenido del export sin abrir el navegador. */
+function _provDocExportar(lista, incluirNoVendidos) {
+  const r = _provResumen(lista);
+  const dias = (_provDatos && _provDatos.dias) || _provDias;
+  const periodo = 'Últimos ' + dias + ' días' +
+    (_provDatos ? ' · del ' + _provFecha(_provDatos.desde) + ' al ' + _provFecha(_provDatos.hasta) : '');
+
+  const resumen = [
+    ['Facturado', _provPesos(r.facturado)],
+    ['Ventas con productos suyos', String(r.ventas)],
+  ];
+  /* Lo comprado solo aparece si hay compras cargadas, igual que en pantalla:
+     una fila "Le compraste $0" hace pensar que no se le compro nunca, cuando
+     lo que pasa es que todavia nadie cargo una compra. */
+  if (r.gastado) {
+    resumen.push(['Le compraste', _provPesos(r.gastado)]);
+    resumen.push(['Diferencia del período', _provPesos(r.facturado - r.gastado)]);
+  }
+  resumen.push(['Productos en el catálogo', String(r.productos)]);
+  resumen.push(['Se vendieron', String(r.vendidos)]);
+  resumen.push(['No se vendió ninguno', String(r.sinVender)]);
+  if (r.porPeso) resumen.push(['Se venden por peso', String(r.porPeso)]);
+  if (r.ocultos) resumen.push(['Ocultos en la tienda', String(r.ocultos)]);
+  if (r.sinStock) resumen.push(['Sin stock', String(r.sinStock)]);
+
+  const bloques = [{ tipo: 'pares', titulo: 'Resumen', filas: resumen }];
+
+  const top = r.top.slice(0, 10);
+  bloques.push({
+    tipo: 'tabla',
+    titulo: 'Los 10 productos más vendidos de este proveedor',
+    columnas: ['#', 'Producto', 'Cantidad', 'Monto'],
+    anchos: [10, 95, 32, 33],
+    derecha: [2, 3],
+    filas: top.length
+      ? top.map((x, i) => [i + 1, x.nombre, _provCant(x), _provPesos(x.monto)])
+      : [['', 'No se vendió ningún producto de este proveedor en el período.', '', '']],
+  });
+
+  if (incluirNoVendidos) {
+    const quietos = _provNoVendidos(lista, r);
+    bloques.push({
+      tipo: 'tabla',
+      titulo: 'No se vendieron en ' + dias + ' días (' + quietos.length + ')',
+      columnas: ['Producto', 'Stock'],
+      anchos: [130, 40],
+      derecha: [1],
+      filas: quietos.length
+        ? quietos.map(x => [
+            x.nombreMostrado || x.nombre || '',
+            Number(x.stock || 0) <= 0 ? 'sin stock'
+              : (x.tipoVenta === 'peso' ? _provCant({ gramos: Number(x.stock || 0) })
+                                        : Number(x.stock || 0) + ' u'),
+          ])
+        : [['Todos los productos de este proveedor se vendieron al menos una vez.', '']],
+    });
+  }
+
+  return {
+    titulo: 'Proveedor ' + (lista.nombre || ''),
+    subtitulo: periodo,
+    archivo: 'proveedor_' + (lista.nombre || ''),
+    bloques: bloques,
+  };
+}
+
+function openProvExportModal() {
+  const m = document.getElementById('provExportModal');
+  if (!m || !_provAbierto) return;
+  const lista = (listasData || []).find(l => l.id === _provAbierto);
+  if (!lista) return;
+  const t = document.getElementById('provExportQue');
+  if (t) {
+    const dias = (_provDatos && _provDatos.dias) || _provDias;
+    t.textContent = lista.nombre + ' · últimos ' + dias + ' días';
+  }
+  m.classList.add('show');
+}
+
+function closeProvExportModal() {
+  const m = document.getElementById('provExportModal');
+  if (m) m.classList.remove('show');
+}
+
+function provExportar() {
+  const lista = (listasData || []).find(l => l.id === _provAbierto);
+  if (!lista) { showAdminToast('Abrí un proveedor primero', 'error'); return; }
+  const fmt = (document.getElementById('provExportFormato') || {}).value || 'pdf';
+  const noVend = !!(document.getElementById('provExportNoVendidos') || {}).checked;
+  if (exportarDoc(_provDocExportar(lista, noVend), fmt)) closeProvExportModal();
+}
+
 /* ============================ ACCIONES ============================ */
 
 function provPeriodo(dias) {
@@ -334,3 +454,6 @@ function provAbrir(id) {
 window.loadProveedores = loadProveedores;
 window.provPeriodo = provPeriodo;
 window.provAbrir = provAbrir;
+window.openProvExportModal = openProvExportModal;
+window.closeProvExportModal = closeProvExportModal;
+window.provExportar = provExportar;

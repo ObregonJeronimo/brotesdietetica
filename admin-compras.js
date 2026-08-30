@@ -462,6 +462,7 @@ function verCompra(docId) {
       ? '<div style="margin-top:0.8rem"><a href="' + esc(c.facturaUrl) + '" target="_blank" rel="noopener" ' +
         'class="btn btn-secondary" style="width:auto;display:inline-flex"><i class="bi bi-paperclip"></i> Ver la factura</a></div>'
       : '<p style="font-size:0.8rem;color:var(--text-dim);margin-top:0.7rem">Sin factura adjunta.</p>');
+  _cpVerActual = c;
   const del = document.getElementById('compraVerBorrar');
   if (del) del.setAttribute('onclick', "borrarCompra('" + docId + "')");
   document.getElementById('compraVerModal').classList.add('show');
@@ -493,6 +494,66 @@ function _cpAvisoVendidos(c, devuelve) {
   return '\n\nOJO: de ' + cortos.map(i => i.nombre).join(', ') +
     ' ya se vendió parte de lo que entró con esta compra. Su stock va a quedar en 0, ' +
     'no en negativo, así que el inventario no va a coincidir con la resta exacta.';
+}
+
+/* La compra, lista para bajar. Misma estructura que usa el export de
+   proveedores, asi que el PDF y el Excel salen del mismo lado. */
+function _cpDocExportar(c) {
+  const cab = [
+    ['Proveedor', c.proveedorNombre || '-'],
+    ['Fecha', _cpFechaTxt(c.fecha)],
+    ['Comprobante', c.comprobante || 'sin comprobante'],
+    ['Total', _cpPesos(c.total)],
+    ['Cargada por', c.usuario || '-'],
+    ['Stock', c.sumoStock === false ? 'NO se sumó al inventario' : 'se sumó al inventario'],
+  ];
+  if (c.notas) cab.push(['Notas', c.notas]);
+
+  return {
+    titulo: 'Compra #' + String(c.numero || 0).padStart(4, '0'),
+    subtitulo: (c.proveedorNombre || '') + ' · ' + _cpFechaTxt(c.fecha),
+    archivo: 'compra_' + String(c.numero || 0).padStart(4, '0') + '_' + (c.proveedorNombre || ''),
+    bloques: [
+      { tipo: 'pares', titulo: 'Datos de la compra', filas: cab },
+      {
+        tipo: 'tabla',
+        titulo: 'Lo que entró',
+        columnas: ['Producto', 'Cantidad', 'Costo', 'Subtotal'],
+        anchos: [85, 30, 30, 30],
+        derecha: [1, 2, 3],
+        filas: (c.items || []).map(i => [
+          i.nombre || '',
+          _cpCant(i),
+          _cpPesos(i.costoUnitario) + (i.tipoVenta === 'peso' ? '/kg' : ''),
+          _cpPesos(i.subtotal),
+        ]).concat([['TOTAL', '', '', _cpPesos(c.total)]]),
+      },
+    ],
+  };
+}
+
+/* La compra que se esta viendo, para que el boton del pie sepa cual bajar. */
+let _cpVerActual = null;
+
+function openCompraExportModal() {
+  if (!_cpVerActual) return;
+  const m = document.getElementById('compraExportModal');
+  if (!m) return;
+  const t = document.getElementById('compraExportQue');
+  if (t) t.textContent = 'Compra #' + String(_cpVerActual.numero || 0).padStart(4, '0') +
+                         ' · ' + (_cpVerActual.proveedorNombre || '');
+  m.classList.add('show');
+}
+
+function closeCompraExportModal() {
+  const m = document.getElementById('compraExportModal');
+  if (m) m.classList.remove('show');
+}
+
+function compraExportar() {
+  if (!_cpVerActual) { showAdminToast('Abrí una compra primero', 'error'); return; }
+  const fmt = (document.getElementById('compraExportFormato') || {}).value || 'pdf';
+  if (exportarDoc(_cpDocExportar(_cpVerActual), fmt)) closeCompraExportModal();
 }
 
 async function borrarCompra(docId) {
@@ -577,3 +638,6 @@ window.guardarCompra = guardarCompra;
 window.verCompra = verCompra;
 window.closeCompraVerModal = closeCompraVerModal;
 window.borrarCompra = borrarCompra;
+window.openCompraExportModal = openCompraExportModal;
+window.closeCompraExportModal = closeCompraExportModal;
+window.compraExportar = compraExportar;

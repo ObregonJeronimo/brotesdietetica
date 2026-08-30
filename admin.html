@@ -6452,6 +6452,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <script src="admin-caja.js"></script>
     <script src="admin-alertas.js"></script>
     <script src="admin-stats.js"></script>
+<script src="admin-exportar.js"></script>
 <script src="admin-proveedores.js"></script>
 <script src="admin-compras.js"></script>
     <script src="admin-atajos.js"></script>
@@ -6546,6 +6547,59 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <!-- Detalle de una caja cerrada. Todo lo que muestra sale de los totales
          CONGELADOS del documento, no se recalcula: tiene que seguir diciendo lo
          que se conto aquel dia aunque despues se edite una venta. -->
+    <div class="modal-overlay" id="provExportModal"><div class="modal-box" style="max-width:480px;width:96vw">
+      <div class="modal-header">
+        <h3><i class="bi bi-download"></i> Exportar proveedor</h3>
+        <button class="modal-close" onclick="closeProvExportModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.9rem;line-height:1.5">
+          Se va a exportar <b id="provExportQue" style="color:var(--text)"></b>: lo facturado, las ventas,
+          el estado del cat&aacute;logo y los 10 productos m&aacute;s vendidos.</p>
+        <div class="form-group">
+          <label class="form-label">&iquest;En qu&eacute; formato?</label>
+          <select class="form-input" id="provExportFormato">
+            <option value="pdf">PDF &mdash; para imprimir o mandar</option>
+            <option value="excel">Excel &mdash; para seguir trabajando los n&uacute;meros</option>
+          </select>
+        </div>
+        <label class="stock-masivo-lbl" style="margin-top:0.4rem">
+          <input type="checkbox" id="provExportNoVendidos">
+          <span>&iquest;Exportar productos que no fueron vendidos?</span>
+        </label>
+        <p style="font-size:0.78rem;color:var(--text-dim);margin-top:0.35rem;line-height:1.45;padding-left:1.7rem">
+          Agrega la lista completa de los que est&aacute;n en el cat&aacute;logo y no sali&oacute; ninguno en el per&iacute;odo.
+          En un proveedor grande son muchas p&aacute;ginas.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeProvExportModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="provExportar()"><i class="bi bi-download"></i> Exportar</button>
+      </div>
+    </div></div>
+
+    <div class="modal-overlay" id="compraExportModal"><div class="modal-box" style="max-width:460px;width:96vw">
+      <div class="modal-header">
+        <h3><i class="bi bi-download"></i> Exportar compra</h3>
+        <button class="modal-close" onclick="closeCompraExportModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.9rem;line-height:1.5">
+          Se va a exportar <b id="compraExportQue" style="color:var(--text)"></b>, con todo lo que entr&oacute;
+          y su subtotal.</p>
+        <div class="form-group">
+          <label class="form-label">&iquest;En qu&eacute; formato?</label>
+          <select class="form-input" id="compraExportFormato">
+            <option value="pdf">PDF &mdash; para imprimir o mandar</option>
+            <option value="excel">Excel &mdash; para seguir trabajando los n&uacute;meros</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCompraExportModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="compraExportar()"><i class="bi bi-download"></i> Exportar</button>
+      </div>
+    </div></div>
+
     <div class="modal-overlay" id="compraModal"><div class="modal-box" style="max-width:820px;width:96vw">
       <div class="modal-header">
         <h3><i class="bi bi-bag-plus"></i> Cargar compra</h3>
@@ -6609,7 +6663,10 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
       <div class="modal-body" id="compraVerBody"></div>
       <div class="modal-footer" style="justify-content:space-between">
         <button class="btn dlg-peligro" style="width:auto;flex:0 0 auto" id="compraVerBorrar"><i class="bi bi-trash"></i> Eliminar</button>
-        <button class="btn btn-secondary" style="width:auto;flex:0 0 auto" onclick="closeCompraVerModal()">Cerrar</button>
+        <div style="display:flex;gap:0.5rem">
+          <button class="btn btn-secondary" style="width:auto;flex:0 0 auto" onclick="openCompraExportModal()"><i class="bi bi-download"></i> Exportar</button>
+          <button class="btn btn-secondary" style="width:auto;flex:0 0 auto" onclick="closeCompraVerModal()">Cerrar</button>
+        </div>
       </div>
     </div></div>
 
