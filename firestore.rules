@@ -236,8 +236,30 @@ service cloud.firestore {
     }
 
     /* ===== RESEÑAS ===== */
+    /* Las resenas. El id del documento es el token que va en el QR del ticket:
+       es la credencial de "yo compre esto". `allow read: if true` dejaba listar la
+       coleccion entera sin login, y eso rompe la premisa completa:
+
+         - se bajaba la lista de tokens pendientes, con el nombre del cliente y el
+           numero de venta de cada uno;
+         - la regla de update de abajo deja completar un token pendiente a
+           cualquiera que tenga sesion iniciada, y el nombre y las estrellas los
+           escribe quien manda. Juntando las dos cosas, cualquiera con una cuenta de
+           Google podia dejar resenas falsas a nombre de clientes de verdad, sin
+           haber comprado nada ni haber visto el QR.
+
+       Igual que con los cupones, `read` se parte en sus dos permisos: `get` para
+       quien ya tiene el token, `list` solo para las que ya estan publicadas. La
+       tienda las sigue mostrando: su consulta ordena por `fecha`, campo que solo
+       existe en las completadas, asi que los tokens pendientes nunca estuvieron
+       en ese listado.
+
+       Queda pendiente algo que esto no arregla: las resenas completadas guardan
+       clienteEmail, y ese documento SI es publico. Sacar el mail de ahi es un
+       cambio de esquema aparte. */
     match /resenas/{doc} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin() || resource.data.usado == true;
       /* Solo el admin puede crear tokens de reseña */
       allow create: if isAdmin();
       /* El cliente puede completar una reseña (update) si el token existe y no fue usado.

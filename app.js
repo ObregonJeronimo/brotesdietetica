@@ -1296,7 +1296,12 @@ let allReviewsIndex=[];let rvFilter='all';let rvPage=0;
 async function loadReviews(){
     const grid=document.getElementById('reviewsGrid');if(!grid)return;
     try{
-        const snap=await db.collection('resenas').orderBy('fecha','desc').limit(50).get();
+        /* El where('usado') no es decorativo: en Firestore las reglas de `list` no
+           filtran, exigen que la CONSULTA garantice la condicion. La regla ahora deja
+           listar solo las publicadas, y sin este where Firestore deniega la consulta
+           entera -la tienda se quedaba sin ninguna resena-. El filtro por `visible`
+           sigue siendo del lado del cliente, que es una sola bandera mas. */
+        const snap=await db.collection('resenas').where('usado','==',true).orderBy('fecha','desc').limit(50).get();
         allReviewsIndex=snap.docs.filter(d=>{const r=d.data();return r.visible===true&&r.usado===true;}).map(d=>{const r=d.data();return{...r,fecha:r.fecha&&r.fecha.toDate?r.fecha.toDate():new Date()};});
         const filtersEl=document.getElementById('reviewsFilters');
         if(filtersEl)filtersEl.style.display=allReviewsIndex.length>0?'flex':'none';

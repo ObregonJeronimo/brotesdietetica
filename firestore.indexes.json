@@ -16,40 +16,84 @@
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clienteAuthUid", "order": "ASCENDING" },
-        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+        {
+          "fieldPath": "clienteAuthUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "creadoEn",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "cuponesUsos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "cuponId", "order": "ASCENDING" },
-        { "fieldPath": "uid", "order": "ASCENDING" }
+        {
+          "fieldPath": "cuponId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "cupones",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "codigo", "order": "ASCENDING" },
-        { "fieldPath": "activo", "order": "ASCENDING" }
+        {
+          "fieldPath": "codigo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "resenas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "clienteAuthUid", "order": "ASCENDING" },
-        { "fieldPath": "usado", "order": "ASCENDING" }
+        {
+          "fieldPath": "clienteAuthUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "usado",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "cajas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "abiertoEn", "order": "DESCENDING" }
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "abiertoEn",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "resenas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "usado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],

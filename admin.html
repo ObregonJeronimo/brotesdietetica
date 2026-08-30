@@ -2814,7 +2814,17 @@ await aplicarStockProductos(dProd);
    el mismo numero: dos tickets distintos con el mismo #, y una pisando a la otra
    en cualquier listado que busque por numero. */
 const _cntVentas=db.collection('config').doc('ventasCount');
-const num=await db.runTransaction(async tx=>{const sn=await tx.get(_cntVentas);const n=(sn.exists?(parseInt(sn.data().count)||0):0)+1;tx.set(_cntVentas,{count:n});return n;});let resenaId=null;let resenaOk=false;try{resenaId=await _generarResenaIdUnico();await db.collection('resenas').doc(resenaId).set({usado:false,ventaNum:num,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',creadoEn:new Date()});resenaOk=true;}catch(re){console.warn('No se pudo crear token resena:',re);resenaId=null;}/* Quien "posee" el descuento de stock, para que nadie lo devuelva dos veces:
+const num=await db.runTransaction(async tx=>{const sn=await tx.get(_cntVentas);const n=(sn.exists?(parseInt(sn.data().count)||0):0)+1;tx.set(_cntVentas,{count:n});return n;});/* El token de resena se crea SOLO para las ventas que vienen de un pedido
+                       web. Antes se creaba para todas, mostrador incluido, y cada venta del
+                       local dejaba un documento en /resenas -una coleccion publica- con el
+                       nombre del cliente y el numero de venta, que en la mayoria de los casos
+                       no lo iba a usar nadie.
+
+                       El discriminador es el mismo que despues guarda la venta en `origen`:
+                       si hay _pedidoOrigenVentaId, la venta salio de la tienda. */
+                    const _esVentaWeb=!!window._pedidoOrigenVentaId;
+                    let resenaId=null;let resenaOk=false;
+                    if(_esVentaWeb){try{resenaId=await _generarResenaIdUnico();await db.collection('resenas').doc(resenaId).set({usado:false,ventaNum:num,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',creadoEn:new Date()});resenaOk=true;}catch(re){console.warn('No se pudo crear token resena:',re);resenaId=null;}}/* Quien "posee" el descuento de stock, para que nadie lo devuelva dos veces:
    si la venta nace de un pedido web el stock ya lo descontó la tienda, asi que
    la venta hereda esa responsabilidad y mas abajo se la sacamos al pedido. */
 const _pedOrigen=window._pedidoOrigenVentaId?pedidosData.find(x=>x.docId===window._pedidoOrigenVentaId):null;
@@ -3158,12 +3168,16 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
            pantalla de factura a la que no se podia llegar. */
         function showFactura(docId){currentFacturaId=docId;const html=buildFacturaA4HTML(docId);if(!html)return;document.getElementById('facturaContent').innerHTML=html;document.getElementById('facturaModal').classList.add('show');}
         function closeFacturaModal(){document.getElementById('facturaModal').classList.remove('show');}
-        function printFactura(formato){const isTermica=(formato==='termica'||formato==='etiqueta');const fcFmt=facturaConfig||{};let content;if(isTermica){const v=ventasData.find(x=>x.docId===currentFacturaId);if(!v)return;const fc=facturaConfig;const fecha=v.fecha.toLocaleDateString('es-AR');const nro=nroVta(v.numero||0);const tipoFactura=document.getElementById('facturaTypeSelect')?.value||'nuevo';const usarQrResena=tipoFactura==='nuevo';/* El dominio no puede ir escrito a mano. El panel se sirve del mismo origen que la
+        function printFactura(formato){const isTermica=(formato==='termica'||formato==='etiqueta');const fcFmt=facturaConfig||{};let content;if(isTermica){const v=ventasData.find(x=>x.docId===currentFacturaId);if(!v)return;const fc=facturaConfig;const fecha=v.fecha.toLocaleDateString('es-AR');const nro=nroVta(v.numero||0);const tipoFactura=document.getElementById('facturaTypeSelect')?.value||'nuevo';const usarQrResena=tipoFactura==='nuevo'&&!!v.resenaId;/* El dominio no puede ir escrito a mano. El panel se sirve del mismo origen que la
    tienda, asi que location.origin siempre apunta al dominio que se esta usando (y si
    algun dia se agrega NEGOCIO.sitioUrl en config-negocio.js, manda ese). Con el dominio
    clavado, el dia que el cliente compre su dominio y apague el de Vercel siguiendo
    SETUP.md -> 'Dominio propio' (donde admin.html no figura), todos los tickets impresos
-   salen con un QR muerto y nadie se entera: el que escanea solo ve un error. */const _sitioUrl=(typeof NEGOCIO!=='undefined'&&NEGOCIO.sitioUrl)?String(NEGOCIO.sitioUrl).replace(/\/+$/,''):location.origin;const _qrData=usarQrResena?(v.resenaId?_sitioUrl+'/resena.html?id='+v.resenaId:_sitioUrl+'/resena.html'):_sitioUrl;const _qrSrc=usarQrResena?'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(_qrData):'';content=buildEtiquetaHTML(fc,v.items||[],fecha,nro,_qrSrc,v.cliente,v.tipoEntrega,v,usarQrResena);}else{content=buildFacturaA4HTML(currentFacturaId);}/* Antes esto era `const w=100; const altoMm=150` fijo, asi que los campos de
+   salen con un QR muerto y nadie se entera: el que escanea solo ve un error. */const _sitioUrl=(typeof NEGOCIO!=='undefined'&&NEGOCIO.sitioUrl)?String(NEGOCIO.sitioUrl).replace(/\/+$/,''):location.origin;/* Sin token no hay QR de resena. La rama de antes caia en '/resena.html' a
+           secas, y esa pagina sin ?id= muestra "link invalido": el ticket salia con
+           un QR que no llevaba a ningun lado. Ahora, cuando no hay token, el ticket
+           imprime el "Gracias por volver" de siempre y ningun QR. */
+        const _qrData=usarQrResena?_sitioUrl+'/resena.html?id='+v.resenaId:_sitioUrl;const _qrSrc=usarQrResena?'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(_qrData):'';content=buildEtiquetaHTML(fc,v.items||[],fecha,nro,_qrSrc,v.cliente,v.tipoEntrega,v,usarQrResena);}else{content=buildFacturaA4HTML(currentFacturaId);}/* Antes esto era `const w=100; const altoMm=150` fijo, asi que los campos de
    ancho y alto del editor de Factura se podian tocar y no cambiaban nada al
    imprimir. Ahora cada formato manda el suyo:
      'etiqueta' -> el adhesivo grande del mostrador
