@@ -553,7 +553,15 @@ function closeCompraExportModal() {
 function compraExportar() {
   if (!_cpVerActual) { showAdminToast('Abrí una compra primero', 'error'); return; }
   const fmt = (document.getElementById('compraExportFormato') || {}).value || 'pdf';
-  if (exportarDoc(_cpDocExportar(_cpVerActual), fmt)) closeCompraExportModal();
+  /* Igual que en proveedores: armar el documento tambien puede fallar. */
+  let doc;
+  try {
+    doc = _cpDocExportar(_cpVerActual);
+  } catch (e) {
+    showAdminToast('No se pudo preparar la exportación: ' + e.message, 'error');
+    return;
+  }
+  if (exportarDoc(doc, fmt)) closeCompraExportModal();
 }
 
 async function borrarCompra(docId) {

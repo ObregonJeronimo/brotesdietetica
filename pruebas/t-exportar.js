@@ -63,7 +63,9 @@ const docCompra = new Function(
 
 const compra = {
   numero: 7, proveedorNombre: 'LISTA 1', comprobante: 'A 0001-123', total: 37900,
-  usuario: 'jero@x.com', sumoStock: true, fecha: null,
+  usuario: 'jero@x.com', sumoStock: true,
+  /* Como viene de Firestore de verdad: un Timestamp, no un Date ni null. */
+  fecha: { seconds: Math.floor(Date.UTC(2026, 7, 29, 12) / 1000), nanoseconds: 0 },
   items: [
     { nombre: 'Nueces', cantidad: 500, tipoVenta: 'peso', costoUnitario: 14000, subtotal: 7000 },
     { nombre: 'Galletas', cantidad: 2, tipoVenta: 'unidad', costoUnitario: 15450, subtotal: 30900 },
@@ -88,6 +90,8 @@ t('el subtotal de 500 g a $14.000 el kilo es $7.000', tabla.filas[0][3] === '$7.
 const pares = dc.bloques[0].filas;
 const buscar = (etq) => (pares.find(f => f[0] === etq) || [])[1];
 t('dice quien la cargo', buscar('Cargada por') === 'jero@x.com');
+t('la fecha de Firestore se muestra como fecha, no como "-"',
+  buscar('Fecha') !== '-' && /\d\d\/\d\d\/\d\d/.test(buscar('Fecha')));
 t('avisa cuando la compra NO sumo stock',
   String(docCompra(Object.assign({}, compra, { sumoStock: false }))
     .bloques[0].filas.find(f => f[0] === 'Stock')[1]).indexOf('NO') === 0);
@@ -107,8 +111,27 @@ const PRODS = [
   { id: 'd', nombre: 'Miel', lista: 'L1', stock: 3, tipoVenta: 'unidad', oculto: true },
   { id: 'z', nombre: 'De otro', lista: 'L9', stock: 5, tipoVenta: 'unidad' },
 ];
+/* Las fechas del periodo se arman EXACTAMENTE como las arma el codigo real,
+   corriendo su misma cuenta. Antes este fixture usaba objetos Date y el de
+   verdad guarda STRINGS -_provCargarVentas los pasa por _provFecha antes de
+   guardarlos, porque los necesita para el rango de la consulta-. Con el
+   fixture equivocado la prueba pasaba en verde mientras el boton Exportar
+   reventaba en la cara del usuario con "d.getFullYear is not a function".
+
+   Un fixture que no tiene la forma del dato real no prueba nada: prueba otro
+   programa. */
+const provFecha = new Function(cuerpo(srcProv, '_provFecha') + ';return _provFecha;')();
+const F_HASTA = new Date();
+const F_DESDE = new Date(F_HASTA.getTime() - 90 * 86400000);
+const D_DESDE = provFecha(F_DESDE), D_HASTA = provFecha(F_HASTA);
+
+t('el codigo real guarda las fechas del periodo como texto, no como Date',
+  typeof D_DESDE === 'string' && /^\d{4}-\d\d-\d\d$/.test(D_DESDE));
+t('y _provCargarVentas es quien las formatea antes de guardarlas',
+  /const dDesde = _provFecha\(desde\), dHasta = _provFecha\(hasta\)/.test(srcProv));
+
 const DATOS = {
-  dias: 90, desde: new Date(2026, 5, 1), hasta: new Date(2026, 7, 29),
+  dias: 90, desde: D_DESDE, hasta: D_HASTA,
   porLista: {
     L1: {
       facturado: 37900, ventas: 3,
@@ -137,7 +160,8 @@ const val = (etq) => (res.find(f => f[0] === etq) || [])[1];
 
 t('el proveedor titula con su nombre', dp.titulo === 'Proveedor LISTA 1');
 t('el subtitulo dice el periodo y las fechas',
-  dp.subtitulo.indexOf('90 días') > 0 && dp.subtitulo.indexOf('2026-06-01') > 0);
+  dp.subtitulo.indexOf('90 días') > 0 && dp.subtitulo.indexOf(D_DESDE) > 0 &&
+  dp.subtitulo.indexOf(D_HASTA) > 0);
 t('exporta lo facturado', val('Facturado') === '$37.900');
 t('exporta las ventas con productos suyos', val('Ventas con productos suyos') === '3');
 t('cuenta solo los productos de ESE proveedor', val('Productos en el catálogo') === '4');
@@ -182,6 +206,16 @@ t('un proveedor sin ventas explica por que el top esta vacio',
   String(vacio.bloques[1].filas[0][1]).indexOf('No se vendió') === 0);
 
 /* ------------------------------------- que los dos formatos usen lo mismo */
+/* Un boton que falla en silencio es peor que uno que falla: el usuario no
+   tiene forma de saber si se rompio o si tarda. Fue exactamente lo que paso
+   con Exportar. Los dos tienen que atajar tambien el armado del documento,
+   no solo el dibujado. */
+t('provExportar avisa si no puede preparar el documento',
+  /_provDocExportar\(lista, noVend\);\s*\} catch/.test(srcProv) &&
+  /No se pudo preparar la exportación/.test(srcProv));
+t('compraExportar tambien', /_cpDocExportar\(_cpVerActual\);\s*\} catch/.test(srcComp) &&
+  /No se pudo preparar la exportación/.test(srcComp));
+
 t('el PDF y el Excel leen el mismo objeto',
   /function _expPDF\(doc\)/.test(srcExp) && /function _expExcel\(doc\)/.test(srcExp));
 t('exportarDoc avisa si la libreria no cargo',

@@ -350,8 +350,13 @@ function _provRenderDetalle() {
 function _provDocExportar(lista, incluirNoVendidos) {
   const r = _provResumen(lista);
   const dias = (_provDatos && _provDatos.dias) || _provDias;
+  /* desde y hasta YA VIENEN formateados: _provCargarVentas los pasa por
+     _provFecha antes de guardarlos, porque los usa para armar el rango de la
+     consulta. Volver a pasarlos rompia con "d.getFullYear is not a function",
+     y como provExportar() no atajaba nada, el boton Exportar no hacia
+     absolutamente nada: ni exportaba ni avisaba. */
   const periodo = 'Últimos ' + dias + ' días' +
-    (_provDatos ? ' · del ' + _provFecha(_provDatos.desde) + ' al ' + _provFecha(_provDatos.hasta) : '');
+    (_provDatos && _provDatos.desde ? ' · del ' + _provDatos.desde + ' al ' + _provDatos.hasta : '');
 
   const resumen = [
     ['Facturado', _provPesos(r.facturado)],
@@ -435,7 +440,19 @@ function provExportar() {
   if (!lista) { showAdminToast('Abrí un proveedor primero', 'error'); return; }
   const fmt = (document.getElementById('provExportFormato') || {}).value || 'pdf';
   const noVend = !!(document.getElementById('provExportNoVendidos') || {}).checked;
-  if (exportarDoc(_provDocExportar(lista, noVend), fmt)) closeProvExportModal();
+  /* Armar el documento tambien puede fallar, no solo dibujarlo. exportarDoc()
+     ataja lo suyo, pero si revienta antes -en _provDocExportar- el error se
+     escapaba y el boton se quedaba mudo: ni archivo ni mensaje. Un boton que no
+     responde es de lo peor que le podes dejar a alguien, porque no tiene forma
+     de saber si fallo o si tarda. */
+  let doc;
+  try {
+    doc = _provDocExportar(lista, noVend);
+  } catch (e) {
+    showAdminToast('No se pudo preparar la exportación: ' + e.message, 'error');
+    return;
+  }
+  if (exportarDoc(doc, fmt)) closeProvExportModal();
 }
 
 /* ============================ ACCIONES ============================ */
