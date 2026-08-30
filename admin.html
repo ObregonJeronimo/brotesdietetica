@@ -2380,7 +2380,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         let roundSelPage=0;
         function renderRoundSelList(){const q=(document.getElementById('roundSelSearch')?.value||'').toLowerCase();let prods=allProducts.filter(p=>{const precio=p.precio||0;return precio!==roundPrice(precio)&&(p.nombre||'').toLowerCase().includes(q);});const perPage=20,pages=Math.ceil(prods.length/perPage)||1;if(roundSelPage>=pages)roundSelPage=pages-1;const shown=prods.slice(roundSelPage*perPage,(roundSelPage+1)*perPage);const c=document.getElementById('roundSelList');c.innerHTML=shown.map(p=>'<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.82rem;cursor:pointer"><input type="checkbox" value="'+p.id+'" onchange="updateRoundSelCount()"'+(roundSelectedIds.includes(p.id)?' checked':'')+'> '+esc(p.nombre)+' <span style="color:var(--text-dim);font-size:0.75rem">$'+(p.precio||0).toLocaleString('es-AR')+' -> $'+roundPrice(p.precio||0).toLocaleString('es-AR')+'</span></label>').join('');if(!prods.length)c.innerHTML='<div class="empty-state" style="padding:1rem"><p>Todos los precios ya estan redondeados</p></div>';const pg=document.getElementById('roundSelList');let pager='';if(pages>1){pager='<div style="display:flex;justify-content:center;gap:8px;margin-top:8px"><button class="btn btn-sm btn-secondary" onclick="roundSelPage=Math.max(0,roundSelPage-1);renderRoundSelList()"'+(roundSelPage===0?' disabled':'')+'>Ant</button><span style="font-size:0.78rem;color:var(--text-dim);padding:4px">'+(roundSelPage+1)+'/'+pages+' ('+prods.length+' productos)</span><button class="btn btn-sm btn-secondary" onclick="roundSelPage=Math.min('+(pages-1)+',roundSelPage+1);renderRoundSelList()"'+(roundSelPage>=pages-1?' disabled':'')+'>Sig</button></div>';}let existing=c.querySelector('.round-sel-pager');if(existing)existing.remove();const pagerDiv=document.createElement('div');pagerDiv.className='round-sel-pager';pagerDiv.innerHTML=pager;c.parentNode.insertBefore(pagerDiv,c.nextSibling);updateRoundSelCount();}
         function filterRoundSelList(){roundSelPage=0;renderRoundSelList();}
-        function renderRoundSingle(){const q=(document.getElementById('roundSingleSearch')?.value||'').toLowerCase();let prods=allProducts.filter(p=>(p.nombre||'').toLowerCase().includes(q));const shown=prods.slice(0,30);const c=document.getElementById('roundSingleList');c.innerHTML=shown.length?shown.map(p=>{const cur=p.precio||0;const rounded=roundPrice(cur);const changed=cur!==rounded;return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:'+(changed?'pointer':'default')+'" '+(changed?'onclick="roundSingleProduct(\''+p.id+'\','+rounded+')"':'')+'><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.nombre)+'</span><span style="font-family:var(--mono);color:var(--text-dim);margin:0 6px">$'+cur.toLocaleString('es-AR')+'</span>'+(changed?'<i class="bi bi-arrow-right" style="font-size:0.7rem;color:var(--accent-light)"></i><span style="font-family:var(--mono);color:var(--accent-light);font-weight:600;margin-left:6px">$'+rounded.toLocaleString('es-AR')+'</span>':'<span style="font-size:0.75rem;color:#67c23a;margin-left:6px"><i class="bi bi-check-circle"></i> OK</span>')+'</div>';}).join(''):'<div class="empty-state" style="padding:1rem"><p>Busca un producto</p></div>';if(prods.length>30)c.innerHTML+='<div style="text-align:center;font-size:0.78rem;color:var(--text-dim);padding:8px">Mostrando 30 de '+prods.length+' — busca para filtrar</div>';}
+        function renderRoundSingle(){const q=(document.getElementById('roundSingleSearch')?.value||'').toLowerCase();let prods=allProducts.filter(p=>(p.nombre||'').toLowerCase().includes(q));const shown=prods.slice(0,30);const c=document.getElementById('roundSingleList');c.innerHTML=shown.length?shown.map(p=>{const cur=p.precio||0;const rounded=roundPrice(cur);const changed=cur!==rounded;return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:'+(changed?'pointer':'default')+'" '+(changed?'onclick="roundSingleProduct(\''+p.id+'\','+rounded+')"':'')+'><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.nombre)+'</span><span style="font-family:var(--mono);color:var(--text-dim);margin:0 6px">$'+cur.toLocaleString('es-AR')+'</span>'+(changed?'<i class="bi bi-arrow-right" style="font-size:0.7rem;color:var(--accent-light)"></i><span style="font-family:var(--mono);color:var(--accent-light);font-weight:600;margin-left:6px">$'+rounded.toLocaleString('es-AR')+'</span>':'<span style="font-size:0.75rem;color:#67c23a;margin-left:6px"><i class="bi bi-check-circle"></i> OK</span>')+'</div>';}).join(''):'<div class="empty-state" style="padding:1rem"><p>Busca un producto</p></div>';if(prods.length>30)c.innerHTML+='<div style="text-align:center;font-size:0.78rem;color:var(--text-dim);padding:8px">Mostrando 30 de '+prods.length+' - busca para filtrar</div>';}
         function filterRoundSingle(){renderRoundSingle();}
         async function roundSingleProduct(id,newPrecio){if(!await pedirConfirmacion('Redondear precio a $'+newPrecio.toLocaleString('es-AR')+'?'))return;try{await db.collection('productos').doc(id).update({precio:newPrecio});showAdminToast('Precio redondeado','success');logAction('editar','Redondeo individual','ID: '+id+' -> $'+newPrecio);/* Un solo producto tocado: se refresca ese, no los 3.000. */if(!await refrescarProductoLocal(id))await loadProducts();renderRoundSingle();}catch(e){showAdminToast('Error: '+e.message,'error');}}
         function updateRoundSelCount(){const checks=document.querySelectorAll('#roundSelList input:checked');roundSelectedIds=[...checks].map(c=>c.value);document.getElementById('roundSelCount').textContent=roundSelectedIds.length;}
@@ -3357,7 +3357,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                         cards+='<span style="background:#3a1a1a;color:#f56c6c;border:1px solid #6a2a2a;border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="No se pudo descontar el stock: '+esc(String(p.stockError))+'"><i class="bi bi-x-octagon"></i> Sin descontar</span>';
                     }
                     cards+='</div>';
-                    cards+='<div style="font-size:0.8rem;font-weight:600;color:var(--text-main);margin:2px 0">'+esc(p.clienteWeb||p.cliente||'—')+'</div>';
+                    cards+='<div style="font-size:0.8rem;font-weight:600;color:var(--text-main);margin:2px 0">'+esc(p.clienteWeb||p.cliente||'-')+'</div>';
                     if(p.clienteAuthUid){cards+='<div style="font-size:0.72rem;color:var(--accent-light)">'+(p.clienteEmail||p.clienteId?'#'+esc(p.clienteId||'')+' · '+esc(p.clienteEmail||''):'')+'</div>';}
                     cards+='<div class="kcard-bottom">';
                     cards+='<span class="kcard-date">'+fecha+'</span>';
@@ -3742,7 +3742,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                         var _entregaHtml=(p.tipoEntrega==='envio')
                             ? ('<div style="margin-top:5px"><i class="bi bi-truck"></i> <strong>Envio a domicilio</strong>'+
                                (p.direccion?': '+esc(p.direccion)
-                                          :' <span style="color:#f56c6c">— sin direccion en el pedido</span>')+'</div>')
+                                          :' <span style="color:#f56c6c">- sin direccion en el pedido</span>')+'</div>')
                             : '<div style="margin-top:5px"><i class="bi bi-shop"></i> Retiro en local</div>';
                         if(p.notas)_entregaHtml+='<div style="margin-top:5px"><i class="bi bi-chat-left-text"></i> <strong>Notas del cliente:</strong> '+esc(p.notas)+'</div>';
                         if(authInfoEl){
@@ -4806,7 +4806,7 @@ async function _estadoContador(c){
    -contador contra maximo real- solo aparece cuando NO coinciden, que es cuando hay
    algo que hacer. */
 function _lineaContador(r){
-    if(r.error)return r.c.que+' n° —  (no se pudo leer)';
+    if(r.error)return r.c.que+' n° -  (no se pudo leer)';
     const prox=r.actual+1, deberia=r.real+1;
     if(prox===deberia)return r.c.que+' n° '+prox;
     return r.c.que+' n° '+prox+'  →  debería ser '+deberia+
@@ -6174,14 +6174,14 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                     '<div style="min-width:0">'+
                     '<div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(nombre)+
                     (!completo?'<span title="A esta cuenta le falta nombre, apellido o tel\u00e9fono. Se completan solos cuando el cliente hace su primer pedido." style="background:#5a2d2d;color:#f56c6c;font-size:0.62rem;padding:1px 5px;border-radius:3px;margin-left:5px;cursor:help">datos incompletos</span>':'')+'</div>'+
-                    '<div style="font-size:0.75rem;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(cl.email||'—')+'</div>'+
+                    '<div style="font-size:0.75rem;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(cl.email||'-')+'</div>'+
                     '</div></div>'+
                     '<div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0">'+
                     /* esc() igual que el nombre y el email de arriba: el telefono lo escribe el cliente
    desde su perfil de la tienda, y las reglas solo validan que sea un string de hasta
    30 caracteres. Sin escapar, ese campo es HTML que se ejecuta dentro de la sesion
    del admin (XSS almacenado), y sin malicia alcanza un < para romper la fila. */
-                    '<span style="font-size:0.8rem;color:var(--text-dim)">'+esc(cl.telefono||'—')+'</span>'+
+                    '<span style="font-size:0.8rem;color:var(--text-dim)">'+esc(cl.telefono||'-')+'</span>'+
                     '<button class="btn btn-sm btn-secondary" style="width:auto;font-size:0.72rem"><i class="bi bi-link-45deg"></i></button>'+
                     '</div>';
                 row.addEventListener('click',function(){openClienteAuthModal(cl.uid);});
@@ -6395,8 +6395,8 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             if(!cl)return;
             const nombre=((cl.nombre||'')+' '+(cl.apellido||'')).trim()||'Sin nombre';
             document.getElementById('caModalNombre').textContent=nombre;
-            document.getElementById('caModalEmail').textContent=cl.email||'—';
-            document.getElementById('caModalTel').textContent=cl.telefono||'—';
+            document.getElementById('caModalEmail').textContent=cl.email||'-';
+            document.getElementById('caModalTel').textContent=cl.telefono||'-';
             document.getElementById('caModalId').textContent=cl.clienteId?'#'+String(cl.clienteId).padStart(4,'0'):'Sin ID';
             document.getElementById('caModalVentas').textContent='$'+(cl._totalVentas||0).toLocaleString('es-AR');
             document.getElementById('caModalGanado').textContent='$'+(cl._totalGanado||0).toLocaleString('es-AR');
@@ -6413,13 +6413,13 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                 let totalGanado=0;
                 hist.innerHTML=pedSnap.docs.map(d=>{
                     const p=d.data();
-                    const fecha=p.creadoEn?.toDate?p.creadoEn.toDate().toLocaleDateString('es-AR'):'—';
+                    const fecha=p.creadoEn?.toDate?p.creadoEn.toDate().toLocaleDateString('es-AR'):'-';
                     const estadoColor={pendiente:'#e6a817',confirmado:'#67c23a',entregado:'#a78bfa'}[p.estado]||'var(--text-dim)';
                     const _g=gananciaDe(p,true);
                     const ganancia=_g.ganancia;
                     if(_g.completa)totalGanado+=ganancia;
                     return '<div style="padding:0.5rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'+
-                        '<div><div style="font-size:0.82rem;font-weight:600">#'+nroPed(p.numero||0)+' <span style="color:'+estadoColor+';font-size:0.72rem">'+(p.estado||'—')+'</span></div>'+
+                        '<div><div style="font-size:0.82rem;font-weight:600">#'+nroPed(p.numero||0)+' <span style="color:'+estadoColor+';font-size:0.72rem">'+(p.estado||'-')+'</span></div>'+
                         '<div style="font-size:0.75rem;color:var(--text-dim)">'+fecha+' · '+(p.items||[]).length+' items</div></div>'+
                         '<div style="text-align:right"><div style="font-weight:700;color:var(--accent-light)">$'+(p.total||0).toLocaleString('es-AR')+'</div>'+
                         (_g.completa
@@ -6559,8 +6559,8 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         <div class="form-group">
           <label class="form-label">&iquest;En qu&eacute; formato?</label>
           <select class="form-input" id="provExportFormato">
-            <option value="pdf">PDF &mdash; para imprimir o mandar</option>
-            <option value="excel">Excel &mdash; para seguir trabajando los n&uacute;meros</option>
+            <option value="pdf">PDF - para imprimir o mandar</option>
+            <option value="excel">Excel - para seguir trabajando los n&uacute;meros</option>
           </select>
         </div>
         <label class="stock-masivo-lbl" style="margin-top:0.4rem">
@@ -6589,8 +6589,8 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         <div class="form-group">
           <label class="form-label">&iquest;En qu&eacute; formato?</label>
           <select class="form-input" id="compraExportFormato">
-            <option value="pdf">PDF &mdash; para imprimir o mandar</option>
-            <option value="excel">Excel &mdash; para seguir trabajando los n&uacute;meros</option>
+            <option value="pdf">PDF - para imprimir o mandar</option>
+            <option value="excel">Excel - para seguir trabajando los n&uacute;meros</option>
           </select>
         </div>
       </div>
@@ -6860,7 +6860,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <div class="modal-overlay" id="configResenasModal"><div class="modal-box" style="max-width:520px"><div class="modal-header"><h3><i class="bi bi-gear"></i> Configurar Reseñas</h3><button class="modal-close" onclick="closeConfigResenasModal()"><i class="bi bi-x-lg"></i></button></div>
     <div style="margin-bottom:1.25rem;padding:1rem;background:var(--bg-input);border-radius:8px;border:1px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
-        <strong style="font-size:0.85rem">Pregunta 1 — Comentario general</strong>
+        <strong style="font-size:0.85rem">Pregunta 1 - Comentario general</strong>
         <label class="toggle-switch"><input type="checkbox" id="cfgP1Activa"><span class="toggle-slider"></span></label>
       </div>
       <div class="form-group" style="margin-bottom:0.5rem"><label style="font-size:0.78rem">Título</label><input type="text" class="form-input" id="cfgP1Texto" placeholder="Tu comentario"></div>
@@ -6868,7 +6868,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     </div>
     <div style="margin-bottom:1.25rem;padding:1rem;background:var(--bg-input);border-radius:8px;border:1px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
-        <strong style="font-size:0.85rem">Pregunta 2 — Privada (no se publica)</strong>
+        <strong style="font-size:0.85rem">Pregunta 2 - Privada (no se publica)</strong>
         <label class="toggle-switch"><input type="checkbox" id="cfgP2Activa"><span class="toggle-slider"></span></label>
       </div>
       <div class="form-group" style="margin-bottom:0.5rem"><label style="font-size:0.78rem">Título</label><input type="text" class="form-input" id="cfgP2Texto" placeholder="¿Que te parecio el producto que compraste?"></div>
@@ -6939,7 +6939,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <!-- MODAL SINCRONIZAR CLIENTE AUTH -->
     <div class="modal-overlay" id="sincronizarModal"><div class="modal-box" style="max-width:500px"><div class="modal-header"><h3><i class="bi bi-link-45deg"></i> Sincronizar cliente</h3><button class="modal-close" onclick="closeSincronizarModal()"><i class="bi bi-x-lg"></i></button></div>
     <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">Vinculá el cliente con cuenta Google con uno de la lista de Clientes. Los pedidos y ventas del cliente existente se transferirán al Auth, y el cliente se eliminará de la lista Clientes.</p>
-    <div class="form-group" style="margin-bottom:1rem"><label>Cliente Auth</label><div style="background:var(--bg-input);padding:0.6rem 0.85rem;border-radius:var(--radius);font-size:0.88rem" id="syncAuthNombre">—</div></div>
+    <div class="form-group" style="margin-bottom:1rem"><label>Cliente Auth</label><div style="background:var(--bg-input);padding:0.6rem 0.85rem;border-radius:var(--radius);font-size:0.88rem" id="syncAuthNombre">-</div></div>
     <div class="form-group" style="margin-bottom:1.5rem"><label>Cliente a sincronizar (de la lista Clientes)</label><select class="form-input" id="syncClienteSelect"><option value="">-- Seleccionar --</option></select></div>
     <div class="form-actions"><button class="btn btn-secondary" onclick="closeSincronizarModal()">Cancelar</button><button class="btn btn-primary" id="syncConfirmBtn" onclick="confirmarSincronizar()"><i class="bi bi-link-45deg"></i> Sincronizar</button></div>
     </div></div>
@@ -6961,7 +6961,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <!-- MODAL INFO CLIENTE AUTH -->
     <div class="modal-overlay" id="clienteAuthModal"><div class="modal-box" style="max-width:480px"><div class="modal-header"><h3><i class="bi bi-person-check"></i> Cliente Auth</h3><button class="modal-close" onclick="closeClienteAuthModal()"><i class="bi bi-x-lg"></i></button></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem">
-      <div style="background:var(--bg-input);border-radius:var(--radius);padding:0.75rem"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px">ID</div><strong id="caModalId" style="font-family:var(--mono);color:var(--accent-light)">—</strong></div>
+      <div style="background:var(--bg-input);border-radius:var(--radius);padding:0.75rem"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px">ID</div><strong id="caModalId" style="font-family:var(--mono);color:var(--accent-light)">-</strong></div>
       <div style="background:var(--bg-input);border-radius:var(--radius);padding:0.75rem"><div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px">Total ventas</div><strong id="caModalVentas" style="color:#67c23a">$0</strong></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem">

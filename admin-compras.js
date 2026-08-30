@@ -132,7 +132,7 @@ function renderComprasDeProveedor(listaId, dias) {
       '<span style="font-weight:600">' + d.count + '</span></div>' +
     (filas || '<p style="font-size:0.83rem;color:var(--text-dim);line-height:1.5">' +
       'Todavía no hay compras cargadas de este proveedor. Cargando una queda el gasto, ' +
-      'la factura y —si querés— el stock que entró.</p>') +
+      'la factura y -si querés- el stock que entró.</p>') +
     (d.compras.length > 8 ? '<p style="font-size:0.76rem;color:var(--text-dim);margin-top:0.4rem">y ' +
       (d.compras.length - 8) + ' más</p>' : '') +
     '</div>';

@@ -724,7 +724,7 @@ function openCheckoutModal(){
         const dirs = clienteAuth.direcciones || [];
         if (dirs.length) {
             sel.innerHTML = dirs.map((d,i) =>
-                `<option value="${i}">${d.nombre} — ${d.texto}</option>`
+                `<option value="${i}">${d.nombre} - ${d.texto}</option>`
             ).join('') + '<option value="nueva">+ Nueva dirección...</option>';
             if (wrap) wrap.style.display = 'block';
             if (nuevaDirWrap) nuevaDirWrap.style.display = 'none';
@@ -1554,7 +1554,7 @@ function _refreshCheckoutAuth() {
     const nomDirWrap = document.getElementById('chkNombreDirWrap');
     if (dirs.length) {
         sel.innerHTML = dirs.map((d,i) =>
-            `<option value="${i}">${d.nombre} — ${d.texto}</option>`
+            `<option value="${i}">${d.nombre} - ${d.texto}</option>`
         ).join('') + '<option value="nueva">+ Nueva dirección...</option>';
         if (wrap) wrap.style.display = 'block';
         if (nuevaDirWrap) nuevaDirWrap.style.display = 'none';

@@ -77,7 +77,7 @@ t('gramos', cant({ gramos: 300, unidades: 0 }) === '300 g');
 t('pasa a kilos', cant({ gramos: 1500, unidades: 0 }) === '1,5 kg');
 t('unidades', cant({ gramos: 0, unidades: 3 }) === '3 u');
 t('los dos, separados', cant({ gramos: 500, unidades: 2 }).indexOf('+') > 0);
-t('sin datos', cant({}) === '—');
+t('sin datos', cant({}) === '-');
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

@@ -1305,7 +1305,7 @@ function buildArqueoHTML(d) {
   const parcial = !!d.parcial;
   const dif = Number(c.diferencia || 0);
   const etqDif = parcial
-    ? 'CORTE PARCIAL — LA CAJA SIGUE ABIERTA'
+    ? 'CORTE PARCIAL - LA CAJA SIGUE ABIERTA'
     : (dif === 0 ? 'CAJA EXACTA' : (dif > 0 ? 'SOBRANTE ' + _pesos(dif) : 'FALTANTE ' + _pesos(Math.abs(dif))));
   const negocio = (typeof NEGOCIO !== 'undefined' && NEGOCIO.nombre) ? NEGOCIO.nombre : 'Brotes Dietética';
   const medios = c.ventasPorMedio || {};

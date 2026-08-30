@@ -47,7 +47,7 @@ function _provCant(p) {
     ? g.toLocaleString('es-AR') + ' g'
     : (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 2 }) + ' kg');
   if (p.unidades) partes.push(Number(p.unidades).toLocaleString('es-AR') + ' u');
-  return partes.join(' + ') || '—';
+  return partes.join(' + ') || '-';
 }
 
 function _provFecha(d) {
@@ -164,6 +164,29 @@ function _provFila(etq, val, sangria) {
    hay que mirar antes de volver a comprarles. Vive aparte porque lo usan la
    pantalla y la exportación, y si se calculara dos veces el día que cambie el
    criterio uno de los dos se quedaría con el viejo. */
+/* La categoría de un producto, para agrupar en la exportación. Los productos
+   sin categoría van todos juntos al final en vez de desaparecer: si a alguien
+   se le paso clasificar uno, tiene que verlo, no perderlo. */
+function _provCategoria(p) {
+  const c = p && String(p.categoria || '').trim();
+  return c || 'Sin categoría';
+}
+
+/* Agrupa por categoría y devuelve los grupos ordenados alfabéticamente, con
+   "Sin categoría" siempre al final. */
+function _provPorCategoria(prods) {
+  const grupos = {};
+  (prods || []).forEach(p => {
+    const c = _provCategoria(p);
+    (grupos[c] = grupos[c] || []).push(p);
+  });
+  return Object.keys(grupos).sort((a, b) => {
+    if (a === 'Sin categoría') return 1;
+    if (b === 'Sin categoría') return -1;
+    return a.localeCompare(b);
+  }).map(c => ({ categoria: c, productos: grupos[c] }));
+}
+
 function _provNoVendidos(lista, r) {
   const vendidosIds = new Set(r.top.map(p => p.id).filter(Boolean));
   return (typeof allProducts !== 'undefined' ? allProducts : [])
@@ -378,35 +401,64 @@ function _provDocExportar(lista, incluirNoVendidos) {
 
   const bloques = [{ tipo: 'pares', titulo: 'Resumen', filas: resumen }];
 
+  /* El top NO se agrupa: es un ranking, y partirlo por categoría lo deshace.
+     Se le agrega la categoría como columna, que da el mismo dato sin romper el
+     orden. Sale del catálogo, porque lo que quedó guardado en la venta es el
+     nombre y el precio, no la categoría. */
+  const catDe = (id) => {
+    const p = (typeof allProducts !== 'undefined' ? allProducts : []).find(x => x.id === id);
+    return p ? _provCategoria(p) : 'Sin categoría';
+  };
   const top = r.top.slice(0, 10);
   bloques.push({
     tipo: 'tabla',
     titulo: 'Los 10 productos más vendidos de este proveedor',
-    columnas: ['#', 'Producto', 'Cantidad', 'Monto'],
-    anchos: [10, 95, 32, 33],
-    derecha: [2, 3],
+    columnas: ['#', 'Producto', 'Categoría', 'Cantidad', 'Monto'],
+    anchos: [9, 68, 42, 26, 27],
+    derecha: [3, 4],
     filas: top.length
-      ? top.map((x, i) => [i + 1, x.nombre, _provCant(x), _provPesos(x.monto)])
-      : [['', 'No se vendió ningún producto de este proveedor en el período.', '', '']],
+      ? top.map((x, i) => [i + 1, x.nombre, catDe(x.id), _provCant(x), _provPesos(x.monto)])
+      : [['', 'No se vendió ningún producto de este proveedor en el período.', '', '', '']],
   });
 
   if (incluirNoVendidos) {
     const quietos = _provNoVendidos(lista, r);
-    bloques.push({
-      tipo: 'tabla',
-      titulo: 'No se vendieron en ' + dias + ' días (' + quietos.length + ')',
-      columnas: ['Producto', 'Stock'],
-      anchos: [130, 40],
-      derecha: [1],
-      filas: quietos.length
-        ? quietos.map(x => [
-            x.nombreMostrado || x.nombre || '',
-            Number(x.stock || 0) <= 0 ? 'sin stock'
-              : (x.tipoVenta === 'peso' ? _provCant({ gramos: Number(x.stock || 0) })
-                                        : Number(x.stock || 0) + ' u'),
-          ])
-        : [['Todos los productos de este proveedor se vendieron al menos una vez.', '']],
-    });
+    if (!quietos.length) {
+      bloques.push({
+        tipo: 'tabla',
+        titulo: 'No se vendieron en ' + dias + ' días (0)',
+        columnas: ['Producto', 'Stock'],
+        anchos: [130, 40],
+        derecha: [1],
+        filas: [['Todos los productos de este proveedor se vendieron al menos una vez.', '']],
+      });
+    } else {
+      /* Un bloque por categoría en vez de una lista de 600 nombres seguidos.
+         Esta lista se usa para decidir qué reponer, y eso se decide por
+         sector de la góndola: sin separar, hay que ir leyendo producto por
+         producto y cruzando de memoria a qué categoría pertenece cada uno.
+
+         Van como bloques separados y no como una columna más porque así el
+         corte sale igual en el PDF y en el Excel, sin tocar el exportador. */
+      const stockTxt = (x) => Number(x.stock || 0) <= 0 ? 'sin stock'
+        : (x.tipoVenta === 'peso' ? _provCant({ gramos: Number(x.stock || 0) })
+                                  : Number(x.stock || 0) + ' u');
+      bloques.push({
+        tipo: 'pares',
+        titulo: 'No se vendieron en ' + dias + ' días (' + quietos.length + ')',
+        filas: _provPorCategoria(quietos).map(g => [g.categoria, String(g.productos.length)]),
+      });
+      _provPorCategoria(quietos).forEach(g => {
+        bloques.push({
+          tipo: 'tabla',
+          titulo: g.categoria + ' (' + g.productos.length + ')',
+          columnas: ['Producto', 'Stock'],
+          anchos: [130, 40],
+          derecha: [1],
+          filas: g.productos.map(x => [x.nombreMostrado || x.nombre || '', stockTxt(x)]),
+        });
+      });
+    }
   }
 
   return {

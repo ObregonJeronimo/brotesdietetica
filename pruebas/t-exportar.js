@@ -105,11 +105,11 @@ t('y aparecen cuando estan',
 
 /* ------------------------------------------------------------ proveedores */
 const PRODS = [
-  { id: 'a', nombre: 'Nueces', lista: 'L1', stock: 1500, tipoVenta: 'peso' },
-  { id: 'b', nombre: 'Galletas', lista: 'L1', stock: 4, tipoVenta: 'unidad' },
-  { id: 'c', nombre: 'Avena', lista: 'L1', stock: 0, tipoVenta: 'unidad' },
+  { id: 'a', nombre: 'Nueces', lista: 'L1', stock: 1500, tipoVenta: 'peso', categoria: 'Frutos secos' },
+  { id: 'b', nombre: 'Galletas', lista: 'L1', stock: 4, tipoVenta: 'unidad', categoria: 'Galletitas' },
+  { id: 'c', nombre: 'Avena', lista: 'L1', stock: 0, tipoVenta: 'unidad', categoria: 'Cereales' },
   { id: 'd', nombre: 'Miel', lista: 'L1', stock: 3, tipoVenta: 'unidad', oculto: true },
-  { id: 'z', nombre: 'De otro', lista: 'L9', stock: 5, tipoVenta: 'unidad' },
+  { id: 'z', nombre: 'De otro', lista: 'L9', stock: 5, tipoVenta: 'unidad', categoria: 'Cereales' },
 ];
 /* Las fechas del periodo se arman EXACTAMENTE como las arma el codigo real,
    corriendo su misma cuenta. Antes este fixture usaba objetos Date y el de
@@ -148,6 +148,7 @@ const docProv = new Function(
   cuerpo(srcProv, '_provCant') + cuerpo(srcProv, '_provFecha') +
   linea(srcProv, /const _provPesos = [^\n]*/) + '\n' +
   cuerpo(srcProv, '_provResumen') + cuerpo(srcProv, '_provNoVendidos') +
+  cuerpo(srcProv, '_provCategoria') + cuerpo(srcProv, '_provPorCategoria') +
   cuerpo(srcProv, '_provDocExportar') +
   ';return function(lista, noVend, prods, datos, compras){' +
   ' allProducts = prods; _provDatos = datos; _provDias = 90; _comprasCache = compras;' +
@@ -187,17 +188,35 @@ t('el bloque del top se llama como en pantalla',
 t('el top va por MONTO: Galletas ($30.900) antes que Nueces ($7.000)',
   topB.filas[0][1] === 'Galletas' && topB.filas[1][1] === 'Nueces');
 t('numera desde 1', topB.filas[0][0] === 1);
-t('los gramos se muestran como peso', String(topB.filas[1][2]).indexOf('u') < 0);
+t('los gramos se muestran como peso', String(topB.filas[1][3]).indexOf('u') < 0);
+/* El ranking NO se agrupa -partirlo lo deshace-: la categoria va como columna. */
+t('el top lleva la categoria como columna', topB.columnas[2] === 'Categoría');
+t('y la saca del catalogo, no de la venta',
+  topB.filas[0][2] === 'Galletitas' && topB.filas[1][2] === 'Frutos secos');
 
 /* --------------------------------------------- el checkbox hace algo real */
 t('desmarcado: no va el bloque de los no vendidos', dp.bloques.length === 2);
 const dpTodo = docProv(L1, true, PRODS, DATOS, null);
-t('marcado: aparece el bloque', dpTodo.bloques.length === 3);
-t('con los 2 que no se vendieron', dpTodo.bloques[2].filas.length === 2);
-t('ordenados alfabeticamente', dpTodo.bloques[2].filas[0][0] === 'Avena');
-t('marcando el que no tiene stock', dpTodo.bloques[2].filas[0][1] === 'sin stock');
+/* Los no vendidos van separados por categoria: primero un resumen con cuantos
+   hay en cada una, y despues un bloque por categoria. */
+t('marcado: aparecen el resumen y un bloque por categoria', dpTodo.bloques.length === 5);
+const resCat = dpTodo.bloques[2];
+t('el resumen dice cuantos hay por categoria',
+  resCat.tipo === 'pares' && resCat.filas.length === 2);
+const bloquesCat = dpTodo.bloques.slice(3);
+t('un bloque por cada categoria con productos sin vender', bloquesCat.length === 2);
+t('las categorias van en orden alfabetico',
+  bloquesCat[0].titulo.indexOf('Cereales') === 0 && bloquesCat[1].titulo.indexOf('Sin categoría') === 0);
+t('el titulo lleva cuantos hay', bloquesCat[0].titulo === 'Cereales (1)');
+t('Avena cae en Cereales', bloquesCat[0].filas[0][0] === 'Avena');
+t('marcando el que no tiene stock', bloquesCat[0].filas[0][1] === 'sin stock');
+/* Miel no tiene categoria: no puede desaparecer del listado. */
+t('el que no tiene categoria no se pierde, va al final',
+  bloquesCat[1].titulo === 'Sin categoría (1)' && bloquesCat[1].filas[0][0] === 'Miel');
 t('y no se cuela ninguno de otro proveedor',
-  !dpTodo.bloques[2].filas.some(f => f[0] === 'De otro'));
+  !bloquesCat.some(b => b.filas.some(f => f[0] === 'De otro')));
+t('la suma de los bloques da el total de no vendidos',
+  bloquesCat.reduce((n, b) => n + b.filas.length, 0) === 2);
 
 /* Un proveedor sin ninguna venta no puede dar una tabla vacia sin explicacion. */
 const vacio = docProv({ id: 'L9', nombre: 'Otro' }, false, PRODS, DATOS, null);

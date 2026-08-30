@@ -324,7 +324,7 @@ function renderCalendario(t) {
     const e = STATS_ESTADOS[k];
     return '<div style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.76rem;line-height:1.45">' +
       '<span style="width:11px;height:11px;border-radius:3px;background:' + e.color + ';flex:0 0 auto;margin-top:3px;border:1px solid rgba(255,255,255,0.1)"></span>' +
-      '<span><b style="color:var(--text-main)">' + e.etq + '</b> <span style="color:var(--text-dim)">— ' + e.desc + '</span></span></div>';
+      '<span><b style="color:var(--text-main)">' + e.etq + '</b> <span style="color:var(--text-dim)">- ' + e.desc + '</span></span></div>';
   }).join('');
 
   return _card('Calendario del mes',
@@ -478,7 +478,7 @@ function _cantTop(p) {
     ? g.toLocaleString('es-AR') + ' g'
     : (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg');
   if (p.unidades) partes.push(p.unidades + 'u');
-  return partes.join(' + ') || '—';
+  return partes.join(' + ') || '-';
 }
 
 function renderTopProductos(t) {
