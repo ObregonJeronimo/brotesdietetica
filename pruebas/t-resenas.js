@@ -76,6 +76,21 @@ t('y sigue ordenando por fecha', /where\('usado','==',true\)\s*\.orderBy\('fecha
 t('el filtro por visible sigue del lado del cliente',
   /r\.visible===true&&r\.usado===true/.test(tienda));
 
+/* El panel tambien filtra por usado. No es por la regla -un admin pasa por
+   isAdmin()- sino para no depender de que el motor corte el `||` antes de mirar
+   resource.data. Constrenida, la consulta anda de las dos formas. Devuelve
+   exactamente el mismo conjunto: el orderBy('fecha') ya dejaba afuera los
+   tokens pendientes, que no tienen ese campo. */
+t('el panel de resenas tambien constrine la consulta',
+  admin.indexOf("collection('resenas').where('usado','==',true).orderBy('fecha','desc').limit(300)") > 0);
+/* La otra consulta que hace un NO admin: la pagina de la resena, para no dejar
+   opinar dos veces. Filtra usado, asi que la regla la acepta. */
+t('resena.html filtra por usado al buscar si ya opino',
+  /where\('clienteAuthUid','==',uid\)[\s\S]{0,60}where\('usado','==',true\)/.test(resena));
+t('existe el indice que esa consulta necesita',
+  (indices.indexes || []).some(x => x.collectionGroup === 'resenas' &&
+    x.fields.map(f => f.fieldPath).join(',') === 'clienteAuthUid,usado'));
+
 const ix = (indices.indexes || []).filter(x => x.collectionGroup === 'resenas');
 const compuesto = ix.find(x => x.fields.map(f => f.fieldPath).join(',') === 'usado,fecha');
 t('existe el indice compuesto (usado, fecha)', !!compuesto);
