@@ -49,43 +49,74 @@ async function borrarArchivoDeStorage(url, contexto) {
   }
 }
 
-/* Todas las imagenes de un producto que viven en el bucket: la principal y las
-   extra, que se guardan como un solo texto con un salto de linea entre cada
-   una. */
+/* Todas las imagenes de un producto que viven en el bucket: la principal y
+   las extra.
+
+   imagenesExtra viene en DOS formas y hay que aguantar las dos: saveProduct
+   la escribe como lista, pero quedan fichas viejas donde es un solo texto con
+   un salto de linea entre cada url. El panel ya hace este mismo Array.isArray
+   al abrir el formulario.
+
+   Tratar una lista como texto no da error, y por eso es peligroso: String()
+   la pega con comas, queda una sola cadena que igual contiene
+   "firebasestorage", y de ahi salen dos cosas malas. Una, se le pide al bucket
+   que borre una url inventada -no pasa nada, tira y se registra-. La otra si
+   importa: al juntar las imagenes de los OTROS productos quedarian tambien
+   pegadas, no coincidirian con ninguna url suelta, y el reparo de "esta
+   imagen la usa otro" dejaria de reconocerla. O sea que se podria borrar una
+   imagen que otro producto sigue usando, que es justo lo que hay que evitar. */
 function imagenesDeProducto(p) {
   if (!p) return [];
-  return [p.imagen]
-    .concat(String(p.imagenesExtra || '').split('\n'))
+  const extra = Array.isArray(p.imagenesExtra)
+    ? p.imagenesExtra
+    : String(p.imagenesExtra || '').split('\n');
+  return [p.imagen].concat(extra)
     .map((u) => String(u || '').trim())
     .filter((u) => u && esArchivoDeStorage(u));
 }
 
-/* Borra las imagenes de un producto que ya se elimino, salteando las que
-   siguen usando otros productos.
+/* Las imagenes que el producto TENIA y ya no tiene. Sirve para los dos casos:
+   borrarlo entero -no le queda ninguna- y editarlo cambiandole la foto.
 
-   Esto ultimo no es teorico: hoy medio catalogo comparte la misma ruta de
-   imagen por defecto. Esa no es de Storage y ya queda afuera por el filtro,
-   pero alcanza con que alguien pegue la misma URL subida en dos productos para
-   que borrar uno le deje al otro una imagen rota. Y una imagen rota en la
-   tienda no avisa: se ve el recuadro vacio y listo. */
-async function borrarImagenesDeProducto(prod, idBorrado) {
-  const mias = imagenesDeProducto(prod);
-  if (!mias.length) return 0;
+   Tres cosas que hay que saltear, y ninguna es teorica:
 
+     - Las que sigue teniendo. Si alguien mueve una imagen de principal a
+       extra, la url no cambio de dueño: no se toca.
+     - Las que usa OTRO producto. Alcanza con pegar la misma url subida en el
+       campo de extras de otro. Si se borra, al otro le queda una imagen rota,
+       y eso en la tienda no avisa: se ve el recuadro vacio y listo.
+     - Las que no estan en el bucket, que las filtra imagenesDeProducto. Hoy
+       medio catalogo comparte 'img/default-product.svg', una ruta del
+       repositorio.
+
+   El producto propio se saltea por id: cuando esto corre todavia esta en
+   allProducts, y sin saltearlo creeria que su propia imagen esta en uso y no
+   borraria nunca nada. */
+async function borrarImagenesQueSobran(antes, despues, idProducto, motivo) {
+  const tenia = imagenesDeProducto(antes);
+  if (!tenia.length) return 0;
+
+  const quedan = new Set(imagenesDeProducto(despues));
   const deOtros = new Set();
   (typeof allProducts !== 'undefined' ? allProducts : []).forEach((p) => {
-    if (!p || p.id === idBorrado) return;
+    if (!p || p.id === idProducto) return;
     imagenesDeProducto(p).forEach((u) => deOtros.add(u));
   });
 
   let sacadas = 0;
-  for (const url of mias) {
-    if (deOtros.has(url)) continue;
-    if (await borrarArchivoDeStorage(url, 'El producto se borro')) sacadas++;
+  for (const url of tenia) {
+    if (quedan.has(url) || deOtros.has(url)) continue;
+    if (await borrarArchivoDeStorage(url, motivo || 'Se actualizo el producto')) sacadas++;
   }
   return sacadas;
 }
 
+/* Borrar el producto entero es el mismo caso con un "despues" vacio. */
+async function borrarImagenesDeProducto(prod, idBorrado) {
+  return borrarImagenesQueSobran(prod, null, idBorrado, 'El producto se borro');
+}
+
 window.esArchivoDeStorage = esArchivoDeStorage;
 window.borrarArchivoDeStorage = borrarArchivoDeStorage;
+window.borrarImagenesQueSobran = borrarImagenesQueSobran;
 window.borrarImagenesDeProducto = borrarImagenesDeProducto;
