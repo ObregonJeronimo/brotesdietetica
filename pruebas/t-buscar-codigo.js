@@ -23,12 +23,22 @@ const t = (d, c) => { if (c) { ok++; console.log('  OK   ' + d); } else { fail++
 
 /* El filtro sale del fuente real: se saca el bloque que arma `f` y se corre
    contra productos de mentira. */
-const i = html.indexOf("if(q){f=f.filter(p=>(p.nombre||'').toLowerCase().includes(q)");
-if (i < 0) throw new Error('no encontre el filtro por codigo en admin.html');
-const bloque = html.slice(i, html.indexOf('if(cat)', i));
-
-const filtrar = new Function('allProducts', 'q',
-  'let f=allProducts;' + bloque + 'return f;');
+/* El predicado sale del fuente real. Vive en UN solo lugar y lo usan los tres
+   buscadores de productos, asi que probandolo una vez quedan cubiertos los
+   tres -y si alguien vuelve a escribirlo aparte, la prueba de mas abajo que
+   cuenta los usos se pone en rojo-. */
+function cuerpo(n) {
+  const i = html.indexOf('function ' + n + '(');
+  if (i < 0) throw new Error('no encontre ' + n + ' en admin.html');
+  let p = 0, k;
+  for (k = html.indexOf('{', i); k < html.length; k++) {
+    if (html[k] === '{') p++;
+    else if (html[k] === '}') { p--; if (!p) break; }
+  }
+  return html.slice(i, k + 1);
+}
+const coincide = new Function(cuerpo('coincideProducto') + ';return coincideProducto;')();
+const filtrar = (prods, q) => prods.filter(p => coincide(p, q));
 
 const P = [
   { nombre: 'Aceite De Coco Neutro 200 Cc', codigo: '000320' },
@@ -82,6 +92,26 @@ t('el codigo se ordena como TEXTO, no restando',
   /codigo\|\|''\);return adminSortDir==='asc'\?va\.localeCompare/.test(html));
 t('el placeholder avisa que tambien busca por codigo',
   /placeholder="Buscar por nombre o c&oacute;digo\.\.\." id="searchInput"/.test(html));
+
+/* ------------------------------------------- UN predicado, no tres copias
+   Los tres buscadores de productos hacen la misma pregunta. Escrito tres
+   veces se separa solo: ya paso en este panel con el alto del logo, con la
+   cinta de descuento y con la paleta. */
+t('el criterio esta definido una sola vez',
+  (html.match(/function coincideProducto\(/g) || []).length === 1);
+t('y lo usan los tres buscadores: la tabla y los dos selectores',
+  (html.match(/f\.filter\(p=>coincideProducto\(p,q\)\)/g) || []).length === 3);
+t('no quedo ninguna copia buscando solo por nombre',
+  !/if\(q\)f=f\.filter\(p=>\(p\.nombre\|\|''\)\.toLowerCase\(\)\.includes\(q\)\);if\(cat\)/.test(html));
+
+/* Si se puede buscar por codigo, hay que poder ver cual encontro. */
+t('el selector de precios muestra el codigo',
+  /flex:0 0 auto">'\+esc\(p\.codigo\|\|''\)/.test(html));
+t('el de descuentos tambien', /var\(--text-dim\)">'\+esc\(p\.codigo\|\|''\)\+'<\/span>/.test(html));
+/* El selector de precios era el unico lugar del panel que metia el nombre del
+   producto crudo en el HTML. */
+t('el selector de precios ya escapa el nombre',
+  html.indexOf("+'<span>'+p.nombre+'</span>") < 0);
 
 /* Las columnas de la tabla vacia tienen que coincidir con las de la cabecera,
    si no la fila de "sin productos" queda corrida. */
