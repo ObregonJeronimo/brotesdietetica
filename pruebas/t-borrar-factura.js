@@ -79,9 +79,13 @@ async function correr(opts) {
       }),
     },
     storage: {
+      ref: () => ({ bucket: 'x.firebasestorage.app' }),
       refFromURL: (u) => {
-        pasos.push('refFromURL:' + u.split('/o/')[1].split('?')[0]);
+        const crudo = u.split('/o/')[1].split('?')[0];
+        pasos.push('refFromURL:' + crudo);
         return {
+          fullPath: decodeURIComponent(crudo),
+          bucket: u.split('/b/')[1].split('/o/')[0],
           delete: async () => {
             pasos.push('borro ARCHIVO');
             if (o.storageFalla) { const e = new Error('x'); e.code = o.storageFalla; throw e; }

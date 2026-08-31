@@ -510,7 +510,7 @@ function _cpAvisoVendidos(c, devuelve) {
    en la cara del usuario. Si falla, queda en la consola. */
 async function _cpBorrarFactura(url) {
   if (typeof borrarArchivoDeStorage !== 'function') return;
-  await borrarArchivoDeStorage(url, 'La compra se borro');
+  await borrarArchivoDeStorage(url, 'La compra se borro', 'compras/');
 }
 
 /* La compra, lista para bajar. Misma estructura que usa el export de

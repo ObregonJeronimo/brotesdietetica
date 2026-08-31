@@ -33,12 +33,47 @@ function esArchivoDeStorage(url) {
 }
 
 /* Borra un archivo por su URL de descarga. Devuelve true si lo saco.
-   No tira nunca: ver el comentario de arriba. */
-async function borrarArchivoDeStorage(url, contexto) {
+   No tira nunca: ver el comentario de arriba.
+
+   `carpeta` es lo unico que separa esto de un borrado a ciegas. La url sale de
+   un campo de Firestore, y este codigo no tiene forma de saber como llego ahi:
+   hoy todas las fotos de producto pasan por uploadImage() y caen en
+   'productos/', pero alcanza con una edicion a mano en la consola, un
+   importador futuro o un bug para que en `imagen` termine la url de
+   'site/hero.jpg' o de 'config/logo-factura.jpg' -que es UN archivo, el logo
+   de la factura-. Borrar un producto no puede llevarse eso puesto.
+
+   Confinarlo a su carpeta hace que esa clase entera sea imposible, sin
+   depender de que todos los que escriban en el campo se porten bien. Lo mismo
+   con el bucket: una url de otro proyecto de Firebase resuelve a OTRO bucket
+   -lo comprobe-, y ahi no tenemos nada que hacer. */
+async function borrarArchivoDeStorage(url, contexto, carpeta) {
   if (!esArchivoDeStorage(url)) return false;
   if (typeof storage === 'undefined' || !storage.refFromURL) return false;
+
+  let ref;
   try {
-    await storage.refFromURL(url).delete();
+    ref = storage.refFromURL(url);
+  } catch (e) {
+    /* Una url que no se puede interpretar tampoco se puede borrar. */
+    console.warn('No se pudo interpretar la url del archivo, se deja como esta:', url);
+    return false;
+  }
+
+  if (carpeta && String(ref.fullPath || '').indexOf(carpeta) !== 0) {
+    console.warn('El archivo apunta fuera de "' + carpeta + '", no se toca:', ref.fullPath);
+    return false;
+  }
+  try {
+    const propio = storage.ref().bucket;
+    if (propio && ref.bucket && ref.bucket !== propio) {
+      console.warn('El archivo es de otro bucket, no se toca:', ref.bucket);
+      return false;
+    }
+  } catch (e) { /* si no se puede saber cual es el nuestro, no bloquea */ }
+
+  try {
+    await ref.delete();
     return true;
   } catch (e) {
     /* Que ya no este es justo el estado que buscabamos. */
@@ -106,7 +141,8 @@ async function borrarImagenesQueSobran(antes, despues, idProducto, motivo) {
   let sacadas = 0;
   for (const url of tenia) {
     if (quedan.has(url) || deOtros.has(url)) continue;
-    if (await borrarArchivoDeStorage(url, motivo || 'Se actualizo el producto')) sacadas++;
+    if (await borrarArchivoDeStorage(url, motivo || 'Se actualizo el producto',
+                                     'productos/')) sacadas++;
   }
   return sacadas;
 }

@@ -74,13 +74,23 @@ async function correr(prod, otros, falla, despues) {
   const borrados = [];
   const fakes = {
     allProducts: (otros || []).concat([prod]),
+    /* El doble tiene que parecerse al SDK de verdad: fullPath y bucket son lo
+       que miran las guardas. Un doble mas pobre que el original prueba otro
+       programa, que es como se me escapo el bug de las fechas. */
     storage: {
-      refFromURL: (u) => ({
-        delete: async () => {
-          if (falla) { const e = new Error('x'); e.code = falla; throw e; }
-          borrados.push(decodeURIComponent(u.split('/o/')[1].split('?')[0]));
-        },
-      }),
+      ref: () => ({ bucket: 'x.firebasestorage.app' }),
+      refFromURL: (u) => {
+        const ruta = decodeURIComponent(u.split('/o/')[1].split('?')[0]);
+        const bucket = u.split('/b/')[1].split('/o/')[0];
+        return {
+          fullPath: ruta,
+          bucket: bucket,
+          delete: async () => {
+            if (falla) { const e = new Error('x'); e.code = falla; throw e; }
+            borrados.push(ruta);
+          },
+        };
+      },
     },
     console: { warn: () => borrados.push('WARN') },
   };
@@ -191,6 +201,47 @@ async function correr(prod, otros, falla, despues) {
     [{ id: 'p2', imagenesExtra: [url('compartida.webp')] }]);
   t('con listas, el reparo de compartidas sigue funcionando',
     listaCompartida.borrados.length === 0);
+
+  /* ------------------------------------------------- CONFINADO A SU CARPETA
+     La url sale de un campo de Firestore y este codigo no sabe como llego
+     ahi. Hoy todas las fotos pasan por uploadImage() y caen en 'productos/',
+     pero alcanza con una edicion a mano en la consola, un importador futuro o
+     un bug para que en `imagen` termine la url de otra carpeta. Y
+     'config/logo-factura.jpg' es UN archivo: el logo de la factura. Borrar un
+     producto no puede llevarselo puesto. */
+  const otraCarpeta = (p) =>
+    SUB + encodeURIComponent(p) + '?alt=media&token=t';
+
+  const alSitio = await correr({ id: 'p1', imagen: otraCarpeta('site/hero.jpg') }, []);
+  t('NO borra un archivo de site/ aunque este en el campo imagen',
+    alSitio.borrados.join() === 'WARN');
+
+  const alLogo = await correr({ id: 'p1', imagen: otraCarpeta('config/logo-factura.jpg') }, []);
+  t('NO borra el logo de la factura', alLogo.borrados.join() === 'WARN');
+
+  const aCompras = await correr({ id: 'p1', imagenesExtra: [otraCarpeta('compras/remito.pdf')] }, []);
+  t('NO borra la factura de una compra', aCompras.borrados.join() === 'WARN');
+
+  const enLaRaiz = await correr({ id: 'p1', imagen: otraCarpeta('suelto.jpg') }, []);
+  t('NO borra un archivo suelto en la raiz del bucket', enLaRaiz.borrados.join() === 'WARN');
+
+  /* Que no se pase de estricto: 'productos/' con subcarpeta tiene que ir. */
+  const conSubcarpeta = await correr({ id: 'p1', imagen: otraCarpeta('productos/2026/a.webp') }, []);
+  t('si borra dentro de productos/, aunque tenga subcarpeta',
+    conSubcarpeta.borrados.join() === 'productos/2026/a.webp');
+
+  /* Y que no le alcance con que 'productos/' aparezca en cualquier lado. */
+  const pareceProductos = await correr({ id: 'p1', imagen: otraCarpeta('site/productos/a.webp') }, []);
+  t('no le alcanza con que diga productos/ en el medio',
+    pareceProductos.borrados.join() === 'WARN');
+
+  /* ---------------------------------------------------- OTRO BUCKET
+     Una url de otro proyecto de Firebase resuelve a otro bucket: ahi no
+     tenemos nada que hacer. */
+  const ajeno = 'https://firebasestorage.googleapis.com/v0/b/otro-proyecto.appspot.com/o/'
+    + encodeURIComponent('productos/a.webp') + '?alt=media&token=t';
+  const deOtroBucket = await correr({ id: 'p1', imagen: ajeno }, []);
+  t('NO toca un archivo de otro bucket', deOtroBucket.borrados.join() === 'WARN');
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);
