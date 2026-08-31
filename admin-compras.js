@@ -509,14 +509,8 @@ function _cpAvisoVendidos(c, devuelve) {
    quede colgado no puede convertir una operacion que salio bien en un error
    en la cara del usuario. Si falla, queda en la consola. */
 async function _cpBorrarFactura(url) {
-  if (!url || typeof storage === 'undefined' || !storage.refFromURL) return;
-  try {
-    await storage.refFromURL(url).delete();
-  } catch (e) {
-    /* Que ya no este no es un problema: es justo el estado que buscabamos. */
-    if (e && e.code === 'storage/object-not-found') return;
-    console.warn('La compra se borro pero su factura quedo en Storage:', e);
-  }
+  if (typeof borrarArchivoDeStorage !== 'function') return;
+  await borrarArchivoDeStorage(url, 'La compra se borro');
 }
 
 /* La compra, lista para bajar. Misma estructura que usa el export de

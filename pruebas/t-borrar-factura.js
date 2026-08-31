@@ -23,7 +23,11 @@
  */
 const fs = require('fs');
 const path = require('path');
-const src = fs.readFileSync(path.join(__dirname, '..', 'admin-compras.js'), 'utf8');
+const src = fs.readFileSync(path.join(__dirname, '..', 'admin-compras.js'), 'utf8')
+  /* El helper generico vive en admin-archivos.js: lo usan compras Y productos,
+     y duplicar el manejo de "el archivo ya no estaba" en dos lados era como
+     empezaron la mitad de los problemas de este panel. */
+  + '\n' + fs.readFileSync(path.join(__dirname, '..', 'admin-archivos.js'), 'utf8');
 
 function cuerpo(n) {
   let i = src.indexOf('function ' + n + '(');
@@ -49,7 +53,8 @@ async function correr(opts) {
   const compra = {
     docId: 'c1', numero: 7, proveedorNombre: 'LISTA 1', total: 37900,
     sumoStock: false,
-    facturaUrl: o.sinFactura ? '' : 'https://fake/o/compras%2Fremito.pdf?alt=media&token=x',
+    facturaUrl: o.sinFactura ? ''
+      : 'https://firebasestorage.googleapis.com/v0/b/x.firebasestorage.app/o/compras%2Fremito.pdf?alt=media&token=x',
     items: [],
   };
 
@@ -95,6 +100,7 @@ async function correr(opts) {
     lineaPesos + '\n' +
     cuerpo('_cpEsPeso') + cuerpo('_cpCant') +
     cuerpo('_cpStockTrasDevolver') + cuerpo('_cpAvisoVendidos') +
+    cuerpo('esArchivoDeStorage') + cuerpo('borrarArchivoDeStorage') +
     cuerpo('_cpBorrarFactura') + cuerpo('borrarCompra') +
     ';return borrarCompra;');
 
