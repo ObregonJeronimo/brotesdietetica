@@ -496,6 +496,29 @@ function _cpAvisoVendidos(c, devuelve) {
     'no en negativo, así que el inventario no va a coincidir con la resta exacta.';
 }
 
+/* Borra del bucket el archivo de la factura.
+
+   Es el primer borrado de archivo del panel: hasta ahora se subian y no se
+   sacaba ninguno nunca. Borrar la compra sacaba el documento de Firestore y
+   dejaba la imagen o el PDF dando vueltas para siempre, sin nada que lo
+   apuntara. Un remito sacado con el celular pesa entre 2 y 5 MB -no se
+   comprime, a proposito, porque despues hay que poder LEERLO-, asi que cada
+   compra borrada se llevaba puesto ese espacio sin devolverlo.
+
+   No tira nunca: la compra ya se borro cuando esto corre, y que el archivo
+   quede colgado no puede convertir una operacion que salio bien en un error
+   en la cara del usuario. Si falla, queda en la consola. */
+async function _cpBorrarFactura(url) {
+  if (!url || typeof storage === 'undefined' || !storage.refFromURL) return;
+  try {
+    await storage.refFromURL(url).delete();
+  } catch (e) {
+    /* Que ya no este no es un problema: es justo el estado que buscabamos. */
+    if (e && e.code === 'storage/object-not-found') return;
+    console.warn('La compra se borro pero su factura quedo en Storage:', e);
+  }
+}
+
 /* La compra, lista para bajar. Misma estructura que usa el export de
    proveedores, asi que el PDF y el Excel salen del mismo lado. */
 function _cpDocExportar(c) {
@@ -615,6 +638,12 @@ async function borrarCompra(docId) {
       });
     }
     await db.collection('compras').doc(docId).delete();
+    /* DESPUES de borrar el documento, nunca antes. Si el borrado del documento
+       fallara, no queremos haber destruido la factura de una compra que sigue
+       existiendo y que quizas haya que reclamarle al proveedor. Al reves, el
+       peor caso es un archivo huerfano, que es exactamente lo que pasaba
+       siempre hasta ahora. */
+    await _cpBorrarFactura(c.facturaUrl);
     if (typeof logAction === 'function') {
       logAction('eliminar', 'Compra #' + String(c.numero || 0).padStart(4, '0') + ' eliminada',
         (c.proveedorNombre || '') + ' | ' + _cpPesos(c.total) + (devuelve ? ' | stock devuelto' : ' | sin stock que devolver'));
