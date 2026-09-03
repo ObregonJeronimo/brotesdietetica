@@ -34,6 +34,7 @@ const PROV_PERIODOS = [
 let _provDias = 90;
 let _provDatos = null;       /* { desde, hasta, dias, porLista } */
 let _provAbierto = null;     /* id de la lista abierta */
+let _provFiltro = '';        /* lo escrito en el buscador de la lista */
 
 /* Con prefijo propio: _pesos ya existe en admin-caja.js y dos const con el
    mismo nombre en el scope global tiran SyntaxError al cargar. */
@@ -249,47 +250,58 @@ function renderProveedores() {
   const resumenes = listas.map(_provResumen).sort((a, b) => b.facturado - a.facturado);
   const sinProv = (_provDatos && _provDatos.porLista['__sin__']) || null;
 
-  const tarjetas = resumenes.map(r => {
-    const abierto = _provAbierto === r.lista.id;
+  /* Cada proveedor es una fila de la lista de la izquierda. El rotulo del monto
+     NO va en cada fila -asi estaba antes y con 27 proveedores chocaba con el
+     nombre-: va una sola vez, como encabezado de la columna. */
+  const filas = _provFiltrados(resumenes).map(r => {
+    const sel = _provAbierto === r.lista.id;
     const mejor = r.top[0];
-    /* El color va explicito. Esta tarjeta es un <button>, y un boton no hereda
-       el color del texto: se planta en el negro por defecto del navegador. Las
-       otras tarjetas son <div> y por eso se veian bien, mientras que aca el
-       nombre del proveedor y el monto quedaban negro sobre fondo oscuro,
-       practicamente invisibles. */
-    return '<button type="button" onclick="provAbrir(\'' + r.lista.id + '\')" class="card" ' +
-      'style="padding:1rem 1.1rem;text-align:left;cursor:pointer;color:var(--text);font:inherit;border:' +
-      (abierto ? '2px solid var(--accent)' : '1px solid var(--border)') + ';width:100%">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.6rem;margin-bottom:0.45rem">' +
-        '<span style="font-weight:700;font-size:0.95rem">' + esc(r.lista.nombre) + '</span>' +
-        /* El numero solo no decia de que era. */
-        '<span style="text-align:right;flex:0 0 auto">' +
-          '<span style="display:block;font-size:0.67rem;color:var(--text-dim);font-weight:600;line-height:1.35">' +
-            'Monto generado de este proveedor</span>' +
-          '<span style="font-weight:700;font-size:1rem">' + _provPesos(r.facturado) + '</span>' +
-        '</span>' +
-      '</div>' +
-      '<div style="font-size:0.78rem;color:var(--text-dim);line-height:1.5">' +
+    return '<button type="button" class="prov-item' + (sel ? ' sel' : '') + '" ' +
+      'onclick="provAbrir(\'' + r.lista.id + '\')">' +
+      '<span class="prov-item-top">' +
+        '<span class="prov-item-n">' + esc(r.lista.nombre) + '</span>' +
+        '<span class="prov-item-m' + (r.facturado ? '' : ' cero') + '">' +
+          _provPesos(r.facturado) + '</span>' +
+      '</span>' +
+      '<span class="prov-item-d">' +
         r.productos + ' producto' + (r.productos === 1 ? '' : 's') +
         ' &middot; ' + r.ventas + ' venta' + (r.ventas === 1 ? '' : 's') +
         (r.sinVender ? ' &middot; ' + r.sinVender + ' sin vender' : '') +
-      '</div>' +
-      (r.gastado ? '<div style="font-size:0.78rem;color:var(--text-dim);margin-top:0.15rem">' +
-        'Le compraste ' + _provPesos(r.gastado) + '</div>' : '') +
-      (mejor ? '<div style="font-size:0.78rem;color:var(--accent-light);margin-top:0.3rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-        'Lo que más deja: ' + esc(mejor.nombre) + '</div>' : '') +
+        (r.gastado ? ' &middot; le compraste ' + _provPesos(r.gastado) : '') +
+      '</span>' +
+      (mejor ? '<span class="prov-item-x">Lo que m\u00e1s deja: ' + esc(mejor.nombre) + '</span>' : '') +
       '</button>';
   }).join('');
 
+  const hayFiltro = !!_provFiltro;
+  const lista = filas || ('<p class="prov-vacio">' +
+    (hayFiltro ? 'Ning\u00fan proveedor coincide con la b\u00fasqueda.' : 'No hay proveedores.') + '</p>');
+
   cont.innerHTML = cab +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:0.85rem;margin-bottom:1.25rem">' +
-      tarjetas + '</div>' +
     (sinProv && sinProv.facturado
       ? '<p style="font-size:0.82rem;color:#EDB833;margin-bottom:1rem">' +
-        'Además se vendieron ' + _provPesos(sinProv.facturado) + ' de productos sin proveedor asignado ' +
-        '(o de productos que se borraron después de venderse).</p>'
+        'Adem\u00e1s se vendieron ' + _provPesos(sinProv.facturado) + ' de productos sin proveedor asignado ' +
+        '(o de productos que se borraron despu\u00e9s de venderse).</p>'
       : '') +
-    '<div id="provDetalle"></div>';
+    '<div class="prov-split">' +
+      '<div class="prov-lado">' +
+        /* El buscador va DENTRO de la columna, no arriba de las dos: asi
+           arranca a la misma altura que el panel de la derecha. */
+        '<input type="text" class="form-input prov-buscar" id="provBuscarInput" ' +
+          'placeholder="Buscar proveedor..." value="' + esc(_provFiltro) + '" ' +
+          'oninput="provBuscar(this.value)">' +
+        '<div class="prov-cab"><span>Proveedor</span><span>Monto generado</span></div>' +
+        '<div class="prov-lista">' + lista + '</div>' +
+      '</div>' +
+      '<div id="provDetalle">' +
+        (_provAbierto ? '' :
+          '<div class="card" style="padding:2.5rem 1.5rem;text-align:center">' +
+            '<i class="bi bi-truck" style="font-size:1.8rem;color:var(--text-dim);display:block;margin-bottom:0.6rem"></i>' +
+            '<p style="font-size:0.9rem;color:var(--text-dim);line-height:1.6;max-width:44ch;margin:0 auto">' +
+            'Eleg\u00ed un proveedor de la lista para ver qu\u00e9 se le vendi\u00f3, qu\u00e9 no sali\u00f3 ' +
+            'y las compras que le cargaste.</p></div>') +
+      '</div>' +
+    '</div>';
 
   if (_provAbierto) _provRenderDetalle();
 }
@@ -509,6 +521,61 @@ function provExportar() {
 
 /* ============================ ACCIONES ============================ */
 
+/* Los que pasan el buscador. Compara sin acentos y sin mayusculas: nadie
+   escribe "HERBOLERIA" con tilde para encontrarla. */
+function _provNormalizar(t) {
+  return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function _provFiltrados(resumenes) {
+  const q = _provNormalizar(_provFiltro).trim();
+  if (!q) return resumenes;
+  return resumenes.filter(r => _provNormalizar(r.lista.nombre).indexOf(q) >= 0);
+}
+
+/* Filtra la lista SIN volver a dibujarla: solo esconde y muestra los botones
+   que ya estan.
+
+   Dos motivos, y los dos salieron de probarlo:
+
+     - Si se rehiciera la pantalla entera en cada tecla, el input perderia el
+       foco y habria que hacer click de nuevo para escribir la segunda letra.
+
+     - La primera version reemplazaba el contenido de la lista por el cartel de
+       "ningun proveedor coincide". Eso BORRABA los botones, y al borrar la
+       busqueda no volvia ninguno: la lista quedaba vacia para siempre hasta
+       recargar. Por eso el cartel se agrega al final y se saca, sin tocar lo
+       que hay.
+
+   El nombre se lee del DOM en vez de recalcular los resumenes: es el mismo
+   dato y evita rehacer la cuenta de 600 productos en cada tecla. */
+function provBuscar(q) {
+  _provFiltro = String(q || '');
+  const cont = document.getElementById('provBody');
+  if (!cont) return;
+  const caja = cont.querySelector('.prov-lista');
+  if (!caja) { renderProveedores(); return; }
+
+  const items = caja.querySelectorAll('.prov-item');
+  if (!items.length) return;   /* no hay proveedores: su cartel ya esta puesto */
+
+  const busca = _provNormalizar(_provFiltro).trim();
+  let algo = false;
+  items.forEach(b => {
+    const n = b.querySelector('.prov-item-n');
+    const ver = !busca || _provNormalizar(n ? n.textContent : '').indexOf(busca) >= 0;
+    b.style.display = ver ? '' : 'none';
+    if (ver) algo = true;
+  });
+
+  const aviso = caja.querySelector('.prov-vacio');
+  if (algo) { if (aviso) aviso.remove(); }
+  else if (!aviso) {
+    caja.insertAdjacentHTML('beforeend',
+      '<p class="prov-vacio">Ningún proveedor coincide con la búsqueda.</p>');
+  }
+}
+
 function provPeriodo(dias) {
   if (_provDias === dias) return;
   _provDias = dias;
@@ -523,6 +590,7 @@ function provAbrir(id) {
 window.loadProveedores = loadProveedores;
 window.provPeriodo = provPeriodo;
 window.provAbrir = provAbrir;
+window.provBuscar = provBuscar;
 window.openProvExportModal = openProvExportModal;
 window.closeProvExportModal = closeProvExportModal;
 window.provExportar = provExportar;

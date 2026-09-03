@@ -102,13 +102,23 @@ function procesarCodigoLeido(cod) {
   const prod = buscarPorCodigo(cod);
 
   if (_modalAbierto('ventaModal')) {
-    if (prod) { addVentaItem(prod.id); _avisarAgregado(prod); }
+    if (prod) _agregarYAvisar(prod, addVentaItem, () => _cantEnVenta('min', prod.id));
     else openAsignarCodigo(cod, 'venta');
     return;
   }
   if (_modalAbierto('ventaMayModal')) {
-    if (prod) { addVentaMayItem(prod.id); _avisarAgregado(prod); }
+    if (prod) _agregarYAvisar(prod, addVentaMayItem, () => _cantEnVenta('may', prod.id));
     else openAsignarCodigo(cod, 'ventaMay');
+    return;
+  }
+
+  /* Cargando una compra, escanear es lo mismo que buscar el producto y hacerle
+     click: entra a la lista y queda listo para ponerle cuanto y a cuanto. Es el
+     caso donde mas se nota, porque una compra son veinte productos seguidos y
+     tipear veinte nombres es justo lo que la pistola viene a evitar. */
+  if (_modalAbierto('compraModal')) {
+    if (prod) { if (typeof compraEscanear === 'function') compraEscanear(prod); }
+    else openAsignarCodigo(cod, 'compra');
     return;
   }
 
@@ -134,6 +144,44 @@ function procesarCodigoLeido(cod) {
 
 function _avisarAgregado(p) {
   showAdminToast('Agregado: ' + (p.nombreMostrado || p.nombre), 'success');
+}
+
+/* Cuanto hay de ese producto en la venta que se esta cargando. Se lee la lista
+   en el momento, no una copia: es la unica forma de saber si el producto entro
+   de verdad. */
+function _cantEnVenta(ctx, id) {
+  const lista = (ctx === 'may')
+    ? (typeof ventaMayItems !== 'undefined' ? ventaMayItems : [])
+    : (typeof ventaItems !== 'undefined' ? ventaItems : []);
+  const it = (lista || []).find(x => x.id === id);
+  return it ? Number(it.cantidad || 0) : 0;
+}
+
+/* Avisa DESPUES de agregar, y SOLO si de verdad entro.
+
+   Antes avisaba en la misma linea que agregaba, y eso era mentira en un caso
+   concreto: un producto que se vende por peso no entra de a uno, abre un
+   dialogo preguntando cuantos gramos. Si la persona lo cancela no se agrega
+   nada, pero el cartel verde "Agregado: X" ya habia salido igual. En el
+   mostrador eso es peor que no avisar: se sigue con la venta creyendo que el
+   producto esta cargado.
+
+   No alcanza con esperar la promesa: agregar y cancelar terminan las dos sin
+   devolver nada. Lo que se compara es la cantidad de ese producto en la venta,
+   antes y despues. Si subio, entro.
+
+   No se hace await de esto arriba a proposito: el que llama es el manejador de
+   teclas del lector, que no tiene nada que esperar. El cartel sale cuando la
+   persona termina de responder. */
+async function _agregarYAvisar(prod, agregar, verCantidad) {
+  const antes = verCantidad();
+  try {
+    await agregar(prod.id);
+  } catch (e) {
+    console.warn('No se pudo agregar el producto escaneado:', e);
+    return;
+  }
+  if (verCantidad() > antes) _avisarAgregado(prod);
 }
 
 /* ============================ APRENDER ============================ */
@@ -208,6 +256,9 @@ async function asignarCodigoA(prodId) {
     closeAsignarCodigo();
     if (destino === 'venta') addVentaItem(prodId);
     else if (destino === 'ventaMay') addVentaMayItem(prodId);
+    /* Se le pasa el producto entero: compraEscanear necesita su `lista` para
+       comprobar que sea de este proveedor. */
+    else if (destino === 'compra') { if (typeof compraEscanear === 'function') compraEscanear(p); }
     else { switchSection('products'); openModal(prodId); }
   } catch (e) {
     showAdminToast('Error: ' + e.message, 'error');
