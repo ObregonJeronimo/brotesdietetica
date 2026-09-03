@@ -252,6 +252,17 @@ t('y dice cual es cual', /\(it\.verificado \? 'del remito' : 'revisar'\)/.test(c
 t('las dos marcas tienen estilo',
   /\.cp-row\.cp-leido\{/.test(htmlAdm) && /\.cp-row\.cp-dudoso\{/.test(htmlAdm));
 
+/* Los dos carteles hablan del archivo elegido. Si el modal se reabre y el archivo
+   ya no esta, no pueden seguir mostrando lo de la vez anterior: el modal se abria
+   diciendo 'remito-5.pdf' y '4 productos agregados' con la lista vacia. */
+t('existe la limpieza de los carteles', /function _cpLimpiarFactura\(/.test(compras));
+t('borra el nombre del archivo', /_cpLimpiarFactura[\s\S]*?compraFacturaNombre[\s\S]*?textContent = ''/.test(compras));
+t('y esconde el resumen', /_cpLimpiarFactura[\s\S]*?compraLectura[\s\S]*?display = 'none'/.test(compras));
+t('se limpia al abrir el modal',
+  /function openCompraModal[\s\S]*?_cpLimpiarFactura\(\)/.test(compras));
+t('y tambien al cerrarlo',
+  /function closeCompraModal[\s\S]*?_cpLimpiarFactura\(\)/.test(compras));
+
 /* Lo que quedo en cero se descarta al guardar. Que se descarte esta bien; que
    se descarte callado, no: el que leyo un remito cree que cargo todo. */
 t('guardar descarta lo que quedo en cero',

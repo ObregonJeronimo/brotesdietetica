@@ -27,6 +27,7 @@ const MIME = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.csv': 'text/csv; charset=utf-8',
+  '.pdf': 'application/pdf',
   '.woff2': 'font/woff2',
 };
 

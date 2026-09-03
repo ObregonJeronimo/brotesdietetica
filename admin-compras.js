@@ -161,6 +161,10 @@ function openCompraModal(listaId) {
   if (chk) chk.checked = true;
   const fi = document.getElementById('compraFactura');
   if (fi) fi.value = '';
+  /* El input se vacia, pero los dos carteles que lo acompanan quedaban con lo de
+     la vez anterior: el modal se abria diciendo "remito-5.pdf" y "4 productos
+     agregados" con la lista vacia. Se limpian junto con el resto. */
+  _cpLimpiarFactura();
   renderCompraItems();
   compraBuscarProd('');
   m.classList.add('show');
@@ -170,6 +174,16 @@ function closeCompraModal() {
   const m = document.getElementById('compraModal');
   if (m) m.classList.remove('show');
   _compraItems = []; _compraArchivo = null;
+  _cpLimpiarFactura();
+}
+
+/* Borra el nombre del archivo y el resumen de la lectura. Los dos carteles hablan
+   del archivo elegido: si el archivo no esta, no pueden seguir hablando. */
+function _cpLimpiarFactura() {
+  const nom = document.getElementById('compraFacturaNombre');
+  if (nom) nom.textContent = '';
+  const caja = document.getElementById('compraLectura');
+  if (caja) { caja.style.display = 'none'; caja.innerHTML = ''; }
 }
 
 /* Buscador: solo los productos del proveedor elegido. Comprarle a FRUTICOR un

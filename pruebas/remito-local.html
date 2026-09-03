@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Probar remitos - sin tocar los datos</title>
+<!--
+  BANCO DE PRUEBAS DE REMITOS
+
+  Para que existe: la clienta ya esta usando el sistema con datos de verdad. Probar
+  la lectura de remitos ahi adentro obliga a andar con cuidado todo el tiempo. Aca
+  no hay con que hacer un desastre: esta pagina NO carga Firebase. No hay login, no
+  hay red contra el proyecto, no hay forma de escribir nada en ningun lado.
+
+  Que se prueba de verdad y que no: se carga el MISMO admin-remito.js que corre en
+  produccion, con un <script src="../admin-remito.js">, no una copia. Si el archivo
+  cambia, esta pagina cambia con el. Lo que NO se prueba es el guardado, que vive en
+  admin-compras.js y si toca Firestore.
+
+  Se abre con:  npm run dev   ->   http://localhost:5173/pruebas/remito-local.html
+-->
+<style>
+  :root{
+    --fondo:#12151b; --panel:#1a1f27; --panel2:#212832; --borde:#2c3543;
+    --texto:#e8edf4; --tenue:#8d9aad; --verde:#4ea774; --verde2:#7fd3a2;
+    --ambar:#EDB833; --rojo:#e0655f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);color:var(--texto);
+       font:14px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:1.4rem}
+  h1{font-size:1.3rem;margin:0 0 .2rem}
+  h2{font-size:.95rem;margin:0 0 .6rem;color:var(--verde2);
+     text-transform:uppercase;letter-spacing:.6px}
+  a{color:var(--verde2)}
+  .envoltorio{max-width:1150px;margin:0 auto}
+  .cartel{background:rgba(78,167,116,.12);border:1px solid var(--verde);
+          border-radius:9px;padding:.7rem .9rem;margin:.9rem 0 1.3rem;font-size:.86rem}
+  .cartel b{color:var(--verde2)}
+  .caja{background:var(--panel);border:1px solid var(--borde);border-radius:11px;
+        padding:1rem 1.1rem;margin-bottom:1.1rem}
+  .zona{border:2px dashed var(--borde);border-radius:11px;padding:2rem 1rem;
+        text-align:center;cursor:pointer;transition:.15s;background:var(--panel2)}
+  .zona:hover,.zona.encima{border-color:var(--verde);background:rgba(78,167,116,.08)}
+  .zona p{margin:.3rem 0}
+  .zona .grande{font-size:1.02rem;font-weight:600}
+  .zona .chico{color:var(--tenue);font-size:.83rem}
+  button{background:var(--panel2);color:var(--texto);border:1px solid var(--borde);
+         border-radius:7px;padding:.42rem .8rem;font:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--verde)}
+  button.primario{background:var(--verde);border-color:var(--verde);color:#0d1116;font-weight:600}
+  textarea{width:100%;min-height:96px;background:var(--panel2);color:var(--texto);
+           border:1px solid var(--borde);border-radius:7px;padding:.55rem;
+           font:12px/1.45 ui-monospace,Consolas,monospace;resize:vertical}
+  table{width:100%;border-collapse:collapse;font-size:.84rem}
+  th{text-align:left;color:var(--tenue);font-weight:600;font-size:.72rem;
+     text-transform:uppercase;letter-spacing:.5px;padding:.4rem .5rem;
+     border-bottom:1px solid var(--borde)}
+  td{padding:.45rem .5rem;border-bottom:1px solid rgba(44,53,67,.55)}
+  tr.ok td:first-child{box-shadow:inset 3px 0 0 var(--verde)}
+  tr.dudoso td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
+  .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cod{font-family:ui-monospace,Consolas,monospace;color:var(--verde2)}
+  .etq{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .etq.v{color:var(--verde2)} .etq.d{color:var(--ambar)}
+  .fila{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+  .tenue{color:var(--tenue)}
+  .ambar{color:var(--ambar)}
+  .rojo{color:var(--rojo)}
+  .tarjetas{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.9rem}
+  .t{background:var(--panel2);border:1px solid var(--borde);border-radius:9px;
+     padding:.55rem .9rem;min-width:118px}
+  .t .n{font-size:1.5rem;font-weight:700;line-height:1.1}
+  .t .e{font-size:.7rem;color:var(--tenue);text-transform:uppercase;letter-spacing:.5px}
+  details{margin-top:.7rem}
+  summary{cursor:pointer;color:var(--verde2);font-size:.85rem;user-select:none}
+  pre{background:var(--panel2);border:1px solid var(--borde);border-radius:7px;
+      padding:.6rem;overflow:auto;max-height:340px;font:11.5px/1.5 ui-monospace,Consolas,monospace;
+      color:var(--tenue);white-space:pre}
+  .oculto{display:none}
+  ol{padding-left:1.2rem} li{margin:.25rem 0}
+  code{background:var(--panel2);border:1px solid var(--borde);border-radius:4px;
+       padding:.08rem .3rem;font:12px ui-monospace,Consolas,monospace;color:var(--verde2)}
+</style>
+</head>
+<body>
+<div class="envoltorio">
+
+  <h1>Probar remitos en PDF</h1>
+  <div class="tenue" style="font-size:.86rem">Banco de pruebas local. Tira un PDF y mira que entiende.</div>
+
+  <div class="cartel">
+    <b>Esta pagina no esta conectada a nada.</b> No carga Firebase, no pide login y no
+    tiene forma de escribir en la tienda. Podes tirarle los remitos que quieras: a la
+    clienta no le va a aparecer ni una compra, ni stock movido, ni un archivo subido.
+    Usa el mismo <code>admin-remito.js</code> que corre en el panel, no una copia.
+  </div>
+
+  <!-- ============================================== 1) el catalogo -->
+  <div class="caja">
+    <h2>1 · Contra que catalogo se compara</h2>
+    <div class="tenue" style="font-size:.85rem;margin-bottom:.7rem">
+      Los productos se reconocen por el <b>codigo del proveedor</b>. Sin catalogo no hay
+      con que comparar, asi que arranca cargado uno de mentira que sirve para los 5
+      remitos de ejemplo. Para probar con remitos de verdad hace falta el catalogo real.
+    </div>
+    <div class="fila">
+      <button id="btnDemo" class="primario">Usar el catalogo de ejemplo</button>
+      <button id="btnArchivo">Cargar un archivo .json</button>
+      <button id="btnPegar">Pegar el catalogo real</button>
+      <span id="estadoCat" class="tenue"></span>
+    </div>
+    <input type="file" id="fileCat" accept=".json,application/json" class="oculto">
+
+    <div id="cajaPegar" class="oculto" style="margin-top:.8rem">
+      <div class="tenue" style="font-size:.85rem;margin-bottom:.4rem">
+        Para sacar una copia del catalogo real <b>sin escribir nada</b>: entra al panel,
+        abri la consola del navegador (F12 → Console), pega esto y dale Enter. Copia el
+        catalogo al portapapeles. <b>Solo lee lo que ya esta cargado en la pantalla</b>:
+        no manda nada, no guarda nada.
+      </div>
+      <pre id="snippet"></pre>
+      <button id="btnCopiarSnippet">Copiar ese comando</button>
+      <div style="margin:.7rem 0 .4rem" class="tenue">Y pega el resultado aca:</div>
+      <textarea id="txtCat" placeholder='[{"codigo":"000320","nombre":"...","lista":"...","tipoVenta":"unidad","costo":0}]'></textarea>
+      <div style="margin-top:.5rem"><button id="btnUsarPegado" class="primario">Usar este catalogo</button></div>
+    </div>
+  </div>
+
+  <!-- ============================================== 2) el remito -->
+  <div class="caja">
+    <h2>2 · El remito</h2>
+    <div class="zona" id="zona">
+      <p class="grande">Tira un PDF aca, o hace clic para elegirlo</p>
+      <p class="chico">Tambien podes probar con los 5 de ejemplo, abajo</p>
+    </div>
+    <input type="file" id="filePdf" accept="application/pdf,.pdf" class="oculto">
+    <div class="fila" style="margin-top:.7rem">
+      <span class="tenue" style="font-size:.83rem">Ejemplos:</span>
+      <button data-ej="remito-1-tabla-clasica.pdf">1 · tabla clasica</button>
+      <button data-ej="remito-2-sin-codigos.pdf">2 · sin codigos</button>
+      <button data-ej="remito-3-codigo-con-prefijo.pdf">3 · ART. 320</button>
+      <button data-ej="remito-4-descripcion-partida.pdf">4 · nombre partido</button>
+      <button data-ej="remito-5-kilos-y-error.pdf">5 · kilos y un error</button>
+    </div>
+  </div>
+
+  <!-- ============================================== 3) el resultado -->
+  <div class="caja" id="cajaRes" style="display:none">
+    <h2>3 · Que entendio</h2>
+    <div id="resultado"></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+<!-- El de verdad, el mismo que corre en el panel. Si se rompe alla, se rompe aca. -->
+<script src="../admin-remito.js"></script>
+<script>
+/* ------------------------------------------------------------------ ayudas */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const plata = (n) => '$ ' + Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 });
+
+let CATALOGO = [];
+let PROVEEDOR = null;   /* null = no se filtra por proveedor: en la prueba estorba */
+
+const SNIPPET =
+  "copy(JSON.stringify(allProducts.map(p => ({\n" +
+  "  id: p.id, codigo: p.codigo, nombre: p.nombre, lista: p.lista,\n" +
+  "  tipoVenta: p.tipoVenta, costo: p.costo, precio: p.precio\n" +
+  "}))))";
+$('snippet').textContent = SNIPPET;
+
+function ponerCatalogo(lista, de) {
+  CATALOGO = (lista || []).filter(p => p && p.codigo);
+  const conCod = CATALOGO.length;
+  $('estadoCat').innerHTML = conCod
+    ? '<span style="color:var(--verde2)">' + conCod + ' productos con codigo</span> · ' + esc(de)
+    : '<span class="rojo">ninguno de esos productos tiene codigo de proveedor</span>';
+}
+
+/* ------------------------------------------------- catalogo de ejemplo */
+async function catalogoDemo() {
+  try {
+    const r = await fetch('remitos/esperado.json');
+    const remitos = await r.json();
+    const prods = [];
+    remitos.forEach(rem => (rem.items || []).forEach(it => {
+      if (!prods.some(p => p.codigo === it.p.c)) {
+        prods.push({ id: 'demo-' + it.p.c, codigo: it.p.c, nombre: it.p.n,
+                     lista: 'DEMO', tipoVenta: it.p.t, costo: 0, precio: it.p.pr });
+      }
+    }));
+    /* En el remito 5 estos van por peso: asi el ejemplo muestra la cuenta en gramos. */
+    ['000010', '000012', '000095'].forEach(c => {
+      const p = prods.find(x => x.codigo === c); if (p) p.tipoVenta = 'peso';
+    });
+    /* Este es el del renglon con la cuenta mal: 4 KG x $5.000 no da $2.000. No sale
+       de esperado.json porque alla es el caso a proposito, pero sin el producto en el
+       catalogo el ejemplo se corta antes y nunca se ve que pasa cuando no cierra. */
+    prods.push({ id: 'demo-000064', codigo: '000064', nombre: 'Bandejas De Mimbre',
+                 lista: 'DEMO', tipoVenta: 'peso', costo: 4800, precio: 9600 });
+    ponerCatalogo(prods, 'catalogo de ejemplo');
+  } catch (e) {
+    $('estadoCat').innerHTML = '<span class="rojo">no pude leer el catalogo de ejemplo: ' +
+      esc(e.message) + '</span>';
+  }
+}
+
+$('btnDemo').onclick = catalogoDemo;
+$('btnArchivo').onclick = () => $('fileCat').click();
+$('btnPegar').onclick = () => $('cajaPegar').classList.toggle('oculto');
+$('btnCopiarSnippet').onclick = () => {
+  navigator.clipboard.writeText(SNIPPET).then(
+    () => { $('btnCopiarSnippet').textContent = 'copiado'; },
+    () => { $('btnCopiarSnippet').textContent = 'copialo a mano'; });
+};
+$('fileCat').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = () => { try { ponerCatalogo(JSON.parse(fr.result), f.name); }
+                      catch (x) { $('estadoCat').innerHTML = '<span class="rojo">ese .json no se entiende</span>'; } };
+  fr.readAsText(f);
+};
+$('btnUsarPegado').onclick = () => {
+  try { ponerCatalogo(JSON.parse($('txtCat').value), 'pegado a mano'); $('cajaPegar').classList.add('oculto'); }
+  catch (x) { $('estadoCat').innerHTML = '<span class="rojo">eso no es un JSON valido</span>'; }
+};
+
+/* ------------------------------------------------------------ el remito */
+const zona = $('zona');
+zona.onclick = () => $('filePdf').click();
+['dragenter', 'dragover'].forEach(ev => zona.addEventListener(ev, e => {
+  e.preventDefault(); zona.classList.add('encima'); }));
+['dragleave', 'drop'].forEach(ev => zona.addEventListener(ev, e => {
+  e.preventDefault(); zona.classList.remove('encima'); }));
+zona.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) procesar(f); });
+$('filePdf').onchange = e => { const f = e.target.files[0]; if (f) procesar(f); };
+document.querySelectorAll('[data-ej]').forEach(b => b.onclick = async () => {
+  const n = b.getAttribute('data-ej');
+  const buf = await (await fetch('remitos/' + n)).arrayBuffer();
+  procesar(new File([buf], n, { type: 'application/pdf' }));
+});
+
+async function procesar(file) {
+  $('cajaRes').style.display = 'block';
+  $('resultado').innerHTML = '<span class="tenue">Leyendo ' + esc(file.name) + '...</span>';
+  if (!CATALOGO.length) {
+    $('resultado').innerHTML = '<span class="ambar">Primero elegi un catalogo, arriba. ' +
+      'Sin catalogo no hay contra que comparar los codigos.</span>';
+    return;
+  }
+  let lineas;
+  try {
+    lineas = await remitoLeerPdf(file);
+  } catch (e) {
+    $('resultado').innerHTML = '<div class="rojo">No se pudo leer el PDF: ' + esc(e.message) + '</div>';
+    return;
+  }
+  if (!lineas.length) {
+    $('resultado').innerHTML = '<div class="ambar"><b>Este PDF no tiene texto.</b> Es una foto ' +
+      'metida adentro de un archivo PDF. El panel avisa lo mismo y pide cargarlo a mano.</div>';
+    return;
+  }
+  pintar(remitoAItems(lineas, CATALOGO, PROVEEDOR), lineas, file);
+}
+
+function pintar(r, lineas, file) {
+  const conCant = r.items.filter(i => i.verificado).length;
+  let h = '<div class="tenue" style="margin-bottom:.7rem">' + esc(file.name) + ' · ' +
+    lineas.length + ' renglones leidos</div>';
+
+  h += '<div class="tarjetas">' +
+    tarjeta(r.items.length, 'reconocidos') +
+    tarjeta(conCant, 'con cantidad', conCant ? 'var(--verde2)' : null) +
+    tarjeta(r.dudosos.length, 'a revisar', r.dudosos.length ? 'var(--ambar)' : null) +
+    tarjeta(r.ignoradas.length, 'sin usar') +
+    '</div>';
+
+  if (!r.items.length) {
+    h += '<div class="ambar">No reconoci ningun producto. O el remito no trae los codigos ' +
+         'del proveedor, o esos codigos no estan en el catalogo que cargaste.</div>';
+  } else {
+    h += '<table><thead><tr><th>Codigo</th><th>Producto</th><th class="num">Cantidad</th>' +
+         '<th class="num">Costo unitario</th><th></th></tr></thead><tbody>';
+    r.items.forEach(it => {
+      const p = CATALOGO.find(x => x.id === it.id) || {};
+      const peso = it.tipoVenta === 'peso';
+      h += '<tr class="' + (it.verificado ? 'ok' : 'dudoso') + '">' +
+        '<td class="cod">' + esc(p.codigo || '') + '</td>' +
+        '<td>' + esc(it.nombre) + (peso ? ' <span class="tenue">(por peso)</span>' : '') + '</td>' +
+        /* Sin separador de miles, igual que el casillero del panel: al lado de un
+           "1,500 KG" impreso, un "1.500" se lee mal. */
+        '<td class="num">' + (it.cantidad ? it.cantidad + (peso ? ' g' : '') : '<span class="ambar">-</span>') + '</td>' +
+        /* Cuando la cuenta no cerro, el costo que se muestra es el que ya tenia el
+           producto, NO el del papel. Sin aclararlo parece que se leyo del remito. */
+        '<td class="num">' + (it.costoUnitario
+            ? plata(it.costoUnitario) + (peso ? ' /kg' : '') +
+              (it.verificado ? '' : '<br><span class="tenue" style="font-size:.72rem">del catalogo</span>')
+            : '<span class="tenue">-</span>') + '</td>' +
+        '<td><span class="etq ' + (it.verificado ? 'v">del remito' : 'd">revisar') + '</span></td>' +
+        '</tr>';
+    });
+    h += '</tbody></table>';
+  }
+
+  if (r.dudosos.length) {
+    h += '<div style="margin-top:.9rem"><b class="ambar">Por que quedaron sin cantidad</b>' +
+      '<ul class="tenue" style="margin:.35rem 0 0;padding-left:1.1rem;font-size:.85rem">' +
+      r.dudosos.map(d => '<li>' + esc(d.nombre) + ': ' + esc(d.motivo) + '</li>').join('') +
+      '</ul></div>';
+  }
+  if (r.ignoradas.length) {
+    h += '<details><summary>' + r.ignoradas.length + ' renglones que no se usaron</summary>' +
+      '<ul class="tenue" style="font-size:.85rem">' +
+      r.ignoradas.map(x => '<li>' + esc(x.motivo) + (x.linea ? ' <span style="opacity:.6">— ' + esc(x.linea) + '</span>' : '') + '</li>').join('') +
+      '</ul></details>';
+  }
+
+  /* Lo que importa cuando un remito real NO anda: sin ver los renglones crudos no
+     hay forma de saber si fallo el PDF, el codigo o el catalogo. */
+  h += '<details><summary>Ver los ' + lineas.length + ' renglones tal como salieron del PDF ' +
+       '(esto es lo que hay que mandarme si un remito real no anda)</summary>' +
+       '<pre>' + esc(lineas.map((l, i) => String(i + 1).padStart(3) + ' | ' + l).join('\n')) + '</pre>' +
+       '<button id="btnCopiarLineas">Copiar los renglones</button></details>';
+
+  h += '<div class="tenue" style="margin-top:.9rem;font-size:.83rem">' +
+       'En el panel, lo que quede sin cantidad se descarta al guardar, y avisa antes.</div>';
+
+  $('resultado').innerHTML = h;
+  const bc = $('btnCopiarLineas');
+  if (bc) bc.onclick = () => navigator.clipboard.writeText(
+    file.name + '\n' + lineas.join('\n')).then(() => { bc.textContent = 'copiado'; });
+}
+
+function tarjeta(n, etq, color) {
+  return '<div class="t"><div class="n"' + (color ? ' style="color:' + color + '"' : '') + '>' + n +
+         '</div><div class="e">' + etq + '</div></div>';
+}
+
+catalogoDemo();
+</script>
+</body>
+</html>
