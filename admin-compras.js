@@ -215,6 +215,50 @@ function compraAgregar(id) {
   compraBuscarProd((document.getElementById('compraBuscar') || {}).value || '');
 }
 
+/* Le lleva el foco a la cantidad de una fila y le selecciona el contenido, para
+   poder escribir el numero encima sin borrar nada. Es el paso siguiente natural
+   despues de escanear: la pistola pone el producto, la persona pone cuanto. */
+function _cpFocoCantidad(i) {
+  const el = document.getElementById('cpCant' + i);
+  if (!el) return;
+  el.focus();
+  if (el.select) el.select();
+}
+
+/* Un escaneo con el modal de compra abierto. La pistola reemplaza a buscar el
+   producto y hacerle click.
+
+   Las dos validaciones de aca abajo NO son paranoia: la lista del buscador ya
+   filtra por proveedor y esconde los que ya estan en la compra, asi que
+   compraAgregar() confia en eso y no valida nada. El escaneo saltea esa lista
+   por completo, y sin estas dos guardas se podia cargar la mercaderia de un
+   proveedor como comprada a otro -que despues sale mal en Proveedores sin que
+   nadie entienda por que- o duplicar la misma fila apretando el gatillo dos
+   veces, que con una pistola pasa todo el tiempo. */
+function compraEscanear(prod) {
+  if (!prod) return;
+  const prov = (document.getElementById('compraProveedor') || {}).value || _compraProveedor;
+  const nombre = prod.nombreMostrado || prod.nombre || 'el producto';
+
+  if (prov && prod.lista !== prov) {
+    showAdminToast('"' + nombre + '" no es de este proveedor: no se agrega.', 'error');
+    return;
+  }
+
+  const i = _compraItems.findIndex(x => x.id === prod.id);
+  if (i >= 0) {
+    /* Ya estaba. No se duplica: se le lleva el foco a su cantidad, que es lo que
+       uno quiere cuando vuelve a pasar el mismo producto por el lector. */
+    _cpFocoCantidad(i);
+    showAdminToast('"' + nombre + '" ya estaba en la compra', 'info');
+    return;
+  }
+
+  compraAgregar(prod.id);
+  _cpFocoCantidad(_compraItems.length - 1);
+  showAdminToast('Agregado: ' + nombre, 'success');
+}
+
 function compraQuitar(i) {
   _compraItems.splice(i, 1);
   renderCompraItems();
@@ -242,7 +286,8 @@ function renderCompraItems() {
         '<span class="cp-row-n">' + esc(it.nombre) +
           (it.tipoVenta === 'peso' ? ' <span class="cp-tag">por peso</span>' : '') + '</span>' +
         '<label class="cp-f"><span>' + (it.tipoVenta === 'peso' ? 'Gramos' : 'Unidades') + '</span>' +
-          '<input type="number" min="0" step="1" class="form-input" value="' + (it.cantidad || '') + '" ' +
+          '<input type="number" min="0" step="1" class="form-input" id="cpCant' + i + '" ' +
+          'value="' + (it.cantidad || '') + '" ' +
           'oninput="compraCampo(' + i + ',\'cantidad\',this.value)"></label>' +
         '<label class="cp-f"><span>Costo' + (it.tipoVenta === 'peso' ? ' por kilo' : ' c/u') + '</span>' +
           '<input type="number" min="0" step="0.01" class="form-input" value="' + (it.costoUnitario || '') + '" ' +
@@ -672,3 +717,4 @@ window.borrarCompra = borrarCompra;
 window.openCompraExportModal = openCompraExportModal;
 window.closeCompraExportModal = closeCompraExportModal;
 window.compraExportar = compraExportar;
+window.compraEscanear = compraEscanear;

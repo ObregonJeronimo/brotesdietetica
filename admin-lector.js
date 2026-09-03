@@ -112,6 +112,16 @@ function procesarCodigoLeido(cod) {
     return;
   }
 
+  /* Cargando una compra, escanear es lo mismo que buscar el producto y hacerle
+     click: entra a la lista y queda listo para ponerle cuanto y a cuanto. Es el
+     caso donde mas se nota, porque una compra son veinte productos seguidos y
+     tipear veinte nombres es justo lo que la pistola viene a evitar. */
+  if (_modalAbierto('compraModal')) {
+    if (prod) { if (typeof compraEscanear === 'function') compraEscanear(prod); }
+    else openAsignarCodigo(cod, 'compra');
+    return;
+  }
+
   /* Con OTRO modal abierto —un cliente, un cupón, el cierre de caja— escanear no puede
      cambiar de sección ni abrir la ficha del producto encima: eso secuestraba el panel y
      se perdía lo que la persona estaba cargando. Pasa de verdad: el lector está en el
@@ -208,6 +218,9 @@ async function asignarCodigoA(prodId) {
     closeAsignarCodigo();
     if (destino === 'venta') addVentaItem(prodId);
     else if (destino === 'ventaMay') addVentaMayItem(prodId);
+    /* Se le pasa el producto entero: compraEscanear necesita su `lista` para
+       comprobar que sea de este proveedor. */
+    else if (destino === 'compra') { if (typeof compraEscanear === 'function') compraEscanear(p); }
     else { switchSection('products'); openModal(prodId); }
   } catch (e) {
     showAdminToast('Error: ' + e.message, 'error');
