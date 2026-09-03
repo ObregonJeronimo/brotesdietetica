@@ -177,6 +177,46 @@
             top:auto;bottom:0.5rem;max-height:70vh;overflow-y:auto}}
         .sidebar-rotulo{padding:0.35rem 1.25rem 0.3rem;font-size:0.64rem;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-dim);opacity:0.65;user-select:none}
         .sidebar{display:flex;flex-direction:column}.sb-uso{margin-top:auto;padding:0.85rem 1.25rem 1rem;border-top:1px solid var(--border);flex-shrink:0}.sb-uso-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px}.sb-uso-tit{font-size:0.74rem;color:var(--text-dim);font-weight:600;display:flex;align-items:center;gap:6px;letter-spacing:0.02em}.sb-uso-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:2px;font-size:0.78rem;line-height:1;border-radius:4px;transition:color .15s}.sb-uso-btn:hover{color:var(--accent-light)}.sb-uso-barra{height:6px;border-radius:99px;background:var(--border);overflow:hidden}/* Se transiciona background-color y no el atajo background: es la practica   estandar y evita ambiguedad sobre que propiedad se esta animando. */.sb-uso-relleno{height:100%;width:0;border-radius:99px;background-color:var(--accent-light);transition:width .45s ease,background-color .3s}.sb-uso-relleno.medio{background-color:#e6a817}.sb-uso-relleno.alto{background-color:#f56c6c}.sb-uso-txt{font-size:0.72rem;color:var(--text-dim);margin-top:7px;line-height:1.35}.sb-uso-txt b{color:var(--text-main);font-weight:600}/* Estos dos bloques van A NIVEL SUPERIOR y no junto a las reglas que estilan   lo mismo mas abajo: aquellas estan dentro de un @media(max-width:768px), y   pegarlos ahi hacia que solo se aplicaran en pantallas chicas. En escritorio   la barra de stock quedaba sin estilo y el boton A4 de la Factura se estiraba   a todo el ancho por el .btn-primary{width:100%} global, tapando el titulo. */
+        /* --- Proveedores: lista a la izquierda, detalle a la derecha ---
+           Antes eran tarjetas en grilla. Con 27 proveedores quedaban apretadas,
+           el rotulo largo del monto chocaba con el nombre, y el detalle salia
+           DEBAJO de todas: elegir uno y leerlo eran dos scrolls largos.
+
+           La lista queda pegada arriba mientras se lee el detalle -que puede ser
+           de 600 filas- para poder saltar de proveedor sin volver a subir. */
+        .prov-split{display:grid;grid-template-columns:340px 1fr;gap:1rem;align-items:start}
+        .prov-lado{position:sticky;top:0.5rem;display:flex;flex-direction:column;gap:0.6rem;
+                   max-height:calc(100vh - 7rem)}
+        .prov-buscar{flex:0 0 auto}
+        .prov-cab{display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;
+                  padding:0 0.35rem;font-size:0.68rem;font-weight:700;letter-spacing:0.4px;
+                  text-transform:uppercase;color:var(--text-dim);flex:0 0 auto}
+        .prov-lista{overflow-y:auto;display:flex;flex-direction:column;gap:0.4rem;padding-right:0.2rem}
+        .prov-item{display:block;width:100%;text-align:left;cursor:pointer;color:var(--text);
+                   font:inherit;background:var(--bg-card);border:1px solid var(--border);
+                   border-radius:10px;padding:0.6rem 0.75rem;transition:border-color 0.12s}
+        .prov-item:hover{border-color:var(--accent-light)}
+        .prov-item.sel{border-color:var(--accent);background:var(--accent-bg)}
+        .prov-item-top{display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem}
+        /* El nombre se corta con puntos suspensivos en vez de empujar al monto:
+           era lo que descuadraba las tarjetas viejas. */
+        .prov-item-n{font-weight:700;font-size:0.86rem;overflow:hidden;text-overflow:ellipsis;
+                     white-space:nowrap;min-width:0}
+        .prov-item-m{font-weight:700;font-size:0.86rem;white-space:nowrap;flex:0 0 auto}
+        .prov-item-m.cero{color:var(--text-dim);font-weight:600}
+        .prov-item-d{display:block;font-size:0.72rem;color:var(--text-dim);margin-top:0.2rem;
+                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .prov-item-x{display:block;font-size:0.72rem;color:var(--accent-light);margin-top:0.15rem;
+                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .prov-vacio{padding:1.5rem 0.5rem;text-align:center;font-size:0.82rem;color:var(--text-dim)}
+        /* Angosto: se apilan y la lista deja de estar pegada, si no ocuparia
+           toda la pantalla y el detalle no se veria. */
+        @media (max-width: 900px){
+          .prov-split{grid-template-columns:1fr}
+          .prov-lado{position:static;max-height:none}
+          .prov-lista{max-height:22rem}
+        }
+
         /* --- Compras a proveedores --- */
         .cp-prod{display:block;width:100%;text-align:left;background:var(--bg-input);border:1px solid var(--border);
                  border-radius:8px;padding:0.45rem 0.65rem;margin-bottom:0.35rem;cursor:pointer;color:var(--text)}
