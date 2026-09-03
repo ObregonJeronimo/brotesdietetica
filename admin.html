@@ -5353,32 +5353,83 @@ async function previewEditorImg(input,field){
             }catch(e){console.error('loadListas:',e);}
         }
 
+        /* Expandido/colapsado se recuerda entre visitas. Colapsado por defecto: con 30
+           listas, verlas todas de una empuja la tabla de productos muy abajo. */
+        let _listasExpandido=false;
+        try{ _listasExpandido=localStorage.getItem('brotesListasExp')==='1'; }catch(e){}
+        const _LISTAS_ALTO_COLAPSADO='4.6rem';   /* ~dos filas de pastillas */
         function renderListasPanel(){
             const c=document.getElementById('listasCards');
             if(!c)return;
-            if(!listasData.length){c.innerHTML='<span style="color:var(--text-dim);font-size:0.85rem">No hay listas. Crea una nueva.</span>';return;}
+            if(!listasData.length){c.innerHTML='<span style="color:var(--text-dim);font-size:0.85rem">No hay listas. Crea una nueva.</span>';_syncListasToggle(0);return;}
             const filtroActual=document.getElementById('filterLista')?.value||'';
+            /* La lista con el filtro puesto va primera: es la que trae los botones de
+               editar/borrar, asi no hay que ir a buscarla al fondo del muro. */
+            const ordenadas=listasData.slice().sort((a,b)=>{
+                if(a.id===filtroActual)return -1; if(b.id===filtroActual)return 1;
+                return String(a.nombre||'').localeCompare(String(b.nombre||''),'es',{sensitivity:'base'});
+            });
             let html='';
-            listasData.forEach(l=>{
+            ordenadas.forEach(l=>{
                 const count=allProducts.filter(p=>p.lista===l.id).length;
                 const activo=filtroActual===l.id;
-                const bg=activo?'var(--accent)':'var(--bg-card)';
+                /* Pastilla limpia: nombre + contador, y nada mas. Los botones de editar y
+                   borrar solo salen en la seleccionada -clic para filtrar, y ahi aparecen-,
+                   asi las 30 no son un muro de iconos. */
+                const bg=activo?'var(--accent)':'var(--bg-input)';
                 const bc=activo?'var(--accent)':'var(--border)';
                 const tc=activo?'#fff':'var(--text-main)';
-                const tdim=activo?'rgba(255,255,255,0.7)':'var(--text-dim)';
-                html+='<div style="display:flex;align-items:center;gap:0;background:'+bg+';border:1.5px solid '+bc+';border-radius:8px;overflow:hidden">'+
-                    '<button class="rl-filtrar-btn" data-id="'+l.id+'" style="background:none;border:none;color:'+tc+';padding:0.4rem 0.75rem;cursor:pointer;font-size:0.88rem;font-weight:600;display:flex;align-items:center;gap:0.4rem">'+
-                    '<i class="bi bi-box-seam"></i> '+l.nombre+
-                    ' <span style="background:rgba(255,255,255,0.2);border-radius:20px;padding:1px 7px;font-size:0.75rem">'+count+'</span></button>'+
-                    '<button class="rl-editar-btn" data-id="'+l.id+'" style="background:none;border:none;border-left:1px solid rgba(255,255,255,0.2);color:'+tdim+';padding:0.4rem 0.5rem;cursor:pointer;font-size:0.78rem" title="Editar"><i class="bi bi-pencil"></i></button>'+
-                    ('<button class="rl-eliminar-btn" data-id="'+l.id+'" data-nombre="'+l.nombre+'" style="background:none;border:none;border-left:1px solid rgba(255,255,255,0.2);color:'+tdim+';padding:0.4rem 0.5rem;cursor:pointer;font-size:0.78rem" title="Eliminar"><i class="bi bi-trash"></i></button>')+
-                    '</div>';
+                const badgeBg=activo?'rgba(255,255,255,0.25)':'var(--accent-bg)';
+                const badgeTc=activo?'#fff':'var(--accent-light)';
+                html+='<span class="lista-pill" style="display:inline-flex;align-items:center;background:'+bg+';border:1px solid '+bc+';border-radius:20px;overflow:hidden;transition:border-color .12s,background .12s">'+
+                    '<button class="rl-filtrar-btn" data-id="'+l.id+'" title="Filtrar por esta lista" style="background:none;border:none;color:'+tc+';padding:0.38rem 0.85rem;cursor:pointer;font-size:0.85rem;font-weight:600;display:inline-flex;align-items:center;gap:0.45rem;white-space:nowrap">'+
+                    esc(l.nombre)+
+                    '<span style="background:'+badgeBg+';color:'+badgeTc+';border-radius:20px;padding:0 7px;font-size:0.72rem;font-weight:700;min-width:20px;text-align:center">'+count+'</span></button>'+
+                    (activo?(
+                        '<button class="rl-editar-btn" data-id="'+l.id+'" style="background:none;border:none;border-left:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.85);padding:0.38rem 0.5rem;cursor:pointer;font-size:0.8rem" title="Editar esta lista"><i class="bi bi-pencil"></i></button>'+
+                        '<button class="rl-eliminar-btn" data-id="'+l.id+'" data-nombre="'+esc(l.nombre)+'" style="background:none;border:none;border-left:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.85);padding:0.38rem 0.55rem 0.38rem 0.5rem;cursor:pointer;font-size:0.8rem" title="Eliminar esta lista"><i class="bi bi-trash"></i></button>'
+                    ):'')+
+                    '</span>';
             });
-            if(filtroActual)html+='<button class="rl-filtrar-btn" data-id="" style="background:none;border:1.5px dashed var(--border);border-radius:8px;color:var(--text-dim);padding:0.4rem 0.75rem;cursor:pointer;font-size:0.82rem"><i class="bi bi-x"></i> Ver todos</button>';
+            if(filtroActual)html+='<button class="rl-filtrar-btn" data-id="" title="Quitar el filtro y ver todos los productos" style="background:none;border:1px dashed var(--border);border-radius:20px;color:var(--text-dim);padding:0.38rem 0.85rem;cursor:pointer;font-size:0.82rem;white-space:nowrap"><i class="bi bi-x-lg"></i> Ver todo</button>';
             c.innerHTML=html;
-            c.querySelectorAll('.rl-filtrar-btn').forEach(b=>b.addEventListener('click',()=>filtrarPorLista(b.dataset.id)));
+            c.querySelectorAll('.rl-filtrar-btn').forEach(b=>{
+                b.addEventListener('click',()=>filtrarPorLista(b.dataset.id));
+                if(b.dataset.id)b.addEventListener('mouseenter',()=>{const p=b.closest('.lista-pill');if(p&&b.dataset.id!==filtroActual)p.style.borderColor='var(--accent)';});
+                if(b.dataset.id)b.addEventListener('mouseleave',()=>{const p=b.closest('.lista-pill');if(p&&b.dataset.id!==filtroActual)p.style.borderColor='var(--border)';});
+            });
             c.querySelectorAll('.rl-editar-btn').forEach(b=>b.addEventListener('click',()=>openEditarListaModal(b.dataset.id)));
             c.querySelectorAll('.rl-eliminar-btn').forEach(b=>b.addEventListener('click',()=>eliminarLista(b.dataset.id,b.dataset.nombre)));
+            _syncListasToggle(listasData.length);
+        }
+        /* Muestra el "Ver todas / Ver menos" solo cuando las pastillas no entran en las
+           dos filas colapsadas. Colapsado: se recorta con overflow. Expandido: se suelta. */
+        function _syncListasToggle(n){
+            const c=document.getElementById('listasCards');
+            const panel=document.getElementById('listasPanel');
+            if(!c||!panel)return;
+            let tog=document.getElementById('listasToggle');
+            if(!tog){
+                tog=document.createElement('button');
+                tog.id='listasToggle';tog.type='button';
+                tog.style.cssText='display:none;margin-top:0.55rem;background:none;border:none;color:var(--accent-light);cursor:pointer;font-size:0.82rem;font-weight:600;padding:2px 0';
+                tog.addEventListener('click',()=>{
+                    _listasExpandido=!_listasExpandido;
+                    try{localStorage.setItem('brotesListasExp',_listasExpandido?'1':'0');}catch(e){}
+                    _syncListasToggle(listasData.length);
+                });
+                c.insertAdjacentElement('afterend',tog);
+            }
+            if(_listasExpandido){ c.style.maxHeight=''; c.style.overflow=''; }
+            else { c.style.maxHeight=_LISTAS_ALTO_COLAPSADO; c.style.overflow='hidden'; }
+            /* scrollHeight > lo que se ve = hay pastillas escondidas abajo. Al estar
+               expandido siempre se ofrece "Ver menos". */
+            const desborda=c.scrollHeight>c.clientHeight+4;
+            if(_listasExpandido||desborda){
+                tog.style.display='';
+                tog.innerHTML=_listasExpandido?'<i class="bi bi-chevron-up"></i> Ver menos'
+                                              :'<i class="bi bi-chevron-down"></i> Ver todas ('+n+')';
+            }else tog.style.display='none';
         }
         const LISTA_ACTIVA_KEY='brotesListaActiva';
         function filtrarPorLista(id){
