@@ -1,0 +1,234 @@
+[
+ {
+  "archivo": "remito-1-tabla-clasica.pdf",
+  "items": [
+   {
+    "p": {
+     "c": "000169",
+     "n": "GALLETA VEGANA DE int. algarroba",
+     "t": "unidad",
+     "pr": 17490
+    },
+    "cant": 2,
+    "unit": 9620
+   },
+   {
+    "p": {
+     "c": "000453",
+     "n": "Tostadas De Arroz Sin Sal Molinos Del Bosque",
+     "t": "unidad",
+     "pr": 3000
+    },
+    "cant": 6,
+    "unit": 1650
+   },
+   {
+    "p": {
+     "c": "000073",
+     "n": "Bizcochuelo Exquisiteses",
+     "t": "unidad",
+     "pr": 6982.5
+    },
+    "cant": 12,
+    "unit": 3840
+   },
+   {
+    "p": {
+     "c": "000379",
+     "n": "Pistacho Salado",
+     "t": "peso",
+     "pr": 59100
+    },
+    "cant": 1,
+    "unit": 32505
+   },
+   {
+    "p": {
+     "c": "000209",
+     "n": "Hornito Ceramica Grande",
+     "t": "unidad",
+     "pr": 0
+    },
+    "cant": 24,
+    "unit": 550
+   },
+   {
+    "p": {
+     "c": "000226",
+     "n": "Hamburguesa Simple De Lenteja Manjar",
+     "t": "unidad",
+     "pr": 0
+    },
+    "cant": 3,
+    "unit": 550
+   },
+   {
+    "p": {
+     "c": "000272",
+     "n": "Lenteja Turca",
+     "t": "peso",
+     "pr": 0
+    },
+    "cant": 8,
+    "unit": 550
+   }
+  ],
+  "total": 126975
+ },
+ {
+  "archivo": "remito-2-sin-codigos.pdf",
+  "items": [
+   {
+    "p": {
+     "c": "000460",
+     "n": "Turron Rontu",
+     "t": "unidad",
+     "pr": 29865
+    },
+    "cant": 4,
+    "unit": 3000
+   },
+   {
+    "p": {
+     "c": "000084",
+     "n": "Budin Con Chocolate Sina",
+     "t": "unidad",
+     "pr": 0
+    },
+    "cant": 2,
+    "unit": 3000
+   },
+   {
+    "p": {
+     "c": "000092",
+     "n": "Cucharitas De Madera",
+     "t": "unidad",
+     "pr": 0
+    },
+    "cant": 10,
+    "unit": 3000
+   }
+  ],
+  "total": null
+ },
+ {
+  "archivo": "remito-3-codigo-con-prefijo.pdf",
+  "items": [
+   {
+    "p": {
+     "c": "000319",
+     "n": "Mix Clasico Con Mani",
+     "t": "peso",
+     "pr": 0
+    },
+    "cant": 1,
+    "unit": 540
+   },
+   {
+    "p": {
+     "c": "000264",
+     "n": "La Herbolaria Hepatica",
+     "t": "unidad",
+     "pr": 0
+    },
+    "cant": 5,
+    "unit": 540
+   },
+   {
+    "p": {
+     "c": "000330",
+     "n": "Nuez Pecan",
+     "t": "peso",
+     "pr": 0
+    },
+    "cant": 2,
+    "unit": 540
+   },
+   {
+    "p": {
+     "c": "000131",
+     "n": "Crema Para El Cuerpo C/Nut. Prebiotica 200Ml Tododia",
+     "t": "unidad",
+     "pr": 0
+    },
+    "cant": 9,
+    "unit": 540
+   }
+  ],
+  "total": null,
+  "extra": "codigo inexistente 999998"
+ },
+ {
+  "archivo": "remito-4-descripcion-partida.pdf",
+  "items": [
+   {
+    "p": {
+     "c": "000432",
+     "n": "Semilla De Zapallo",
+     "t": "peso",
+     "pr": 26300
+    },
+    "cant": 3,
+    "unit": 13150
+   },
+   {
+    "p": {
+     "c": "000116",
+     "n": "Ciruelas Presidente (Pasas)",
+     "t": "peso",
+     "pr": 0
+    },
+    "cant": 7,
+    "unit": 600
+   },
+   {
+    "p": {
+     "c": "000355",
+     "n": "Pan De Hamburguesa 2U. Ilarina",
+     "t": "unidad",
+     "pr": 0
+    },
+    "cant": 2,
+    "unit": 600
+   }
+  ],
+  "total": null
+ },
+ {
+  "archivo": "remito-5-kilos-y-error.pdf",
+  "items": [
+   {
+    "p": {
+     "c": "000010",
+     "n": "Anillo Sabor Frutilla",
+     "t": "peso",
+     "pr": 0
+    },
+    "cant": 1.5,
+    "unit": 14000.5
+   },
+   {
+    "p": {
+     "c": "000012",
+     "n": "Azucar De Coco",
+     "t": "peso",
+     "pr": 0
+    },
+    "cant": 0.75,
+    "unit": 22000
+   },
+   {
+    "p": {
+     "c": "000095",
+     "n": "Canela Molida",
+     "t": "peso",
+     "pr": 0
+    },
+    "cant": 3,
+    "unit": 8500
+   }
+  ],
+  "total": null,
+  "extra": "renglon con aritmetica mal: 000064"
+ }
+]

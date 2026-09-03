@@ -1,0 +1,60 @@
+{
+ "remito-1-tabla-clasica": [
+  "DISTRIBUIDORA EL KIOSQUITO S.R.L.",
+  "CUIT 30-71234567-9 Ing. Brutos 901-234567-8",
+  "REMITO R 0003-00012457",
+  "Fecha: 12/08/2026 Cliente: BROTES DIETETICA",
+  "CODIGO DESCRIPCION CANT P.UNIT IMPORTE",
+  "------------------------------------------------------------------------------------------------",
+  "000169 GALLETA VEGANA DE int. algarroba 2 9.620,00 19.240,00",
+  "000453 Tostadas De Arroz Sin Sal Molinos Del Bosq 6 1.650,00 9.900,00",
+  "000073 Bizcochuelo Exquisiteses 12 3.840,00 46.080,00",
+  "000379 Pistacho Salado 1 32.505,00 32.505,00",
+  "000209 Hornito Ceramica Grande 24 550,00 13.200,00",
+  "000226 Hamburguesa Simple De Lenteja Manjar 3 550,00 1.650,00",
+  "000272 Lenteja Turca 8 550,00 4.400,00",
+  "------------------------------------------------------------------------------------------------",
+  "TOTAL 126.975,00",
+  "CAE N 75123456789012 Vto CAE 22/08/2026"
+ ],
+ "remito-2-sin-codigos": [
+  "ANDNUTS - Frutos secos",
+  "Remito 0001-00000342 08/08/2026",
+  "Cantidad Producto Precio",
+  "4 Turron Rontu 3.000,00",
+  "2 Budin Con Chocolate Sina 3.000,00",
+  "10 Cucharitas De Madera 3.000,00",
+  "Son pesos: $ 48.000,00"
+ ],
+ "remito-3-codigo-con-prefijo": [
+  "FRUTICOR",
+  "CUIT: 30-99887766-5 Tel 351 4567890",
+  "Comprobante: FACTURA B 0002-00098765 Fecha 19/08/2026",
+  "Art. Detalle Cant. Unitario Total",
+  "ART. 319 Mix Clasico Con Mani 1 $ 540,00 $ 540,00",
+  "ART. 264 La Herbolaria Hepatica 5 $ 540,00 $ 2.700,00",
+  "ART. 330 Nuez Pecan 2 $ 540,00 $ 1.080,00",
+  "ART. 131 Crema Para El Cuerpo C/Nut. Prebiotica 2 9 $ 540,00 $ 4.860,00",
+  "ART. 999998 PRODUCTO QUE NO TENEMOS EN EL SISTEMA 3 $ 1.000,00 $ 3.000,00",
+  "CAE 75987654321098 - Vencimiento 29/08/2026"
+ ],
+ "remito-4-descripcion-partida": [
+  "LA HERBOLERIA S.A.",
+  "Remito X 0005-00004411 Fecha: 25/08/2026",
+  "Codigo Descripcion Cant Unit Importe",
+  "000432 Semilla De Zapallo 3 13.150,00 39.450,00",
+  "000116 Ciruelas Presidente (Pasas) 7 600,00 4.200,00",
+  "000355 Pan De Hamburguesa 2U. Ilarina 2 600,00 1.200,00",
+  "TOTAL GENERAL: $ 44.850,00"
+ ],
+ "remito-5-kilos-y-error": [
+  "MARTIN F.S - Venta por mayor",
+  "REMITO 0007-00000891 Fecha 28/08/2026",
+  "Codigo Articulo Cantidad Precio Un. Importe",
+  "000010 Anillo Sabor Frutilla 1,500 KG $ 14.000,50 $ 21.000,75",
+  "000012 Azucar De Coco 0,750 KG $ 22.000,00 $ 16.500,00",
+  "000095 Canela Molida 3,000 KG $ 8.500,00 $ 25.500,00",
+  "000064 Bandejas De Mimbre 4,000 KG $ 5.000,00 $ 2.000,00",
+  "IVA 21% incluido"
+ ]
+}

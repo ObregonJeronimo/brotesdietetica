@@ -259,6 +259,82 @@ function compraEscanear(prod) {
   showAdminToast('Agregado: ' + nombre, 'success');
 }
 
+/* Lee el remito y precarga los items. No pisa lo que ya haya cargado a mano:
+   agrega lo que falta y avisa lo que salteo. */
+async function _cpLeerRemito(file) {
+  const caja = document.getElementById('compraLectura');
+  if (caja) { caja.style.display = 'none'; caja.innerHTML = ''; }
+  if (!file || file.type !== 'application/pdf') return;
+  if (typeof remitoLeerPdf !== 'function' || typeof remitoAItems !== 'function') return;
+
+  const prov = (document.getElementById('compraProveedor') || {}).value || _compraProveedor;
+  const _aviso = (html, color) => {
+    if (!caja) return;
+    caja.style.display = 'block';
+    caja.style.color = color || 'var(--text-dim)';
+    caja.innerHTML = html;
+  };
+  _aviso('<i class="bi bi-arrow-repeat spin"></i> Leyendo el remito...');
+
+  let lineas;
+  try {
+    lineas = await remitoLeerPdf(file);
+  } catch (e) {
+    /* Un PDF escaneado -una foto adentro de un PDF- no tiene texto y no tira
+       error: devuelve cero lineas. Un error de verdad es otra cosa. */
+    _aviso('No se pudo leer el PDF (' + esc(e.message) + '). Cargá los productos a mano.');
+    return;
+  }
+
+  const r = remitoAItems(lineas, (typeof allProducts !== 'undefined' ? allProducts : []), prov);
+
+  /* Lo que ya estaba cargado a mano manda: no se pisa ni se duplica. */
+  const yaEsta = new Set(_compraItems.map(i => i.id));
+  const nuevos = r.items.filter(i => !yaEsta.has(i.id));
+  nuevos.forEach(i => _compraItems.push(i));
+  if (nuevos.length) {
+    renderCompraItems();
+    compraBuscarProd((document.getElementById('compraBuscar') || {}).value || '');
+  }
+
+  /* El resumen dice lo que NO se pudo tanto como lo que si: sin eso, un remito
+     de 20 renglones del que entraron 6 se ve igual que uno de 6 renglones. */
+  const partes = [];
+  if (!lineas.length) {
+    _aviso('<b>Este PDF no tiene texto</b>: es una foto adentro de un archivo. ' +
+           'Los productos hay que cargarlos a mano.', '#EDB833');
+    return;
+  }
+  if (!r.items.length) {
+    _aviso('Le&iacute; ' + lineas.length + ' renglones pero no reconoc&iacute; ning&uacute;n producto: ' +
+           'este remito no trae los c&oacute;digos del proveedor, o son de otra lista. ' +
+           'Carg&aacute; los productos a mano.', '#EDB833');
+    return;
+  }
+  partes.push('<b style="color:var(--accent-light)">' + nuevos.length + ' producto' +
+              (nuevos.length === 1 ? '' : 's') + ' agregado' + (nuevos.length === 1 ? '' : 's') + '</b>');
+  const conCant = nuevos.filter(i => i.verificado).length;
+  partes.push(conCant + ' con la cantidad ya puesta');
+  if (r.dudosos.length) {
+    partes.push('<span style="color:#EDB833">' + r.dudosos.length +
+                ' sin cantidad, revisalos</span>');
+  }
+  let html = partes.join(' &middot; ');
+  if (r.dudosos.length) {
+    html += '<div style="color:#EDB833;margin-top:0.25rem">' +
+      r.dudosos.map(d => '&middot; ' + esc(d.nombre) + ': ' + esc(d.motivo)).join('<br>') + '</div>';
+  }
+  if (r.ignoradas.length) {
+    html += '<div style="color:var(--text-dim);margin-top:0.25rem">' +
+      r.ignoradas.length + ' rengl' + (r.ignoradas.length === 1 ? '&oacute;n' : 'ones') +
+      ' sin usar: ' + esc(r.ignoradas.slice(0, 3).map(x => x.motivo).join('; ')) +
+      (r.ignoradas.length > 3 ? '...' : '') + '</div>';
+  }
+  html += '<div style="color:var(--text-dim);margin-top:0.35rem">' +
+    'Revis&aacute; las cantidades contra el papel antes de guardar.</div>';
+  _aviso(html);
+}
+
 function compraQuitar(i) {
   _compraItems.splice(i, 1);
   renderCompraItems();
@@ -282,9 +358,11 @@ function renderCompraItems() {
       'Buscá un producto de la lista de abajo para empezar a cargar la compra.</p>';
   } else {
     cont.innerHTML = _compraItems.map((it, i) =>
-      '<div class="cp-row">' +
+      '<div class="cp-row' + (it.deRemito ? (it.verificado ? ' cp-leido' : ' cp-dudoso') : '') + '">' +
         '<span class="cp-row-n">' + esc(it.nombre) +
-          (it.tipoVenta === 'peso' ? ' <span class="cp-tag">por peso</span>' : '') + '</span>' +
+          (it.tipoVenta === 'peso' ? ' <span class="cp-tag">por peso</span>' : '') +
+          (it.deRemito ? ' <span class="cp-marca' + (it.verificado ? '' : ' dudoso') + '">' +
+            (it.verificado ? 'del remito' : 'revisar') + '</span>' : '') + '</span>' +
         '<label class="cp-f"><span>' + (it.tipoVenta === 'peso' ? 'Gramos' : 'Unidades') + '</span>' +
           '<input type="number" min="0" step="1" class="form-input" id="cpCant' + i + '" ' +
           'value="' + (it.cantidad || '') + '" ' +
@@ -327,6 +405,9 @@ function compraArchivoElegido(input) {
   }
   _compraArchivo = f;
   if (nom) nom.textContent = f.name + ' · ' + Math.round(f.size / 1024) + ' KB';
+  /* Si es un PDF con capa de texto, se intenta precargar lo que dice. Con una
+     imagen no se intenta nada: ver el encabezado de admin-remito.js. */
+  _cpLeerRemito(f);
 }
 
 /* ============================ GUARDAR ============================ */
@@ -336,6 +417,13 @@ async function guardarCompra() {
   if (!prov) return showAdminToast('Elegí el proveedor', 'error');
   const conCantidad = _compraItems.filter(i => Number(i.cantidad || 0) > 0);
   if (!conCantidad.length) return showAdminToast('Cargá al menos un producto con cantidad', 'error');
+  /* Los renglones en cero se descartan. Si eso pasa callado, el que leyo un
+     remito cree que cargo todo y no cargo todo: hay que avisarlo. */
+  const enCero = _compraItems.filter(i => Number(i.cantidad || 0) <= 0);
+  if (enCero.length && !confirm(
+      'Estos productos quedaron sin cantidad y NO se van a cargar:' + String.fromCharCode(10) +
+      enCero.map(i => '- ' + i.nombre).join(String.fromCharCode(10)) + String.fromCharCode(10, 10) +
+      'Guardar igual?')) return;
   const sinCosto = conCantidad.filter(i => Number(i.costoUnitario || 0) <= 0);
   if (sinCosto.length) {
     return showAdminToast('Falta el costo de: ' + sinCosto.map(i => i.nombre).join(', '), 'error');
@@ -718,3 +806,4 @@ window.openCompraExportModal = openCompraExportModal;
 window.closeCompraExportModal = closeCompraExportModal;
 window.compraExportar = compraExportar;
 window.compraEscanear = compraEscanear;
+window._cpLeerRemito = _cpLeerRemito;

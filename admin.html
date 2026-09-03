@@ -233,6 +233,14 @@
         .cp-x{background:none;border:none;color:var(--danger);font-size:1.2rem;cursor:pointer;padding:0 0.3rem 0.3rem}
         /* El aviso de que el stock NO se va a tocar. Va en ambar y ocupa el ancho
            entero: es justo lo que despues nadie recuerda haber desmarcado. */
+        /* Una fila que salio del remito se marca: la persona tiene que saber que
+           ese numero no lo escribio ella. Ambar cuando la cuenta del renglon no
+           cerro y la cantidad quedo en cero a proposito. */
+        .cp-row.cp-leido{border-left:3px solid var(--accent);padding-left:0.5rem}
+        .cp-row.cp-dudoso{border-left:3px solid #EDB833;padding-left:0.5rem}
+        .cp-marca{font-size:0.66rem;font-weight:700;color:var(--accent-light);
+                  text-transform:uppercase;letter-spacing:0.4px}
+        .cp-marca.dudoso{color:#EDB833}
         .cp-aviso{display:none;align-items:flex-start;gap:0.5rem;background:rgba(237,184,51,0.12);
                   border:1px solid rgba(237,184,51,0.35);border-radius:8px;padding:0.55rem 0.7rem;
                   font-size:0.8rem;line-height:1.45;margin-top:0.5rem}
@@ -6578,6 +6586,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <script src="admin-alertas.js"></script>
     <script src="admin-stats.js"></script>
 <script src="admin-archivos.js"></script>
+<script src="admin-remito.js"></script>
 <script src="admin-exportar.js"></script>
 <script src="admin-proveedores.js"></script>
 <script src="admin-compras.js"></script>
@@ -6770,7 +6779,8 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
           <div class="form-group"><label class="form-label">Factura o remito (imagen o PDF)</label>
             <input type="file" class="form-input" id="compraFactura" accept="image/*,application/pdf"
                    onchange="compraArchivoElegido(this)">
-            <span id="compraFacturaNombre" style="font-size:0.75rem;color:var(--text-dim)"></span></div>
+            <span id="compraFacturaNombre" style="font-size:0.75rem;color:var(--text-dim)"></span>
+            <div id="compraLectura" style="display:none;margin-top:0.4rem;font-size:0.78rem;line-height:1.5"></div></div>
           <div class="form-group"><label class="form-label">Notas</label>
             <input type="text" class="form-input" id="compraNotas" placeholder="Opcional"></div>
         </div>
