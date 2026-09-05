@@ -340,86 +340,184 @@ finales posibles, así que se puede reintentar.
 
 ---
 
-## 1-bis. LO QUE SIGUE (pedido el 04/09/2026, nada empezado)
+## 1-bis. LO QUE SIGUE (pedido el 04/09/2026)
 
-Dos tareas, ninguna arrancada. Todo lo de abajo es **reconocimiento de sólo lectura** hecho
-el 04/09 contra los dos proyectos de Firebase: no se escribió una sola línea en ninguna base.
-
-### A) Traer los productos de FRUTICOR de YERCO a Brotes
+### A) Traer los productos de FRUTICOR de YERCO a Brotes · **ENSAYO EN SECO HECHO, FALTA APROBAR LA ESCRITURA**
 
 **Lo pedido:** copiar **todos** los productos de la lista `FRUTICOR` de YERCO a Brotes,
 dentro de una lista **nueva** llamada `FRUTICOR-TODOS`. **No se borra ni se toca nada de las
-listas que ya existen en Brotes.** Hay que traer todo completo —imágenes, descripciones,
-precios— **y las asociaciones padre-hijo**, que ya existen en YERCO.
+listas que ya existen.** Todo completo —imágenes, descripciones, precios— **y las
+asociaciones padre-hijo**.
 
-**Lo medido en YERCO** (proyecto `yerco-bb620`, accesible con el mismo `gcloud` de siempre):
+**Estado: el script está escrito y corrido en seco. No se escribió nada en ninguna base.**
+Vive en el scratchpad de la sesión del 05/09 (`migrar.js`, `envase.js`, más los JSON
+bajados). `--dry` deja el informe; `--escribir` es lo que falta autorizar.
 
-| | |
+#### Las tres decisiones, tomadas el 05/09
+
+1. **Imágenes → se copian al bucket de Brotes.** El miedo era el tope de 5 GB; **medido, son
+   18,9 MB** (893 archivos, los 893 encontrados en el bucket de YERCO). Brotes hoy tiene 2
+   archivos y ocupa ~0 GB: después de copiar queda en **0,4 % del tope**. La copia es
+   servidor-a-servidor y cada archivo estrena su token de descarga, así que las URLs quedan
+   apuntando a Brotes y no dependen más del Storage de otro cliente.
+2. **`codigo` y `tipoVenta` se generan.** Códigos de **6 dígitos con ceros adelante**
+   siguiendo la serie real (607 de los 611 productos usan `######`, el máximo es `000684`):
+   los nuevos van de `000685` a `001557`. **No** se usó `P-####`, que es lo que sugiere
+   `sugerirCodigoProducto()` — manda lo que hay cargado, no lo que dice el código.
+3. **`grupoId`, `grupoMascara`, `grupoOrden`, `grupoPrincipal` y `slug` se copian igual**,
+   aunque hoy tengan 0 usos en Brotes. Es lo que pidió el dueño: *"que tenga las mismas
+   asociaciones que YERCO tiene ahora"*. Copiarlos no cambia nada del funcionamiento y deja
+   la puerta abierta; no copiarlos perdía el agrupamiento de gramajes de 658 productos.
+   **Que esa función ande en Brotes es otra tarea** (§1-bis C).
+
+#### Cómo se decidió el `tipoVenta` (el que podía costar plata)
+
+En Brotes, **a granel el precio es POR KILO y el stock va en GRAMOS**. Marcar mal un
+producto no da error de consola: da un precio mil veces corrido. Por eso se midió antes:
+
+| medición | resultado | qué implica |
+|---|---|---|
+| stock de los 873 en YERCO | va de **1 a 100** (872 entre 1 y 99) | cuenta **bultos**, no gramos |
+| granel que Brotes ya tiene | `ARROZ LARGO FINO x 1kg` stock **3760**, `BICARBONATO x 1 Kg` **6890** | la convención de la casa: **gramos** |
+| cruce de precios | YERCO `MIJO PELADO x 2,5 Kg $7000` = **$2.800/kg**; Brotes vende `Mijo Pelado` a **$3.517/kg** | mismo orden, con margen: dividir por los kilos del bulto da el número correcto |
+
+La regla que quedó: **el envase en KILOS es un bulto que el comercio abre y vende suelto
+(`peso`); en gramos, cc, litros o unidades se vende como viene (`unidad`)**. Y un `peso`
+**no se copia tal cual**: se divide `costo`, `precio` y `precioMayorista` por los kilos del
+bulto, y se multiplica el stock por los gramos.
+
+**Dos correcciones que salieron de medir, no de suponer:**
+
+- **El dueño manda sobre la regla.** 47 de los 873 **ya están cargados en Brotes** (lista
+  `FRUTICOR 1`) con su `tipoVenta` elegido a mano. Contrastada contra esos 47, la regla del
+  envase **acierta 40 de 47**. Las 7 que falla son **de 500 gr que él sí vende sueltas**
+  (canela en rama, anís estrellado, clavo de olor, chips de chocolate, almendra bañada) más
+  una fécula de 1 kg que vende envasada. O sea: **el corte no es la unidad del nombre, es el
+  producto**. Donde hay dato suyo se usa el dato; donde no, la regla del envase.
+- **Un producto al que el proveedor le comió la unidad.** `MIX FRUT. SECOS CLASICO x 2,5`,
+  sin "kg". No se adivinó por el nombre: se miró el `grupoId`, y sus hermanos (`x 1 kg`
+  $16.000, `x 5 kg` $75.900) confirman que ese $39.300 son 2,5 kg. La regla exige además que
+  el precio por kilo quede en el mismo orden que el de los hermanos. **Alcanza a 1 producto.**
+
+**Resultado: 517 a granel, 356 por unidad.**
+
+#### El ensayo en seco (05/09, no se escribió nada)
+
+| | antes | después |
+|---|---|---|
+| productos en Brotes | 611 | **1484** (+873) |
+| listas | 27 | 28 (+1) |
+| código más alto | `000684` | `001557` |
+
+| asociación | cuántas | huérfanas |
+|---|---|---|
+| `padreId` a remapear | 153 | **0** |
+| `gramajePadreId` a remapear | 2 | **0** |
+| `grupoId` | 658 | — es id sintético (`grp_...`), **no se remapea** |
+
+Ejemplos de la conversión, que es donde está la plata:
+
+```
+PERA WILLIAM'S MEDIANAS x 5 Kg     5 kg    $69800 -> $13960/kg     11 ->  55000 g
+SALVADO DE AVENA x 25 kg          25 kg    $53500 ->  $2140/kg     10 -> 250000 g
+ARVEJA ENTERA x 1 Kg               1 kg     $1400 ->  $1400/kg      9 ->   9000 g
+CANELA EN RAMA x 500 gr          0,5 kg    $37500 -> $75000/kg     10 ->   5000 g   (a granel porque él ya lo cargó así)
+GALLETA ARROZ BAÑADA CHOC. x 88 gr   —      $2700 ->  $2700        10 ->     10     (unidad, sin conversión)
+```
+
+**Los 10 controles dan 0:** precio inválido, stock inválido o no entero, sin nombre, código
+repetido entre los nuevos, código que choque con Brotes, formato de código, granel sin kilos
+parseados, precio incoherente con el bulto (`precio/kg × kg` tiene que devolver el precio del
+bulto), stock incoherente, y padres huérfanos.
+
+#### Lo que falta decidir antes de escribir
+
+1. **47 productos van a quedar duplicados.** Los 47 están **todos en `FRUTICOR 1`**, que es
+   la carga parcial de FRUTICOR hecha a mano (126 productos a granel). `FRUTICOR-TODOS` trae
+   los 873 completos, así que esos 47 quedan dos veces en el catálogo. La consigna fue **no
+   tocar las listas que ya existen**, así que el script no los toca. Hay que decidir si
+   después se ocultan los de `FRUTICOR 1` o se borra esa lista.
+2. **17 categorías nuevas.** Las de YERCO no coinciden con las 30 de Brotes: `FRUTAS SECAS`
+   vs `Frutos secos`, `HARINAS, FECULAS Y TEXTU.` vs `Harinas y feculas`, y así. El script
+   las crea tal cual (fiel a YERCO). La alternativa es mapearlas a las 30 que ya existen —
+   son 17 decisiones, y conviene mirarlas juntas.
+3. **Los de 500 gr que no están entre los 47.** La regla los deja en `unidad`, que es lo
+   conservador (no puede dar un precio x1000 mal). Si hay más que van sueltos, están en
+   `clasificacion.csv` filtrando por `envase de 500 g`.
+
+Para revisar: `clasificacion.csv` (873 filas, con motivo, envase, precio antes/después y
+stock antes/después) y `duplicados.csv` (los 47).
+
+#### Cuando se apruebe
+
+`node migrar.js --escribir` hace, en orden: copia las 893 imágenes (guardando el mapa en
+disco, así un corte no recopia), crea la lista, escribe los 873 en lotes de 450, remapea los
+155 punteros en una segunda pasada, y crea las 17 categorías. Se planta solo si
+`FRUTICOR-TODOS` ya existe, para no duplicar. Al final **cuenta los documentos** (no los
+contadores) y verifica que no queden huérfanos ni imágenes apuntando a YERCO.
+Después hay que **recalcular el uso de Storage** desde el panel: sube ~19 MB.
+
+### B) El botón PDF Semanal: una sola lista, elegida en su propio modal · **HECHO** (05/09/2026)
+
+Salió en `7fef2f0`. El botón no se tocó: sigue siendo el de YERCO. Cambió sobre qué lista
+trabaja y cuándo aparece.
+
+**Lo que estaba mal, medido:**
+
+- El modal traía un desplegable con **"Todas las listas"** y había que elegir proveedor cada
+  vez. Con "Todas" elegido, `processWeeklyPdf` comparaba el PDF de **un** proveedor contra el
+  catálogo **entero**: todo lo que no estuviera en ese PDF —o sea, los otros 26 proveedores—
+  caía en *"ocultar del catálogo"*.
+- El botón aparecía en **las 27 listas**, no en 3. `listaUsaPdfSemanal` trataba el campo
+  **ausente** como `true`, y de las 27 sólo 3 lo traían escrito. La intención de ese default
+  era buena —las listas viejas no tenían el campo—, pero medida en producción daba lo
+  contrario de lo que buscaba.
+
+**Cómo quedó:** la elección vive en la misma bandera `pdfSemanal` de siempre, pero ahora es
+**excluyente**: al guardar una se apagan las demás, en un solo `batch` y tocando sólo las que
+cambian. El campo ausente cuenta como **no**. Se sacó la casilla del modal de crear/editar
+lista (dos controles para lo mismo dejaban prender una segunda a mano), y `guardarLista` ya
+no escribe la bandera al renombrar — **renombrar una lista le apagaba el PDF Semanal**.
+
+**Diferencia deliberada con YERCO.** Allá `openWeeklyPdfModal` busca la lista **por nombre**,
+clavada a `'FRUTICOR'`. Acá sale de la base, así el comercio puede renombrarla o cambiar de
+proveedor sin tocar código — que es exactamente lo que el comentario de `filterTable()` dice
+que se buscó al pasar a bandera por lista. El modal se ve igual: rótulo fijo con el nombre,
+más un **Cambiar** discreto. Se portó también la guarda `wpListaElegida()`: sin lista no se
+procesa nada, ni por click, ni por drop, ni por el input de archivo.
+
+**Medido abriendo el panel** (no sólo con pruebas), con las 27 listas reales:
+
+| estado | qué pasa |
 |---|---|
-| Lista `FRUTICOR` | id `BsDYIsMLaUkEkesQdfDX` (hay 3 listas en YERCO; ésta es la única que se llama así) |
-| Productos en esa lista | **873** (de 877 en todo YERCO) |
-| Con `padreId` | **153** — y los mismos 153 tienen `envasadoPropio: true` |
-| Con `gramajePadreId` | 2 |
-| **Padres que apuntan afuera de la lista** | **0** — la migración es autocontenida: no queda un solo hijo huérfano |
-| Con imagen principal | 862 · con `imagenesExtra`: 24 |
+| una sola elegida | el botón sale **únicamente** en ella; las demás, incluidas las que no tienen el campo, ocultas |
+| tres prendidas de antes | el modal **pide elegir** en vez de adivinar cuál |
+| ninguna elegida | avisa *"Primero elegí la lista del PDF Semanal"* y **bloquea** el drop |
 
-**Lo medido en Brotes:** 611 productos, **los 611 con `codigo`**; 27 listas.
-`FRUTICOR-TODOS` **no existe todavía**. Ojo: sí existen `FRUTICOR` (`9TBkI6rHuseKqTDIidVc`)
-y `FRUTICOR 1` (`smXHyn71ZnAib2292aFE`) — son otras, no se tocan.
+Ahí apareció un defecto que las pruebas no ven: `wpOcultarSelector` devolvía el rótulo con
+`style.display=''`, que **no** lo devuelve a `flex` sino que **borra** el `display` del style
+inline, y el div caía a `block` perdiendo el `gap` y el centrado. Sin un solo error de
+consola — la misma familia que las once clases CSS de §5. Va con prueba propia.
 
-#### Las tres cosas que hay que decidir ANTES de escribir nada
+`t-pdfsem.js` pasó de 7 a **47 asertos**, de los cuales **38 fallan contra `72762d6`**.
+Suite completa: **1301 pruebas, 0 fallaron**. `check-admin` limpio.
 
-1. **Las imágenes viven en el bucket de YERCO.** Las 862 URLs apuntan a
-   `yerco-bb620.firebasestorage.app`. Copiarlas tal cual deja el catálogo de **un cliente
-   colgando del Storage de otro**: si YERCO borra un producto —y el borrado de imágenes ya
-   está implementado ahí— la foto desaparece de Brotes. Las opciones son bajar los 862
-   archivos y volver a subirlos al bucket de Brotes (más trabajo, y suma al tope de 5 GB), o
-   dejar las URLs de YERCO a sabiendas. **Es decisión del dueño**, no técnica.
-2. **YERCO no tiene `codigo` ni `tipoVenta`; Brotes los exige.** En los 873 productos no
-   aparece ninguno de los dos campos. En Brotes el `codigo` es **obligatorio y único** (84
-   usos en `admin.html`) y `tipoVenta` decide si el precio es por kilo y la cantidad en
-   gramos (34 usos). Hay que **generarlos en la migración**: códigos únicos que no choquen
-   con los 611 que ya existen, y `tipoVenta` — que en YERCO habría que deducir, porque el
-   campo no está.
-3. **Cuatro campos de YERCO que Brotes no usa**: `grupoId`, `grupoMascara`, `grupoOrden`,
-   `grupoPrincipal` y `slug` tienen **0 usos** en `admin.html` y en `app.js`. Copiarlos deja
-   basura inerte en 873 documentos; no copiarlos pierde el agrupamiento que YERCO usa para
-   mostrar los gramajes juntos. Hay que decidir si Brotes va a portar esa función.
+**Queda pendiente y es de él:** hoy siguen prendidas `FRUTICOR`, `FRUTICOR 1` y `OTRO`, así
+que el botón se ve en esas tres. **En cuanto entre al modal y guarde una, las otras dos se
+apagan solas.** No se tocó la base.
 
-#### Cómo hacerlo, cuando se decida
+### C) Que el agrupamiento de gramajes ande en Brotes · NO EMPEZADO
 
-- Los ids de documento **cambian** al crear en Brotes, así que `padreId` y `gramajePadreId`
-  hay que **remapear**: primero crear los 873 y guardar el mapa `idViejo → idNuevo`, después
-  una segunda pasada que reescriba los punteros. Escribir el `padreId` de YERCO tal cual
-  deja 153 hijos apuntando a documentos que en Brotes no existen.
-- Escribir en lotes (`batch`, tope 450 por lote como ya hace el resto del panel).
-- **Correr primero en seco** y mostrar el antes y el después, como manda §5.
-- Y **contar los documentos, no los contadores**, antes de tocar nada.
+La migración copia `grupoId`, `grupoMascara`, `grupoOrden` y `grupoPrincipal` de los 658
+productos que los tienen, pero **en Brotes esos campos no los lee nadie** (0 usos en
+`admin.html`, `app.js` y los 8 módulos). En YERCO sí: 11 usos en el panel, 19 en la tienda y
+uno en `admin-alertas.js`, y son los que hacen que los distintos gramajes del mismo producto
+se muestren juntos con un selector en vez de como productos sueltos.
 
-### B) El botón PDF Semanal: una sola lista, elegida en su propio modal
-
-**Lo pedido:** el botón **no se toca** —funciona perfecto y tiene que quedar idéntico al de
-YERCO—. Lo único que se agrega es que el admin pueda **elegir, en el mismo modal donde sube
-el PDF, una lista que quede predeterminada**. A partir de ahí el botón **aparece sólo cuando
-esa lista está seleccionada**, y **funciona únicamente para ella**. No hay que elegir lista
-cada vez.
-
-**Ojo, porque esto NO se construye de cero — ya hay un mecanismo y hay que cambiarlo:**
-
-- Hoy existe una bandera **por lista**, `pdfSemanal`, con una casilla en el modal de crear/
-  editar lista (`crearListaPdfSemanal`, `admin.html:5532`).
-- `listaUsaPdfSemanal()` (`admin.html:1602`) devuelve **`true` cuando el campo no está**, o
-  sea que el botón aparece en **toda lista nueva** salvo que la destilden.
-- Y en producción hoy hay **tres listas con `pdfSemanal: true`**: `FRUTICOR`, `FRUTICOR 1` y
-  `OTRO`. El botón se ve en las tres.
-- El comentario de `filterTable()` explica que **antes estaba clavado al nombre "FRUTICOR"** y
-  que se pasó a bandera por lista **a propósito**, para que el cliente pudiera renombrar la
-  lista o tener dos proveedores semanales. Pasar a "una sola lista elegida" **revierte esa
-  decisión**: conviene confirmarlo con el dueño antes, o dejar la bandera y sumarle encima la
-  lista predeterminada.
-
-**Antes de tocar:** mirar **cómo lo resuelve YERCO**, que es la referencia que pidió el dueño
-("debe ser idéntico"). Eso todavía **no se miró**.
+Sin portarlo, después de la migración la tienda va a mostrar —por ejemplo— las cinco
+presentaciones de `YERBA MATE TUCANGUA` (1, 2, 5, 10 y 20 kg) como cinco productos
+separados, todos a granel y con distinto precio por kilo. Los datos quedan listos; falta el
+código.
 
 ---
 

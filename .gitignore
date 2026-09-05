@@ -27,3 +27,10 @@ _test-*.html
 respaldo-limpieza-*.json
 productos-pag*.xlsx
 DUDAS-CARGA-PRODUCTOS.txt
+
+# Migracion FRUTICOR: los scripts SI, los datos NO.
+# fruticor.json trae el catalogo y los COSTOS de YERCO, que es otro cliente.
+# Se regeneran con: node migracion/dump.js
+migracion/*.json
+migracion/*.csv
+migracion/*.txt

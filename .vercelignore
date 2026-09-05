@@ -45,3 +45,6 @@ pruebas/
 # el panel roto sale al aire (ya paso una vez: un `async` colgado que node --check
 # aprobaba y que dejaba todo el bloque de admin.html sin ejecutar).
 # Es una herramienta inerte: no expone nada ni escucha en ningun puerto.
+
+# Migracion de datos: se corre a mano desde la maquina, no la sirve nadie.
+migracion/
