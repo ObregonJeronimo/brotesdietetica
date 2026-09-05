@@ -468,10 +468,15 @@ trabaja y cuándo aparece.
   vez. Con "Todas" elegido, `processWeeklyPdf` comparaba el PDF de **un** proveedor contra el
   catálogo **entero**: todo lo que no estuviera en ese PDF —o sea, los otros 26 proveedores—
   caía en *"ocultar del catálogo"*.
-- El botón aparecía en **las 27 listas**, no en 3. `listaUsaPdfSemanal` trataba el campo
-  **ausente** como `true`, y de las 27 sólo 3 lo traían escrito. La intención de ese default
-  era buena —las listas viejas no tenían el campo—, pero medida en producción daba lo
-  contrario de lo que buscaba.
+- `listaUsaPdfSemanal` trataba el campo **ausente** como `true`. **Corrección del 05/09:**
+  en un primer informe dije que por eso el botón se veía en las 27 listas. **Es falso, y el
+  error fue mío**: lo verifiqué en el navegador con listas que inventé yo, sin el campo, y
+  leí ese resultado como si fuera producción. Medido contra la base: **las 27 tienen el
+  campo escrito — 3 en `true`, 24 en `false`, 0 ausentes**, así que el botón se veía en 3,
+  que es lo que este archivo decía desde el principio.
+  Donde ese default **sí** hacía daño era en una **instalación nueva**: `setup-inicial.html`
+  sembraba la primera lista **sin** el campo, y el botón aparecía sin que nadie lo pidiera.
+  Se le agregó `pdfSemanal:false` para que ningún camino cree listas sin la bandera.
 
 **Cómo quedó:** la elección vive en la misma bandera `pdfSemanal` de siempre, pero ahora es
 **excluyente**: al guardar una se apagan las demás, en un solo `batch` y tocando sólo las que
@@ -486,7 +491,8 @@ que se buscó al pasar a bandera por lista. El modal se ve igual: rótulo fijo c
 más un **Cambiar** discreto. Se portó también la guarda `wpListaElegida()`: sin lista no se
 procesa nada, ni por click, ni por drop, ni por el input de archivo.
 
-**Medido abriendo el panel** (no sólo con pruebas), con las 27 listas reales:
+**Medido abriendo el panel** (no sólo con pruebas). Ojo: se ejercitó con listas **armadas a
+mano** para cubrir los tres estados, no con la base — es lo que confundí más arriba:
 
 | estado | qué pasa |
 |---|---|

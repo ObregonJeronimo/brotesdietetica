@@ -96,7 +96,9 @@ const ig = N ? N.instagram : 'brotesdietetica';
 const PLAN = [
   { id:'listas',      tipo:'coleccion', path:'listas', bloqueante:true,
     label:'Una lista de proveedor (sin esto no se puede guardar ningún producto)',
-    data:{ nombre:'PROVEEDOR PRINCIPAL' } },
+    /* pdfSemanal explicito en false, igual que guardarLista(). Es el unico otro
+       lugar que crea listas, y era el unico que las dejaba sin el campo. */
+    data:{ nombre:'PROVEEDOR PRINCIPAL', pdfSemanal:false } },
 
   { id:'categoria',   tipo:'doc', path:'_categorias/GENERAL', bloqueante:true,
     label:'Categoría inicial <code>GENERAL</code>',

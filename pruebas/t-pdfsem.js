@@ -1,11 +1,16 @@
 /* El PDF Semanal trabaja sobre UNA lista, la que el admin eligio como
    predeterminada en el modal del propio PDF.
 
-   Antes el campo ausente contaba como true. El efecto medido en produccion era el
-   contrario del buscado: de las 27 listas solo 3 traian el campo, asi que el boton
-   se veia en las 27 y el modal dejaba elegir "Todas las listas" -que comparaba el
-   PDF de un proveedor contra el catalogo entero y mandaba a ocultar todo lo de los
-   otros 26-. */
+   Antes el campo ausente contaba como true. Medido en produccion el 05/09: las 27
+   listas TIENEN el campo escrito (3 en true, 24 en false, 0 ausentes), asi que el
+   boton se veia en 3 y ese default no cambiaba nada ahi. Donde si cambiaba era en
+   una instalacion nueva: setup-inicial.html creaba la primera lista sin el campo y
+   el boton aparecia sin que nadie lo pidiera. Ahora que hay un lugar explicito para
+   elegir la lista, ausente es que NO, y ningun camino crea listas sin la bandera.
+
+   Lo que si estaba roto para todos era el modal: dejaba elegir "Todas las listas",
+   y con esa opcion processWeeklyPdf comparaba el PDF de UN proveedor contra el
+   catalogo entero y mandaba a ocultar todo lo de los otros 26. */
 const fs=require('fs');
 const src=fs.readFileSync('admin.html','utf8');
 
@@ -27,7 +32,7 @@ t('la elegida (pdfSemanal:true) -> se muestra', F({nombre:'FRUTICOR',pdfSemanal:
 t('cualquier otra (false) -> NO se muestra', F({nombre:'X',pdfSemanal:false})===false);
 t('sin lista seleccionada -> no se muestra', F(null)===false);
 
-console.log('\nEl campo AUSENTE ya no cuenta como que si (era el bug de las 27 listas)');
+console.log('\nEl campo AUSENTE ya no cuenta como que si');
 t('sin el campo -> NO se muestra', F({nombre:'FRUTICOR'})===false);
 t('undefined explicito -> NO se muestra', F({nombre:'X',pdfSemanal:undefined})===false);
 t('null -> NO se muestra', F({nombre:'X',pdfSemanal:null})===false);
@@ -85,6 +90,11 @@ console.log('\nMostrar y ocultar no puede perder el display del inline style');
 t('wpOcultarSelector devuelve el rotulo a flex, no a ""', /fija\.style\.display='flex'/.test(cuerpo('wpOcultarSelector')));
 t('wpMostrarSelector pone el selector en block explicito', /elegir\.style\.display='block'/.test(cuerpo('wpMostrarSelector')));
 t('el rotulo declara display:flex en el HTML', /id="wpListaFija" style="display:flex/.test(src));
+
+console.log('\nNingun camino crea listas sin la bandera');
+const setup=fs.readFileSync('setup-inicial.html','utf8');
+t('setup-inicial siembra la primera lista con pdfSemanal:false',
+    /nombre:'PROVEEDOR PRINCIPAL', ?pdfSemanal:false/.test(setup));
 
 console.log('\nLa casilla vieja del modal de listas ya no esta (un solo control)');
 t('no queda el checkbox crearListaPdfSemanal', !src.includes('crearListaPdfSemanal'));
