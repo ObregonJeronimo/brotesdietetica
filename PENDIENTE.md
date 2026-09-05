@@ -1,6 +1,6 @@
 # Brotes Dietética — estado y pendientes
 
-> Actualizado: 27/08/2026. Reemplaza la versión anterior de este archivo.
+> Actualizado: 04/09/2026.
 > No se publica: `.vercelignore` excluye todos los `*.md`.
 
 **El software está terminado.** Lo que falta para entregar no es programar: es cargar
@@ -9,11 +9,18 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 756 en 29 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`, que ahora **sí corre acá**) |
+| Pruebas | 1261 en 45 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
-| **Datos** | **prácticamente vacíos — ver abajo** |
-| Último deploy | 27/08/2026: Vercel, `firestore:rules` y las functions `descontarStockPedido` + `notifyTelegramOnNewOrder`. **Las tandas 4 y 5 están commiteadas y SIN desplegar**: es sólo `git push origin main` (§3). |
+| **Datos** | **el catálogo YA está cargado: 611 productos, 27 listas de proveedor, 30 categorías** |
+| Último deploy | al día. Vercel despliega solo con `git push origin main`; las functions y las reglas no cambiaron desde el 27/08 |
+
+**Del 28/08 al 04/09 entraron 27 commits**, casi todos de Thiago: compras con lector de
+código de barras, remitos, la pantalla de proveedores con lista a la izquierda y detalle a
+la derecha, límite de stock bajo separado para envasado y suelto, exportaciones, dos
+arreglos de seguridad en el borrado de archivos, y el Brandbook 2025 (paleta, tipografías y
+logos). De acá salieron el rediseño de la barra de listas de proveedores y el arreglo de
+sus contadores (§3, tanda 7).
 
 ---
 
@@ -110,9 +117,13 @@ La colección no se puede leer sin sesión de admin —por eso el chequeo por AP
 estaba a mano. **Antes de tocar un contador hay que contar los documentos, no leer el
 contador ni este archivo.**
 
-### b) Cargar el catálogo
+### b) ~~Cargar el catálogo~~ · **HECHO**
 
-Estado real de la base, verificado por API:
+Entró entre el 28/08 y el 04/09: **611 productos, 27 listas de proveedor, 30 categorías**.
+Era el último bloqueante de la entrega. La tabla de abajo quedó de cuando había un solo
+producto; se deja como referencia de cómo se verifica el estado por API.
+
+Estado de la base **cuando se escribió esa tabla** (27/08), no el de hoy:
 
 | colección | cuántos |
 |---|---|
@@ -326,6 +337,89 @@ finales posibles, así que se puede reintentar.
 
 > **Esto NO está en YERCO**: su lista tiene los dos códigos. El defecto vive en los dos
 > repos; acá está corregido y en §6 queda anotado para portarlo.
+
+---
+
+## 1-bis. LO QUE SIGUE (pedido el 04/09/2026, nada empezado)
+
+Dos tareas, ninguna arrancada. Todo lo de abajo es **reconocimiento de sólo lectura** hecho
+el 04/09 contra los dos proyectos de Firebase: no se escribió una sola línea en ninguna base.
+
+### A) Traer los productos de FRUTICOR de YERCO a Brotes
+
+**Lo pedido:** copiar **todos** los productos de la lista `FRUTICOR` de YERCO a Brotes,
+dentro de una lista **nueva** llamada `FRUTICOR-TODOS`. **No se borra ni se toca nada de las
+listas que ya existen en Brotes.** Hay que traer todo completo —imágenes, descripciones,
+precios— **y las asociaciones padre-hijo**, que ya existen en YERCO.
+
+**Lo medido en YERCO** (proyecto `yerco-bb620`, accesible con el mismo `gcloud` de siempre):
+
+| | |
+|---|---|
+| Lista `FRUTICOR` | id `BsDYIsMLaUkEkesQdfDX` (hay 3 listas en YERCO; ésta es la única que se llama así) |
+| Productos en esa lista | **873** (de 877 en todo YERCO) |
+| Con `padreId` | **153** — y los mismos 153 tienen `envasadoPropio: true` |
+| Con `gramajePadreId` | 2 |
+| **Padres que apuntan afuera de la lista** | **0** — la migración es autocontenida: no queda un solo hijo huérfano |
+| Con imagen principal | 862 · con `imagenesExtra`: 24 |
+
+**Lo medido en Brotes:** 611 productos, **los 611 con `codigo`**; 27 listas.
+`FRUTICOR-TODOS` **no existe todavía**. Ojo: sí existen `FRUTICOR` (`9TBkI6rHuseKqTDIidVc`)
+y `FRUTICOR 1` (`smXHyn71ZnAib2292aFE`) — son otras, no se tocan.
+
+#### Las tres cosas que hay que decidir ANTES de escribir nada
+
+1. **Las imágenes viven en el bucket de YERCO.** Las 862 URLs apuntan a
+   `yerco-bb620.firebasestorage.app`. Copiarlas tal cual deja el catálogo de **un cliente
+   colgando del Storage de otro**: si YERCO borra un producto —y el borrado de imágenes ya
+   está implementado ahí— la foto desaparece de Brotes. Las opciones son bajar los 862
+   archivos y volver a subirlos al bucket de Brotes (más trabajo, y suma al tope de 5 GB), o
+   dejar las URLs de YERCO a sabiendas. **Es decisión del dueño**, no técnica.
+2. **YERCO no tiene `codigo` ni `tipoVenta`; Brotes los exige.** En los 873 productos no
+   aparece ninguno de los dos campos. En Brotes el `codigo` es **obligatorio y único** (84
+   usos en `admin.html`) y `tipoVenta` decide si el precio es por kilo y la cantidad en
+   gramos (34 usos). Hay que **generarlos en la migración**: códigos únicos que no choquen
+   con los 611 que ya existen, y `tipoVenta` — que en YERCO habría que deducir, porque el
+   campo no está.
+3. **Cuatro campos de YERCO que Brotes no usa**: `grupoId`, `grupoMascara`, `grupoOrden`,
+   `grupoPrincipal` y `slug` tienen **0 usos** en `admin.html` y en `app.js`. Copiarlos deja
+   basura inerte en 873 documentos; no copiarlos pierde el agrupamiento que YERCO usa para
+   mostrar los gramajes juntos. Hay que decidir si Brotes va a portar esa función.
+
+#### Cómo hacerlo, cuando se decida
+
+- Los ids de documento **cambian** al crear en Brotes, así que `padreId` y `gramajePadreId`
+  hay que **remapear**: primero crear los 873 y guardar el mapa `idViejo → idNuevo`, después
+  una segunda pasada que reescriba los punteros. Escribir el `padreId` de YERCO tal cual
+  deja 153 hijos apuntando a documentos que en Brotes no existen.
+- Escribir en lotes (`batch`, tope 450 por lote como ya hace el resto del panel).
+- **Correr primero en seco** y mostrar el antes y el después, como manda §5.
+- Y **contar los documentos, no los contadores**, antes de tocar nada.
+
+### B) El botón PDF Semanal: una sola lista, elegida en su propio modal
+
+**Lo pedido:** el botón **no se toca** —funciona perfecto y tiene que quedar idéntico al de
+YERCO—. Lo único que se agrega es que el admin pueda **elegir, en el mismo modal donde sube
+el PDF, una lista que quede predeterminada**. A partir de ahí el botón **aparece sólo cuando
+esa lista está seleccionada**, y **funciona únicamente para ella**. No hay que elegir lista
+cada vez.
+
+**Ojo, porque esto NO se construye de cero — ya hay un mecanismo y hay que cambiarlo:**
+
+- Hoy existe una bandera **por lista**, `pdfSemanal`, con una casilla en el modal de crear/
+  editar lista (`crearListaPdfSemanal`, `admin.html:5532`).
+- `listaUsaPdfSemanal()` (`admin.html:1602`) devuelve **`true` cuando el campo no está**, o
+  sea que el botón aparece en **toda lista nueva** salvo que la destilden.
+- Y en producción hoy hay **tres listas con `pdfSemanal: true`**: `FRUTICOR`, `FRUTICOR 1` y
+  `OTRO`. El botón se ve en las tres.
+- El comentario de `filterTable()` explica que **antes estaba clavado al nombre "FRUTICOR"** y
+  que se pasó a bandera por lista **a propósito**, para que el cliente pudiera renombrar la
+  lista o tener dos proveedores semanales. Pasar a "una sola lista elegida" **revierte esa
+  decisión**: conviene confirmarlo con el dueño antes, o dejar la bandera y sumarle encima la
+  lista predeterminada.
+
+**Antes de tocar:** mirar **cómo lo resuelve YERCO**, que es la referencia que pidió el dueño
+("debe ser idéntico"). Eso todavía **no se miró**.
 
 ---
 
@@ -1098,6 +1192,7 @@ poder ejecutarla desde las pruebas.
 | | |
 |---|---|
 | Proyecto Firebase | `brotesdietetica-2f78e` |
+| Proyecto Firebase de YERCO | `yerco-bb620` — **el mismo `gcloud`/`firebase` de esta máquina tiene acceso a los dos**, así que se puede leer YERCO por API sin pedirle nada a nadie |
 | Producción | https://brotesdietetica.vercel.app |
 | Repo | https://github.com/ObregonJeronimo/brotesdietetica |
 | Dueño | `jeroobregon03@gmail.com` — en `config-negocio.js` (`NEGOCIO.mailDuenio`) **y** en `firestore.rules` y `storage.rules`. Las reglas no pueden leer ese archivo: ese literal es la salida de emergencia si `/admins` quedara vacía. **Si cambia el dueño hay que tocar los tres.** |
