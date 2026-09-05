@@ -1602,14 +1602,26 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 pintarSeleccionStock();
             }
         }
-        /* Un campo AUSENTE no es lo mismo que false. Las listas creadas antes de que
-           esta opcion existiera no lo tienen, y al volverla configurable el boton
-           desaparecio de la unica lista que lo mostraba, sin que nadie tocara nada.
-           Mientras el campo no este definido se muestra; en cuanto se guarda la lista
-           desde el lapiz, manda lo que se haya elegido. */
+        /* El PDF Semanal trabaja sobre UNA lista, la que el admin eligio como
+           predeterminada en el modal del propio PDF. La bandera `pdfSemanal` de la
+           lista es donde queda guardada esa eleccion, y es EXCLUYENTE: al elegir una
+           se apagan las demas (ver wpGuardarListaPredeterminada).
+
+           Antes el campo AUSENTE contaba como true. Tenia su motivo -las listas
+           creadas antes de que la opcion existiera no lo traen, y al volverla
+           configurable el boton desaparecio de la unica lista que lo mostraba-, pero
+           el efecto medido era el contrario del que se buscaba: de las 27 listas solo
+           3 tenian el campo, asi que el boton se veia en las 27. Ahora que hay un
+           lugar explicito para elegir la lista, ausente es que NO. */
         function listaUsaPdfSemanal(l){
-            if(!l)return false;
-            return (l.pdfSemanal===undefined||l.pdfSemanal===null)?true:!!l.pdfSemanal;
+            return !!(l && l.pdfSemanal === true);
+        }
+
+        /* La lista predeterminada: la unica con la bandera prendida. Devuelve null si
+           todavia no se eligio ninguna, que es lo que hace que el modal abra pidiendola
+           en vez de dejar analizar el PDF contra el catalogo entero. */
+        function listaPdfSemanal(){
+            return (listasData || []).find(l => l && l.pdfSemanal === true) || null;
         }
         async function loadProducts(){try{await loadCategorias();const snap=await db.collection('productos').get();allProducts=snap.docs.map(d=>{const r=d.data();return{id:d.id,...r,porcentajeMayorista:r.porcentajeMayorista||0,precioMayorista:r.precioMayorista||0};});filterTable();updateStats();updateCategoryFilter();renderStockList();renderListaFilterSelect();/* Los contadores de las pastillas de proveedores cuentan allProducts. loadListas y loadProducts corren en paralelo al abrir el panel, y loadListas -mas rapido, son pocas listas- dibuja el panel ANTES de que estos productos lleguen: quedaban todos en 0 hasta hacer un clic. Se redibuja aca, con los productos ya cargados. */if(typeof renderListasPanel==='function'&&listasData.length)renderListasPanel();}catch(e){console.error(e);showAdminToast('Error al cargar','error');}}
         function renderTable(prods){const tb=document.getElementById('productsTableBody');const thr=getLowStockThreshold();if(!prods.length){tb.innerHTML='<tr><td colspan="10"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Sin productos</p></div></td></tr>';return;}tb.innerHTML=prods.map(p=>{let sc='stock-ok',sv=p.stock||0;if(sv===0)sc='stock-out';else if(esStockBajo(p))sc='stock-low';const img=p.imagen||'img/default-product.svg';const sub=p.subcategoria?' / '+esc(p.subcategoria):'';const sn=(p.nombre||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');const costo=p.costo||0;const pct=p.porcentaje||0;const precio=p.precio||0;const star=p.popular?'bi-star-fill':'bi-star';const starColor=p.popular?'color:#e6a23c':'';const oculto=p.oculto===true;const eyeIcon=oculto?'bi-eye-slash-fill':'bi-eye';const eyeColor=oculto?'color:#f56c6c':'';const eyeTitle=oculto?'Oculto del catalogo (click para mostrar)':'Visible en catalogo (click para ocultar)';const rowStyle=oculto?' style="opacity:0.55"':'';const hiddenTag=oculto?' <span style="font-size:0.68rem;background:#5a2d2d;color:#f56c6c;padding:1px 6px;border-radius:3px;margin-left:4px;vertical-align:middle">OCULTO</span>':'';return'<tr'+rowStyle+'><td><img src="'+esc(img)+'" class="product-img-cell product-img-zoom" onclick="verImagen(\''+esc(img)+'\',\''+esc((p.nombreMostrado||p.nombre||'').replace(/'/g,"")) +'\')" title="Ver la imagen en grande" onerror="this.src=\'img/default-product.svg\'"></td><td style="font-family:var(--mono);font-size:0.82rem;color:var(--text-dim);white-space:nowrap">'+esc(p.codigo||'\u2014')+'</td><td><strong>'+esc(p.nombre||'\u2014')+'</strong>'+hiddenTag+'</td><td><span class="cat-badge">'+esc(p.categoria||'\u2014')+sub+'</span></td><td class="price-cell" style="color:var(--text-dim);font-size:0.82rem">$'+costo.toLocaleString('es-AR')+'</td><td style="text-align:left;font-size:0.82rem;color:var(--text-dim);font-family:var(--mono)">'+pct+'%</td><td class="price-cell">$'+precio.toLocaleString('es-AR')+'</td><td style="text-align:center">'+((p.descuento||0)>0?'<span style="background:linear-gradient(135deg,#e6a23c,#d97706);color:#fff;font-weight:700;font-size:0.72rem;padding:2px 7px;border-radius:5px">'+(p.descuento||0)+'%</span>':'<span style="color:var(--text-dim);font-size:0.8rem">0%</span>')+'</td><td><span class="stock-badge '+sc+'">'+sv+'</span></td><td><div class="actions-cell"><button class="btn-icon" onclick="togglePopular(\''+p.id+'\')" title="Popular" style="'+starColor+'"><i class="bi '+star+'"></i></button><button class="btn-icon" onclick="toggleOculto(\''+p.id+'\')" title="'+eyeTitle+'" style="'+eyeColor+'"><i class="bi '+eyeIcon+'"></i></button>'+(p.envasadoPropio?'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Envasado propio (click para desmarcar)" style="color:#a78bfa"><i class="bi bi-bag-check-fill"></i></button>':'<button class="btn-icon" onclick="toggleEnvasadoPropio(\''+p.id+'\')" title="Marcar como envasado propio"><i class="bi bi-bag-check"></i></button>')+(p.gramajePadreId?'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Gramaje asociado (click para gestionar)" style="color:#4a9eff"><i class="bi bi-stack"></i></button>':'<button class="btn-icon" onclick="openGramajeModal(\''+p.id+'\')" title="Asociar gramajes"><i class="bi bi-stack"></i></button>')+'<button class="btn-icon" onclick="editProduct(\''+p.id+'\')"><i class="bi bi-pencil"></i></button><button class="btn-icon delete" onclick="deleteProduct(\''+p.id+'\',\''+sn+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';}).join('');}        function getLowStockThreshold(){return parseInt(localStorage.getItem('brotesLowStockThr'))||10;}
@@ -5103,9 +5115,91 @@ async function previewEditorImg(input,field){
     
         /* === PDF SEMANAL === */
         let wpRemoved=[],wpPriceChanges=[],wpNewProds=[],wpReappeared=[];
-        function openWeeklyPdfModal(){document.getElementById('wpResults').style.display='none';document.getElementById('wpProgress').style.display='none';document.getElementById('weeklyPdfInput').value='';const sel=document.getElementById('wpListaFiltro');if(sel)sel.innerHTML='<option value="">Todas las listas</option>'+listasData.map(l=>'<option value="'+l.id+'">'+esc(l.nombre)+'</option>').join('');document.getElementById('weeklyPdfModal').classList.add('show');wpInitDz();}
+        function openWeeklyPdfModal(){document.getElementById('wpResults').style.display='none';document.getElementById('wpProgress').style.display='none';document.getElementById('weeklyPdfInput').value='';wpPintarLista();document.getElementById('weeklyPdfModal').classList.add('show');wpInitDz();}
+
+        /* El modal abre mostrando la lista predeterminada como un rotulo, igual que
+           YERCO. La diferencia es de donde sale: en YERCO esta clavada al nombre
+           'FRUTICOR' y aca se lee de la base, asi el comercio puede renombrar la lista
+           o cambiar de proveedor sin tocar codigo.
+           `wpListaFiltro` quedo como input hidden a proposito: processWeeklyPdf y
+           wpAddNewProds siguen leyendo su .value y no hubo que tocarlos. */
+        function wpPintarLista(){
+            const l=listaPdfSemanal();
+            const hid=document.getElementById('wpListaFiltro');
+            const lbl=document.getElementById('wpListaNombre');
+            if(hid)hid.value=l?l.id:'';
+            if(lbl)lbl.textContent=l?l.nombre:'ninguna elegida todavia';
+            /* Si quedaron varias prendidas de antes, no hay forma de saber cual quiso
+               el admin: se le pide que elija en vez de adivinar. */
+            const prendidas=(listasData||[]).filter(x=>x&&x.pdfSemanal===true).length;
+            if(l&&prendidas===1)wpOcultarSelector();else wpMostrarSelector();
+        }
+
+        function wpMostrarSelector(){
+            const sel=document.getElementById('wpListaSelect');
+            if(sel){const l=listaPdfSemanal();
+                sel.innerHTML='<option value="">Elegi una lista...</option>'+(listasData||[]).map(x=>'<option value="'+x.id+'">'+esc(x.nombre)+'</option>').join('');
+                if(l)sel.value=l.id;}
+            const fija=document.getElementById('wpListaFija'),elegir=document.getElementById('wpListaElegir');
+            if(fija)fija.style.display='none';
+            if(elegir)elegir.style.display='block';
+            /* Sin lista elegida no hay nada que cancelar: cancelar dejaria el modal sin
+               destino y el drop bloqueado, con un boton que no hace nada. */
+            const cancelar=document.getElementById('wpCancelarBtn');
+            if(cancelar)cancelar.style.display=listaPdfSemanal()?'':'none';
+        }
+
+        /* display='flex' explicito, NO ''. El rotulo trae display:flex en su style
+           inline, y '' no lo devuelve a flex: lo BORRA, y el div cae a su block de
+           fabrica. Se perdian el gap y el centrado vertical -"Lista de proveedor:" y
+           el nombre quedaban pegados-, sin un solo error de consola. */
+        function wpOcultarSelector(){
+            const fija=document.getElementById('wpListaFija'),elegir=document.getElementById('wpListaElegir');
+            if(fija)fija.style.display='flex';
+            if(elegir)elegir.style.display='none';
+        }
+
+        /* Excluyente: la elegida queda en true y CUALQUIER otra que estuviera prendida
+           se apaga. Es lo que sostiene que el boton aparezca en una sola lista.
+           Solo se escriben las que de verdad cambian. */
+        async function wpGuardarListaPredeterminada(){
+            const id=document.getElementById('wpListaSelect')?.value||'';
+            if(!id){showAdminToast('Elegi una lista','error');return;}
+            const elegida=(listasData||[]).find(l=>l.id===id);
+            if(!elegida){showAdminToast('Esa lista ya no existe','error');return;}
+            const apagar=(listasData||[]).filter(l=>l.id!==id&&l.pdfSemanal===true);
+            const btn=document.getElementById('wpGuardarListaBtn');
+            if(btn){btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';}
+            try{
+                const batch=db.batch();
+                if(elegida.pdfSemanal!==true)batch.update(db.collection('listas').doc(id),{pdfSemanal:true});
+                apagar.forEach(l=>batch.update(db.collection('listas').doc(l.id),{pdfSemanal:false}));
+                await batch.commit();
+                elegida.pdfSemanal=true;apagar.forEach(l=>l.pdfSemanal=false);
+                logAction('editar','PDF Semanal: lista predeterminada = '+elegida.nombre,
+                    apagar.length?('Se apagaron: '+apagar.map(l=>l.nombre).join(', ')):'No habia otras prendidas');
+                showAdminToast('El PDF Semanal ahora trabaja sobre "'+elegida.nombre+'"','success');
+                wpPintarLista();
+                /* El boton de la barra depende de esto: hay que redibujarlo. */
+                filterTable();
+                if(typeof renderListasPanel==='function')renderListasPanel();
+            }catch(e){showAdminToast('Error: '+e.message,'error');}
+            finally{if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-check-lg"></i> Guardar';}}
+        }
+
         function wpScrollTo(id){document.getElementById(id).scrollIntoView({behavior:'smooth',block:'start'});}
-        let _wpDzInit=false;function wpInitDz(){if(_wpDzInit)return;const dz=document.getElementById('dropZoneWeekly'),fi=document.getElementById('weeklyPdfInput');if(!dz||!fi)return;_wpDzInit=true;dz.addEventListener('click',()=>fi.click());dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover')});dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files[0])processWeeklyPdf(e.dataTransfer.files[0]);});fi.addEventListener('change',e=>{if(e.target.files[0])processWeeklyPdf(e.target.files[0]);});}
+
+        /* Sin lista no se procesa NADA. Antes el selector traia "Todas las listas" y
+           con esa opcion processWeeklyPdf comparaba el PDF de un proveedor contra el
+           catalogo entero: todo lo que no estuviera en ese PDF -o sea, los otros 26
+           proveedores- caia en "ocultar del catalogo". */
+        function wpListaElegida(){
+            const hid=document.getElementById('wpListaFiltro');
+            if(!hid||!hid.value){showAdminToast('Primero elegi la lista del PDF Semanal','error');wpMostrarSelector();return false;}
+            return true;
+        }
+
+        let _wpDzInit=false;function wpInitDz(){if(_wpDzInit)return;const dz=document.getElementById('dropZoneWeekly'),fi=document.getElementById('weeklyPdfInput');if(!dz||!fi)return;_wpDzInit=true;dz.addEventListener('click',()=>{if(!wpListaElegida())return;fi.click();});dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover')});dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');if(!wpListaElegida())return;if(e.dataTransfer.files[0])processWeeklyPdf(e.dataTransfer.files[0]);});fi.addEventListener('change',e=>{if(!wpListaElegida()){fi.value='';return;}if(e.target.files[0])processWeeklyPdf(e.target.files[0]);});}
 
         async function processWeeklyPdf(file){
             if(!file.name.match(/\.pdf$/i)){showAdminToast('Solo archivos PDF','error');return;}
@@ -5526,7 +5620,7 @@ async function previewEditorImg(input,field){
             editingListaId=null;
             document.getElementById('crearListaTitle').textContent='Nueva lista';
             document.getElementById('crearListaNombre').value='';
-            document.getElementById('crearListaPdfSemanal').checked=false;
+            document.getElementById('crearListaEsSemanal').style.display='none';
             document.getElementById('crearListaModal').classList.add('show');
             setTimeout(()=>document.getElementById('crearListaNombre').focus(),100);
         }
@@ -5537,7 +5631,7 @@ async function previewEditorImg(input,field){
             editingListaId=id;
             document.getElementById('crearListaTitle').textContent='Editar lista';
             document.getElementById('crearListaNombre').value=l.nombre;
-            document.getElementById('crearListaPdfSemanal').checked=listaUsaPdfSemanal(l);
+            document.getElementById('crearListaEsSemanal').style.display=listaUsaPdfSemanal(l)?'':'none';
             document.getElementById('crearListaModal').classList.add('show');
             setTimeout(()=>document.getElementById('crearListaNombre').focus(),100);
         }
@@ -5549,16 +5643,20 @@ async function previewEditorImg(input,field){
             if(!nombre){showAdminToast('Ingresa un nombre','error');return;}
             const existe=listasData.find(l=>l.nombre.toUpperCase()===nombre&&l.id!==editingListaId);
             if(existe){showAdminToast('Ya existe una lista con ese nombre','error');return;}
-            const pdfSemanal=!!document.getElementById('crearListaPdfSemanal')?.checked;
             try{
                 if(editingListaId){
-                    await db.collection('listas').doc(editingListaId).update({nombre,pdfSemanal});
+                    /* Solo el nombre. La bandera del PDF Semanal se elige en su propio
+                       modal y es excluyente: si se escribiera desde aca, renombrar una
+                       lista la apagaria o -peor- prenderia una segunda. */
+                    await db.collection('listas').doc(editingListaId).update({nombre});
                     const _l=listasData.find(l=>l.id===editingListaId);
-                    _l.nombre=nombre;_l.pdfSemanal=pdfSemanal;
+                    _l.nombre=nombre;
                     showAdminToast('Lista actualizada','success');
                 }else{
-                    const ref=await db.collection('listas').add({nombre,pdfSemanal});
-                    const nuevaLista={id:ref.id,nombre,pdfSemanal};
+                    /* Explicito en false: una lista nueva no se lleva el PDF Semanal
+                       puesto, y dejar el campo ausente seria volver a la ambiguedad. */
+                    const ref=await db.collection('listas').add({nombre,pdfSemanal:false});
+                    const nuevaLista={id:ref.id,nombre,pdfSemanal:false};
                     listasData.push(nuevaLista);
                     listasData.sort((a,b)=>a.nombre.localeCompare(b.nombre));
                     showAdminToast('Lista creada','success');
@@ -6898,7 +6996,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         <div class="modal-overlay" id="gramajeModal"><div class="modal-box" style="max-width:600px;width:96vw;max-height:92vh;display:flex;flex-direction:column"><div class="modal-header"><h3><i class="bi bi-stack"></i> Asociar gramajes</h3><button class="modal-close" onclick="closeGramajeModal()"><i class="bi bi-x-lg"></i></button></div><div style="padding:1rem;overflow-y:auto;flex:1"><div id="gramajeModalInfo" style="background:var(--bg-input);padding:0.75rem 0.95rem;border-radius:var(--radius);margin-bottom:1rem;font-size:0.88rem"></div><div style="background:#1a2a3a;border:1px solid #2a4a6a;padding:0.75rem;border-radius:var(--radius);margin-bottom:0.85rem;font-size:0.78rem;color:#80b3ff;line-height:1.5"><i class="bi bi-info-circle"></i> Este producto ser&aacute; la <strong>card principal</strong>. Los productos que asocies aparecer&aacute;n como <strong>botones de gramaje</strong> dentro de su card, en vez de mostrarse como cards separadas. Ej: Miel 1kg (principal) + Miel 500g + Miel 250g = 1 sola card con 3 botones.</div><div class="form-group" style="margin-bottom:0.5rem"><label style="font-size:0.85rem;margin-bottom:5px;display:block">Gramaje de la card principal <span style="font-size:0.72rem;color:var(--text-dim)">(ej: 1kg)</span></label><input type="text" class="form-input" id="gramajePrincipalLabel" placeholder="Ej: 1kg"></div><div id="gramajeAsociadosActuales" style="margin-bottom:0.85rem"></div><div class="form-group" style="margin-bottom:0.5rem"><label style="font-size:0.85rem;margin-bottom:5px;display:block">Buscar producto para asociar</label><div class="search-box"><i class="bi bi-search"></i><input type="text" id="gramajeModalSearch" placeholder="Tipe&aacute; nombre del producto" oninput="renderGramajeSugerencias(this.value)"></div></div><div id="gramajeModalLista" class="padre-modal-lista"></div></div><div style="padding:0.75rem 1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-shrink:0"><button class="btn btn-secondary" style="flex:1" onclick="closeGramajeModal()">Cerrar</button><button class="btn btn-primary" style="flex:2" onclick="guardarGramajePrincipal()"><i class="bi bi-check-lg"></i> Guardar gramaje principal</button></div></div></div>
         <div class="modal-overlay" id="exportFormatModal"><div class="modal-box" style="max-width:420px;width:96vw"><div class="modal-header"><h3><i class="bi bi-download"></i> Formato de exportación</h3><button class="modal-close" onclick="document.getElementById('exportFormatModal').classList.remove('show')"><i class="bi bi-x-lg"></i></button></div><div style="padding:1rem"><p style="font-size:0.88rem;color:var(--text-dim);margin-bottom:1rem">¿En qué formato desea descargar los costos?</p><div style="display:flex;gap:0.6rem"><button class="btn btn-primary" style="flex:1;padding:1rem;display:flex;flex-direction:column;align-items:center;gap:6px" onclick="exportCostosWithFormat('xlsx')"><i class="bi bi-file-earmark-excel" style="font-size:1.6rem"></i><span style="font-weight:600">Excel</span><span style="font-size:0.72rem;opacity:0.85">.xlsx</span></button><button class="btn btn-secondary" style="flex:1;padding:1rem;display:flex;flex-direction:column;align-items:center;gap:6px" onclick="exportCostosWithFormat('csv')"><i class="bi bi-file-earmark-text" style="font-size:1.6rem"></i><span style="font-weight:600">CSV</span><span style="font-size:0.72rem;opacity:0.85">.csv</span></button></div></div></div></div>
     <div class="modal-overlay" id="mayoristaModal"><div class="modal-box" style="max-width:560px;width:96vw;max-height:90vh;display:flex;flex-direction:column"><div class="modal-header"><h3><i class="bi bi-file-earmark-pdf"></i> PDF mayorista</h3><button class="modal-close" onclick="closeMayoristaModal()"><i class="bi bi-x-lg"></i></button></div><div style="padding:1rem;overflow-y:auto;flex:1"><div id="mayoristaGroupsList" style="display:flex;flex-direction:column;gap:0.5rem"></div></div><div style="padding:0.75rem 1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-shrink:0"><button class="btn btn-secondary" style="flex:1" onclick="closeMayoristaModal()">Cancelar</button><button class="btn btn-primary" style="flex:2;background:#5b2d8a;border-color:#5b2d8a" onclick="exportMayoristaPDF()"><i class="bi bi-file-earmark-pdf"></i> Generar PDF mayorista</button></div></div></div>
-    <div class="modal-overlay" id="weeklyPdfModal"><div class="modal-box" style="max-width:960px;width:96vw;max-height:94vh"><div class="modal-header"><h3><i class="bi bi-calendar-week"></i> PDF Semanal</h3><button class="modal-close" onclick="document.getElementById('weeklyPdfModal').classList.remove('show')"><i class="bi bi-x-lg"></i></button></div><div style="padding:1rem;overflow-y:auto;max-height:calc(94vh - 80px)"><div style="margin-bottom:1rem"><label style="font-size:0.85rem;color:var(--text-dim);margin-bottom:4px;display:block"><i class="bi bi-funnel"></i> Lista de proveedor a analizar</label><select class="form-input" id="wpListaFiltro" style="max-width:300px"><option value="">Todas las listas</option></select></div><div class="drop-zone" id="dropZoneWeekly" style="padding:1.5rem"><i class="bi bi-file-earmark-pdf" style="font-size:2rem"></i><p>Arrastra el PDF semanal del proveedor</p><p class="hint">.pdf</p></div><input type="file" class="file-input-hidden" id="weeklyPdfInput" accept=".pdf"><div class="upload-progress" id="wpProgress" style="display:none"><div class="progress-bar-wrap"><div class="progress-bar-fill" id="wpBar"></div></div><p class="progress-text" id="wpText">Analizando PDF...</p></div><div id="wpResults" style="display:none"><div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap"><div style="flex:1;min-width:140px;background:#3a3a1a;border:1px solid #5a5a2d;padding:0.75rem;border-radius:var(--radius);cursor:pointer" onclick="wpScrollTo('wpSecRemoved')"><strong style="color:#f0c040;font-size:1.1rem" id="wpRemovedCount">0</strong><span style="font-size:0.82rem;color:#f0c040;display:block">Ocultar del catalogo</span></div><div style="flex:1;min-width:140px;background:#3a2a1a;border:1px solid #5a4a2d;padding:0.75rem;border-radius:var(--radius);cursor:pointer" onclick="wpScrollTo('wpSecPrices')"><strong style="color:#f0a040;font-size:1.1rem" id="wpPriceCount">0</strong><span style="font-size:0.82rem;color:#f0a040;display:block">Cambio precio</span></div><div style="flex:1;min-width:140px;background:#1a3a1a;border:1px solid #2d5a2d;padding:0.75rem;border-radius:var(--radius);cursor:pointer" onclick="wpScrollTo('wpSecNew')"><strong style="color:#67c23a;font-size:1.1rem" id="wpNewCount">0</strong><span style="font-size:0.82rem;color:#67c23a;display:block">Nuevos</span></div><div style="flex:1;min-width:140px;background:#1a2a3a;border:1px solid #2d4a5a;padding:0.75rem;border-radius:var(--radius);cursor:pointer" onclick="wpScrollTo('wpSecReappeared')"><strong style="color:#60a5fa;font-size:1.1rem" id="wpReappearedCount">0</strong><span style="font-size:0.82rem;color:#60a5fa;display:block">Volvieron al PDF</span></div></div><div id="wpSecRemoved" style="margin-bottom:1.5rem"><h4 style="color:#f0c040;margin:0 0 0.5rem;font-size:1rem"><i class="bi bi-eye-slash"></i> Productos a ocultar del catalogo (no estan en el PDF de esta semana)</h4><div id="wpRemovedList" style="font-size:0.88rem"></div></div><div id="wpSecReappeared" style="margin-bottom:1.5rem"><h4 style="color:#60a5fa;margin:0 0 0.5rem;font-size:1rem"><i class="bi bi-eye"></i> Volvieron al PDF (estaban ocultos)</h4><div id="wpReappearedList" style="font-size:0.88rem"></div></div><div id="wpSecPrices" style="margin-bottom:1.5rem"><h4 style="color:#f0a040;margin:0 0 0.5rem;font-size:1rem"><i class="bi bi-arrow-repeat"></i> Cambios de precio</h4><div id="wpPricesList" style="font-size:0.88rem"></div></div><div id="wpSecNew" style="margin-bottom:1.5rem"><h4 style="color:#67c23a;margin:0 0 0.5rem;font-size:1rem"><i class="bi bi-plus-circle"></i> Productos nuevos (no estan en la BDD)</h4><div id="wpNewList" style="font-size:0.88rem"></div></div></div></div></div></div>
+    <div class="modal-overlay" id="weeklyPdfModal"><div class="modal-box" style="max-width:960px;width:96vw;max-height:94vh"><div class="modal-header"><h3><i class="bi bi-calendar-week"></i> PDF Semanal</h3><button class="modal-close" onclick="document.getElementById('weeklyPdfModal').classList.remove('show')"><i class="bi bi-x-lg"></i></button></div><div style="padding:1rem;overflow-y:auto;max-height:calc(94vh - 80px)"><div style="margin-bottom:1rem"><div id="wpListaFija" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;color:var(--text-dim);flex-wrap:wrap"><i class="bi bi-funnel"></i><span>Lista de proveedor:</span><strong id="wpListaNombre" style="color:var(--text);text-transform:uppercase;letter-spacing:0.02em">&mdash;</strong><button class="btn btn-secondary" style="width:auto;flex:0 0 auto;padding:2px 9px;font-size:0.76rem" onclick="wpMostrarSelector()"><i class="bi bi-pencil"></i> Cambiar</button></div><div id="wpListaElegir" style="display:none"><label style="font-size:0.85rem;color:var(--text-dim);margin-bottom:4px;display:block"><i class="bi bi-funnel"></i> Lista de proveedor del PDF Semanal</label><div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center"><select class="form-input" id="wpListaSelect" style="max-width:300px"></select><button class="btn btn-primary" id="wpGuardarListaBtn" style="width:auto;flex:0 0 auto" onclick="wpGuardarListaPredeterminada()"><i class="bi bi-check-lg"></i> Guardar</button><button class="btn btn-secondary" id="wpCancelarBtn" style="width:auto;flex:0 0 auto" onclick="wpOcultarSelector()">Cancelar</button></div><small style="display:block;margin-top:5px;font-size:0.76rem;color:var(--text-dim);line-height:1.45">Queda guardada: el bot&oacute;n <b>PDF Semanal</b> va a aparecer s&oacute;lo cuando esta lista est&eacute; seleccionada en Productos, y trabaja &uacute;nicamente sobre ella. No hay que elegirla cada vez.</small></div><input type="hidden" id="wpListaFiltro"></div><div class="drop-zone" id="dropZoneWeekly" style="padding:1.5rem"><i class="bi bi-file-earmark-pdf" style="font-size:2rem"></i><p>Arrastra el PDF semanal del proveedor</p><p class="hint">.pdf</p></div><input type="file" class="file-input-hidden" id="weeklyPdfInput" accept=".pdf"><div class="upload-progress" id="wpProgress" style="display:none"><div class="progress-bar-wrap"><div class="progress-bar-fill" id="wpBar"></div></div><p class="progress-text" id="wpText">Analizando PDF...</p></div><div id="wpResults" style="display:none"><div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap"><div style="flex:1;min-width:140px;background:#3a3a1a;border:1px solid #5a5a2d;padding:0.75rem;border-radius:var(--radius);cursor:pointer" onclick="wpScrollTo('wpSecRemoved')"><strong style="color:#f0c040;font-size:1.1rem" id="wpRemovedCount">0</strong><span style="font-size:0.82rem;color:#f0c040;display:block">Ocultar del catalogo</span></div><div style="flex:1;min-width:140px;background:#3a2a1a;border:1px solid #5a4a2d;padding:0.75rem;border-radius:var(--radius);cursor:pointer" onclick="wpScrollTo('wpSecPrices')"><strong style="color:#f0a040;font-size:1.1rem" id="wpPriceCount">0</strong><span style="font-size:0.82rem;color:#f0a040;display:block">Cambio precio</span></div><div style="flex:1;min-width:140px;background:#1a3a1a;border:1px solid #2d5a2d;padding:0.75rem;border-radius:var(--radius);cursor:pointer" onclick="wpScrollTo('wpSecNew')"><strong style="color:#67c23a;font-size:1.1rem" id="wpNewCount">0</strong><span style="font-size:0.82rem;color:#67c23a;display:block">Nuevos</span></div><div style="flex:1;min-width:140px;background:#1a2a3a;border:1px solid #2d4a5a;padding:0.75rem;border-radius:var(--radius);cursor:pointer" onclick="wpScrollTo('wpSecReappeared')"><strong style="color:#60a5fa;font-size:1.1rem" id="wpReappearedCount">0</strong><span style="font-size:0.82rem;color:#60a5fa;display:block">Volvieron al PDF</span></div></div><div id="wpSecRemoved" style="margin-bottom:1.5rem"><h4 style="color:#f0c040;margin:0 0 0.5rem;font-size:1rem"><i class="bi bi-eye-slash"></i> Productos a ocultar del catalogo (no estan en el PDF de esta semana)</h4><div id="wpRemovedList" style="font-size:0.88rem"></div></div><div id="wpSecReappeared" style="margin-bottom:1.5rem"><h4 style="color:#60a5fa;margin:0 0 0.5rem;font-size:1rem"><i class="bi bi-eye"></i> Volvieron al PDF (estaban ocultos)</h4><div id="wpReappearedList" style="font-size:0.88rem"></div></div><div id="wpSecPrices" style="margin-bottom:1.5rem"><h4 style="color:#f0a040;margin:0 0 0.5rem;font-size:1rem"><i class="bi bi-arrow-repeat"></i> Cambios de precio</h4><div id="wpPricesList" style="font-size:0.88rem"></div></div><div id="wpSecNew" style="margin-bottom:1.5rem"><h4 style="color:#67c23a;margin:0 0 0.5rem;font-size:1rem"><i class="bi bi-plus-circle"></i> Productos nuevos (no estan en la BDD)</h4><div id="wpNewList" style="font-size:0.88rem"></div></div></div></div></div></div>
 
     <!-- === MODAL PEDIDO === -->
     <div class="modal-overlay" id="estadoPedidoModal">
@@ -6989,7 +7087,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
       </div>
     </div>
     <!-- MODAL CREAR/EDITAR LISTA -->
-    <div class="modal-overlay" id="crearListaModal"><div class="modal-box" style="max-width:400px"><div class="modal-header"><h3 id="crearListaTitle">Nueva lista</h3><button class="modal-close" onclick="closeCrearListaModal()"><i class="bi bi-x-lg"></i></button></div><div class="form-group" style="margin-bottom:1rem"><label>Nombre de la lista (proveedor)</label><input type="text" class="form-input" id="crearListaNombre" placeholder="Ej: LA HUERTA" style="text-transform:uppercase"></div><label style="display:flex;align-items:flex-start;gap:0.7rem;cursor:pointer;margin-bottom:1rem"><input type="checkbox" id="crearListaPdfSemanal" style="width:18px;height:18px;margin:0.15rem 0 0;flex:0 0 auto;accent-color:var(--accent)"><span><span style="display:block;font-size:0.9rem;font-weight:600">Este proveedor cambia precios cada semana</span><span style="display:block;font-size:0.78rem;color:var(--text-dim);line-height:1.45">Con esto marcado, al filtrar por esta lista aparece la opci&oacute;n <b>Planilla semanal</b> dentro de Cat&aacute;logos.</span></span></label><div class="form-actions"><button class="btn btn-secondary" onclick="closeCrearListaModal()">Cancelar</button><button class="btn btn-primary" onclick="guardarLista()"><i class="bi bi-check-lg"></i> Guardar</button></div></div></div>
+    <div class="modal-overlay" id="crearListaModal"><div class="modal-box" style="max-width:400px"><div class="modal-header"><h3 id="crearListaTitle">Nueva lista</h3><button class="modal-close" onclick="closeCrearListaModal()"><i class="bi bi-x-lg"></i></button></div><div class="form-group" style="margin-bottom:1rem"><label>Nombre de la lista (proveedor)</label><input type="text" class="form-input" id="crearListaNombre" placeholder="Ej: LA HUERTA" style="text-transform:uppercase"></div><div id="crearListaEsSemanal" style="display:none;background:#1a2a3a;border:1px solid #2a4a6a;padding:0.6rem 0.75rem;border-radius:var(--radius);margin-bottom:1rem;font-size:0.78rem;color:#80b3ff;line-height:1.5"><i class="bi bi-calendar-week"></i> Es la lista del <b>PDF Semanal</b>. Se cambia desde el bot&oacute;n <b>PDF Semanal</b>, en Productos.</div><div class="form-actions"><button class="btn btn-secondary" onclick="closeCrearListaModal()">Cancelar</button><button class="btn btn-primary" onclick="guardarLista()"><i class="bi bi-check-lg"></i> Guardar</button></div></div></div>
     <!-- MODAL REASIGNAR LISTA -->
     <div class="modal-overlay" id="reasignarListaModal"><div class="modal-box" style="max-width:700px"><div class="modal-header"><h3>Reasignar lista</h3><button class="modal-close" onclick="closeReasignarListaModal()"><i class="bi bi-x-lg"></i></button></div><div class="toolbar" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem"><div class="search-box" style="flex:1;min-width:180px"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto..." id="rlSearch" oninput="renderRlList()"></div><select class="form-input" style="width:auto;min-width:140px" id="rlFiltroLista" onchange="renderRlList()"><option value="">Todas las listas</option></select><label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="rlSelAll" onchange="toggleRlAll(this.checked)"> Seleccionar todos</label></div><div id="rlList" style="max-height:350px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:1rem"></div><div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap"><span style="font-size:0.85rem;color:var(--text-dim)">Mover <strong id="rlSelCount">0</strong> seleccionados a:</span><select class="form-input" style="width:auto;min-width:160px" id="rlDestinoLista"><option value="">Elegir lista...</option></select><button class="btn btn-primary" style="width:auto" onclick="aplicarReasignacion()"><i class="bi bi-shuffle"></i> Reasignar</button></div></div></div>
     <!-- MODAL CONFIG RESEÑAS -->
