@@ -18,6 +18,15 @@ const PORT = parseInt(process.argv[2] || '5173', 10);
    antes de servir el panel que apunta a la base real. */
 const SANDBOX = process.env.MODO_SANDBOX === '1';
 
+/* Solo la propia maquina, salvo que se pida lo contrario.
+   Escuchaba en TODAS las interfaces, que es el default de Node cuando no se le
+   dice host. Eso significaba que cualquiera en la misma red -un wifi compartido,
+   un locutorio, la conexion de un cliente- podia abrir /admin, que es el panel
+   que apunta a la base REAL. Para hacer algo hacia falta una cuenta de admin, asi
+   que no era un agujero de datos, pero es superficie que no hace falta.
+   Para probar la tienda desde el celular en la misma red:  ABRIR_EN_LA_RED=1 */
+const HOST = process.env.ABRIR_EN_LA_RED === '1' ? '0.0.0.0' : '127.0.0.1';
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -134,6 +143,7 @@ http.createServer((req, res) => {
     });
     res.end(data);
   });
-}).listen(PORT, () => {
-  console.log('Brotes Dietetica -> http://localhost:' + PORT);
+}).listen(PORT, HOST, () => {
+  console.log('Brotes Dietetica -> http://localhost:' + PORT +
+    (HOST === '0.0.0.0' ? '   (ABIERTO A LA RED LOCAL)' : ''));
 });
