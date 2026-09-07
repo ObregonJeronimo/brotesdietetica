@@ -66,7 +66,8 @@ async function elegirPuerto() {
   /* El servidor queda en primer plano: mientras no termine, emulators:exec no
      apaga el emulador. */
   const srv = spawn(process.execPath, [path.join(RAIZ, 'dev-server.js'), String(puerto)],
-    { cwd: RAIZ, stdio: 'inherit' });
+    { cwd: RAIZ, stdio: 'inherit',
+      env: Object.assign({}, process.env, { MODO_SANDBOX: '1' }) });
   srv.on('exit', c => process.exit(c || 0));
   process.on('SIGINT', () => { srv.kill(); process.exit(0); });
 })().catch(e => { console.error('\n  ' + e.message + '\n'); process.exit(1); });
