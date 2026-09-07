@@ -50,11 +50,16 @@ document.addEventListener('keydown', function (e) {
     if (eraRafaga && cod.length >= LECTOR_LARGO_MIN && gap <= LECTOR_GAP_MAX) {
       e.preventDefault();
       e.stopPropagation();
+      _enterUno = 0;            /* el Enter de la pistola no cuenta para cerrar */
       _limpiarCampo(e.target, cod);
       procesarCodigoLeido(cod);
+    } else {
+      /* Enter de una persona: puede ser el de cerrar la venta. */
+      _enterHumano(e);
     }
     return;
   }
+  _enterUno = 0;   /* cualquier otra tecla corta la seguidilla de Enters */
   if (e.key.length !== 1) { _lecBuf = ''; _lecRafaga = false; return; }
   if (gap > LECTOR_GAP_MAX) { _lecBuf = e.key; _lecRafaga = false; }
   else { _lecBuf += e.key; _lecRafaga = _lecBuf.length >= 2; }
@@ -70,6 +75,89 @@ function _limpiarCampo(target, cod) {
     target.value = target.value.replace(cod, '');
     target.dispatchEvent(new Event('input', { bubbles: true }));
   }
+}
+
+/* ===================== VENTA RAPIDA: DOBLE ENTER =====================
+
+   El que atiende no deberia tener que soltar la pistola. El flujo es: tocar V,
+   escanear todo lo que compra el cliente, y cerrar con DOS Enter seguidos. Sin
+   mouse y sin poner el foco en ningun campo.
+
+   Por que DOS y no uno: la pistola termina cada lectura con un Enter. Cuando la
+   rafaga se detecta, ese Enter se traga arriba y no llega aca; pero si un lector
+   escribe mas lento que LECTOR_GAP_MAX, su Enter pasa por humano. Con un solo
+   Enter, ese caso registraria la venta a mitad de carga. Con dos seguidos no:
+   entre lectura y lectura hay digitos, y cualquier tecla que no sea Enter corta
+   la seguidilla.
+
+   Y tienen que ser RAPIDOS, uno detras del otro: si pasa mas de VENTA_DOBLE_ENTER_MS
+   se vuelve a empezar. Un Enter suelto no hace nada, a proposito.
+
+   Vive en este archivo y no en admin.html porque es el unico lugar que sabe si un
+   Enter lo mando la pistola o una persona: arriba ya se distinguio la rafaga. */
+
+const VENTA_DOBLE_ENTER_MS = 1000;
+let _enterUno = 0;
+
+/* Sobre que modal cierra. Devuelve null si no hay ninguno de venta abierto. */
+function _ventaRapidaDestino() {
+  if (_modalAbierto('ventaModal')) {
+    return { boton: 'saveVentaBtn', guardar: 'saveVenta',
+             items: (typeof ventaItems !== 'undefined') ? ventaItems : null, que: 'venta' };
+  }
+  if (_modalAbierto('ventaMayModal')) {
+    return { boton: 'saveVentaMayBtn', guardar: 'saveVentaMay',
+             items: (typeof ventaMayItems !== 'undefined') ? ventaMayItems : null, que: 'venta mayorista' };
+  }
+  return null;
+}
+
+/* Escribiendo en un campo, Enter es del campo: confirma el cliente que se esta
+   buscando, salta a la linea siguiente de una nota. No puede cerrar la venta. */
+function _escribiendo(el) {
+  if (!el) return false;
+  const tag = (el.tagName || '').toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable === true;
+}
+
+/* Con OTRA ventana encima -asignar un codigo, una confirmacion- el Enter es de
+   esa, no de la venta que quedo atras. */
+function _hayOtroModalEncima(idVenta) {
+  return [].slice.call(document.querySelectorAll('.modal-overlay.show'))
+           .some(function (m) { return m.id !== idVenta; });
+}
+
+function _enterHumano(e) {
+  const d = _ventaRapidaDestino();
+  if (!d) { _enterUno = 0; return; }
+  if (_escribiendo(e.target)) { _enterUno = 0; return; }
+  if (_hayOtroModalEncima(d.que === 'venta' ? 'ventaModal' : 'ventaMayModal')) { _enterUno = 0; return; }
+
+  const ahora = Date.now();
+  if (!_enterUno || (ahora - _enterUno) > VENTA_DOBLE_ENTER_MS) {
+    /* Primer Enter: no pasa nada, a proposito. */
+    _enterUno = ahora;
+    return;
+  }
+  _enterUno = 0;
+  e.preventDefault();
+  cerrarVentaRapida(d);
+}
+
+/* Si falta algo para poder cerrar, se dice QUE falta. Quedarse callado con la
+   pistola en la mano es peor que no tener el atajo. */
+function cerrarVentaRapida(d) {
+  const btn = document.getElementById(d.boton);
+  if (btn && btn.disabled) return;             /* ya se esta guardando */
+  if (!d.items || !d.items.length) {
+    showAdminToast('No hay productos en la ' + d.que + '. Escanealos antes de cerrar.', 'error');
+    return;
+  }
+  if (typeof window[d.guardar] !== 'function') {
+    showAdminToast('No se pudo registrar la ' + d.que, 'error');
+    return;
+  }
+  window[d.guardar]();
 }
 
 /* ============================ RUTEO ============================ */
