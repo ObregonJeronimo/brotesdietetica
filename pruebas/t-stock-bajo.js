@@ -114,8 +114,20 @@ t('al recargar, el campo de gramos se llena con lo guardado',
   html.indexOf("if(tg)tg.value=getLowStockThresholdPeso()") > 0);
 
 /* La lista del tooltip ahora mezcla unidades y gramos: el numero solo no
-   alcanza para saber si 450 es poco o mucho. */
-t('el tooltip aclara la unidad de cada uno', /esPorPeso\(p\)\?' g':' u'/.test(html));
+   alcanza para saber si 450 es poco o mucho. Lo escribe stockTexto(), que es el
+   unico lugar donde se decide como se dice un stock -lo usan tambien la tabla de
+   Productos, el modal de "sin categoria" y el informe de duplicados-. */
+t('el tooltip aclara la unidad de cada uno', /tt-stock">'\+esc\(stockTexto\(p\)\)/.test(html));
+(function(){
+  const i=html.indexOf('function stockTexto(');
+  let b=html.indexOf('{',i),prof=0,k;
+  for(k=b;k<html.length;k++){ if(html[k]==='{')prof++; else if(html[k]==='}'){prof--;if(!prof)break;} }
+  const F=new Function(html.slice(html.indexOf('function esPorPeso('),html.indexOf('}',html.indexOf('function esPorPeso('))+1)+
+    '\n'+html.slice(i,k+1)+'\nreturn stockTexto;')();
+  t('y lo que escribe trae la unidad: gramos o kilos a granel',
+    F({tipoVenta:'peso',stock:450})==='450 g' && F({tipoVenta:'peso',stock:40000})==='40 kg');
+  t('y unidades cuando va por unidad', F({tipoVenta:'unidad',stock:8})==='8 u');
+})();
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

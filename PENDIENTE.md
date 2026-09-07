@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 1381 en 47 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
+| Pruebas | 1441 en 48 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **1484 productos, 28 listas, 30 categorías.** Los 611 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A) |
@@ -603,6 +603,66 @@ Sin portarlo, después de la migración la tienda va a mostrar —por ejemplo—
 presentaciones de `YERBA MATE TUCANGUA` (1, 2, 5, 10 y 20 kg) como cinco productos
 separados, todos a granel y con distinto precio por kilo. Los datos quedan listos; falta el
 código.
+
+### D) El PDF Semanal cotizaba el bulto y Brotes guarda el costo por kilo · **ARREGLADO** (07/09/2026)
+
+Lo encontró el dueño preguntando lo correcto: *"en Brotes funcionará igual que en YERCO ese
+botón?"*. **No funcionaba**, y la culpa era de la migración.
+
+El PDF del proveedor cotiza **el bulto**. En Brotes un producto a granel guarda el costo
+**POR KILO** (§5). La planilla venía de YERCO, donde no existe `tipoVenta` y todo se vende
+como viene, así que tomaba el número del PDF y lo escribía derecho en `costo`.
+
+**Medido sobre los 873, con un PDF que no cambiaba ni un precio:**
+
+| | antes | después |
+|---|---|---|
+| marcaría como "cambio de precio" | **290** | **0** |
+| coinciden exacto | 323 | **613** |
+| no se pueden convertir | — | **0** |
+
+Y aplicarlo multiplicaba el precio de venta **hasta x30**: `AVENA INSTANTANEA x 30 Kg` pasaba
+de $2.003/kg a **$60.098/kg**, `FLOR DE HIBISCUS x 25 kg` de $16.568 a **$414.198**. **281
+productos quedaban a más del doble**, sin un solo error de consola. Es la familia del x1000.
+
+**El arreglo:** el costo que sale del PDF pasa siempre por `costoDesdePdf()`, que divide por
+lo que pesa el bulto cuando el producto va a granel. El peso sale del nombre
+(`bultoEnKilos()`, la misma lectura que usó la migración) o del campo `bultoKg` cuando el
+proveedor se comió la unidad. **Si no se puede saber, no se toca nada y se avisa en el
+modal** — quedarse callado sería escribir el costo del bulto como si fuera el del kilo.
+Hoy hay **un solo** producto así, `MIX FRUT. SECOS CLASICO x 2,5`, y ya tiene su `bultoKg`.
+
+**Lo que quedó bien de la migración, y era lo que preocupaba:**
+
+- El botón empareja **sólo por `nombre`**, y de los 873 del PDF **0 no encuentran su ficha**.
+- Los **110 productos con nombre externo distinto del interno** (`ALMIDON DE MAIZ x 5 Kg` →
+  *"FECULA DE MAIZ (envasado) x 5 Kg"*) se copiaron todos: **0 perdidos**.
+- **Las categorías no lo afectan**: sólo se muestran en pantalla y se piden para los
+  productos nuevos. Traducirlas no cambió nada del emparejamiento.
+
+**De paso, dos cosas que ya estaban rotas y no se veían** (venían de YERCO, donde esos campos
+no existen): los productos nuevos que crea la planilla se guardaban **sin `codigo`** —que en
+Brotes es obligatorio y único, y sin él el producto **no se puede editar** (§3, tanda 5g)— y
+**sin `tipoVenta`**. Ahora se crean con los dos, con el costo y el stock ya convertidos si
+van a granel, y `sugerirCodigoProducto()` acepta los códigos reservados en la misma tanda
+(sin eso, dar de alta varios de una vez les ponía **el mismo código a todos**).
+
+`t-pdfsem-granel.js`: 58 asertos, de los cuales **53 fallan contra `0dc821f`**.
+
+### E) El stock a granel se mostraba sin unidad · **ARREGLADO** (07/09/2026)
+
+También lo vio el dueño: *"hay productos que tienen un número altísimo de stock, ¿por qué es
+eso?"*. Eran correctos —`3 ARROYOS COPO AZUCARADO x 4 Kg` con **40000** son 40 kg, o sea los
+10 bultos de 4 kg que había en YERCO— pero **la tabla de Productos mostraba el número pelado,
+sin decir que eran gramos**. Además de confuso es peligroso: invita a "corregir" 40000 a 40 y
+dejar el producto con **40 gramos**.
+
+Ahora lo escribe `stockTexto()`, en un solo lugar, y por arriba del kilo lo dice en kg, que es
+como lo piensa el comercio: **40 kg**, **37,5 kg**, **800 g**, **10 u**. Lo usan las cuatro
+pantallas que dibujaban el stock —la tabla, el tooltip de stock bajo, el modal de "sin
+categoría" y el informe de duplicados—, que es lo que pide §5: cuando la misma cosa se dibuja
+en varios lados, se arregla en uno solo.
+
 
 ---
 

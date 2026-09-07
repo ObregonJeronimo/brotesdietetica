@@ -149,6 +149,11 @@ function mapear(p) {
 
     codigo: codigoLibre(),
     tipoVenta: cl.tipoVenta,
+    /* Cuanto pesa el bulto que factura el proveedor. Se guarda SOLO cuando el
+       nombre no lo dice -al proveedor a veces se le va la unidad-, porque es el
+       numero con el que el PDF Semanal pasa el costo del bulto a costo por kilo.
+       Sin esto, esos productos no se pueden actualizar desde la planilla. */
+    ...(cl.tipoVenta === 'peso' && cl.kg && !envase(p.nombre) ? { bultoKg: cl.kg } : {}),
 
     /* plata: por kilo si es granel, tal cual si va por unidad */
     costo: redondearPrecio((p.costo || 0) / factor),
