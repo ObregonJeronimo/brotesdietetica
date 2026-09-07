@@ -1711,7 +1711,12 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const listaSel=listasData.find(l=>l.id===listaSelId);
             const wrapSemanal=document.getElementById('tbSemanalWrap');
             const sepSemanal=document.getElementById('tbSepSemanal');
-            const verSemanal=listaUsaPdfSemanal(listaSel);
+            /* El boton sale en la lista elegida. Y TAMBIEN cuando todavia no se
+               eligio ninguna, porque si no queda un callejon sin salida: la lista se
+               elige adentro de este modal, y al modal se entra por este boton.
+               Paso de verdad: la migracion creo FRUTICOR-TODOS con pdfSemanal:false y
+               el boton no aparecia ni seleccionandola. */
+            const verSemanal=listaUsaPdfSemanal(listaSel)||(!!listaSel&&!listaPdfSemanal());
             if(wrapSemanal)wrapSemanal.style.display=verSemanal?'':'none';
             if(sepSemanal)sepSemanal.style.display=verSemanal?'':'none';const q=document.getElementById('searchInput').value.toLowerCase(),cat=document.getElementById('filterCat').value,lista=document.getElementById('filterLista')?.value||'';const vis=document.getElementById('filterVisibilidad')?.value||'';let f=allProducts;
             if(q)f=f.filter(p=>coincideProducto(p,q));
@@ -5281,12 +5286,23 @@ async function previewEditorImg(input,field){
                 const data=await file.arrayBuffer();
                 const pdf=await pdfjsLib.getDocument({data}).promise;
                 const OPS=pdfjsLib.OPS;const opNames={};for(const[n,c]of Object.entries(OPS))opNames[c]=n;
-                const PAGE_H=1023;const COL_SPLIT=280;
+                const PAGE_H=1023;
                 pb.style.width='10%';pt.textContent='Leyendo '+pdf.numPages+' paginas...';
                 const pdfProds=[];const yellowProds=new Set();const greenProds=new Set();
                 for(let p=1;p<=pdf.numPages;p++){
                     pb.style.width=(10+Math.round(p/pdf.numPages*60))+'%';pt.textContent='Pagina '+p+'/'+pdf.numPages+'...';
                     const page=await pdf.getPage(p);const ops=await page.getOperatorList();const tc=await page.getTextContent();
+                    /* COL_SPLIT se calcula POR PAGINA, no es una constante fija. En 07/2026 el
+                       proveedor paso el PDF de A4 (595pt de ancho) a A5 (420pt): con el 280 fijo
+                       el nombre de la columna derecha (x=212 en A5) caia del lado izquierdo, se
+                       rompia el apareo nombre/precio y se leian 10 productos de 661. Se escala
+                       proporcional al ancho real de la pagina.
+                       Portado de YERCO, que ya lo tenia arreglado (§6).
+                       TODO: asume que el proveedor mantiene la PROPORCION de columnas. Si cambian
+                       los anchos de columna -no solo el tamaño de papel- hay que reemplazarlo por
+                       autodeteccion: buscar el mayor hueco vertical sin texto en la banda central
+                       de x (aprox 35%-60% del ancho). */
+                    const COL_SPLIT=page.getViewport({scale:1}).width*(280/595);
                     const yOffset=(p-1)*PAGE_H;
                     /* Collect yellow/green rects */
                     let fc=null;const highlights=[];
@@ -5345,7 +5361,11 @@ async function previewEditorImg(input,field){
                 /* Factor 3: New products - cualquier producto del PDF que no este en la BDD (no depende de highlights verdes del proveedor) */
                 wpNewProds=[];uniquePdf.forEach(pp=>{const bdd=bddByName[pp.nombre];if(!bdd){wpNewProds.push({nombre:pp.nombre,costo:Math.round(pp.precio)});}});
                 /* Factor 4: Reappeared - productos ocultos que volvieron al PDF */
-                wpReappeared=[];allProducts.forEach(p=>{if(p.oculto===true&&pdfByName[p.nombre]){const pp=pdfByName[p.nombre];const oldCost=p.costo||0;/* Misma conversion que arriba: si no se puede, se deja el costo que ya tenia y no se marca como cambiado. */const _c=costoDesdePdf(p,pp.precio);const newCost=(_c===null)?oldCost:_c;wpReappeared.push({id:p.id,nombre:p.nombre,categoria:p.categoria||'',subcategoria:p.subcategoria||'',oldCost,newCost,costChanged:oldCost!==newCost,porcentaje:p.porcentaje||0});}});
+                /* Acotado a la lista del PDF. Sin esto recorre el catalogo ENTERO y ofrece
+                   desocultar productos de otros proveedores que casualmente se llamen igual
+                   -en Brotes hay 47 nombres repetidos entre listas-. Las otras tres secciones
+                   ya filtran por lista; esta se habia quedado afuera. */
+                wpReappeared=[];allProducts.filter(p=>!wpListaId||p.lista===wpListaId).forEach(p=>{if(p.oculto===true&&pdfByName[p.nombre]){const pp=pdfByName[p.nombre];const oldCost=p.costo||0;/* Misma conversion que arriba: si no se puede, se deja el costo que ya tenia y no se marca como cambiado. */const _c=costoDesdePdf(p,pp.precio);const newCost=(_c===null)?oldCost:_c;wpReappeared.push({id:p.id,nombre:p.nombre,categoria:p.categoria||'',subcategoria:p.subcategoria||'',oldCost,newCost,costChanged:oldCost!==newCost,porcentaje:p.porcentaje||0});}});
                 pb.style.width='90%';pt.textContent='Generando resultados...';
                 document.getElementById('wpRemovedCount').textContent=wpRemoved.length;
                 document.getElementById('wpPriceCount').textContent=wpPriceChanges.length;

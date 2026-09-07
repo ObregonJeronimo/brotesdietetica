@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 1441 en 48 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
+| Pruebas | 1450 en 48 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **1484 productos, 28 listas, 30 categorías.** Los 611 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A) |
@@ -648,6 +648,47 @@ van a granel, y `sugerirCodigoProducto()` acepta los códigos reservados en la m
 (sin eso, dar de alta varios de una vez les ponía **el mismo código a todos**).
 
 `t-pdfsem-granel.js`: 58 asertos, de los cuales **53 fallan contra `0dc821f`**.
+
+### F) El botón PDF Semanal, revisado contra YERCO función por función · **ALINEADO** (07/09/2026)
+
+El dueño pidió revisar *"muy bien y con atención cómo funciona el botón en YERCO"* y dejarlo
+igual en Brotes. Se compararon **las 19 funciones** del bloque, normalizando sangría y
+comentarios.
+
+**17 son idénticas**, incluidos los cuatro ayudantes del parser (`normName`, `extractQty`,
+`similarName`, `parsePdfPrice`) y `wpApplyPrices`. Las que difieren son `wpAddNewProds` y
+`renderNoCatList`, por los arreglos de §1-bis D y E.
+
+**Y apareció una diferencia que no era nuestra y rompía el botón entero:**
+
+```
+YERCO   const COL_SPLIT = page.getViewport({scale:1}).width * (280/595);
+Brotes  const COL_SPLIT = 280;
+```
+
+Es el corte entre las dos columnas del PDF. **En 07/2026 el proveedor pasó el PDF de A4
+(595pt de ancho) a A5 (420pt).** Con el 280 fijo, el nombre de la columna derecha (x=212 en
+A5) caía del lado izquierdo, se rompía el apareo nombre/precio y **se leían 10 productos de
+661**. YERCO ya lo tenía arreglado; Brotes había quedado con la constante vieja. Portado, y
+movido adentro del bucle de páginas, que es donde tiene que calcularse.
+
+**El callejón sin salida que había dejado la tanda anterior.** La lista se elige **adentro**
+del modal, y al modal se entra **por el botón**; si el botón sólo salía con una lista ya
+elegida, sin ninguna elegida no había forma de entrar. Pasó de verdad: la migración creó
+`FRUTICOR-TODOS` con `pdfSemanal:false` y el botón no aparecía ni seleccionándola. Ahora el
+botón también sale mientras no haya ninguna elegida, y el modal abre pidiéndola.
+**`FRUTICOR-TODOS` quedó como la lista predeterminada** (las otras tres se apagaron).
+
+**"Volvieron al PDF" no filtraba por lista.** Las otras tres secciones sí. Recorría el
+catálogo entero y podía ofrecer desocultar productos de otros proveedores que se llamaran
+igual — y en Brotes hay 47 nombres repetidos entre listas. Acotado. **Falta portarlo a
+YERCO** (§6): allá casi no se nota porque tiene una sola lista real, pero el defecto está.
+
+**Sobre las categorías, que era la otra duda.** Dentro del bloque del PDF Semanal `categoria`
+aparece 25 veces y **ninguna decide nada**: sólo se muestra en los listados de "ocultar" y
+"volvieron", y arma el desplegable de subcategoría para los productos **nuevos**. El
+emparejamiento es `bddByName[pp.nombre]` y el filtro es `p.lista===wpListaId`. **Nunca por
+categoría.** Que se hayan traducido a las 30 del negocio no le afecta en nada.
 
 ### E) El stock a granel se mostraba sin unidad · **ARREGLADO** (07/09/2026)
 
@@ -1428,7 +1469,11 @@ en blanco teniendo el `displayName` de Google en el mismo objeto.
     el mismo agujero: dos productos con el mismo nombre son dos fichas para el cliente, con
     dos precios y dos stocks, y no hay forma de verlos. Se porta entero: `gruposDuplicados()`,
     el modal, y la prueba `t-duplicados.js`. Reusa `claveProducto()`, que YERCO también tiene.
-13. **El PDF Semanal con la lista elegida en su propio modal** (§1-bis B). En YERCO sigue
+13. **Que "Volvieron al PDF" filtre por lista.** Las otras tres secciones de la planilla
+    filtran por `wpListaId`; esa se quedó afuera y recorre el catálogo entero, así que puede
+    ofrecer desocultar productos de otro proveedor que se llamen igual. En YERCO casi no se
+    nota porque tiene una sola lista real, pero el defecto está.
+14. **El PDF Semanal con la lista elegida en su propio modal** (§1-bis B). En YERCO sigue
     clavado al nombre `'FRUTICOR'` en `openWeeklyPdfModal`, así que si el comercio renombra
     la lista el botón deja de encontrarla. Acá sale de la base.
 

@@ -127,5 +127,34 @@ t('cinco altas seguidas dan cinco codigos distintos', new Set(dados).size===5);
 t('ninguno pisa los que ya existian', !dados.some(c=>c==='P-0001'||c==='P-0002'));
 t('sin reservados sigue andando como antes', typeof sug()==='string');
 
+console.log('\nEl PDF paso de A4 a A5: el corte de columna se calcula POR PAGINA');
+/* En 07/2026 el proveedor paso el PDF de A4 (595pt de ancho) a A5 (420pt). Con el 280
+   fijo, el nombre de la columna derecha (x=212 en A5) caia del lado izquierdo, se
+   rompia el apareo nombre/precio y se leian 10 productos de 661. YERCO ya lo tenia
+   arreglado; Brotes se habia quedado con la constante vieja. */
+t('COL_SPLIT ya no es la constante 280', !/const COL_SPLIT=280/.test(src));
+t('se calcula del ancho real de la pagina',
+    /const COL_SPLIT=page\.getViewport\(\{scale:1\}\)\.width\*\(280\/595\)/.test(src));
+t('y adentro del bucle de paginas, no una sola vez',
+    src.indexOf('for(let p=1;p<=pdf.numPages;p++)') < src.indexOf('const COL_SPLIT=page.getViewport'));
+(function(){
+  const corte=w=>w*(280/595);
+  t('en A4 (595pt) el corte sigue dando 280', Math.round(corte(595))===280);
+  t('en A5 (420pt) da 198, no 280', Math.round(corte(420))===198);
+  t('un nombre en x=212 cae en la columna DERECHA en A5', 212>=corte(420));
+  t('con el valor viejo caia en la izquierda: ese era el bug', !(212>=280));
+})();
+
+console.log('\nNo puede quedar un callejon sin salida para elegir la lista');
+/* La lista se elige adentro del modal, y al modal se entra por el boton. Si el boton
+   solo saliera con una lista ya elegida, sin ninguna no habria forma de entrar. Paso:
+   la migracion creo FRUTICOR-TODOS con pdfSemanal:false y el boton no aparecia. */
+t('el boton tambien sale si todavia no hay ninguna lista elegida',
+    /listaUsaPdfSemanal\(listaSel\)\|\|\(!!listaSel&&!listaPdfSemanal\(\)\)/.test(src));
+
+console.log('\n"Volvieron al PDF" no puede tocar otras listas');
+t('filtra por la lista del PDF, como las otras tres secciones',
+    /wpReappeared=\[\];allProducts\.filter\(p=>!wpListaId\|\|p\.lista===wpListaId\)/.test(src));
+
 console.log('\n'+ok+' pasaron, '+fail+' fallaron');
 process.exit(fail?1:0);
