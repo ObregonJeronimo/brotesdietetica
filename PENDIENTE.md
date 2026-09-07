@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 1477 en 49 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
+| Pruebas | 1518 en 50 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **1484 productos, 28 listas, 30 categorías.** Los 611 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A) |
@@ -767,6 +767,49 @@ entra** al carrito y avisa por que; el que tiene precio **sigue entrando**.
 **Lo que sigue siendo del dueño:** cargar los precios que faltan. Son 197 visibles; salen del
 panel filtrando por lista (`FRUTICOR 1` tiene 79 y `OTRO` 77). Mientras tanto la tienda los
 muestra como "Consultar precio", que es honesto y no regala nada.
+
+---
+
+### H) La pistola en la venta: escanear agrega x1 sin pasar por el buscador · **HECHO** (09/09/2026)
+
+**Lo pedido:** que al abrir la venta con **V**, escanear agregue **x1** del producto, con el
+código coincidiendo **exacto**, sin tener que hacer click en la barra de búsqueda. Y que al
+cargar un código de barras no se pueda repetir.
+
+**Por qué no andaba.** El lector ya ruteaba al modal de venta y llamaba a `addVentaItem` —eso
+estaba bien—, pero `buscarPorCodigo` miraba **sólo `codigoBarras`**, y en producción hay
+**1 producto de 1484** con código de barras cargado. Los **1484 sí tienen `codigo`**, que es
+el que sale en las etiquetas que imprime el comercio. Por eso en la práctica no encontraba
+nada y había que escanear **dentro** de la barra del modal, que sí mira el `codigo`.
+
+Ahora reconoce los dos campos, y los dos **exactos**:
+
+| se escanea | antes | ahora |
+|---|---|---|
+| `000685` (código interno) | no encuentra | **GALLETA x1** |
+| `000686` (interno, sin cód. de barras) | no encuentra | **YERBA x1** |
+| `7790009999999` (código de barras) | YERBA | YERBA |
+| `685` (parcial de `000685`) | no encuentra | **no encuentra** |
+
+**Exacto, y no por coincidencia parcial**, que es lo que pidió el dueño y además es
+necesario: el buscador del modal usa `includes()` —`'000320'.includes('320')`—, que está bien
+para elegir a mano, pero para agregar **solo** no sirve: `320` entraría en media docena de
+productos y se cargaría cualquiera.
+
+**Y si el código lo tienen dos productos, no se elige ninguno**: avisa cuáles son y no agrega.
+Agregar el equivocado a una venta es plata mal cobrada y stock mal descontado.
+
+**La otra mitad: el código de barras no se puede repetir.** Había tres caminos que lo escriben
+y sólo dos validaban: escanearlo dentro de la ficha (avisaba) y asignarlo desde el mostrador
+(consultaba la base). **Escrito a mano y guardado no lo miraba nadie.** Se agregó
+`validarCodigoBarras()`, con el mismo criterio que el código interno: primero en memoria,
+después contra la base —que es la que manda, porque otro admin pudo cargar uno hace un
+minuto—, excluyéndose a sí mismo al editar. Vacío sigue siendo válido: casi ningún producto
+tiene código de barras.
+
+Verificado abriendo el panel: con el foco en `BODY` —sin tocar nada— escanear el código
+interno agrega x1, el de barras también, repetirlo suma x2, y `320` no agarra `000320`.
+`t-lector-codigo.js`: **41 asertos**. Las cuatro funciones nuevas no existían en `92492ec`.
 
 ---
 

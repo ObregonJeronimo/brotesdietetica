@@ -1943,6 +1943,31 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             return '';
         }
 
+        /* El codigo de BARRAS tambien tiene que ser unico. No se puede repetir: si dos
+           productos comparten el codigo, la pistola no sabe cual agregar a la venta y
+           deja de servir justo en el mostrador, que es donde se usa.
+           Se valida al guardar, igual que el codigo interno, porque el aviso del lector
+           solo cubre el caso de escanearlo: escrito a mano no lo miraba nadie.
+           Vacio es valido: la mayoria de los productos no tiene codigo de barras. */
+        async function validarCodigoBarras(codBarras, idActual){
+            const cod = String(codBarras == null ? '' : codBarras).trim();
+            if (!cod) return '';
+            if (cod.length > 40) return 'El código de barras no puede tener más de 40 caracteres.';
+            if (!/^[A-Za-z0-9]+$/.test(cod)) return 'El código de barras solo puede tener letras y números.';
+            /* En memoria primero: instantaneo y resuelve casi todos los casos. */
+            const local = (allProducts || []).find(p => p.id !== idActual &&
+                String(p.codigoBarras || '').trim().toUpperCase() === cod.toUpperCase());
+            if (local) return 'Ese código de barras ya lo usa "' + (local.nombreMostrado || local.nombre) + '".';
+            /* Y contra la base, que es la que manda: allProducts puede estar vieja si
+               otro admin cargo un producto hace un minuto. */
+            try {
+                const q = await db.collection('productos').where('codigoBarras', '==', cod).limit(2).get();
+                const otro = q.docs.find(d => d.id !== idActual);
+                if (otro) return 'Ese código de barras ya lo usa "' + (otro.data().nombreMostrado || otro.data().nombre || 'otro producto') + '".';
+            } catch (e) { console.warn('validar codigo de barras:', e); }
+            return '';
+        }
+
         function openModal(id){editingId=id||null;selectedImageFile=null;existingImageUrl=null;_stockAlAbrir=null;document.getElementById('productForm').reset();document.getElementById('pStock').value='0';document.getElementById('pCosto').value='0';document.getElementById('pPorcentaje').value='0';document.getElementById('pPrecio').value='0';_pctMinOriginal=null;const _may=document.getElementById('pPorcentajeMay');if(_may)_may.value='0';const _pMay=document.getElementById('pPrecioMay');if(_pMay)_pMay.value='0';_imgExtraUrls=[];_imgPrincipalUrl=null;_prodCarIdx=0;renderProdCarousel();hideImageSize();if(id){document.getElementById('modalTitle').textContent='Editar Producto';const p=allProducts.find(x=>x.id===id);if(p){document.getElementById('pNombre').value=p.nombre||'';if(document.getElementById('pNombreMostrado'))document.getElementById('pNombreMostrado').value=p.nombreMostrado||'';if(document.getElementById('pGramaje'))document.getElementById('pGramaje').value=p.gramaje||'';if(document.getElementById('pCodigoBarras'))document.getElementById('pCodigoBarras').value=p.codigoBarras||'';if(document.getElementById('pDescuento'))document.getElementById('pDescuento').value=p.descuento||0;document.getElementById('pCosto').value=p.costo||0;document.getElementById('pPorcentaje').value=p.porcentaje||0;_pctMinOriginal=Number(p.porcentaje||0);document.getElementById('pPrecio').value=p.precio||0;document.getElementById('pStock').value=p.stock||0;_stockAlAbrir=Number(p.stock||0);updateCatSelects();document.getElementById('pCategoria').value=p.categoria||'';updateSubcatSelect();document.getElementById('pSubcategoria').value=p.subcategoria||'';document.getElementById('pDescripcion').value=p.descripcion||'';document.getElementById('pValoresNutricionales').value=p.valoresNutricionales||'';document.getElementById('pPorcentajeMay').value=p.porcentajeMayorista||0;calcPrecioModal();_imgExtraUrls=Array.isArray(p.imagenesExtra)?p.imagenesExtra.filter(Boolean):(p.imagenesExtra?p.imagenesExtra.split('\n').filter(Boolean):[]);_imgPrincipalUrl=p.imagen||null;_prodCarIdx=0;renderProdCarousel();calcPrecioModal();if(p.imagen){existingImageUrl=p.imagen;}}}else{document.getElementById('modalTitle').textContent='Nuevo Producto';updateCatSelects();/* Recalculo con el formulario ya limpio: form.reset() devuelve los inputs a 0 pero no borra el display del bloque 'Precio final cliente' ni el color/title que dejo inline la edicion anterior, asi que al abrir 'Nuevo producto' despues de editar uno con descuento se mostraba el precio final de OTRO producto sobre un formulario vacio. */calcPrecioModal();}updateListaSelect(id?allProducts.find(x=>x.id===id)?.lista||'':'');const _brmw=document.getElementById('recalcMayWrap');if(_brmw)_brmw.style.display='none';document.getElementById('productModal').classList.add('show');}
         function downloadProductImage(e){e.preventDefault();e.stopPropagation();if(!existingImageUrl)return;window.open(existingImageUrl,'_blank');}
         function _redondearMayorista(p){return p?Math.ceil(p/50)*50:0;}
@@ -2064,6 +2089,13 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const _codigoProd=normCodigo(document.getElementById('pCodigo')?.value);
             const _errCod=await validarCodigoProducto(_codigoProd, editingId);
             if(_errCod){showAdminToast(_errCod,'error');const _c=document.getElementById('pCodigo');if(_c){_c.value=_codigoProd;_c.focus();}return;}
+            /* Mismo criterio que el codigo interno: no se guarda un codigo de barras
+               repetido. Sin esto la pistola no sabe cual de los dos agregar. */
+            const _cbCampo=document.getElementById('pCodigoBarras');
+            const _codBarras=(_cbCampo?.value||'').replace(/[^0-9A-Za-z]/g,'');
+            const _errCB=await validarCodigoBarras(_codBarras, editingId);
+            if(_errCB){showAdminToast(_errCB,'error');if(_cbCampo){_cbCampo.value=_codBarras;_cbCampo.focus();}return;}
+            if(_cbCampo)_cbCampo.value=_codBarras;
             if(document.getElementById('pCodigo'))document.getElementById('pCodigo').value=_codigoProd;const btn=document.getElementById('saveBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{let _refId=editingId;let imgUrl=existingImageUrl;if(selectedImageFile){btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Subiendo imagen...';imgUrl=await uploadImage(selectedImageFile);}const costo=montoAR(document.getElementById('pCosto').value)||0;const porcentaje=parseFloat(document.getElementById('pPorcentaje').value)||0;const precioCalc=Math.round(costo*(1+porcentaje/100));const pctMay=parseFloat(document.getElementById('pPorcentajeMay')?.value)||0;const precioMayCalc=_redondearMayorista(Math.round(costo*(1+pctMay/100)));const listaVal=document.getElementById('pLista')?.value||'';const descuentoProd=Math.min(100,Math.max(0,parseInt(document.getElementById('pDescuento')?.value)||0));const nombreMostrado=document.getElementById('pNombreMostrado')?.value.trim()||'';const gramajeProd=document.getElementById('pGramaje')?.value.trim()||'';/* Solo digitos: los lectores a veces mandan basura y un codigo con un espacio invisible al final no vuelve a matchear nunca */
             const codBarras=(document.getElementById('pCodigoBarras')?.value||'').replace(/[^0-9A-Za-z]/g,'');const data={nombre:document.getElementById('pNombre').value.trim(),nombreMostrado:nombreMostrado||null,gramaje:gramajeProd||null,codigoBarras:codBarras||null,costo:costo,porcentaje:porcentaje,precio:precioCalc,porcentajeMayorista:pctMay,precioMayorista:precioMayCalc,descuento:descuentoProd,stock:parseInt(document.getElementById('pStock').value)||0,categoria:document.getElementById('pCategoria').value.trim(),subcategoria:document.getElementById('pSubcategoria').value.trim()||null,descripcion:document.getElementById('pDescripcion').value.trim(),valoresNutricionales:document.getElementById('pValoresNutricionales').value.trim(),imagenesExtra:_imgExtraUrls.filter(Boolean),imagen:imgUrl||null,lista:listaVal||null,codigo:_codigoProd,tipoVenta:_tipoVentaProd};btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando datos...';if(editingId){const old=allProducts.find(x=>x.id===editingId);const cambios=[];if(old){if(old.nombre!==data.nombre)cambios.push('nombre: '+old.nombre+' -> '+data.nombre);if(old.precio!==data.precio)cambios.push('precio: $'+old.precio+' -> $'+data.precio);if((old.costo||0)!==data.costo)cambios.push('costo: $'+(old.costo||0)+' -> $'+data.costo);if(old.stock!==data.stock)cambios.push('stock: '+old.stock+' -> '+data.stock);if(old.categoria!==data.categoria)cambios.push('cat: '+old.categoria+' -> '+data.categoria);if(old.subcategoria!==data.subcategoria)cambios.push('subcat: '+(old.subcategoria||'-')+' -> '+(data.subcategoria||'-'));if(old.imagen!==data.imagen)cambios.push('imagen cambiada');}/* Si nadie toco el campo de stock, NO se escribe. Este update mandaba siempre el numero
                absoluto que el formulario habia cargado al abrirse: si el otro admin vendia 12

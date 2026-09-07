@@ -79,9 +79,42 @@ function _modalAbierto(id) {
   return !!(m && m.classList.contains('show'));
 }
 
+function _normCod(v) {
+  return String(v == null ? '' : v).trim().toUpperCase();
+}
+
+/* Un codigo escaneado puede ser de DOS clases, y las dos valen:
+     - codigoBarras: el de fabrica, el que ya viene impreso en el envase
+     - codigo:       el interno de Brotes, que es el que sale en las etiquetas que
+                     imprime el propio comercio
+   El catalogo arranca sin codigos de barra -hoy hay 1 cargado de 1484-, asi que si
+   solo se mirara ese campo la pistola no serviria para nada hasta cargarlos todos a
+   mano. Los 1484 SI tienen `codigo`.
+
+   Las dos comparaciones son EXACTAS. El buscador del modal de venta usa includes()
+   -'000320'.includes('320')-, y para elegir a mano esta bien; para agregar SOLO no
+   sirve: '320' entraria en media docena de productos y se cargaria cualquiera. */
+function coincidenciasCodigo(cod) {
+  if (typeof allProducts === 'undefined' || !Array.isArray(allProducts)) return [];
+  const c = _normCod(cod);
+  if (!c) return [];
+  return allProducts.filter(p => _normCod(p.codigoBarras) === c || _normCod(p.codigo) === c);
+}
+
+/* Solo devuelve producto si hay UNO. Con dos o mas no se elige por el operador:
+   agregar el equivocado a una venta es plata mal cobrada y stock mal descontado. */
 function buscarPorCodigo(cod) {
+  const m = coincidenciasCodigo(cod);
+  return m.length === 1 ? m[0] : null;
+}
+
+/* Para la unicidad del codigo de barras se mira SOLO ese campo: que un codigo de
+   barras coincida con el codigo interno de otro producto no lo vuelve duplicado. */
+function productoConCodigoBarras(cod, exceptoId) {
   if (typeof allProducts === 'undefined' || !Array.isArray(allProducts)) return null;
-  return allProducts.find(p => p.codigoBarras && String(p.codigoBarras) === String(cod)) || null;
+  const c = _normCod(cod);
+  if (!c) return null;
+  return allProducts.find(p => p.id !== exceptoId && _normCod(p.codigoBarras) === c) || null;
 }
 
 function procesarCodigoLeido(cod) {
@@ -89,8 +122,8 @@ function procesarCodigoLeido(cod) {
      darle de alta a uno nuevo sin tener que tipear trece dígitos. */
   const campo = document.getElementById('pCodigoBarras');
   if (_modalAbierto('productModal') && campo) {
-    const otro = buscarPorCodigo(cod);
-    if (otro && otro.id !== (typeof editingId !== 'undefined' ? editingId : null)) {
+    const otro = productoConCodigoBarras(cod, (typeof editingId !== 'undefined' ? editingId : null));
+    if (otro) {
       showAdminToast('Ese código ya es de "' + (otro.nombreMostrado || otro.nombre) + '"', 'error');
       return;
     }
@@ -100,6 +133,19 @@ function procesarCodigoLeido(cod) {
   }
 
   const prod = buscarPorCodigo(cod);
+
+  /* Dos productos con el mismo codigo: no se adivina. Pasa si alguien cargo dos
+     veces el mismo codigo de barras, o si un codigo de barras coincide con el
+     codigo interno de otro producto. */
+  if (!prod) {
+    const varios = coincidenciasCodigo(cod);
+    if (varios.length > 1) {
+      showAdminToast('El codigo ' + cod + ' lo tienen ' + varios.length + ' productos (' +
+        varios.slice(0, 2).map(p => p.nombreMostrado || p.nombre).join(', ') +
+        (varios.length > 2 ? '...' : '') + '). Corrija el repetido antes de escanearlo.', 'error');
+      return;
+    }
+  }
 
   if (_modalAbierto('ventaModal')) {
     if (prod) _agregarYAvisar(prod, addVentaItem, () => _cantEnVenta('min', prod.id));
