@@ -1,5 +1,10 @@
 # Migración FRUTICOR: de YERCO a Brotes
 
+> **Ya se corrió, el 07/09/2026.** Entraron los 873 productos en la lista
+> `FRUTICOR-TODOS` (`WFVxjmicGagEqSRAM117`) y las 893 imágenes. Auditado después con
+> 47 controles, 0 fallaron. Esto queda como referencia y por si hay que rehacerla o
+> migrar otra lista. El detalle está en `PENDIENTE.md` §1-bis A.
+
 Trae los **873 productos** de la lista `FRUTICOR` de YERCO (`yerco-bb620`, lista
 `BsDYIsMLaUkEkesQdfDX`) a Brotes (`brotesdietetica-2f78e`), dentro de una lista **nueva**
 llamada `FRUTICOR-TODOS`. **No borra ni toca nada de las listas que ya existen.**
@@ -52,7 +57,8 @@ En orden, y se planta solo si `FRUTICOR-TODOS` ya existe (para no duplicar):
 4. El **remapeo de punteros** (153 `padreId` + 2 `gramajePadreId`) en una segunda pasada. Los
    ids los pone Firestore al crear, así que escribir el `padreId` de YERCO tal cual dejaría
    153 hijos apuntando a documentos que en Brotes no existen.
-5. Las **17 categorías** que Brotes no tenía.
+5. **0 categorías nuevas**: las de YERCO no se copian, se traducen a las 30 del negocio
+   (`categorias.js`).
 
 Al final cuenta los documentos —no los contadores— y verifica que no queden huérfanos ni
 imágenes apuntando a YERCO.
@@ -86,3 +92,6 @@ La clasificación no se inventa por el nombre. En orden de prioridad:
 3. **El grupo**, cuando al proveedor se le comió la unidad (`MIX FRUT. SECOS CLASICO x 2,5`).
    Los hermanos del `grupoId` dicen que son kilos, y se exige además que el precio por kilo
    quede en el mismo orden que el de ellos.
+
+Y los 47 nombres que ya existían en Brotes entran con `oculto: true`, para que el cliente no
+vea la misma ficha dos veces con dos precios. La tarjeta **Duplicados** del panel los lista.

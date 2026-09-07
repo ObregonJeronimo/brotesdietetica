@@ -415,7 +415,15 @@ const rutaDe = u => { const m = String(u || '').match(/\/o\/([^?]+)/); return m 
   for (const m of mapeados) {
     const cambios = {};
     if (m.origen.padreId && mapaIds[m.origen.padreId]) cambios.padreId = mapaIds[m.origen.padreId];
-    if (m.origen.padreNombre) cambios.padreNombre = m.origen.padreNombre;
+    /* El nombre del padre se toma del padre DE VERDAD, no del padreNombre que
+       traia YERCO: alla 6 quedaron con la grafia vieja porque al padre lo
+       renombraron despues de crear el vinculo ("x 5 KG" cuando el padre hoy se
+       llama "x 5 Kg"). Es el campo que muestra el panel. */
+    if (m.origen.padreId && mapaIds[m.origen.padreId]) {
+      const padre = mapeados.find(x => x.origen.id === m.origen.padreId);
+      if (padre) cambios.padreNombre = padre.d.nombre;
+      else if (m.origen.padreNombre) cambios.padreNombre = m.origen.padreNombre;
+    }
     if (m.origen.gramajePadreId && mapaIds[m.origen.gramajePadreId]) cambios.gramajePadreId = mapaIds[m.origen.gramajePadreId];
     if (!Object.keys(cambios).length) continue;
     lote2.update(dbB.collection('productos').doc(mapaIds[m.origen.id]), cambios);

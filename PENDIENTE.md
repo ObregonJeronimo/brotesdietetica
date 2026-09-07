@@ -1,6 +1,6 @@
 # Brotes Dietética — estado y pendientes
 
-> Actualizado: 04/09/2026.
+> Actualizado: 07/09/2026.
 > No se publica: `.vercelignore` excluye todos los `*.md`.
 
 **El software está terminado.** Lo que falta para entregar no es programar: es cargar
@@ -9,10 +9,10 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 1261 en 45 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
+| Pruebas | 1381 en 47 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
-| **Datos** | **el catálogo YA está cargado: 611 productos, 27 listas de proveedor, 30 categorías** |
+| **Datos** | **1484 productos, 28 listas, 30 categorías.** Los 611 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A) |
 | Último deploy | al día. Vercel despliega solo con `git push origin main`; las functions y las reglas no cambiaron desde el 27/08 |
 
 **Del 28/08 al 04/09 entraron 27 commits**, casi todos de Thiago: compras con lector de
@@ -342,16 +342,56 @@ finales posibles, así que se puede reintentar.
 
 ## 1-bis. LO QUE SIGUE (pedido el 04/09/2026)
 
-### A) Traer los productos de FRUTICOR de YERCO a Brotes · **ENSAYO EN SECO HECHO, FALTA APROBAR LA ESCRITURA**
+### A) Traer los productos de FRUTICOR de YERCO a Brotes · **HECHO** (07/09/2026)
 
 **Lo pedido:** copiar **todos** los productos de la lista `FRUTICOR` de YERCO a Brotes,
 dentro de una lista **nueva** llamada `FRUTICOR-TODOS`. **No se borra ni se toca nada de las
 listas que ya existen.** Todo completo —imágenes, descripciones, precios— **y las
 asociaciones padre-hijo**.
 
-**Estado: el script está escrito y corrido en seco. No se escribió nada en ninguna base.**
-Vive en el scratchpad de la sesión del 05/09 (`migrar.js`, `envase.js`, más los JSON
-bajados). `--dry` deja el informe; `--escribir` es lo que falta autorizar.
+**Entró el 07/09/2026.** El script vive en `migracion/` (ver su `README.md`): `dump.js`
+baja los dos catálogos, `migrar.js --dry` deja el informe sin escribir, `--escribir` lo
+aplica. Se corrió en seco cinco veces antes de escribir.
+
+| | antes | después |
+|---|---|---|
+| productos | 611 | **1484** |
+| listas | 27 | 28 (`FRUTICOR-TODOS` = `WFVxjmicGagEqSRAM117`) |
+| archivos en Storage | 2 (~0 GB) | **895 (19,3 MB, 0,4% del tope de 5 GB)** |
+
+**Auditado después de escribir, con un script aparte que no confía en el que migró:
+reconstruye todo desde YERCO y compara. 47 controles, 0 fallaron.** Lo que probó:
+
+- **Que no se tocó nada de lo que ya estaba.** Los 611 viejos, campo por campo (16 campos)
+  contra el respaldo tomado *antes* de escribir: **ni uno cambió**, ninguno se borró.
+- **Las asociaciones padre-hijo, reconstruidas desde YERCO por NOMBRE.** Los 153 vínculos,
+  y **cada hijo apunta al mismo padre que en YERCO**; ninguno de más, ninguno roto, ninguno
+  fuera de la lista, sin ciclos, y `padreNombre` diciendo el nombre real del padre. Es la
+  única forma de probar que el remapeo de ids no cruzó padres.
+- Los 2 `gramajePadreId` igual, y los **221 grupos** de gramajes con exactamente los mismos
+  integrantes (`grupoId` es un id sintético `grp_...`, no un id de documento: no se remapea).
+- **Los 873 uno por uno contra YERCO**: precio, costo, stock, categoría, descripción,
+  valores nutricionales, gramaje, código de barras, porcentajes, descuento y popular.
+- Códigos: los 1484 con código, **ninguno repetido en todo el catálogo**, ninguno pisó uno
+  viejo.
+- Imágenes: **ninguna apunta ya al bucket de YERCO**, mismos productos con imagen que allá,
+  y 15 al azar abren con **HTTP 200**.
+
+**Verificado también abriendo las páginas**, que es lo que las pruebas no ven:
+
+- En la **tienda**: `PERA WILLIAM'S MEDIANAS x 5 Kg` se dibuja como **"$13.960 el kilo"**, y
+  `subtotalCarrito` da **$6.980 por 500 g** y $13.960 por 1 kg — sin el x1000 de §5. Por
+  unidad, 2 × $2.800 = $5.600.
+- En el **panel**: 1484 productos, 30 categorías, **0 sin categoría**, 47 duplicados. El
+  modal de envasado propio de `LASFOR ARITOS DE MIEL x 1 kg` muestra *"Padre actual: LASFOR
+  ARITOS DE MIEL x 2 kg"*, y los precios cierran: el hijo de 1 kg a **$7.700/kg** y el padre
+  de 2 kg a **$6.950/kg**, más barato por kilo por ser bulto más grande.
+
+**Lo único que hubo que arreglar después de escribir:** 6 productos tenían `padreNombre` con
+la grafía vieja del padre (`x 5 KG` cuando hoy se llama `x 5 Kg`, `-BLANCA-` por `-Blanca-`).
+**Venía así desde YERCO** —renombraron al padre después de crear el vínculo— y se copiaba
+tal cual. Como es el campo que muestra el panel, se corrigieron los 6 y el script ahora toma
+el nombre del padre de verdad, no el que traía guardado.
 
 #### Las tres decisiones, tomadas el 05/09
 
@@ -430,32 +470,71 @@ repetido entre los nuevos, código que choque con Brotes, formato de código, gr
 parseados, precio incoherente con el bulto (`precio/kg × kg` tiene que devolver el precio del
 bulto), stock incoherente, y padres huérfanos.
 
-#### Lo que falta decidir antes de escribir
+#### Las dos decisiones que faltaban, resueltas el 07/09
 
-1. **47 productos van a quedar duplicados.** Los 47 están **todos en `FRUTICOR 1`**, que es
-   la carga parcial de FRUTICOR hecha a mano (126 productos a granel). `FRUTICOR-TODOS` trae
-   los 873 completos, así que esos 47 quedan dos veces en el catálogo. La consigna fue **no
-   tocar las listas que ya existen**, así que el script no los toca. Hay que decidir si
-   después se ocultan los de `FRUTICOR 1` o se borra esa lista.
-2. **17 categorías nuevas.** Las de YERCO no coinciden con las 30 de Brotes: `FRUTAS SECAS`
-   vs `Frutos secos`, `HARINAS, FECULAS Y TEXTU.` vs `Harinas y feculas`, y así. El script
-   las crea tal cual (fiel a YERCO). La alternativa es mapearlas a las 30 que ya existen —
-   son 17 decisiones, y conviene mirarlas juntas.
-3. **Los de 500 gr que no están entre los 47.** La regla los deja en `unidad`, que es lo
-   conservador (no puede dar un precio x1000 mal). Si hay más que van sueltos, están en
-   `clasificacion.csv` filtrando por `envase de 500 g`.
+1. **Los 47 duplicados entran OCULTOS.** Los 47 nombres que ya existían están **todos en
+   `FRUTICOR 1`**, la carga parcial hecha a mano. `FRUTICOR-TODOS` entra completa con los
+   873 —es lo que dice el nombre de la lista— pero esos 47 con `oculto: true`: si entraran
+   visibles, el cliente vería la misma ficha dos veces y con **dos precios distintos**, el
+   cargado a mano y el de YERCO. **No se tocó ninguno de los que ya estaban.** Quedaron
+   **751 visibles y 122 ocultos** (85 que ya venían ocultos de YERCO + estos 47), y
+   **0 duplicados visibles**.
+   Para verlos hay una tarjeta **Duplicados** en Productos, al lado de "Sin Categoría", que
+   los lista agrupados y separa *misma lista* (casi siempre sobra uno) de *listas distintas*
+   (puede ser el mismo producto comprado a dos proveedores). El día que se limpie
+   `FRUTICOR 1`, se destildan desde ahí.
 
-Para revisar: `clasificacion.csv` (873 filas, con motivo, envase, precio antes/después y
-stock antes/después) y `duplicados.csv` (los 47).
+2. **Las categorías de YERCO NO se copiaron: se tradujeron a las 30 del negocio.** Las 30 de
+   Brotes son las que el comercio ya usaba; las 17 de YERCO son de otro comercio. Copiarlas
+   dejaba al cliente con **47 categorías** en el filtro de la tienda y conceptos pisados
+   (`FRUTAS SECAS` al lado de `Frutas secas y desecadas`).
+   El mapeo (`migracion/categorias.js`) no se inventó: se midió contra los **47 productos que
+   el dueño ya había categorizado a mano**, que son la única verdad disponible sobre cómo
+   clasifica él.
 
-#### Cuando se apruebe
+   | método | acierto |
+   |---|---|
+   | por categoría sola | 68% |
+   | por (categoría, **subcategoría**) | 74% |
+   | + capa de palabras sobre el nombre | **94%** |
+   | *(por nombre con tf-idf contra los 611 ya categorizados)* | *49% — peor; descartado* |
 
-`node migrar.js --escribir` hace, en orden: copia las 893 imágenes (guardando el mapa en
-disco, así un corte no recopia), crea la lista, escribe los 873 en lotes de 450, remapea los
-155 punteros en una segunda pasada, y crea las 17 categorías. Se planta solo si
-`FRUTICOR-TODOS` ya existe, para no duplicar. Al final **cuenta los documentos** (no los
-contadores) y verifica que no queden huérfanos ni imágenes apuntando a YERCO.
-Después hay que **recalcular el uso de Storage** desde el panel: sube ~19 MB.
+   Por categoría sola no alcanza porque él parte `CEREALES` entre *Cereales y copos* y
+   *Golosinas*, y `REPOSTERIA` en cuatro. Las subcategorías de YERCO son justo lo que
+   desambigua: `BARRITAS` es Golosinas, `INFLADOS` y `AVENAS` son Cereales y copos, y
+   `REGIONALES Y OTROS` —que parecía un cajón de sastre— adentro trae `ENDULZANTES`,
+   `MERMELADAS`, `LECHES VEGETALES`, `MIEL` y `PASTA DE MANI`, cada una con su categoría en
+   Brotes. Resultado: **0 categorías nuevas**, los 873 entran en 21 de las 30 que ya
+   existían, y sólo **6** caen en *General*.
+
+   **La trampa del azúcar, que casi se escapa.** La primera versión de la capa de palabras
+   marcaba como endulzante cualquier nombre con "azúcar" o "stevia": **94% sobre la muestra
+   de 47**, pero mirando qué movía en los **873** se llevaba puestas ~40 fichas. Las
+   `MERMELADAS C/STEVIA` se iban a Endulzantes en vez de Conservas y dulces, las
+   `LECHES VEGETALES sin azúcar` también, y las `TABLETAS S/AZUCAR` igual. En esos nombres la
+   palabra es un **descriptor** —dice que NO lleva—, no el producto. Ahora se exige que no
+   venga precedida de `sin` / `s/` / `c/` / `con` / `bajo`, y "stevia" y "miel" quedaron fuera de
+   la regla. **Eso no se ve en la muestra: sólo mirando el efecto sobre los 873.**
+
+   La **subcategoría va en `null`**, igual que los 611 que ya tenía Brotes: **ninguno** usa
+   subcategoría, y las 31 de YERCO son jerga de proveedor (`CEREALES LINEA LASFOR`,
+   `PRODUCTOS CACHAFAZ`). No se pierde nada: quedan en YERCO y en `clasificacion.csv`.
+
+#### Lo que queda abierto
+
+- **Los de 500 gr que no estaban entre los 47.** La regla los dejó en `unidad`, que es lo
+  conservador (no puede dar un precio x1000 mal). Si hay más que van sueltos, salen de
+  `clasificacion.csv` filtrando por `envase de 500 g`, y se cambian desde el panel.
+- **Limpiar `FRUTICOR 1`**, que quedó con sus 126 productos y 47 nombres pisados por la
+  lista nueva. La tarjeta **Duplicados** es la herramienta.
+- **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
+
+#### Para revertir
+
+`migracion/mapa-ids.json` guarda el id de la lista y el mapa `idYerco → idBrotes`. Todo lo
+creado vive en `FRUTICOR-TODOS` (`WFVxjmicGagEqSRAM117`), así que alcanza con borrar los
+productos de esa lista y la lista. Las imágenes copiadas quedan en el bucket (19,3 MB) y se
+borran aparte si molestan. El script se planta solo si la lista ya existe, para no duplicar.
 
 ### B) El botón PDF Semanal: una sola lista, elegida en su propio modal · **HECHO** (05/09/2026)
 
@@ -1284,6 +1363,14 @@ en blanco teniendo el `displayName` de Google en el mismo objeto.
       `convertirPedidoEnVentaDesdeModal` lee `p.envio` en alguna línea).
     Y las tres baratas: `deleteVenta` sin liberar el pedido, el cupón `(-undefined%)`, y
     `'entregado'` afuera del contador de pedidos confirmados en las estadísticas.
+
+12. **El informe de productos repetidos** (tarjeta *Duplicados* en Productos). YERCO tiene
+    el mismo agujero: dos productos con el mismo nombre son dos fichas para el cliente, con
+    dos precios y dos stocks, y no hay forma de verlos. Se porta entero: `gruposDuplicados()`,
+    el modal, y la prueba `t-duplicados.js`. Reusa `claveProducto()`, que YERCO también tiene.
+13. **El PDF Semanal con la lista elegida en su propio modal** (§1-bis B). En YERCO sigue
+    clavado al nombre `'FRUTICOR'` en `openWeeklyPdfModal`, así que si el comercio renombra
+    la lista el botón deja de encontrarla. Acá sale de la base.
 
 Una diferencia deliberada: en Brotes el corte del nombre de Google es una función
 aparte (`_nombreDesdeGoogle` en `app.js`) y en YERCO quedó en línea. Se hizo para
