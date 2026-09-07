@@ -302,8 +302,6 @@ async function main() {
   console.log('  ' + compras.length + ' compras, ' + deudas.length + ' a deber por $' +
     debe.toLocaleString('es-AR'));
   console.log('  admins: ' + ADMINS.join(', '));
-  console.log('');
-  console.log('  Entrá a  http://localhost:5173/sandbox');
 }
 
 main().catch(e => { console.error('  Falló la siembra: ' + e.message); process.exit(1); });
