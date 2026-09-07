@@ -81,7 +81,14 @@ function _modalAbierto(id) {
 
 function buscarPorCodigo(cod) {
   if (typeof allProducts === 'undefined' || !Array.isArray(allProducts)) return null;
-  return allProducts.find(p => p.codigoBarras && String(p.codigoBarras) === String(cod)) || null;
+  const deFabrica = allProducts.find(p => p.codigoBarras && String(p.codigoBarras) === String(cod));
+  if (deFabrica) return deFabrica;
+  /* Y si no, puede ser una etiqueta impresa por el local: esas no estan guardadas
+     en ningun campo, se derivan del codigo de proveedor. Sin esto, escanear una
+     bolsa de granel etiquetada por el propio local abria "a que producto
+     corresponde este codigo", como si fuera de un fabricante desconocido. */
+  if (typeof etiquetaProductoDe === 'function') return etiquetaProductoDe(cod, allProducts);
+  return null;
 }
 
 function procesarCodigoLeido(cod) {
@@ -92,6 +99,11 @@ function procesarCodigoLeido(cod) {
     const otro = buscarPorCodigo(cod);
     if (otro && otro.id !== (typeof editingId !== 'undefined' ? editingId : null)) {
       showAdminToast('Ese código ya es de "' + (otro.nombreMostrado || otro.nombre) + '"', 'error');
+      return;
+    }
+    if (typeof etiquetaProductoDe === 'function' && etiquetaProductoDe(cod, allProducts || [])) {
+      showAdminToast('Ese es un código impreso por el local, no uno de fábrica. ' +
+                     'Este campo es para el código que trae el envase.', 'error');
       return;
     }
     campo.value = cod;

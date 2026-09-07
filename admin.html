@@ -241,6 +241,27 @@
         .cp-marca{font-size:0.66rem;font-weight:700;color:var(--accent-light);
                   text-transform:uppercase;letter-spacing:0.4px}
         .cp-marca.dudoso{color:#EDB833}
+        /* Etiquetas con codigo de barras. */
+        .etq-fila{display:flex;align-items:center;gap:0.6rem;padding:0.35rem 0.5rem;
+                  border-bottom:1px solid var(--border);cursor:pointer;font-size:0.85rem}
+        .etq-fila:hover{background:var(--bg-hover)}
+        .etq-fila.sel{background:rgba(78,167,116,0.10)}
+        .etq-fila input[type=checkbox]{flex-shrink:0;cursor:pointer}
+        .etq-fila-cod{font-family:var(--mono);font-size:0.76rem;color:var(--text-dim);
+                      flex-shrink:0;width:4.2rem}
+        .etq-fila-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .etq-fila-c{flex-shrink:0;width:4rem}
+        .etq-fila-c input{width:100%;background:var(--bg-input);color:var(--text);
+                          border:1px solid var(--border);border-radius:5px;
+                          padding:2px 5px;font-size:0.8rem;text-align:center}
+        .etq-tag{font-size:0.66rem;color:var(--accent-light);text-transform:uppercase;
+                 letter-spacing:0.4px}
+        .etq-grid{display:none;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));
+                  gap:0.5rem;margin-top:0.6rem}
+        .etq-grid label{font-size:0.72rem;color:var(--text-dim);display:block}
+        .etq-grid input{width:100%;background:var(--bg-input);color:var(--text);
+                        border:1px solid var(--border);border-radius:6px;padding:4px 6px;
+                        font-size:0.82rem}
         .cp-aviso{display:none;align-items:flex-start;gap:0.5rem;background:rgba(237,184,51,0.12);
                   border:1px solid rgba(237,184,51,0.35);border-radius:8px;padding:0.55rem 0.7rem;
                   font-size:0.8rem;line-height:1.45;margin-top:0.5rem}
@@ -581,7 +602,7 @@
         </div>
     </nav>
     <div class="admin-main">
-    <div class="section-content active" id="sec-products"><div id="listasPanel" style="margin-bottom:1.5rem"><div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem"><span style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-weight:600">Listas de proveedores</span><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem" onclick="openCrearListaModal()"><i class="bi bi-plus-lg"></i> Nueva</button><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem;background:#2d4a6b;border-color:#2d4a6b;color:#fff" onclick="openReasignarListaModal()"><i class="bi bi-shuffle"></i> Reasignar lista</button></div><div id="listasCards" style="display:flex;gap:0.5rem;flex-wrap:wrap"><span style="color:var(--text-dim);font-size:0.85rem">Cargando...</span></div></div><div class="stats-row" id="productsStatsRow"><div class="stat-card"><div class="stat-label">Total Productos</div><div class="stat-value" id="statTotal">0</div></div><div class="stat-card"><div class="stat-label">Categorias</div><div class="stat-value" id="statCats">0</div></div><div class="stat-card"><div class="stat-label">Sin Stock <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('outstock')">?</span><div class="stat-tooltip" id="tooltipOutstock"></div></div><div class="stat-value" style="color:var(--danger)" id="statOutStock">0</div></div><div class="stat-card"><div class="stat-label">Stock Bajo <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('lowstock')">?</span><div class="stat-tooltip" id="tooltipLowstock"></div></div><div class="stat-value" style="color:var(--warning)" id="statLowStock">0</div><div class="stock-threshold-row"><label>Unidades:</label><input type="number" class="threshold-input" id="lowStockThreshold" value="10" min="1" max="999" onchange="saveLowStockThreshold()"></div><div class="stock-threshold-row"><label>Gramos:</label><input type="number" class="threshold-input" id="lowStockThresholdPeso" value="500" min="1" max="99999" onchange="saveLowStockThreshold()"></div></div><div class="stat-card"><div class="stat-label">Sin Categoria <span class="stat-tooltip-trigger" onclick="openNoCatModal()">?</span></div><div class="stat-value" style="color:#9b59b6" id="statNoCat">0</div></div><div class="stat-card"><div class="stat-label">Duplicados <span class="stat-tooltip-trigger" onclick="openDupModal()">?</span></div><div class="stat-value" style="color:#e6a23c" id="statDup">0</div></div></div><div class="toolbar" style="margin-bottom:0.6rem"><div class="search-box" style="flex:1;min-width:180px"><i class="bi bi-search"></i><input type="text" placeholder="Buscar por nombre o c&oacute;digo..." id="searchInput" oninput="filterTable()"></div><select class="form-input" style="width:auto;min-width:150px" id="filterCat" onchange="filterTable()"><option value="">Todas las categor&iacute;as</option></select><select class="form-input" style="width:auto;min-width:150px" id="filterLista" onchange="filterTable()"><option value="">Todas las listas</option></select><select class="form-input" style="width:auto;min-width:130px" id="filterVisibilidad" onchange="filterTable()" title="Filtrar por visibilidad en el cat&aacute;logo"><option value="">Visibles y ocultos</option><option value="visibles">Solo visibles</option><option value="ocultos">Solo ocultos</option></select></div><div class="toolbar tb-prod" style="margin-bottom:1rem"><span class="tb-g"><button class="btn btn-primary" onclick="openModal()" title="Dar de alta un producto a mano."><i class="bi bi-plus-lg"></i> Nuevo</button><button class="btn btn-secondary" onclick="openCatManager()" title="Crear, renombrar y borrar categor&iacute;as y subcategor&iacute;as."><i class="bi bi-tags"></i> Categor&iacute;as</button></span><span class="tb-div"></span><span class="tb-g"><button class="btn btn-secondary" onclick="openPriceModal(&quot;all&quot;)" title="Aumenta o reduce el costo de varios productos a la vez."><i class="bi bi-percent"></i> Costo %</button><button class="btn btn-secondary" onclick="openRoundModal(&quot;all&quot;)" title="Redondea los precios a valores parejos. Se usa despu&eacute;s de un aumento."><i class="bi bi-arrows-angle-contract"></i> Redondear</button><button class="btn btn-secondary" onclick="openDescuentoModal()" title="La cinta de -X% OFF que ve el cliente en la tienda."><i class="bi bi-tag-fill"></i> Descuentos</button></span><span class="tb-div"></span><span class="tb-g"><button class="btn btn-secondary" onclick="switchSection(&quot;excel&quot;)" title="Toma la lista del proveedor y actualiza los costos por nombre."><i class="bi bi-box-arrow-in-down"></i> Importar Costos</button><button class="btn btn-secondary" onclick="switchSection(&quot;excelNew&quot;)" title="Da de alta los que todav&iacute;a no est&aacute;n en el cat&aacute;logo."><i class="bi bi-file-earmark-plus"></i> Importar Nuevos</button><button class="btn btn-secondary" onclick="exportCostosExcel()" title="Todo el cat&aacute;logo en Excel, para revisar o mandar al proveedor."><i class="bi bi-box-arrow-up"></i> Exportar Costos</button></span><span class="tb-div"></span><span class="tb-g"><button class="btn btn-secondary" onclick="exportCatalogoPDF()" title="Precios de venta al p&uacute;blico, listo para mandar por WhatsApp."><i class="bi bi-people"></i> Exportar PDF</button><button class="btn btn-secondary" onclick="openMayoristaPdfModal()" title="Con el porcentaje que le pongas a cada cliente mayorista."><i class="bi bi-buildings"></i> Exportar PDF M</button><span class="tb-div tb-div-in" id="tbSepSemanal"></span><span id="tbSemanalWrap"><button class="btn btn-secondary" onclick="openWeeklyPdfModal()" title="Para las listas que cambian de precio todas las semanas."><i class="bi bi-calendar-week"></i> PDF Semanal</button></span></span></div><div class="table-wrap"><div class="table-scroll"><table><thead><tr><th onclick="sortTableBy('imagen')" style="cursor:pointer">Img <i class="bi bi-arrow-down-up" id="sortIconImagen" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('codigo')" style="cursor:pointer">C&oacute;digo <i class="bi bi-arrow-down-up" id="sortIconCodigo" style="font-size:0.6rem;opacity:0.4"></i></th><th>Nombre</th><th>Cat / Sub</th><th onclick="sortTableBy('costo')">Costo <i class="bi bi-arrow-down-up" id="sortIconCosto" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('porcentaje')">Porcentaje(%) <i class="bi bi-arrow-down-up" id="sortIconPct" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('precio')">Precio <i class="bi bi-arrow-down-up" id="sortIconPrecio" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('descuento')" style="cursor:pointer">Desc% <i class="bi bi-arrow-down-up" id="sortIconDesc" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('stock')">Stock <i class="bi bi-arrow-down-up" id="sortIconStock" style="font-size:0.6rem;opacity:0.4"></i></th><th>Acciones</th></tr></thead><tbody id="productsTableBody"><tr><td colspan="10"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Cargando...</p></div></td></tr></tbody></table></div></div></div>
+    <div class="section-content active" id="sec-products"><div id="listasPanel" style="margin-bottom:1.5rem"><div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem"><span style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-weight:600">Listas de proveedores</span><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem" onclick="openCrearListaModal()"><i class="bi bi-plus-lg"></i> Nueva</button><button class="btn btn-secondary" style="width:auto;padding:3px 10px;font-size:0.78rem;background:#2d4a6b;border-color:#2d4a6b;color:#fff" onclick="openReasignarListaModal()"><i class="bi bi-shuffle"></i> Reasignar lista</button></div><div id="listasCards" style="display:flex;gap:0.5rem;flex-wrap:wrap"><span style="color:var(--text-dim);font-size:0.85rem">Cargando...</span></div></div><div class="stats-row" id="productsStatsRow"><div class="stat-card"><div class="stat-label">Total Productos</div><div class="stat-value" id="statTotal">0</div></div><div class="stat-card"><div class="stat-label">Categorias</div><div class="stat-value" id="statCats">0</div></div><div class="stat-card"><div class="stat-label">Sin Stock <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('outstock')">?</span><div class="stat-tooltip" id="tooltipOutstock"></div></div><div class="stat-value" style="color:var(--danger)" id="statOutStock">0</div></div><div class="stat-card"><div class="stat-label">Stock Bajo <span class="stat-tooltip-trigger" onclick="toggleStatTooltip('lowstock')">?</span><div class="stat-tooltip" id="tooltipLowstock"></div></div><div class="stat-value" style="color:var(--warning)" id="statLowStock">0</div><div class="stock-threshold-row"><label>Unidades:</label><input type="number" class="threshold-input" id="lowStockThreshold" value="10" min="1" max="999" onchange="saveLowStockThreshold()"></div><div class="stock-threshold-row"><label>Gramos:</label><input type="number" class="threshold-input" id="lowStockThresholdPeso" value="500" min="1" max="99999" onchange="saveLowStockThreshold()"></div></div><div class="stat-card"><div class="stat-label">Sin Categoria <span class="stat-tooltip-trigger" onclick="openNoCatModal()">?</span></div><div class="stat-value" style="color:#9b59b6" id="statNoCat">0</div></div><div class="stat-card"><div class="stat-label">Duplicados <span class="stat-tooltip-trigger" onclick="openDupModal()">?</span></div><div class="stat-value" style="color:#e6a23c" id="statDup">0</div></div></div><div class="toolbar" style="margin-bottom:0.6rem"><div class="search-box" style="flex:1;min-width:180px"><i class="bi bi-search"></i><input type="text" placeholder="Buscar por nombre o c&oacute;digo..." id="searchInput" oninput="filterTable()"></div><select class="form-input" style="width:auto;min-width:150px" id="filterCat" onchange="filterTable()"><option value="">Todas las categor&iacute;as</option></select><select class="form-input" style="width:auto;min-width:150px" id="filterLista" onchange="filterTable()"><option value="">Todas las listas</option></select><select class="form-input" style="width:auto;min-width:130px" id="filterVisibilidad" onchange="filterTable()" title="Filtrar por visibilidad en el cat&aacute;logo"><option value="">Visibles y ocultos</option><option value="visibles">Solo visibles</option><option value="ocultos">Solo ocultos</option></select></div><div class="toolbar tb-prod" style="margin-bottom:1rem"><span class="tb-g"><button class="btn btn-primary" onclick="openModal()" title="Dar de alta un producto a mano."><i class="bi bi-plus-lg"></i> Nuevo</button><button class="btn btn-secondary" onclick="openCatManager()" title="Crear, renombrar y borrar categor&iacute;as y subcategor&iacute;as."><i class="bi bi-tags"></i> Categor&iacute;as</button></span><span class="tb-div"></span><span class="tb-g"><button class="btn btn-secondary" onclick="openPriceModal(&quot;all&quot;)" title="Aumenta o reduce el costo de varios productos a la vez."><i class="bi bi-percent"></i> Costo %</button><button class="btn btn-secondary" onclick="openRoundModal(&quot;all&quot;)" title="Redondea los precios a valores parejos. Se usa despu&eacute;s de un aumento."><i class="bi bi-arrows-angle-contract"></i> Redondear</button><button class="btn btn-secondary" onclick="openDescuentoModal()" title="La cinta de -X% OFF que ve el cliente en la tienda."><i class="bi bi-tag-fill"></i> Descuentos</button></span><span class="tb-div"></span><span class="tb-g"><button class="btn btn-secondary" onclick="switchSection(&quot;excel&quot;)" title="Toma la lista del proveedor y actualiza los costos por nombre."><i class="bi bi-box-arrow-in-down"></i> Importar Costos</button><button class="btn btn-secondary" onclick="switchSection(&quot;excelNew&quot;)" title="Da de alta los que todav&iacute;a no est&aacute;n en el cat&aacute;logo."><i class="bi bi-file-earmark-plus"></i> Importar Nuevos</button><button class="btn btn-secondary" onclick="exportCostosExcel()" title="Todo el cat&aacute;logo en Excel, para revisar o mandar al proveedor."><i class="bi bi-box-arrow-up"></i> Exportar Costos</button></span><span class="tb-div"></span><span class="tb-g"><button class="btn btn-secondary" onclick="openEtiquetasModal()" title="Imprime etiquetas con c&oacute;digo de barras, para escanear en la caja lo que se fracciona en el local."><i class="bi bi-upc-scan"></i> Etiquetas</button></span><span class="tb-div"></span><span class="tb-g"><button class="btn btn-secondary" onclick="exportCatalogoPDF()" title="Precios de venta al p&uacute;blico, listo para mandar por WhatsApp."><i class="bi bi-people"></i> Exportar PDF</button><button class="btn btn-secondary" onclick="openMayoristaPdfModal()" title="Con el porcentaje que le pongas a cada cliente mayorista."><i class="bi bi-buildings"></i> Exportar PDF M</button><span class="tb-div tb-div-in" id="tbSepSemanal"></span><span id="tbSemanalWrap"><button class="btn btn-secondary" onclick="openWeeklyPdfModal()" title="Para las listas que cambian de precio todas las semanas."><i class="bi bi-calendar-week"></i> PDF Semanal</button></span></span></div><div class="table-wrap"><div class="table-scroll"><table><thead><tr><th onclick="sortTableBy('imagen')" style="cursor:pointer">Img <i class="bi bi-arrow-down-up" id="sortIconImagen" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('codigo')" style="cursor:pointer">C&oacute;digo <i class="bi bi-arrow-down-up" id="sortIconCodigo" style="font-size:0.6rem;opacity:0.4"></i></th><th>Nombre</th><th>Cat / Sub</th><th onclick="sortTableBy('costo')">Costo <i class="bi bi-arrow-down-up" id="sortIconCosto" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('porcentaje')">Porcentaje(%) <i class="bi bi-arrow-down-up" id="sortIconPct" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('precio')">Precio <i class="bi bi-arrow-down-up" id="sortIconPrecio" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('descuento')" style="cursor:pointer">Desc% <i class="bi bi-arrow-down-up" id="sortIconDesc" style="font-size:0.6rem;opacity:0.4"></i></th><th onclick="sortTableBy('stock')">Stock <i class="bi bi-arrow-down-up" id="sortIconStock" style="font-size:0.6rem;opacity:0.4"></i></th><th>Acciones</th></tr></thead><tbody id="productsTableBody"><tr><td colspan="10"><div class="empty-state"><i class="bi bi-box-seam"></i><p>Cargando...</p></div></td></tr></tbody></table></div></div></div>
     
         <div class="section-content" id="sec-stock"><div class="toolbar"><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto para agregar stock..." id="stockSearch" oninput="filterStockList()"></div><select class="form-input" style="width:auto;min-width:160px" id="stockFilterCat" onchange="filterStockList()"><option value="">Todas</option></select><button class="btn btn-secondary" style="width:auto" id="stockSortBtn" onclick="toggleStockSort()"><i class="bi bi-sort-numeric-down"></i> Ordenar stock</button></div><div class="stock-masivo"><label class="stock-masivo-lbl"><input type="checkbox" id="stockSelTodos" onchange="stockSeleccionarTodos(this.checked)"><span id="stockSelTodosTxt">Seleccionar todos los que se est&aacute;n viendo</span></label><span class="stock-masivo-cuenta" id="stockSelCuenta"></span><div class="stock-masivo-acc"><label class="stock-masivo-campo" id="stockMasivoUniWrap"><span class="stock-masivo-cap">Cantidad unitaria <b id="stockMasivoUniN"></b></span><input type="number" class="form-input" id="stockMasivoCant" placeholder="unidades" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarStockMasivo();}"></label><label class="stock-masivo-campo" id="stockMasivoPesoWrap"><span class="stock-masivo-cap">Cantidad en gramos <b id="stockMasivoPesoN"></b></span><input type="number" class="form-input" id="stockMasivoCantPeso" placeholder="gramos" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarStockMasivo();}"></label><button class="btn btn-primary" style="width:auto" id="stockMasivoBtn" onclick="agregarStockMasivo()" disabled><i class="bi bi-plus-lg"></i> Agregar al stock</button><button class="btn btn-secondary" style="width:auto" id="stockMasivoLimpiar" onclick="stockLimpiarSeleccion()" hidden>Limpiar</button></div></div><div class="stock-sin-guardar" id="stockSinGuardar" hidden><i class="bi bi-exclamation-triangle"></i><span id="stockSinGuardarTxt" style="flex:1"></span><button class="btn btn-sm btn-primary" style="width:auto" onclick="guardarStockPendiente()" id="stockGuardarTodosBtn"><i class="bi bi-check-lg"></i> Guardar cambios</button><button class="btn btn-sm btn-secondary" style="width:auto" onclick="descartarStockPendiente()">Descartar</button></div><div id="stockList"></div></div>
     <div class="section-content" id="sec-cupones">
@@ -2782,10 +2803,19 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             ).slice(0,25);
         }
 
+        /* El buscador de la caja tambien tiene que entender las etiquetas que
+           imprime el local: si alguien tipea o pega esos trece digitos en vez de
+           escanearlos, no puede quedar en la nada. */
+        function _buscarProdVentaConEtiqueta(q){
+            const propio=(typeof etiquetaProductoDe==='function')
+                ? etiquetaProductoDe((q||'').trim(),allProducts||[]) : null;
+            return propio?[propio]:_buscarProdVenta(q);
+        }
+
         function _pintarBusqueda(contId,q,ctx){
             const c=document.getElementById(contId);
             if(!c)return;
-            const res=_buscarProdVenta(q);
+            const res=_buscarProdVentaConEtiqueta(q);
             if(res===null){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Escriba el nombre del producto o escanee su c\u00f3digo de barras.</div>';return;}
             if(!res.length){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Ning\u00fan producto coincide con esa b\u00fasqueda.</div>';return;}
             c.innerHTML=res.map(p=>_filaProdVenta(p,ctx)).join('');
@@ -6887,6 +6917,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
 <script src="admin-proveedores.js"></script>
 <script src="admin-compras.js"></script>
     <script src="admin-atajos.js"></script>
+    <script src="admin-etiquetas.js"></script>
     <script src="admin-lector.js"></script>
     <script src="admin-admins.js"></script>
 
@@ -7005,6 +7036,77 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeProvExportModal()">Cancelar</button>
         <button class="btn btn-primary" onclick="provExportar()"><i class="bi bi-download"></i> Exportar</button>
+      </div>
+    </div></div>
+
+    <div class="modal-overlay" id="etiquetasModal"><div class="modal-box" style="max-width:820px;width:96vw">
+      <div class="modal-header">
+        <h3><i class="bi bi-upc-scan"></i> Imprimir etiquetas</h3>
+        <button class="modal-close" onclick="closeEtiquetasModal()"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.82rem;color:var(--text-dim);margin:0 0 1rem">
+          Para lo que se fracciona en el local y no trae c&oacute;digo de f&aacute;brica. Se pega la
+          etiqueta en la bolsa y desde ah&iacute; se escanea en la caja como cualquier envasado.
+        </p>
+
+        <div class="form-group">
+          <label>Formato</label>
+          <select class="form-input" id="etqFormato" onchange="etqFormatoCambio()"></select>
+        </div>
+
+        <div class="etq-grid" id="etqCustom">
+          <div><label>Ancho (mm)</label><input type="number" id="etqCustomAncho" value="70" min="20" max="210" onchange="etqResumen()"></div>
+          <div><label>Alto (mm)</label><input type="number" id="etqCustomAlto" value="37" min="15" max="297" onchange="etqResumen()"></div>
+          <div><label>Columnas</label><input type="number" id="etqCustomCols" value="3" min="1" max="10" onchange="etqResumen()"></div>
+          <div><label>Filas</label><input type="number" id="etqCustomFilas" value="8" min="1" max="20" onchange="etqResumen()"></div>
+          <div><label>Margen lat. (mm)</label><input type="number" id="etqCustomMargenH" value="0" min="0" max="40" onchange="etqResumen()"></div>
+          <div><label>Margen sup. (mm)</label><input type="number" id="etqCustomMargenV" value="5" min="0" max="40" onchange="etqResumen()"></div>
+          <div style="display:flex;align-items:flex-end">
+            <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;color:var(--text)">
+              <input type="checkbox" id="etqCustomTermica" style="width:auto" onchange="etqResumen()"> T&eacute;rmica
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin:0.9rem 0">
+          <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem">
+            <input type="checkbox" id="etqConPrecio" checked onchange="etqResumen()"> Incluir el precio
+          </label>
+          <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem">
+            <input type="checkbox" id="etqConCodigo" onchange="etqResumen()"> Incluir el c&oacute;digo interno
+          </label>
+        </div>
+        <div style="font-size:0.76rem;color:var(--warning);margin:-0.5rem 0 1rem">
+          Si la etiqueta lleva el precio, hay que reimprimirla cada vez que ese precio cambie.
+        </div>
+
+        <div class="toolbar" style="margin-bottom:0.5rem">
+          <div class="search-box" style="flex:1;min-width:160px">
+            <i class="bi bi-search"></i>
+            <input type="text" id="etqBuscar" placeholder="Buscar por nombre o c&oacute;digo..." oninput="etqBuscar(this.value)">
+          </div>
+          <select class="form-input" style="width:auto;min-width:150px" id="etqLista" onchange="etqFiltroLista(this.value)"></select>
+          <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.82rem;white-space:nowrap">
+            <input type="checkbox" id="etqSoloPeso" onchange="etqFiltroPeso(this.checked)"> Solo los que van por peso
+          </label>
+        </div>
+
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;align-items:center">
+          <button class="btn btn-secondary btn-sm" style="width:auto" onclick="etqMarcarVisibles()">Marcar los que se ven</button>
+          <button class="btn btn-secondary btn-sm" style="width:auto" onclick="etqDesmarcarTodo()">Desmarcar todo</button>
+          <span style="font-size:0.8rem;color:var(--text-dim);margin-left:auto">Copias a todos:</span>
+          <input type="number" min="1" max="500" value="1" style="width:4.5rem;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:0.82rem;text-align:center" onchange="etqCopiasATodos(this.value)">
+        </div>
+
+        <div id="etqLista_" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px"></div>
+
+        <div id="etqResumen" style="margin-top:0.8rem;font-size:0.86rem"></div>
+        <div id="etqPreview" style="margin-top:0.8rem"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeEtiquetasModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="etiquetasImprimir()"><i class="bi bi-printer"></i> Imprimir</button>
       </div>
     </div></div>
 
