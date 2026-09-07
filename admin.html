@@ -262,6 +262,57 @@
         .etq-grid input{width:100%;background:var(--bg-input);color:var(--text);
                         border:1px solid var(--border);border-radius:6px;padding:4px 6px;
                         font-size:0.82rem}
+        /* Pagada o a deber, al cargar la compra. */
+        .cp-pago{margin-top:0.7rem;padding:0.6rem 0.75rem;background:var(--bg-input);
+                 border:1px solid var(--border);border-radius:8px}
+        .cp-pago-t{font-size:0.78rem;color:var(--text-dim);text-transform:uppercase;
+                   letter-spacing:0.5px;font-weight:600}
+        .cp-pago-op{display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:0.45rem}
+        .cp-pago-op label{display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.87rem}
+        .cp-pago-op input{width:auto;cursor:pointer}
+        .cp-pago-n{font-size:0.78rem;color:var(--text-dim);margin-top:0.35rem;min-height:1.1em}
+
+        /* Las deudas del proveedor. */
+        .deu-total{display:flex;align-items:baseline;gap:0.6rem;padding:0.7rem 0.9rem;
+                   background:var(--bg-input);border:1px solid var(--border);
+                   border-radius:9px;margin-bottom:0.9rem}
+        .deu-total b{font-size:1.35rem;color:var(--danger)}
+        .deu-chico{font-size:0.78rem;color:var(--text-dim)}
+        .deu-card{border:1px solid var(--border);border-radius:9px;margin-bottom:0.6rem;
+                  overflow:hidden;background:var(--bg-card)}
+        .deu-card.parcial{border-left:3px solid #EDB833}
+        .deu-cab{display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.8rem;cursor:pointer}
+        .deu-cab:hover{background:var(--bg-hover)}
+        .deu-nro{font-family:var(--mono);font-size:0.8rem;color:var(--text-dim);flex:0 0 auto}
+        .deu-fec{font-size:0.8rem;color:var(--text-dim);flex:0 0 auto}
+        .deu-est{font-size:0.68rem;font-weight:700;text-transform:uppercase;
+                 letter-spacing:0.4px;flex:1 1 auto}
+        .deu-est.impaga{color:var(--danger)}
+        .deu-est.parcial{color:#EDB833}
+        .deu-saldo{font-weight:700;flex:0 0 auto}
+        .deu-barra{height:4px;background:rgba(255,255,255,0.07);margin:0 0.8rem}
+        .deu-barra span{display:block;height:100%;background:var(--accent)}
+        .deu-detalle{padding:0.2rem 0.8rem 0.8rem;border-top:1px solid var(--border)}
+        .deu-tabla{width:100%;border-collapse:collapse;font-size:0.82rem;margin-top:0.4rem}
+        .deu-tabla td{padding:0.25rem 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+        .deu-tabla td.num{text-align:right;white-space:nowrap;color:var(--text-dim)}
+        .deu-sub{font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;
+                 letter-spacing:0.5px;margin-top:0.7rem;font-weight:600}
+        .deu-pago{display:grid;grid-template-columns:4.5rem 6.5rem 1fr auto;gap:0.5rem;
+                  font-size:0.8rem;padding:0.25rem 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+        .deu-form{margin-top:0.8rem;padding-top:0.7rem;border-top:1px solid var(--border)}
+        .deu-form-r{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:0.6rem}
+        .deu-form-r label{font-size:0.72rem;color:var(--text-dim);display:block}
+        .deu-form-r input,.deu-form-r select{width:100%;background:var(--bg-input);
+                  color:var(--text);border:1px solid var(--border);border-radius:6px;
+                  padding:5px 7px;font-size:0.85rem;margin-top:2px}
+        .deu-form-b{display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.6rem}
+        .deu-vacio{text-align:center;padding:1.6rem 1rem;color:var(--text-dim)}
+        .deu-vacio i{font-size:2rem;color:var(--accent);display:block;margin-bottom:0.5rem}
+        .deu-vacio p{margin:0.3rem 0}
+        .prov-deuda{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.72rem;
+                    font-weight:700;color:var(--danger)}
+        @media(max-width:640px){.deu-form-r{grid-template-columns:1fr}}
         .cp-aviso{display:none;align-items:flex-start;gap:0.5rem;background:rgba(237,184,51,0.12);
                   border:1px solid rgba(237,184,51,0.35);border-radius:8px;padding:0.55rem 0.7rem;
                   font-size:0.8rem;line-height:1.45;margin-top:0.5rem}
@@ -5899,7 +5950,16 @@ prods.push({nombre:_nom,codigo:_cod,tipoVenta:_tv,costo,porcentaje:pMin,precio,p
 
         async function eliminarLista(id,nombre){
             const count=allProducts.filter(p=>p.lista===id).length;
-            if(!await pedirConfirmacion('Eliminar lista "'+nombre+'"?'+(count?' Los '+count+' productos quedarán sin lista.':''),{titulo:'Eliminar lista',peligro:true}))return;
+            /* Una deuda de este proveedor queda apuntando a una lista que ya no
+               existe: el documento sigue diciendo que se debe, pero no hay tarjeta
+               que lo muestre y la plata desaparece de la pantalla. */
+            const _d=(typeof deudaDe==='function')?deudaDe(id):{saldo:0,cuantas:0};
+            const _avisoDeuda=_d.saldo>0
+                ?' OJO: le debés '+(typeof _deuPesos==='function'?_deuPesos(_d.saldo):_d.saldo)+
+                 ' en '+_d.cuantas+' compra'+(_d.cuantas===1?'':'s')+
+                 ', y esa deuda va a dejar de verse en el panel.'
+                :'';
+            if(!await pedirConfirmacion('Eliminar lista "'+nombre+'"?'+(count?' Los '+count+' productos quedarán sin lista.':'')+_avisoDeuda,{titulo:'Eliminar lista',peligro:true}))return;
             try{
                 await db.collection('listas').doc(id).delete();
                 if(count){
@@ -6916,6 +6976,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
 <script src="admin-exportar.js"></script>
 <script src="admin-proveedores.js"></script>
 <script src="admin-compras.js"></script>
+<script src="admin-deudas.js"></script>
     <script src="admin-atajos.js"></script>
     <script src="admin-etiquetas.js"></script>
     <script src="admin-lector.js"></script>
@@ -7036,6 +7097,17 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeProvExportModal()">Cancelar</button>
         <button class="btn btn-primary" onclick="provExportar()"><i class="bi bi-download"></i> Exportar</button>
+      </div>
+    </div></div>
+
+    <div class="modal-overlay" id="deudasModal"><div class="modal-box" style="max-width:700px;width:96vw">
+      <div class="modal-header">
+        <h3 id="deudasTitulo">Deudas</h3>
+        <button class="modal-close" onclick="closeDeudasModal()"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-body" id="deudasCuerpo"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDeudasModal()">Cerrar</button>
       </div>
     </div></div>
 
@@ -7166,6 +7238,17 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
           <input type="checkbox" id="compraSumarStock" checked onchange="compraAvisoStock()">
           <span>Sumar el stock entrante al existente</span>
         </label>
+
+        <div class="cp-pago">
+          <span class="cp-pago-t">&iquest;Esta compra ya se pag&oacute;?</span>
+          <div class="cp-pago-op">
+            <label><input type="radio" name="compraPago" value="pagada" checked
+                          onchange="compraPagoCambio()"><span>Ya la pagu&eacute;</span></label>
+            <label><input type="radio" name="compraPago" value="deuda"
+                          onchange="compraPagoCambio()"><span>Queda como deuda</span></label>
+          </div>
+          <div id="compraPagoNota" class="cp-pago-n"></div>
+        </div>
         <div class="cp-aviso" id="compraAvisoStock">
           <i class="bi bi-exclamation-triangle" style="color:#EDB833;flex:0 0 auto;margin-top:1px"></i>
           <span>El stock <b>no se va a tocar</b>. La compra queda registrada con su gasto y su factura,

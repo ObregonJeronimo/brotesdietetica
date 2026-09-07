@@ -102,6 +102,27 @@ function _cpFechaTxt(f) {
 
 /* ============================ TARJETA EN LA FICHA ============================ */
 
+/* El boton de deudas del proveedor. Si el modulo de deudas no cargo, no se dibuja
+   nada: el resto de la ficha sigue andando. */
+/* El boton de deudas del proveedor. Si el modulo de deudas no cargo, no se dibuja
+   nada: el resto de la ficha sigue andando. */
+function _cpBotonDeudas(listaId) {
+  if (typeof deudaDe !== 'function') return '';
+  const d = deudaDe(listaId);
+  const hay = d.saldo > 0;
+  /* No hay clase btn-danger en el panel: el rojo se pone a mano. */
+  const rojo = hay ? 'background:var(--danger);border-color:var(--danger);color:#fff;' : '';
+  return '<button class="btn btn-secondary" ' +
+    'style="width:100%;margin:0.55rem 0 0.6rem;font-size:0.82rem;padding:0.4rem;' + rojo + '" ' +
+    'onclick="openDeudasModal(\'' + listaId + '\')">' +
+    '<i class="bi bi-cash-stack"></i> ' +
+    (hay ? 'Deudas &middot; le deb\u00e9s ' + _cpPesos(d.saldo) +
+           ' en ' + d.cuantas + ' compra' + (d.cuantas === 1 ? '' : 's')
+         : 'Deudas &middot; no le deb\u00e9s nada') +
+    '</button>';
+}
+
+
 /* El bloque de compras que se dibuja dentro de la ficha del proveedor. */
 function renderComprasDeProveedor(listaId, dias) {
   const d = (_comprasCache && _comprasCache.porProveedor[listaId]) || { total: 0, count: 0, compras: [] };
@@ -127,9 +148,13 @@ function renderComprasDeProveedor(listaId, dias) {
     '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.33rem 0;font-size:0.86rem">' +
       '<span style="color:var(--text-dim)">Gastado en ' + dias + ' días</span>' +
       '<span style="font-weight:700;white-space:nowrap">' + _cpPesos(d.total) + '</span></div>' +
-    '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.33rem 0;font-size:0.86rem;margin-bottom:0.5rem">' +
+    '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.33rem 0;font-size:0.86rem">' +
       '<span style="color:var(--text-dim)">Compras cargadas</span>' +
       '<span style="font-weight:600">' + d.count + '</span></div>' +
+    /* El boton de deudas va acá, pegado a las compras, porque una deuda ES una
+       compra sin saldar. El monto se muestra en el boton: si hay que apretar para
+       saber si se debe algo, nadie lo aprieta. */
+    _cpBotonDeudas(listaId) +
     (filas || '<p style="font-size:0.83rem;color:var(--text-dim);line-height:1.5">' +
       'Todavía no hay compras cargadas de este proveedor. Cargando una queda el gasto, ' +
       'la factura y -si querés- el stock que entró.</p>') +
@@ -165,6 +190,11 @@ function openCompraModal(listaId) {
      la vez anterior: el modal se abria diciendo "remito-5.pdf" y "4 productos
      agregados" con la lista vacia. Se limpian junto con el resto. */
   _cpLimpiarFactura();
+  /* Siempre arranca en "ya la pagué": es el caso comun, y dejar el toggle donde lo
+     habia dejado la vez anterior es como se cargan deudas sin querer. */
+  const rp = document.querySelector('input[name="compraPago"][value="pagada"]');
+  if (rp) rp.checked = true;
+  compraPagoCambio();
   renderCompraItems();
   compraBuscarProd('');
   m.classList.add('show');
@@ -349,6 +379,21 @@ async function _cpLeerRemito(file) {
   _aviso(html);
 }
 
+/* Si queda a deber, se dice con todas las letras dónde va a aparecer. */
+function compraPagoCambio() {
+  const nota = document.getElementById('compraPagoNota');
+  if (!nota) return;
+  nota.textContent = _cpQuedaDebiendo()
+    ? 'Va a figurar como deuda en la ficha del proveedor, hasta que la marques pagada.'
+    : '';
+  nota.style.color = _cpQuedaDebiendo() ? '#EDB833' : 'var(--text-dim)';
+}
+
+function _cpQuedaDebiendo() {
+  const r = document.querySelector('input[name="compraPago"]:checked');
+  return !!r && r.value === 'deuda';
+}
+
 function compraQuitar(i) {
   _compraItems.splice(i, 1);
   renderCompraItems();
@@ -457,9 +502,12 @@ async function guardarCompra() {
     ? '\nEl stock de esos productos va a subir.'
     : '\nOJO: el stock NO se va a tocar, porque destildaste la casilla.';
   if (!await pedirConfirmacion(
-      'Compra a ' + ((lista && lista.nombre) || 'proveedor') + ' por ' + _cpPesos(total) + '\n\n' + resumen + '\n' + aviso,
+      'Compra a ' + ((lista && lista.nombre) || 'proveedor') + ' por ' + _cpPesos(total) +
+      (_cpQuedaDebiendo() ? '\n\nQueda como DEUDA: no se marca como pagada.' : '') +
+      '\n\n' + resumen + '\n' + aviso,
       { titulo: 'Guardar compra', aceptar: 'Guardar' })) return;
 
+  const quedaDebiendo = _cpQuedaDebiendo();
   const btn = document.getElementById('compraGuardarBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Guardando...'; }
   try {
@@ -496,6 +544,16 @@ async function guardarCompra() {
       items: items, total: total,
       facturaUrl: facturaUrl, facturaNombre: facturaNombre,
       sumoStock: sumaStock,
+      /* Deuda. `pagado` es el monto, no un si/no: a un proveedor se le paga en
+         partes. `saldada` existe solo para poder filtrar -Firestore no compara dos
+         campos del mismo documento- y se escribe siempre junto con `pagado`. */
+      pagado: quedaDebiendo ? 0 : total,
+      saldada: !quedaDebiendo,
+      pagos: quedaDebiendo ? [] : [{
+        fecha: _cpFechaTxt(fecha), monto: total, medio: 'Sin especificar',
+        nota: 'Marcada como pagada al cargar la compra',
+        usuario: (auth && auth.currentUser && auth.currentUser.email) || '',
+      }],
       notas: ((document.getElementById('compraNotas') || {}).value || '').trim(),
       usuario: (auth && auth.currentUser && auth.currentUser.email) || '',
       creadoEn: firebase.firestore.FieldValue.serverTimestamp(),
@@ -728,6 +786,16 @@ function compraExportar() {
   if (exportarDoc(doc, fmt)) closeCompraExportModal();
 }
 
+/* Lo que se pierde de plata al borrar una compra. Vacio si no se le pago nada. */
+function _cpAvisoPagos(c) {
+  const pagos = (c && Array.isArray(c.pagos)) ? c.pagos : [];
+  const pagado = Number((c && c.pagado) || 0);
+  if (!pagos.length && pagado <= 0) return '';
+  return '\n\nOJO: esta compra tiene ' + pagos.length + ' pago' + (pagos.length === 1 ? '' : 's') +
+    ' registrado' + (pagos.length === 1 ? '' : 's') + ' por ' + _cpPesos(pagado) +
+    '. Ese registro se borra con la compra y no queda en ningún lado.';
+}
+
 async function borrarCompra(docId) {
   const c = (_comprasCache && _comprasCache.lista.find(x => x.docId === docId));
   if (!c) return;
@@ -739,6 +807,9 @@ async function borrarCompra(docId) {
         ? 'Como esta compra sumó stock, se le va a RESTAR a esos productos lo que había sumado.'
         : 'Esta compra no había sumado stock, así que el inventario no se toca.') +
       _cpAvisoVendidos(c, devuelve) +
+      /* Los pagos viven adentro de la compra: borrarla borra tambien el registro de
+         plata que se le pago al proveedor de verdad. Eso no puede pasar callado. */
+      _cpAvisoPagos(c) +
       '\n\nEsto no se puede deshacer.',
       { titulo: 'Eliminar compra', peligro: true })) return;
   try {
@@ -821,3 +892,6 @@ window.closeCompraExportModal = closeCompraExportModal;
 window.compraExportar = compraExportar;
 window.compraEscanear = compraEscanear;
 window._cpLeerRemito = _cpLeerRemito;
+window.compraPagoCambio = compraPagoCambio;
+window._cpQuedaDebiendo = _cpQuedaDebiendo;
+window._cpAvisoPagos = _cpAvisoPagos;

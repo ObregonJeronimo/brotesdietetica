@@ -135,6 +135,9 @@ async function loadProveedores() {
       /* Las compras las trae admin-compras.js. Si ese modulo no cargo, la
          pantalla sigue funcionando sin la mitad de gasto en vez de romperse. */
       (typeof cargarCompras === 'function') ? cargarCompras(dias) : Promise.resolve(null),
+      /* Las deudas tienen su propia consulta y NO dependen del período: una compra
+         impaga de hace ocho meses se sigue debiendo. */
+      (typeof cargarDeudas === 'function') ? cargarDeudas(true) : Promise.resolve(null),
     ]);
     if (req !== window._provReq) return;
     _provDatos = Object.assign({}, bruto, { porLista: _provAgrupar(bruto) });
@@ -212,6 +215,8 @@ function _provResumen(lista) {
        queda en 0 y la pantalla no muestra la fila. */
     gastado: ((typeof _comprasCache !== 'undefined' && _comprasCache &&
                _comprasCache.porProveedor[lista.id]) || { total: 0 }).total,
+    debe: (typeof deudaDe === 'function' ? deudaDe(lista.id).saldo : 0),
+    deudas: (typeof deudaDe === 'function' ? deudaDe(lista.id).cuantas : 0),
     vendidos: vendidos,
     /* Los que existen en el catálogo y NO se vendieron ni una vez en el período.
        Es el dato que dice qué dejar de comprar. */
@@ -269,6 +274,9 @@ function renderProveedores() {
         (r.sinVender ? ' &middot; ' + r.sinVender + ' sin vender' : '') +
         (r.gastado ? ' &middot; le compraste ' + _provPesos(r.gastado) : '') +
       '</span>' +
+      (r.debe ? '<span class="prov-item-x prov-deuda">' +
+        '<i class="bi bi-exclamation-circle"></i> Le deb&eacute;s ' + _provPesos(r.debe) +
+        '</span>' : '') +
       (mejor ? '<span class="prov-item-x">Lo que m\u00e1s deja: ' + esc(mejor.nombre) + '</span>' : '') +
       '</button>';
   }).join('');
@@ -334,6 +342,10 @@ function _provRenderDetalle() {
       _provCard(esc(lista.nombre) + ' <span style="font-weight:400;color:var(--text-dim);font-size:0.82rem">· últimos ' + dias + ' días</span>',
         _provFila('Facturado', _provPesos(r.facturado)) +
         _provFila('Ventas con productos suyos', String(r.ventas)) +
+        (r.debe
+          ? _provFila('<span style="color:var(--danger)">Le debés</span>',
+              '<span style="color:var(--danger)">' + _provPesos(r.debe) + '</span>')
+          : '') +
         (r.gastado
           ? _provFila('Le compraste', _provPesos(r.gastado)) +
             /* La resta cruda, sin llamarla "ganancia": lo comprado no es lo
@@ -400,6 +412,11 @@ function _provDocExportar(lista, incluirNoVendidos) {
   /* Lo comprado solo aparece si hay compras cargadas, igual que en pantalla:
      una fila "Le compraste $0" hace pensar que no se le compro nunca, cuando
      lo que pasa es que todavia nadie cargo una compra. */
+  /* La deuda va SIEMPRE que exista, no solo si hay compras en el periodo: se
+     puede deber una compra de hace ocho meses y no haberle comprado nada desde
+     entonces. Un informe de un proveedor sin la plata que se le debe es un
+     informe que miente por omision. */
+  if (r.debe) resumen.push(['Le debés', _provPesos(r.debe)]);
   if (r.gastado) {
     resumen.push(['Le compraste', _provPesos(r.gastado)]);
     resumen.push(['Diferencia del período', _provPesos(r.facturado - r.gastado)]);
@@ -412,6 +429,25 @@ function _provDocExportar(lista, incluirNoVendidos) {
   if (r.sinStock) resumen.push(['Sin stock', String(r.sinStock)]);
 
   const bloques = [{ tipo: 'pares', titulo: 'Resumen', filas: resumen }];
+
+  /* El detalle de lo que se debe, compra por compra: es lo que sirve para
+     sentarse a arreglar con el proveedor. */
+  const _deudas = (typeof deudaDe === 'function') ? deudaDe(lista.id) : { compras: [] };
+  if (_deudas.compras && _deudas.compras.length) {
+    bloques.push({
+      tipo: 'tabla',
+      titulo: 'Lo que se le debe (' + _provPesos(_deudas.saldo) + ')',
+      columnas: ['Compra', 'Fecha', 'Total', 'Pagado', 'Debe'],
+      anchos: [22, 26, 34, 34, 34],
+      derecha: [2, 3, 4],
+      filas: _deudas.compras.map(c => {
+        const e = deudaEstado(c);
+        return ['#' + String(c.numero || 0).padStart(4, '0'),
+                (typeof _cpFechaTxt === 'function' ? _cpFechaTxt(c.fecha) : ''),
+                _provPesos(e.total), _provPesos(e.pagado), _provPesos(e.saldo)];
+      }),
+    });
+  }
 
   /* El top NO se agrupa: es un ranking, y partirlo por categoría lo deshace.
      Se le agrega la categoría como columna, que da el mismo dato sin romper el
