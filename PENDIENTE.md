@@ -684,6 +684,32 @@ catálogo entero y podía ofrecer desocultar productos de otros proveedores que 
 igual — y en Brotes hay 47 nombres repetidos entre listas. Acotado. **Falta portarlo a
 YERCO** (§6): allá casi no se nota porque tiene una sola lista real, pero el defecto está.
 
+**Verificado contra el hecho de que en YERCO anda.** El dueño confirmo que un amigo suyo
+sube el PDF todas las semanas hace mas de un mes sin errores. Eso vuelve a YERCO la
+referencia buena, asi que se comprobo lo unico que importa: que el camino de LECTURA de
+Brotes sea el mismo.
+
+| control | resultado |
+|---|---|
+| version de pdf.js | **3.11.174 en los dos** |
+| `processWeeklyPdf`, diff estricto y en orden | las **85 primeras sentencias, identicas** |
+| donde empieza a diferir | sentencia 86, ya con `uniquePdf` armado: **toda la lectura termino antes** |
+| las 4 ayudantes del parser | identicas |
+| funciones que llama la lectura | **25 de 25** existen en Brotes |
+| ids del DOM que toca | **5 de 5** existen |
+
+Y se probo de verdad, fabricando PDFs de dos columnas y dandoselos al lector real:
+
+| | A4 (595pt) | A5 (420pt) |
+|---|---|---|
+| codigo anterior | 200/200 | **0 de 200** |
+| ahora | 200/200 | **200 de 200** |
+
+Queda `pruebas/pdfsem-local.html`, un banco que **saca el lector de `admin.html`** (no es una
+copia) y no toca Firebase: fabrica PDFs en cuatro tamanos de papel, y acepta el PDF de verdad
+arrastrandolo para decir cuantos productos reconocio. Se abre con `node dev-server.js 5174` y
+`http://localhost:5174/pruebas/pdfsem-local.html`.
+
 **Sobre las categorías, que era la otra duda.** Dentro del bloque del PDF Semanal `categoria`
 aparece 25 veces y **ninguna decide nada**: sólo se muestra en los listados de "ocultar" y
 "volvieron", y arma el desplegable de subcategoría para los productos **nuevos**. El

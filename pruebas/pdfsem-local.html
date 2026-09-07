@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Probar el PDF Semanal - sin tocar los datos</title>
+<!--
+  BANCO DE PRUEBAS DEL PDF SEMANAL
+
+  Para que existe: el boton lee el PDF del proveedor y de ahi salen los costos de
+  todo el catalogo. Probarlo en el panel de verdad obliga a andar con cuidado, y lo
+  que mas importa saber -CUANTOS productos reconocio- no se puede ver de otra forma
+  hasta que ya es tarde.
+
+  Aca se lee el PDF con EXACTAMENTE el mismo codigo que usa admin.html -se extrae
+  del archivo, no es una copia- y no se toca Firebase ni se escribe nada.
+
+  QUE PROBAR:
+    1. "Fabricar y leer": arma PDFs de dos columnas en A4, A5 y apaisado. Sirve para
+       comprobar que el corte de columnas se adapta al tamano de papel. En 07/2026 el
+       proveedor paso de A4 a A5 y con el corte fijo se leian 10 productos de 661.
+    2. "Leer un PDF de verdad": arrastra el PDF del proveedor y dice cuantos productos
+       reconocio y con que precios. Si el numero es parecido al del PDF, anda.
+
+  Se abre con el server de desarrollo:  node dev-server.js 5174
+  y despues  http://localhost:5174/pruebas/pdfsem-local.html
+-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--bg:#12151a;--panel:#1a1f27;--borde:#2a3340;--texto:#e6e9ef;--dim:#8b95a5;
+      --ok:#67c23a;--mal:#f56c6c;--acento:#4a9eff;--mono:ui-monospace,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--texto);font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;padding:1.5rem}
+h1{font-size:1.25rem;margin:0 0 .25rem}
+h2{font-size:1rem;margin:0 0 .75rem;color:var(--acento)}
+p.sub{color:var(--dim);margin:0 0 1.5rem;font-size:.9rem}
+.caja{background:var(--panel);border:1px solid var(--borde);border-radius:10px;padding:1rem 1.15rem;margin-bottom:1rem}
+button{background:#2d6b8a;border:1px solid #2d6b8a;color:#fff;border-radius:7px;padding:7px 14px;font-size:.88rem;cursor:pointer}
+button:hover{filter:brightness(1.15)}
+button:disabled{opacity:.5;cursor:default}
+.zona{border:2px dashed var(--borde);border-radius:9px;padding:1.6rem;text-align:center;color:var(--dim);cursor:pointer}
+.zona.encima{border-color:var(--acento);color:var(--acento)}
+table{border-collapse:collapse;width:100%;font-size:.85rem;margin-top:.75rem}
+th,td{text-align:left;padding:5px 9px;border-bottom:1px solid var(--borde)}
+th{color:var(--dim);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+td.num{font-family:var(--mono);text-align:right}
+.ok{color:var(--ok);font-weight:600}
+.mal{color:var(--mal);font-weight:600}
+pre{background:#0e1116;border:1px solid var(--borde);border-radius:7px;padding:.7rem .85rem;
+    font-family:var(--mono);font-size:.8rem;overflow:auto;max-height:340px;margin:.6rem 0 0}
+.aviso{background:#1a2a3a;border:1px solid #2a4a6a;color:#80b3ff;padding:.6rem .8rem;border-radius:7px;font-size:.82rem;margin-bottom:1rem}
+</style>
+</head>
+<body>
+
+<h1>Probar el PDF Semanal</h1>
+<p class="sub">Usa el mismo lector que <code>admin.html</code>, extraido del archivo. No toca Firebase ni escribe nada.</p>
+
+<div class="aviso">
+  El lector parte cada pagina en dos columnas. <b>El corte se calcula segun el ancho real de la pagina</b>,
+  no es fijo: en 07/2026 el proveedor paso el PDF de A4 (595pt) a A5 (420pt), y con el valor fijo de 280
+  los nombres de la columna derecha caian del lado izquierdo y se leian 10 productos de 661.
+</div>
+
+<div class="caja">
+  <h2>1. Fabricar un PDF y leerlo</h2>
+  <p style="color:var(--dim);margin:0 0 .75rem;font-size:.86rem">
+    Arma un PDF de dos columnas con 200 productos en tres tamanos de papel. Los tres tienen que leer 200.</p>
+  <button id="btnFab">Fabricar y leer</button>
+  <div id="salidaFab"></div>
+</div>
+
+<div class="caja">
+  <h2>2. Leer un PDF de verdad</h2>
+  <p style="color:var(--dim);margin:0 0 .75rem;font-size:.86rem">
+    Arrastra el PDF del proveedor. Dice cuantos productos reconocio y muestra los primeros, para comparar a ojo.</p>
+  <div class="zona" id="zona">Arrastra el PDF aca, o hace click</div>
+  <input type="file" id="archivo" accept=".pdf" style="display:none">
+  <div id="salidaReal"></div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ---- El lector, sacado de admin.html ------------------------------------
+   Se trae el cuerpo de processWeeklyPdf y se le recorta la parte que compara
+   contra el catalogo y dibuja la pantalla: aca solo interesa QUE LEYO del PDF.
+   Lo que queda -el corte de columnas, el agrupado por renglon, el apareo
+   nombre/precio y parsePdfPrice- es identico, caracter por caracter. */
+let leerPdf=null, errorCarga=null;
+async function cargarLector(){
+    const src=await (await fetch('../admin.html')).text();
+    function cuerpo(n){
+        const i=src.indexOf('function '+n+'(');
+        if(i<0)throw new Error('no se encontro '+n+' en admin.html');
+        let b=src.indexOf('{',i),d=0,k;
+        for(k=b;k<src.length;k++){ if(src[k]==='{')d++; else if(src[k]==='}'){d--;if(!d)break;} }
+        return src.slice(i,k+1);
+    }
+    const todo=cuerpo('processWeeklyPdf');
+    const desde=todo.indexOf('const data=');
+    const hasta=todo.indexOf("pb.style.width='75%'");
+    if(desde<0||hasta<0)throw new Error('cambio la forma de processWeeklyPdf: revisar este banco');
+    const lectura=todo.slice(desde,hasta);
+    leerPdf=new Function('file','pb','pt','parsePdfPrice',
+        '"use strict";return (async()=>{'+lectura+'\nreturn {uniquePdf,pdfProds,yellowProds,greenProds};})();');
+    window._parsePdfPrice=new Function(cuerpo('parsePdfPrice')+'\nreturn parsePdfPrice;')();
+}
+const nada={style:{}}, nadaTxt={textContent:''};
+async function leer(file){
+    if(!leerPdf){ if(errorCarga)throw new Error(errorCarga); await cargarLector(); }
+    return await leerPdf(file,nada,nadaTxt,window._parsePdfPrice);
+}
+
+/* ---- 1. PDF fabricado --------------------------------------------------- */
+function hacerPdf(ancho,alto,n){
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'pt',format:[ancho,alto]});
+    doc.setFontSize(7);
+    /* misma proporcion que el PDF del proveedor: la columna derecha arranca
+       apenas pasada la mitad (x=212 en un A5 de 420pt) */
+    const xI=Math.round(ancho*0.07), xD=Math.round(ancho*0.505);
+    let y=40,i=0;
+    while(i<n){
+        if(y>alto-30){doc.addPage([ancho,alto]);y=40;}
+        doc.text('PRUEBA IZQ '+String(i).padStart(3,'0')+'          1.'+String(100+i%800).padStart(3,'0')+',00',xI,y);
+        i++;
+        if(i<n){doc.text('PRUEBA DER '+String(i).padStart(3,'0')+'          2.'+String(100+i%800).padStart(3,'0')+',00',xD,y);i++;}
+        y+=9;
+    }
+    return new File([doc.output('blob')],'prueba.pdf',{type:'application/pdf'});
+}
+document.getElementById('btnFab').addEventListener('click',async function(){
+    const b=this; b.disabled=true; b.textContent='Leyendo...';
+    const out=document.getElementById('salidaFab');
+    const N=200;
+    const casos=[['A4 vertical',595,842],['A5 vertical',420,595],['A4 apaisado',842,595],['A5 apaisado',595,420]];
+    let html='<table><tr><th>Papel</th><th>Ancho</th><th class="num">Puestos</th><th class="num">Leidos</th><th>Resultado</th></tr>';
+    try{
+        for(const [nom,w,h] of casos){
+            const r=await leer(hacerPdf(w,h,N));
+            const n=r.uniquePdf.length;
+            html+='<tr><td>'+nom+'</td><td class="num">'+w+'pt</td><td class="num">'+N+'</td><td class="num">'+n+'</td>'+
+                  '<td class="'+(n===N?'ok':'mal')+'">'+(n===N?'OK':'FALLA')+'</td></tr>';
+        }
+        html+='</table>';
+    }catch(e){ html='<pre class="mal">'+e.message+'</pre>'; }
+    out.innerHTML=html; b.disabled=false; b.textContent='Fabricar y leer';
+});
+
+/* ---- 2. PDF de verdad --------------------------------------------------- */
+const zona=document.getElementById('zona'), inp=document.getElementById('archivo');
+zona.addEventListener('click',()=>inp.click());
+zona.addEventListener('dragover',e=>{e.preventDefault();zona.classList.add('encima');});
+zona.addEventListener('dragleave',()=>zona.classList.remove('encima'));
+zona.addEventListener('drop',e=>{e.preventDefault();zona.classList.remove('encima');if(e.dataTransfer.files[0])procesar(e.dataTransfer.files[0]);});
+inp.addEventListener('change',e=>{if(e.target.files[0])procesar(e.target.files[0]);});
+
+async function procesar(file){
+    const out=document.getElementById('salidaReal');
+    out.innerHTML='<p style="color:var(--dim)">Leyendo '+file.name+'...</p>';
+    try{
+        const r=await leer(file);
+        const u=r.uniquePdf;
+        const amar=u.filter(p=>p.color==='Y').length, verd=u.filter(p=>p.color==='G').length;
+        let html='<table>'+
+            '<tr><td>Productos reconocidos</td><td class="num"><b>'+u.length+'</b></td></tr>'+
+            '<tr><td>Renglones leidos (con repetidos)</td><td class="num">'+r.pdfProds.length+'</td></tr>'+
+            '<tr><td>Resaltados en amarillo</td><td class="num">'+amar+'</td></tr>'+
+            '<tr><td>Resaltados en verde</td><td class="num">'+verd+'</td></tr></table>';
+        if(!u.length){
+            html+='<pre class="mal">No reconocio ningun producto.\n\n'+
+                'Puede ser que el PDF no tenga el formato de dos columnas "NOMBRE   1.234,56",\n'+
+                'o que sea un PDF escaneado (imagen), del que no se puede sacar texto.</pre>';
+        }else{
+            html+='<pre>'+u.slice(0,40).map(p=>
+                (p.color==='Y'?'[AMA] ':p.color==='G'?'[VER] ':'      ')+
+                p.nombre.slice(0,52).padEnd(54)+'$'+p.precio.toLocaleString('es-AR')
+            ).join('\n')+(u.length>40?'\n\n... y '+(u.length-40)+' mas':'')+'</pre>';
+        }
+        out.innerHTML=html;
+    }catch(e){ out.innerHTML='<pre class="mal">'+e.message+'</pre>'; }
+}
+</script>
+</body>
+</html>
