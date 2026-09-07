@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Probar deudas - sin tocar la base</title>
+<!--
+  BANCO DE PRUEBAS DE DEUDAS
+
+  El de remitos no necesitaba esto porque leer un PDF no escribe nada. Las deudas
+  SÍ escriben: registrar un pago toca Firestore. Y el panel en localhost apunta a
+  la base real de la clienta, así que ahí no se puede probar.
+
+  Acá adentro hay un Firestore de mentira, en memoria. Se puede pagar, pagar de
+  más, saldar y romper todo lo que se quiera: cuando se cierra la pestaña, no
+  quedó nada en ningún lado.
+
+  NO HAY UNA COPIA DEL PANEL. El modal y los estilos se leen de /admin en el
+  momento, y admin-deudas.js se carga tal cual. Si mañana cambia el panel, este
+  banco cambia con él: no puede quedar probando una versión vieja.
+
+  Se abre con:  npm run dev  ->  http://localhost:5173/pruebas/deudas-local.html
+-->
+<style>
+  body{margin:0;background:#12151b;color:#e8edf4;
+       font:14px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:1.4rem}
+  .envoltorio{max-width:1200px;margin:0 auto}
+  h1{font-size:1.3rem;margin:0 0 .2rem}
+  h2{font-size:.8rem;margin:0 0 .6rem;color:#7fd3a2;text-transform:uppercase;letter-spacing:.6px}
+  .cartel{background:rgba(78,167,116,.12);border:1px solid #4ea774;border-radius:9px;
+          padding:.7rem .9rem;margin:.9rem 0 1.2rem;font-size:.86rem}
+  .cartel b{color:#7fd3a2}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start}
+  @media(max-width:900px){.cols{grid-template-columns:1fr}}
+  .caja{background:#1a1f27;border:1px solid #2c3543;border-radius:11px;padding:1rem 1.1rem}
+  .bt{background:#212832;color:#e8edf4;border:1px solid #2c3543;border-radius:7px;
+      padding:.42rem .8rem;font:inherit;font-size:.85rem;cursor:pointer;margin:0 .35rem .4rem 0}
+  .bt:hover{border-color:#4ea774}
+  .bt.p{background:#4ea774;border-color:#4ea774;color:#0d1116;font-weight:600}
+  pre{background:#212832;border:1px solid #2c3543;border-radius:7px;padding:.6rem;
+      overflow:auto;max-height:420px;font:11.5px/1.5 ui-monospace,Consolas,monospace;
+      color:#8d9aad;white-space:pre-wrap;margin:0}
+  .log{font:11.5px/1.6 ui-monospace,Consolas,monospace;color:#8d9aad;max-height:170px;
+       overflow:auto;background:#212832;border:1px solid #2c3543;border-radius:7px;padding:.5rem}
+  .log b{color:#7fd3a2}
+  .log .err{color:#e0655f}
+  .tenue{color:#8d9aad;font-size:.83rem}
+  ol{padding-left:1.15rem;font-size:.87rem} li{margin:.3rem 0}
+  code{background:#212832;border:1px solid #2c3543;border-radius:4px;padding:.08rem .3rem;
+       font:12px ui-monospace,Consolas,monospace;color:#7fd3a2}
+</style>
+</head>
+<body>
+<div class="envoltorio">
+  <h1>Probar deudas con proveedores</h1>
+  <div class="tenue">Banco de pruebas local. Firestore de mentira, en memoria.</div>
+
+  <div class="cartel">
+    <b>Nada de esto toca la base de la clienta.</b> Los pagos se guardan en una variable
+    y desaparecen al cerrar la pestaña. Se carga el mismo <code>admin-deudas.js</code>
+    que corre en el panel, y el modal y los estilos se leen de <code>/admin</code> en el
+    momento: no hay una copia que pueda quedar vieja.
+  </div>
+
+  <div class="caja" style="margin-bottom:1rem">
+    <h2>Qué probar</h2>
+    <ol>
+      <li>Abrí las deudas de <b>FRUTICOR 1</b>: tiene una sin pagar y una pagada por la mitad.</li>
+      <li>Desplegá una y registrá un pago <b>parcial</b>. Mirá a la derecha cómo cambia
+          <code>pagado</code> y cómo <code>saldada</code> sigue en <code>false</code>.</li>
+      <li>Intentá pagar <b>más de lo que se debe</b>: tiene que rechazarlo.</li>
+      <li>Pagá el saldo entero: la compra desaparece de la lista y <code>saldada</code> pasa a <code>true</code>.</li>
+      <li>Abrí <b>ANDNUTS</b>: tiene una compra <b>vieja</b>, sin los campos nuevos.
+          No tiene que aparecer como deuda.</li>
+    </ol>
+  </div>
+
+  <div class="cols">
+    <div class="caja">
+      <h2>1 · El panel</h2>
+      <div id="botones"></div>
+      <div style="margin-top:.7rem">
+        <button class="bt" onclick="sembrar()">Volver a empezar</button>
+        <button class="bt" onclick="agregarDeuda()">Agregar una compra a deber</button>
+      </div>
+      <div style="margin-top:.8rem">
+        <h2 style="margin-bottom:.35rem">Lo que fue pasando</h2>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+    <div class="caja">
+      <h2>2 · Lo que quedó guardado</h2>
+      <div class="tenue" style="margin-bottom:.5rem">
+        Los documentos tal como estarían en Firestore. Es lo que hay que mirar para
+        saber si un pago se guardó bien.
+      </div>
+      <pre id="base"></pre>
+    </div>
+  </div>
+</div>
+
+<div id="montaje"></div>
+
+<script src="../admin-deudas.js"></script>
+<script>
+/* ============================ FIRESTORE DE MENTIRA ============================
+   Solo lo que usa admin-deudas.js: una consulta por igualdad, un doc por id y
+   una transaccion. No pretende ser Firestore: pretende ser suficiente para que
+   el modulo de verdad corra sin cambiarle una linea. */
+let BASE = [];
+
+function sembrar() {
+  BASE = [
+    { docId: 'c12', numero: 12, proveedorId: 'L1', proveedorNombre: 'FRUTICOR 1',
+      fecha: '2026-08-12T12:00:00', comprobante: 'R 0004-00021873', total: 200000,
+      pagado: 0, saldada: false, pagos: [],
+      items: [{ nombre: 'Semilla De Zapallo', tipoVenta: 'peso', cantidad: 5000, subtotal: 120000 },
+              { nombre: 'Quinoa Inflada', tipoVenta: 'peso', cantidad: 3000, subtotal: 80000 }] },
+    { docId: 'c13', numero: 13, proveedorId: 'L1', proveedorNombre: 'FRUTICOR 1',
+      fecha: '2026-08-25T12:00:00', total: 100000,
+      pagado: 40000, saldada: false,
+      pagos: [{ fecha: '01/09/26', monto: 40000, medio: 'Transferencia', nota: 'a cuenta' }],
+      items: [{ nombre: 'Aritos Frutales', tipoVenta: 'unidad', cantidad: 4, subtotal: 100000 }] },
+    { docId: 'c14', numero: 14, proveedorId: 'L1', proveedorNombre: 'FRUTICOR 1',
+      fecha: '2026-08-30T12:00:00', total: 70000, pagado: 70000, saldada: true,
+      pagos: [{ fecha: '30/08/26', monto: 70000, medio: 'Efectivo' }],
+      items: [{ nombre: 'Mani Tostado', tipoVenta: 'peso', cantidad: 2000, subtotal: 70000 }] },
+    /* La de antes del registro de pagos: sin `pagado`, sin `saldada`, sin `pagos`.
+       Es la que NO puede aparecer como deuda. */
+    { docId: 'vieja', numero: 7, proveedorId: 'L2', proveedorNombre: 'ANDNUTS',
+      fecha: '2026-03-04T12:00:00', total: 88000,
+      items: [{ nombre: 'Nuez Pecan', tipoVenta: 'peso', cantidad: 1000, subtotal: 88000 }] },
+  ];
+  anotar('Base reiniciada: ' + BASE.length + ' compras', true);
+  refrescar();
+  if (typeof _deudasCache !== 'undefined') cargarDeudas(true).then(refrescar);
+}
+
+const db = {
+  collection: (nombre) => {
+    if (nombre !== 'compras') throw new Error('el banco solo simula "compras"');
+    return {
+      where: (campo, op, valor) => ({
+        get: async () => ({
+          forEach: (f) => BASE.filter(d => d[campo] === valor)
+            .forEach(d => f({ id: d.docId, data: () => JSON.parse(JSON.stringify(d)) })),
+        }),
+      }),
+      doc: (id) => ({ __id: id }),
+    };
+  },
+  runTransaction: async (fn) => fn({
+    get: async (ref) => {
+      const d = BASE.find(x => x.docId === ref.__id);
+      return { exists: !!d, data: () => JSON.parse(JSON.stringify(d)) };
+    },
+    update: (ref, campos) => {
+      const d = BASE.find(x => x.docId === ref.__id);
+      Object.assign(d, campos);
+      anotar('ESCRIBE en ' + ref.__id + ': ' + JSON.stringify({
+        pagado: campos.pagado, saldada: campos.saldada, pagos: (campos.pagos || []).length }));
+      refrescar();
+    },
+  }),
+};
+
+/* ======================= LO QUE EL PANEL DA POR SENTADO =======================
+   admin-deudas.js espera encontrar estas cosas definidas por admin.html. Son
+   atajos, no copias de logica: lo que se prueba es el modulo, no esto. */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function showAdminToast(m, tipo) { anotar(m, tipo !== 'error', tipo === 'error'); }
+function logAction(a, b, c) { anotar('historial: ' + b); }
+function loadProveedores() { /* en el panel refresca la ficha */ }
+const auth = { currentUser: { email: 'prueba@local' } };
+let listasData = [{ id: 'L1', nombre: 'FRUTICOR 1' }, { id: 'L2', nombre: 'ANDNUTS' }];
+/* Estas dos son de admin-compras.js. El modulo de deudas ya las llama con guarda,
+   pero se definen para que el banco muestre lo mismo que el panel. */
+function _cpFechaTxt(f) {
+  const d = new Date(f);
+  return isNaN(d) ? '-' : d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+function _cpCant(it) {
+  const q = Number(it.cantidad || 0);
+  if (it.tipoVenta !== 'peso') return q.toLocaleString('es-AR') + ' u';
+  return q < 1000 ? q + ' g' : (q / 1000).toLocaleString('es-AR') + ' kg';
+}
+
+/* =========================== EL PANEL, SIN COPIARLO ===========================
+   El modal y los estilos se traen de /admin en vivo. Duplicar el HTML acá seria
+   armar una copia que se desincroniza el dia que alguien toque el modal. */
+async function montar() {
+  const txt = await (await fetch('/admin')).text();
+  const doc = new DOMParser().parseFromString(txt, 'text/html');
+  doc.querySelectorAll('style').forEach(s => {
+    const c = document.createElement('style');
+    c.textContent = s.textContent;
+    document.head.appendChild(c);
+  });
+  const modal = doc.getElementById('deudasModal');
+  if (!modal) { anotar('no encontre el modal de deudas en /admin', false, true); return; }
+  document.getElementById('montaje').appendChild(modal);
+  /* Los iconos, para que los botones no salgan pelados. */
+  const icons = document.createElement('link');
+  icons.rel = 'stylesheet';
+  icons.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
+  document.head.appendChild(icons);
+  document.body.style.background = '#12151b';
+
+  document.getElementById('botones').innerHTML = listasData.map(l =>
+    '<button class="bt p" onclick="abrir(\'' + l.id + '\')">Deudas de ' + esc(l.nombre) + '</button>').join('');
+  anotar('Panel montado desde /admin', true);
+}
+
+async function abrir(id) {
+  await openDeudasModal(id);
+  refrescar();
+}
+
+function agregarDeuda() {
+  const n = Math.max(...BASE.map(d => d.numero)) + 1;
+  const monto = 25000 + Math.round(Math.abs(Math.sin(n)) * 90000);
+  BASE.push({ docId: 'c' + n, numero: n, proveedorId: 'L1', proveedorNombre: 'FRUTICOR 1',
+    fecha: new Date().toISOString(), total: monto, pagado: 0, saldada: false, pagos: [],
+    items: [{ nombre: 'Compra de prueba ' + n, tipoVenta: 'unidad', cantidad: 1, subtotal: monto }] });
+  anotar('Agregada la compra #' + n + ' a deber por $' + monto.toLocaleString('es-AR'), true);
+  cargarDeudas(true).then(() => { if (document.getElementById('deudasModal').classList.contains('show')) renderDeudas(); refrescar(); });
+}
+
+function refrescar() {
+  document.getElementById('base').textContent = BASE.map(d =>
+    '#' + String(d.numero).padStart(4, '0') + '  ' + d.proveedorNombre + '\n' +
+    '   total    ' + d.total.toLocaleString('es-AR') + '\n' +
+    '   pagado   ' + (d.pagado === undefined ? '(sin el campo)' : d.pagado.toLocaleString('es-AR')) + '\n' +
+    '   saldada  ' + (d.saldada === undefined ? '(sin el campo)' : d.saldada) + '\n' +
+    '   pagos    ' + (d.pagos === undefined ? '(sin el campo)' : JSON.stringify(d.pagos))
+  ).join('\n\n');
+}
+
+function anotar(msg, ok, err) {
+  const l = document.getElementById('log');
+  const hora = new Date().toLocaleTimeString('es-AR');
+  l.innerHTML = '<div class="' + (err ? 'err' : '') + '">' + hora + '  ' +
+    (ok ? '<b>' + esc(msg) + '</b>' : esc(msg)) + '</div>' + l.innerHTML;
+}
+
+sembrar();
+montar();
+</script>
+</body>
+</html>
