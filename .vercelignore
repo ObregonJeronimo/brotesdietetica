@@ -37,6 +37,13 @@ dev-server.js
 _test-*.html
 pruebas/
 
+# El sandbox: el panel entero contra el emulador de Firebase. La ruta /sandbox
+# la sirve dev-server.js, que ya esta excluido arriba, asi que en produccion no
+# existe. Igual se excluye la config, que apunta a demo-brotes: publicarla no
+# abre nada -no existe ese proyecto- pero no pinta en un sitio en produccion.
+firebase-config.sandbox.js
+sandbox/
+
 # OJO: check-admin.js NO va aca a proposito.
 # Vercel corre `npm run build` al desplegar, y el build arranca con `npm run check`,
 # que es ese archivo. Si se excluye, el deploy se cae con "cannot find module".

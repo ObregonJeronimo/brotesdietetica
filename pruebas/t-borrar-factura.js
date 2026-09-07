@@ -104,6 +104,8 @@ async function correr(opts) {
     lineaPesos + '\n' +
     cuerpo('_cpEsPeso') + cuerpo('_cpCant') +
     cuerpo('_cpStockTrasDevolver') + cuerpo('_cpAvisoVendidos') +
+    /* borrarCompra ahora avisa tambien si la compra tenia pagos registrados. */
+    cuerpo('_cpAvisoPagos') +
     cuerpo('esArchivoDeStorage') + cuerpo('borrarArchivoDeStorage') +
     cuerpo('_cpBorrarFactura') + cuerpo('borrarCompra') +
     ';return borrarCompra;');

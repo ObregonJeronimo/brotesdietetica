@@ -102,10 +102,22 @@ function coincidenciasCodigo(cod) {
 }
 
 /* Solo devuelve producto si hay UNO. Con dos o mas no se elige por el operador:
-   agregar el equivocado a una venta es plata mal cobrada y stock mal descontado. */
+   agregar el equivocado a una venta es plata mal cobrada y stock mal descontado.
+
+   Si ningun campo coincide, queda un tercer caso: las ETIQUETAS QUE IMPRIME EL
+   LOCAL. Esas no estan guardadas en ningun campo -son un EAN-13 que lleva adentro
+   el codigo interno, con prefijo y digito verificador-, asi que hay que decodificarlas.
+   Sin esto, escanear una bolsa de granel etiquetada por el propio local abria "a que
+   producto corresponde este codigo", como si fuera de un fabricante desconocido. */
 function buscarPorCodigo(cod) {
   const m = coincidenciasCodigo(cod);
-  return m.length === 1 ? m[0] : null;
+  if (m.length === 1) return m[0];
+  if (m.length > 1) return null;   /* ambiguo: lo avisa procesarCodigoLeido */
+  if (typeof etiquetaProductoDe === 'function' &&
+      typeof allProducts !== 'undefined' && Array.isArray(allProducts)) {
+    return etiquetaProductoDe(cod, allProducts);
+  }
+  return null;
 }
 
 /* Para la unicidad del codigo de barras se mira SOLO ese campo: que un codigo de
@@ -125,6 +137,11 @@ function procesarCodigoLeido(cod) {
     const otro = productoConCodigoBarras(cod, (typeof editingId !== 'undefined' ? editingId : null));
     if (otro) {
       showAdminToast('Ese código ya es de "' + (otro.nombreMostrado || otro.nombre) + '"', 'error');
+      return;
+    }
+    if (typeof etiquetaProductoDe === 'function' && etiquetaProductoDe(cod, allProducts || [])) {
+      showAdminToast('Ese es un código impreso por el local, no uno de fábrica. ' +
+                     'Este campo es para el código que trae el envase.', 'error');
       return;
     }
     campo.value = cod;
