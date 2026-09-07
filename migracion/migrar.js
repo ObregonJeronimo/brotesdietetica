@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { envase } = require('./envase.js');
+const { categoriaBrotes } = require('./categorias.js');
 
 const DIR = __dirname;
 const MODO_ESCRIBIR = process.argv.includes('--escribir');
@@ -129,8 +130,15 @@ function mapear(p) {
     nombre: p.nombre || '',
     nombreMostrado: p.nombreMostrado || null,
     descripcion: p.descripcion || p.nombre || '',
-    categoria: p.categoria || '',
-    subcategoria: p.subcategoria || null,
+    /* La categoria de YERCO NO se copia: se traduce a las 30 del negocio. Ver
+       categorias.js — copiar las 17 de YERCO dejaria al cliente con 47 categorias
+       y conceptos pisados ("FRUTAS SECAS" junto a "Frutas secas y desecadas"). */
+    categoria: categoriaBrotes(p),
+    /* En null, como los 611 que ya tiene Brotes: NINGUNO usa subcategoria. Las 31
+       de YERCO son jerga de proveedor ("CEREALES LINEA LASFOR", "PRODUCTOS
+       CACHAFAZ") y serian las unicas del catalogo. La informacion no se pierde:
+       queda en YERCO y en clasificacion.csv, y de ahi sale el mapeo de categorias. */
+    subcategoria: null,
 
     codigo: codigoLibre(),
     tipoVenta: cl.tipoVenta,
@@ -181,8 +189,10 @@ bro.forEach(p => nombresB.set(String(p.nombre || '').trim().toUpperCase(), p));
 const choques = mapeados.filter(m => nombresB.has(m.d.nombre.trim().toUpperCase()));
 
 const catsB = new Set(bro.map(p => p.categoria).filter(Boolean));
-const catsNuevas = [...new Set(mapeados.map(m => m.d.categoria).filter(Boolean))]
-  .filter(c => !catsB.has(c));
+const catsUsadas = [...new Set(mapeados.map(m => m.d.categoria).filter(Boolean))].sort();
+/* Tiene que dar SIEMPRE vacio: categoriaBrotes() solo devuelve categorias que Brotes
+   ya tiene. Si algun dia da algo, es que alguien toco la tabla de categorias.js. */
+const catsNuevas = catsUsadas.filter(c => !catsB.has(c));
 
 const conPadre = mapeados.filter(m => m.origen.padreId);
 const conGramaje = mapeados.filter(m => m.origen.gramajePadreId);
@@ -220,8 +230,14 @@ say('  grupoId (agrupa gramajes) : ' + mapeados.filter(m => m.d.grupoId).length 
 say('');
 say('AVISOS');
 say('  nombres que YA existen en Brotes y se van a duplicar: ' + choques.length);
-say('  categorias de YERCO que Brotes no tiene            : ' + catsNuevas.length);
-if (catsNuevas.length) catsNuevas.forEach(c => say('      ' + c));
+say('  categorias NUEVAS que habria que crear             : ' + catsNuevas.length + '  (tiene que ser 0)');
+if (catsNuevas.length) catsNuevas.forEach(c => say('      !! ' + c));
+say('');
+say('CATEGORIAS: las 17 de YERCO traducidas a las del negocio (' + catsUsadas.length + ' de las ' + catsB.size + ')');
+const rep = {};
+mapeados.forEach(m => { rep[m.d.categoria] = (rep[m.d.categoria] || 0) + 1; });
+Object.keys(rep).sort((a, b) => rep[b] - rep[a])
+  .forEach(c => say('  ' + String(rep[c]).padStart(4) + '  ' + c));
 say('  imagenes que siguen apuntando al bucket de YERCO   : ' +
   mapeados.filter(m => /yerco-bb620/.test(m.d.imagen || '')).length + ' (se reescriben al copiarlas)');
 say('');
@@ -281,16 +297,17 @@ say('LO QUE ESCRIBIRIA EL MODO --escribir');
 say('  1 documento en /listas  ("' + LISTA_NUEVA + '")');
 say('  ' + mapeados.length + ' documentos en /productos, en ' + Math.ceil(mapeados.length / 450) + ' lotes de 450');
 say('  ' + (conPadre.length + conGramaje.length) + ' updates en la 2da pasada (remapeo de punteros)');
-say('  ' + catsNuevas.length + ' documentos en /_categorias');
+say('  0 documentos en /_categorias (no hace falta crear ninguna)');
 say('  0 borrados, 0 updates sobre productos o listas que ya existen');
 say('');
 
 fs.writeFileSync(path.join(DIR, 'informe-seco.txt'), L.join('\n'));
 
 /* CSV completo para revisar producto por producto */
-const csv = ['codigo;nombre;categoria;tipoVenta;motivo;envase;precio_yerco;precio_brotes;costo_brotes;stock_yerco;stock_brotes;padreId_yerco;grupoId'];
+const csv = ['codigo;nombre;cat_yerco;subcat_yerco;cat_brotes;tipoVenta;motivo;envase;precio_yerco;precio_brotes;costo_brotes;stock_yerco;stock_brotes;padreId_yerco;grupoId'];
 mapeados.forEach(m => csv.push([
-  m.d.codigo, '"' + m.d.nombre.replace(/"/g, "'") + '"', m.d.categoria, m.d.tipoVenta, m.cl.motivo,
+  m.d.codigo, '"' + m.d.nombre.replace(/"/g, "'") + '"',
+  m.origen.categoria || '', '"' + (m.origen.subcategoria || '') + '"', m.d.categoria, m.d.tipoVenta, m.cl.motivo,
   m.kg ? m.kg + 'kg' : '-',
   m.origen.precio || 0, m.d.precio, m.d.costo, m.origen.stock || 0, m.d.stock,
   m.origen.padreId || '', m.d.grupoId || ''
