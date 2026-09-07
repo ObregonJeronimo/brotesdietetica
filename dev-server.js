@@ -38,6 +38,9 @@ const REWRITES = {
   '/politicas': '/politicas.html',
   '/mayoristas': '/mayoristas.html',
   '/resena': '/resena.html',
+  /* El sandbox: el MISMO admin.html, con otro archivo de configuracion. Ver
+     firebase-config.sandbox.js. Se resuelve mas abajo, no aca, porque hay que
+     reescribir el contenido y no solo cambiar de archivo. */
   /* El sembrador se llama setup-inicial.html desde que reemplazo a seed.html: este rewrite
      apuntaba a un archivo que ya no existe, asi que /seed daba 404 en local.
      FALTA TAMBIEN EN vercel.json: el bloque de headers con "source": "/seed(.*)" (noindex +
@@ -56,6 +59,33 @@ http.createServer((req, res) => {
     res.writeHead(403).end('Forbidden');
     return;
   }
+  /* ---------------------------------------------------------------- SANDBOX
+     Se sirve admin.html tal cual esta en disco, cambiando UNA linea: cual es el
+     archivo de configuracion de Firebase. El panel no se toca ni se copia, asi
+     que lo que se ve en /sandbox es exactamente lo que ve la clienta.
+
+     Esto vive en dev-server.js a proposito, que esta en .vercelignore: en
+     produccion la ruta /sandbox no existe y firebase-config.sandbox.js no se
+     publica. */
+  if (pathname === '/sandbox' || pathname === '/sandbox/') {
+    fs.readFile(path.join(ROOT, 'admin.html'), 'utf8', (err, html) => {
+      if (err) { res.writeHead(500).end('no pude leer admin.html'); return; }
+      const marca = 'firebase-config.js';
+      if (html.indexOf(marca) < 0) {
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('admin.html ya no carga ' + marca + ': hay que actualizar el sandbox.');
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': MIME['.html'],
+        'Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex, nofollow',
+      });
+      res.end(html.replace(marca, 'firebase-config.sandbox.js'));
+    });
+    return;
+  }
+
   fs.readFile(filePath, (err, data) => {
     if (err) {
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });

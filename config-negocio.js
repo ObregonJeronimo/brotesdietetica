@@ -176,11 +176,24 @@ NEGOCIO.nroVenta = function (n) {
  * red; si el panel tiene otro valor, se repinta un instante despues. Si la
  * peticion falla, queda lo de arriba y no se rompe nada.
  */
-NEGOCIO._PROYECTO = 'brotesdietetica-2f78e';
+/* El id del proyecto NO se repite: sale de firebaseConfig, que ya lo tiene y se
+   carga antes. Las paginas estaticas -politicas, mayoristas- no cargan el SDK y
+   caen al de abajo.
+   Estaba escrito a mano, y eso hacia que esta consulta se saltara la
+   configuracion: en el sandbox el panel apuntaba al emulador pero ESTA peticion
+   seguia yendo al proyecto de la clienta. Es una lectura publica, asi que no
+   habia riesgo, pero mostraba el contenido real donde no correspondia. */
+NEGOCIO._PROYECTO = (typeof firebaseConfig !== 'undefined' && firebaseConfig.projectId)
+  || 'brotesdietetica-2f78e';
+
+/* Contra que servidor se pregunta. El sandbox lo apunta al emulador; en
+   produccion nadie lo define y queda el de Google. */
+NEGOCIO._REST = (typeof FIRESTORE_REST_BASE !== 'undefined' && FIRESTORE_REST_BASE)
+  || 'https://firestore.googleapis.com';
 
 NEGOCIO.aplicarContenidoDelPanel = function () {
   if (typeof fetch !== 'function') return Promise.resolve(false);
-  const url = 'https://firestore.googleapis.com/v1/projects/' + NEGOCIO._PROYECTO +
+  const url = NEGOCIO._REST + '/v1/projects/' + NEGOCIO._PROYECTO +
               '/databases/(default)/documents/config/siteContent';
   return fetch(url)
     .then((r) => (r.ok ? r.json() : null))
