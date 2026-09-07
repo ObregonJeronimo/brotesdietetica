@@ -66,6 +66,13 @@ function _kilosPorElGrupo(p) {
    chips de chocolate- mas una fecula de 1 kg que vende envasada. O sea que el
    corte no es la unidad del nombre sino el producto. Donde hay dato suyo, se usa
    el dato; donde no, la regla del envase, que es la conservadora. */
+/* Los nombres que YA estan en Brotes. Los 873 entran completos igual, pero estos
+   entran OCULTOS: si no, el cliente ve la misma ficha dos veces, con dos precios
+   -el que cargo el dueño a mano y el que viene de YERCO-. No se toca el que ya
+   estaba, que era la consigna. Se destildan desde el panel el dia que se limpie
+   la lista vieja; el informe de "Duplicados" los lista. */
+const _yaEnBrotes = new Set(bro.map(p => String(p.nombre || '').trim().toUpperCase()).filter(Boolean));
+
 const _yaDecidido = new Map();
 bro.forEach(p => {
   const k = String(p.nombre || '').trim().toUpperCase();
@@ -160,7 +167,8 @@ function mapear(p) {
     codigoBarras: p.codigoBarras || null,
     gramaje: p.gramaje || null,
     popular: p.popular === true,
-    oculto: p.oculto === true,
+    /* oculto: el de YERCO, o forzado si el nombre ya existe en Brotes (duplicado) */
+    oculto: p.oculto === true || _yaEnBrotes.has(String(p.nombre || '').trim().toUpperCase()),
     lista: null,                        /* se completa con el id de la lista nueva */
 
     /* asociaciones: se copian tal cual y se REMAPEAN en la segunda pasada */
@@ -229,7 +237,10 @@ say('  gramajePadreId a remapear : ' + conGramaje.length + '  (huerfanos: ' + gr
 say('  grupoId (agrupa gramajes) : ' + mapeados.filter(m => m.d.grupoId).length + ' — id sintetico, NO se remapea');
 say('');
 say('AVISOS');
-say('  nombres que YA existen en Brotes y se van a duplicar: ' + choques.length);
+say('  nombres que ya existen en Brotes -> entran OCULTOS  : ' + choques.length);
+say('  ocultos en total (' + mapeados.filter(m => m.origen.oculto === true).length + ' que ya venian ocultos de YERCO + los de arriba): ' +
+  mapeados.filter(m => m.d.oculto).length);
+say('  VISIBLES en la tienda al terminar                   : ' + mapeados.filter(m => !m.d.oculto).length);
 say('  categorias NUEVAS que habria que crear             : ' + catsNuevas.length + '  (tiene que ser 0)');
 if (catsNuevas.length) catsNuevas.forEach(c => say('      !! ' + c));
 say('');
@@ -277,6 +288,7 @@ const precioIncoherente = mapeados.filter(m => {
   if (!m.kg) return m.d.precio !== orig;
   return Math.abs(m.d.precio * m.kg - orig) > Math.max(1, orig * 0.001);
 });
+const dupVisible = mapeados.filter(m => !m.d.oculto && _yaEnBrotes.has(m.d.nombre.trim().toUpperCase()));
 const stockIncoherente = mapeados.filter(m => {
   const orig = m.origen.stock || 0;
   return m.kg ? (m.d.stock !== orig * Math.round(m.kg * 1000)) : (m.d.stock !== orig);
@@ -290,6 +302,7 @@ say('  codigo con formato invalido : ' + codMal.length);
 say('  granel sin kilos parseados  : ' + pesoSinKg.length);
 say('  precio incoherente con el bulto: ' + precioIncoherente.length + '  (precio/kg x kg tiene que dar el precio del bulto)');
 say('  stock incoherente con el bulto : ' + stockIncoherente.length);
+say('  duplicados que quedarian VISIBLES: ' + dupVisible.length);
 say('');
 
 /* --- que se escribiria --- */
