@@ -272,6 +272,20 @@ function esPesoProd(x){return !!(x&&x.tipoVenta==='peso');}
 function fmtGramos(gr){const g=Number(gr||0);
     if(Math.abs(g)<1000)return g.toLocaleString('es-AR')+' g';
     return (g/1000).toLocaleString('es-AR',{maximumFractionDigits:3})+' kg';}
+/* Un producto SIN PRECIO no esta a la venta.
+
+   No es un detalle cosmetico: addToCart solo miraba el stock, asi que un producto en
+   $0 con stock se podia agregar al carrito, y como el minimo de pedido se controla
+   sobre el TOTAL, alcanzaba con sumar $30.000 de productos de verdad para llevarse
+   los de $0 gratis -y el stock se descontaba igual-. Medido el 09/09/2026: 141
+   productos quedaban en esa situacion, entre ellos 6,9 kg de bicarbonato y 4,2 kg
+   de mani. Ninguno viene de la migracion de FRUTICOR: son del catalogo original, al
+   que le falta cargar precios.
+
+   Ademas la regla de /pedidos exige total > 0, asi que un carrito de puros $0 fallaba
+   igual, pero recien al confirmar y sin explicar por que. */
+function sinPrecio(p){ return !(Number(p && p.precio) > 0); }
+
 function subtotalCarrito(i){const c=Number(i.cantidad||0),pr=Number(i.precio||0);
     return esPesoProd(i)?Math.round(pr*c/1000):pr*c;}
 /* Cuanto suma o resta cada toque de + / -. En gramos, de a 100. */
@@ -322,10 +336,13 @@ function renderProducts(list) {
         const ci=carrito.find(i=>i.id===p.id),qty=ci?ci.cantidad:0;
         const img=optImg(p.imagen,400)||'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23e8e0d5%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%22200%22 y=%22155%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2216%22%3ESin imagen%3C/text%3E%3C/svg%3E';
         const noStock = p.stock === 0;
+        const noPrecio = sinPrecio(p);
         const maxOut = qty>=p.stock;
         let btnContent;
         if(noStock){
             btnContent='<span class="atc-text"><i class="bi bi-x-circle"></i> Sin stock</span>';
+        }else if(noPrecio){
+            btnContent='<span class="atc-text"><i class="bi bi-chat-dots"></i> Consultar</span>';
         }else if(qty===0){
             btnContent='<span class="atc-text"><i class="bi bi-cart-plus"></i> Agregar</span>';
         }else{
@@ -334,7 +351,7 @@ function renderProducts(list) {
         const atcTag=qty>0?'div':'button';
         const atcAttrs=qty>0
             ?'class="add-to-cart-btn added"'
-            :'class="add-to-cart-btn"'+(noStock?' disabled':'')+' onclick="'+(qty===0?'addToCart(\''+p.id+'\')':'event.stopPropagation()')+'"';
+            :'class="add-to-cart-btn"'+(noStock||noPrecio?' disabled':'')+' onclick="'+(qty===0?'addToCart(\''+p.id+'\')':'event.stopPropagation()')+'"';
         /* Gramajes asociados: hijos de este producto (sistema independiente de envasado propio) */
         const hijos=productos.filter(h=>h.gramajePadreId===p.id);
         const gramajeHTML=hijos.length>0?'<div class="gramaje-btns">'+
@@ -348,7 +365,10 @@ function renderProducts(list) {
         /* En los que se venden sueltos el precio es POR KILO, y hay que decirlo:
            si no, el cliente ve $9.000 y cree que esa es la bolsa. */
         const sufKilo=esPesoProd(p)?'<span class="precio-por-kilo">el kilo</span>':'';
-        const precioHtml=dscPct>0
+        /* Sin precio no se muestra "$0": se dice que hay que consultarlo. */
+        const precioHtml=noPrecio
+            ?'<span class="product-price product-price-consultar" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">Consultar precio</span>'
+            :dscPct>0
             ?'<span class="product-price product-price-off" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer"><span class="price-original">$'+formatPrice(p.precio)+'</span> $'+formatPrice(precioConDesc)+sufKilo+'</span>'
             :'<span class="product-price" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">$'+formatPrice(p.precio)+sufKilo+'</span>';
         return '<article class="product-card" data-id="'+p.id+'">' +
@@ -493,6 +513,9 @@ async function addToCart(id) {
     if(!clienteAuth){requireLoginToBuy();return;}
     _acusarCarrito();
     const p=productos.find(x=>x.id===id); if(!p||(p.stock||0)<=0)return;
+    /* Sin precio no se vende. La guarda va aca porque es el unico camino comun a
+       todos los botones: la tarjeta, el modal de detalle y los de gramaje. */
+    if(sinPrecio(p)){ showToast('"'+(p.nombreMostrado||p.nombre)+'" todavia no tiene precio cargado. Consultanos y te lo pasamos.','info'); return; }
     const existing=carrito.find(i=>i.id===id);
     /* Por peso: se pregunta cuanto ANTES de tocar el carrito. Si ya estaba, los
        gramos se suman, que es lo que espera alguien que agrega dos veces. */
@@ -520,12 +543,15 @@ function updateProductCard(id) {
     if(!card)return;
     const ci=carrito.find(i=>i.id===id),qty=ci?ci.cantidad:0;
     const noStock=(p.stock||0)<=0;
+    const noPrecio=sinPrecio(p);
     const maxOut=qty>=p.stock;
     const oldEl=card.querySelector('.add-to-cart-btn');
     if(!oldEl)return;
     let btnContent;
     if(noStock){
         btnContent='<span class="atc-text"><i class="bi bi-x-circle"></i> Sin stock</span>';
+    }else if(noPrecio){
+        btnContent='<span class="atc-text"><i class="bi bi-chat-dots"></i> Consultar</span>';
     }else if(qty===0){
         btnContent='<span class="atc-text"><i class="bi bi-cart-plus"></i> Agregar</span>';
     }else{
@@ -557,6 +583,7 @@ function openProductDetailModal(id){
     _pdmCurrentImgIdx=0;
     const ci=carrito.find(i=>i.id===id),qty=ci?ci.cantidad:0;
     const noStock=(p.stock||0)<=0;
+    const noPrecio=sinPrecio(p);
     const maxOut=qty>=p.stock;
     const imgsHtml=_pdmImages.length?_pdmImages.map((url,i)=>'<img src="'+esc(optImg(url,800)||url)+'" class="pdm-img'+(i===0?' active':'')+'" data-idx="'+i+'" alt="'+esc(p.nombre)+'" data-orig="'+esc(url||'')+'" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig;}else{this.src=\'img/default-product.svg\';}">').join(''):'<div class="pdm-img-placeholder"><i class="bi bi-image"></i> Sin imagen</div>';
     const carouselNav=_pdmImages.length>1?'<button class="pdm-carousel-btn pdm-prev" onclick="pdmCarouselNav(-1)"><i class="bi bi-chevron-left"></i></button><button class="pdm-carousel-btn pdm-next" onclick="pdmCarouselNav(1)"><i class="bi bi-chevron-right"></i></button><div class="pdm-carousel-dots">'+_pdmImages.map((_,i)=>'<span class="pdm-dot'+(i===0?' active':'')+'" onclick="pdmCarouselGoTo('+i+')"></span>').join('')+'</div>':'';
@@ -587,7 +614,7 @@ function openProductDetailModal(id){
         (desc?'<div class="pdm-section"><h4>Descripción</h4><p>'+esc(desc).replace(/\n/g,'<br>')+'</p></div>':'')+
         (vn?'<div class="pdm-section"><h4>Información nutricional</h4><div class="pdm-nutritional">'+esc(vn).replace(/\n/g,'<br>')+'</div></div>':'')+
         (!desc&&!vn?'<div class="pdm-section pdm-no-info"><i class="bi bi-info-circle"></i> Próximamente más información sobre este producto</div>':'')+
-        (qty===0||noStock?'<button class="pdm-add-btn'+(noStock?' disabled':'')+'" id="pdmAddBtn-'+id+'" onclick="'+(qty===0&&!noStock?'addToCart(\''+id+'\');refreshProductDetailModal(\''+id+'\')'  :'event.stopPropagation()')+'"'+(noStock?' disabled':'')+'>'+btnContent+'</button>':'<div class="pdm-add-btn added" id="pdmAddBtn-'+id+'">'+btnContent+'</div>')+
+        (qty===0||noStock?'<button class="pdm-add-btn'+(noStock||noPrecio?' disabled':'')+'" id="pdmAddBtn-'+id+'" onclick="'+(qty===0&&!noStock?'addToCart(\''+id+'\');refreshProductDetailModal(\''+id+'\')'  :'event.stopPropagation()')+'"'+(noStock||noPrecio?' disabled':'')+'>'+btnContent+'</button>':'<div class="pdm-add-btn added" id="pdmAddBtn-'+id+'">'+btnContent+'</div>')+
         '</div>';
     const footerEl=document.getElementById('productDetailFooter');
     const btnEl=document.getElementById('productDetailBody').querySelector('.pdm-add-btn');
@@ -603,10 +630,13 @@ function refreshProductDetailModal(id){
     if(!btnEl)return;
     const ci=carrito.find(i=>i.id===id),qty=ci?ci.cantidad:0;
     const noStock=(p.stock||0)<=0;
+    const noPrecio=sinPrecio(p);
     const maxOut=qty>=p.stock;
     let btnContent,newEl;
     if(noStock){
         btnContent='<i class="bi bi-x-circle"></i> Sin stock';
+    }else if(noPrecio){
+        btnContent='<i class="bi bi-chat-dots"></i> Consultar';
         newEl='<button class="pdm-add-btn" id="pdmAddBtn-'+id+'" onclick="event.stopPropagation()" disabled>'+btnContent+'</button>';
     }else if(qty===0){
         btnContent='<i class="bi bi-cart-plus"></i> Agregar al carrito';

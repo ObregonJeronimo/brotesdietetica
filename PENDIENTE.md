@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 1450 en 48 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
+| Pruebas | 1477 en 49 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **1484 productos, 28 listas, 30 categorías.** Los 611 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A) |
@@ -730,6 +730,43 @@ pantallas que dibujaban el stock —la tabla, el tooltip de stock bajo, el modal
 categoría" y el informe de duplicados—, que es lo que pide §5: cuando la misma cosa se dibuja
 en varios lados, se arregla en uno solo.
 
+
+---
+
+### G) Los productos sin precio se podian llevar GRATIS · **ARREGLADO** (09/09/2026)
+
+Salio del barrido previo a la entrega. `addToCart` miraba **solo el stock**:
+
+```js
+const p=productos.find(x=>x.id===id); if(!p||(p.stock||0)<=0)return;
+```
+
+Un producto en **$0 con stock se podia agregar al carrito**, y como el minimo de pedido se
+controla sobre el **total**, alcanzaba con sumar $30.000 de productos de verdad para llevarse
+los de $0 **gratis** — y el stock se descontaba igual.
+
+**Medido en produccion:** 197 productos visibles en $0, y **141 con stock cargado**, entre
+ellos 6,9 kg de bicarbonato, 4,2 kg de mani y 2,7 kg de mix. **Ninguno viene de la migracion**
+(los 873 de FRUTICOR-TODOS tienen todos precio): son del **catalogo original**, que tiene 378
+productos en $0 — el **62%** —, al que le falta cargar precios.
+
+La regla de `/pedidos` exige `total > 0`, asi que un carrito de puros $0 fallaba igual, pero
+recien al confirmar y sin explicar por que.
+
+**El arreglo.** Un producto sin precio no esta a la venta: `sinPrecio()` en un solo lugar, la
+guarda dura en `addToCart` —que es el unico camino comun a todos los botones: la tarjeta, el
+modal de detalle y los de gramaje— y el aviso visual en los **cuatro** renders que dibujan
+precio y boton (§5: la misma cosa se dibuja en varias pantallas). En vez de "$0" dice
+**"Consultar precio"** y el boton queda deshabilitado.
+
+Verificado abriendo la tienda con los datos reales y una sesion de cliente: el de $0 **no
+entra** al carrito y avisa por que; el que tiene precio **sigue entrando**.
+
+`t-sin-precio.js`: 27 asertos, 13 fallan contra `ddc1dfe`.
+
+**Lo que sigue siendo del dueño:** cargar los precios que faltan. Son 197 visibles; salen del
+panel filtrando por lista (`FRUTICOR 1` tiene 79 y `OTRO` 77). Mientras tanto la tienda los
+muestra como "Consultar precio", que es honesto y no regala nada.
 
 ---
 
