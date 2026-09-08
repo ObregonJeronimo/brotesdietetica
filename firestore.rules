@@ -173,9 +173,14 @@ service cloud.firestore {
          asi que con 50 escrituras se mataba una promocion y los clientes de verdad se
          encontraban con "cupon vencido". El canje de invitado no se pierde: comprar ya exige
          sesion (requireLoginToBuy), asi que todo uso real trae uid. */
-      allow create: if isAuthUser()
-        && request.resource.data.uid == request.auth.uid
-        && validString(request.resource.data.codigo, 30);
+      /* El mostrador tambien canjea cupones, y ahi el que escribe es un admin:
+         no hay cliente logueado enfrente, asi que no puede haber un uid propio.
+         Se agrega isAdmin() SIN aflojar lo de abajo, que es lo que tapo el
+         agujero: un usuario comun sigue teniendo que firmar el uso con su uid. */
+      allow create: if isAdmin()
+        || (isAuthUser()
+            && request.resource.data.uid == request.auth.uid
+            && validString(request.resource.data.codigo, 30));
     }
 
     /* ===== CONFIG =====

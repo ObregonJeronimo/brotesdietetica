@@ -285,6 +285,23 @@ async function main() {
   const pedidos = armarPedidos(productos);
   for (const p of pedidos) await escribir('pedidos', p.id, p.datos);
 
+  /* Promos para probar la entrega de cupones desde la caja. */
+  const PROMOS = [
+    { id: 'VOLVE2000', nombre: 'Volvé y llevate $2.000', monto: 2000, limite: 12000,
+      maxUsos: 100, entregados: 0, activo: true, diasVigencia: 30 },
+    { id: 'PRIMERA5000', nombre: 'Primera compra $5.000', monto: 5000, limite: 25000,
+      maxUsos: 50, entregados: 0, activo: true, diasVigencia: 60 },
+    { id: 'AGOTADA', nombre: 'Promo agotada', monto: 1000, limite: 0,
+      maxUsos: 10, entregados: 10, activo: true },
+    { id: 'APAGADA', nombre: 'Promo apagada', monto: 1500, limite: 0, activo: false },
+  ];
+  /* creadoEn es obligatorio de hecho: la lista del panel ordena por ese campo
+     y Firestore excluye los documentos que no lo tienen. */
+  for (let i = 0; i < PROMOS.length; i++) {
+    await escribir('cupones', PROMOS[i].id,
+      Object.assign({ creadoEn: diasAtras(10 + i) }, PROMOS[i]));
+  }
+
   await escribir('config', 'comprasCount', { count: compras.length });
   await escribir('config', 'ventasCount', { count: ventas.length });
   await escribir('config', 'pedidosCount', { count: pedidos.length });
@@ -301,6 +318,7 @@ async function main() {
   console.log('  ' + ventas.length + ' ventas, ' + pedidos.length + ' pedidos');
   console.log('  ' + compras.length + ' compras, ' + deudas.length + ' a deber por $' +
     debe.toLocaleString('es-AR'));
+  console.log('  4 promos de cupon (2 usables, 1 agotada, 1 apagada)');
   console.log('  admins: ' + ADMINS.join(', '));
 }
 
