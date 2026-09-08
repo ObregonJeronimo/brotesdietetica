@@ -255,8 +255,12 @@ async function main() {
   console.log('  Sembrando ' + BASE);
 
   /* Se limpia primero: sembrar dos veces no puede dejar el doble de todo. */
+  /* `resenas` y `resenaPremios` tambien: un token que se completo en una corrida
+     anterior queda usado para siempre, y el banco de pruebas deja de servir
+     para probar justamente lo que vino a probar. */
   for (const c of ['productos', 'listas', '_categorias', 'admins', 'ventas',
-                   'compras', 'pedidos', 'config', 'cajas', 'cupones']) {
+                   'compras', 'pedidos', 'config', 'cajas', 'cupones',
+                   'resenas', 'resenaPremios', 'cuponesUsos']) {
     await borrarTodo(c);
   }
 
@@ -311,10 +315,12 @@ async function main() {
      vienen de la tienda: las de mostrador no generan resena a proposito, porque
      /resenas es publica y cada venta del local dejaba ahi el nombre del cliente.
      Sin clienteAuthUid, lo puede completar cualquier cuenta del sandbox. */
-  await escribir('resenas', 'PRUEBA01', {
-    usado: false, ventaNum: 9001, creadoEn: diasAtras(1),
-    nombre: '', comentario: '', estrellas: 0,
-  });
+  for (let i = 1; i <= 5; i++) {
+    await escribir('resenas', 'PRUEBA0' + i, {
+      usado: false, ventaNum: 9000 + i, creadoEn: diasAtras(i),
+      nombre: '', comentario: '', estrellas: 0,
+    });
+  }
 
   await escribir('config', 'comprasCount', { count: compras.length });
   await escribir('config', 'ventasCount', { count: ventas.length });
@@ -333,7 +339,8 @@ async function main() {
   console.log('  ' + compras.length + ' compras, ' + deudas.length + ' a deber por $' +
     debe.toLocaleString('es-AR'));
   console.log('  5 promos de cupon (2 usables, 1 para resenas, 1 agotada, 1 apagada)');
-  console.log('  1 token de resena pendiente: /sandbox/resena?id=PRUEBA01');
+  console.log('  5 tokens de resena: /sandbox/resena?id=PRUEBA01 .. PRUEBA05');
+  console.log('     (cada uno vale una sola vez; se reinician al resembrar)');
   console.log('  admins: ' + ADMINS.join(', '));
 }
 
