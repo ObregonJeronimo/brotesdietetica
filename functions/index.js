@@ -27,6 +27,17 @@ const {onObjectFinalized, onObjectDeleted} = require('firebase-functions/v2/stor
 const functionsV1 = require('firebase-functions/v1');
 const {logger} = require('firebase-functions');
 const admin = require('firebase-admin');
+/* FieldValue se importa por su camino propio y NO como admin.firestore.FieldValue.
+   Ese atajo existe en firebase-admin normal, pero dentro del emulador de funciones
+   -que parchea la libreria para redirigirla a los emuladores- queda en undefined, y
+   entonces increment() y serverTimestamp() explotan. Medido: en ese entorno
+   admin.firestore es una funcion, admin.firestore.FieldValue es undefined, y
+   require('firebase-admin/firestore').FieldValue es una funcion.
+
+   Con el atajo, cualquier funcion que use FieldValue no se puede probar en el
+   emulador -y una que falla queda reintentandose y satura la cola-. Este camino
+   anda en los dos lados y saca el problema de raiz. */
+const {FieldValue} = require('firebase-admin/firestore');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -301,18 +312,13 @@ exports.premiarResena = onDocumentWritten(
         creadoEn: new Date(),
       });
 
-      /* Contar la entrega es lo MENOS importante de todo esto: el cupon ya esta
-         creado y el cliente ya lo tiene. Va en su propio try para que no pueda
-         tirar abajo lo que si importa.
-
-         Y no se usa admin.firestore.FieldValue.increment: dentro del emulador de
-         funciones ese camino da undefined -le pasa tambien a recalcularUsoStorage-
-         y la funcion moria DESPUES de haber entregado el cupon, con lo cual el
-         emulador la reintentaba y en pantalla no aparecia nada. Se lee y se
-         escribe, que son dos operaciones mas pero funcionan en los dos lados. */
+      /* Contar la entrega es lo MENOS importante de todo esto: el cupón ya está
+         creado y el cliente ya lo tiene. Va en su propio try para que un fallo
+         acá no tire abajo lo que sí importa: si eso pasara, la función termina
+         en error, el emulador la reintenta y la cola se satura -que es
+         exactamente lo que pasaba antes de arreglar el import de FieldValue-. */
       try {
-        const antesN = Number(p.entregados || 0);
-        await promo.ref.update({ entregados: antesN + 1 });
+        await promo.ref.update({ entregados: FieldValue.increment(1) });
       } catch (e2) {
         logger.warn('No se pudo contar la entrega de la promo:', e2);
       }
@@ -544,7 +550,7 @@ exports.descontarStockPedido = onDocumentCreated(
       snaps.forEach((sn, k) => {
         if (!sn.exists) return;
         t.update(refs[k], {
-          stock: admin.firestore.FieldValue.increment(-porProd[ids[k]])
+          stock: FieldValue.increment(-porProd[ids[k]])
         });
       });
 
@@ -729,9 +735,9 @@ exports.sumarUsoStorage = onObjectFinalized(
     if (!size) return;
     try {
       await REF_USO().set({
-        bytes: admin.firestore.FieldValue.increment(size),
-        archivos: admin.firestore.FieldValue.increment(1),
-        actualizado: admin.firestore.FieldValue.serverTimestamp(),
+        bytes: FieldValue.increment(size),
+        archivos: FieldValue.increment(1),
+        actualizado: FieldValue.serverTimestamp(),
         exacto: false
       }, {merge: true});
     } catch (e) {
@@ -750,9 +756,9 @@ exports.restarUsoStorage = onObjectDeleted(
     if (!size) return;
     try {
       await REF_USO().set({
-        bytes: admin.firestore.FieldValue.increment(-size),
-        archivos: admin.firestore.FieldValue.increment(-1),
-        actualizado: admin.firestore.FieldValue.serverTimestamp(),
+        bytes: FieldValue.increment(-size),
+        archivos: FieldValue.increment(-1),
+        actualizado: FieldValue.serverTimestamp(),
         exacto: false
       }, {merge: true});
     } catch (e) {
@@ -793,7 +799,7 @@ exports.recalcularUsoStorage = onDocumentWritten(
       await REF_USO().set({
         bytes: bytes,
         archivos: archivos,
-        actualizado: admin.firestore.FieldValue.serverTimestamp(),
+        actualizado: FieldValue.serverTimestamp(),
         exacto: true,
         recalcular: false
       }, {merge: true});
