@@ -287,17 +287,17 @@ async function main() {
 
   /* Promos para probar la entrega de cupones desde la caja. */
   const PROMOS = [
-    { id: 'VOLVE2000', nombre: 'Volvé y llevate $2.000', monto: 2000, limite: 12000,
+    { id: 'VOLVE2000', nombre: 'Volvé y llevate $2.000', monto: 2000, limiteCompra: 12000,
       maxUsos: 100, entregados: 0, activo: true, diasVigencia: 30 },
     /* La que se entrega por dejar una reseña: la elige la Cloud Function
        premiarResena buscando paraResenas == true. */
-    { id: 'RESENA1500', nombre: 'Gracias por tu opinión', monto: 1500, limite: 8000,
+    { id: 'RESENA1500', nombre: 'Gracias por tu opinión', monto: 1500, limiteCompra: 8000,
       maxUsos: 500, entregados: 0, activo: true, diasVigencia: 45, paraResenas: true },
-    { id: 'PRIMERA5000', nombre: 'Primera compra $5.000', monto: 5000, limite: 25000,
+    { id: 'PRIMERA5000', nombre: 'Primera compra $5.000', monto: 5000, limiteCompra: 25000,
       maxUsos: 50, entregados: 0, activo: true, diasVigencia: 60 },
-    { id: 'AGOTADA', nombre: 'Promo agotada', monto: 1000, limite: 0,
+    { id: 'AGOTADA', nombre: 'Promo agotada', monto: 1000, limiteCompra: 0,
       maxUsos: 10, entregados: 10, activo: true },
-    { id: 'APAGADA', nombre: 'Promo apagada', monto: 1500, limite: 0, activo: false },
+    { id: 'APAGADA', nombre: 'Promo apagada', monto: 1500, limiteCompra: 0, activo: false },
   ];
   /* creadoEn es obligatorio de hecho: la lista del panel ordena por ese campo
      y Firestore excluye los documentos que no lo tienen. */

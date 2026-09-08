@@ -5824,7 +5824,7 @@ prods.push({nombre:_nom,codigo:_cod,tipoVenta:_tv,costo,porcentaje:pMin,precio,p
             t+='<div style="font-size:10.5px;font-weight:700;letter-spacing:.5px">TU DESCUENTO PARA LA PR&Oacute;XIMA</div>';
             t+='<div style="font-size:22px;font-weight:700;letter-spacing:3px;margin:3px 0;font-family:monospace">'+esc(c.codigo)+'</div>';
             t+='<div style="font-size:12px;font-weight:700">$'+Number(c.monto||0).toLocaleString('es-AR')+' de descuento</div>';
-            if(c.limite>0)t+='<div style="font-size:9.5px">en compras desde $'+Number(c.limite).toLocaleString('es-AR')+'</div>';
+            const _min=Number(c.limiteCompra!=null?c.limiteCompra:(c.limite||0));if(_min>0)t+='<div style="font-size:9.5px">en compras desde $'+_min.toLocaleString('es-AR')+'</div>';
             if(vence&&!isNaN(vence))t+='<div style="font-size:9.5px">V&aacute;lido hasta el '+vence.toLocaleDateString('es-AR')+'</div>';
             t+='<div style="font-size:9px;margin-top:2px">Mostralo en tu pr&oacute;xima compra. Vale una sola vez.</div>';
             return t+'</div>';
@@ -6905,7 +6905,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Cargando...</p></div>';
             try{
                 const snap=await db.collection('cupones').orderBy('creadoEn','desc').get();
-                cuponesData=snap.docs.map(d=>({id:d.id,...d.data()})).filter(c=>c.origen!=='ticket')/* Los codigos entregados en tickets son cientos y no son promociones: se administran solos y no van en esta lista. */;
+                cuponesData=snap.docs.map(d=>({id:d.id,...d.data()})).filter(c=>!c.origen)/* Los codigos ENTREGADOS -en un ticket o por una resena- no son promociones: se administran solos, son cientos, y si entraran aca la cajera podria elegir por error el cupon de un cliente. Una promo es la que no tiene origen. */;
                 filterCupones();
             }catch(e){c.innerHTML='<div class="empty-state"><p>Error: '+e.message+'</p></div>';}
         }
@@ -6952,12 +6952,16 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                el control de "este cliente ya lo uso" dejaria de encontrarlos y el cupon
                se podria volver a usar. Se cambia borrando y creando de nuevo. */
             const inpCod=document.getElementById('cuponCodigo');
-            inpCod.value=cup?cup.codigo:'';
+            /* El codigo ES el id del documento; el campo es un espejo. Si faltara,
+               se muestra el id en vez de "undefined". */
+            inpCod.value=cup?(cup.codigo||cup.id||''):'';
             inpCod.disabled=!!cup;
             inpCod.style.opacity=cup?'0.6':'';
             document.getElementById('cuponCodigoNota').style.display=cup?'block':'none';
             document.getElementById('cuponMonto').value=cup?(cup.monto||''):'';
             document.getElementById('cuponActivo').checked=cup?cup.activo!==false:true;
+            document.getElementById('cuponDias').value=cup?(cup.diasVigencia||30):30;
+            document.getElementById('cuponParaResenas').checked=!!(cup&&cup.paraResenas===true);
             document.getElementById('cuponLimite').value=cup&&cup.limiteCompra?cup.limiteCompra:'';
             const tieneMax=cup&&cup.maxUsos;
             document.getElementById('cuponToggleMaxUsos').checked=!!tieneMax;
@@ -6989,7 +6993,19 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             if(isNaN(limite)||limite<1){showAdminToast('Ingresá el monto mínimo de compra','error');return;}
             if(limite<monto){showAdminToast('El mínimo de compra debe ser mayor al descuento','error');return;}
             if(tieneMax&&(isNaN(maxUsos)||maxUsos<1)){showAdminToast('El máximo de usos debe ser mayor a 0','error');return;}
-            const data={codigo,monto,tipo:'monto',activo,limiteCompra:limite,maxUsos:maxUsos||null,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};
+            const dias=parseInt(document.getElementById('cuponDias').value)||30;
+            const paraResenas=document.getElementById('cuponParaResenas').checked;
+            const data={codigo,monto,tipo:'monto',activo,limiteCompra:limite,maxUsos:maxUsos||null,diasVigencia:dias,paraResenas:paraResenas,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};
+            /* Solo UNA promo puede ser la de resenas: la Cloud Function toma la primera
+               que encuentra, asi que con dos marcadas entregaria una u otra sin criterio.
+               Se apaga la marca en las demas antes de guardar esta. */
+            if(paraResenas){
+                const otras=(cuponesData||[]).filter(c=>c.paraResenas===true&&c.id!==editingCuponId&&c.id!==codigo);
+                for(const o of otras){
+                    try{await db.collection('cupones').doc(o.id).update({paraResenas:false});}catch(e){}
+                }
+                if(otras.length)showAdminToast('Se desmarcó "'+otras[0].codigo+'" como promo de reseñas','info');
+            }
             try{
                 if(editingCuponId){
                     /* El codigo NO va en el update: es el id del documento. */
@@ -7708,6 +7724,8 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <div class="form-group"><label>Monto mínimo de compra ($) <span style="font-size:0.75rem;color:var(--text-dim)">(el cliente debe superar este monto para usar el cupón)</span></label><input type="text" inputmode="numeric" class="form-input" id="cuponLimite" placeholder="Ej: 50000" oninput="limpiarMonto(this);if(this.value<0)this.value=0"></div>
     <div class="form-group"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer"><label class="toggle-switch"><input type="checkbox" id="cuponToggleMaxUsos" onchange="toggleCuponMaxUsos()"><span class="toggle-slider"></span></label> Límite de usos totales</label></div>
     <div class="form-group" id="cuponMaxUsosGroup" style="display:none"><label>Máximo de usos totales del cupón</label><input type="number" class="form-input" id="cuponMaxUsos" min="1" placeholder="Ej: 50" oninput="if(this.value<1)this.value=1"></div>
+    <div class="form-group"><label>D&iacute;as de validez del c&oacute;digo entregado <span style="font-weight:400;font-size:0.75rem;color:var(--text-dim)">(cuando se entrega en un ticket o por una rese&ntilde;a)</span></label><input type="number" class="form-input" id="cuponDias" min="1" max="365" placeholder="30" oninput="if(this.value<1)this.value=1"></div>
+    <div class="form-group"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer"><label class="toggle-switch"><input type="checkbox" id="cuponParaResenas"><span class="toggle-slider"></span></label> Entregar esta promo a quien deje una rese&ntilde;a</label><small style="color:var(--text-dim);font-size:0.75rem;display:block;margin-top:0.3rem">Solo una promo puede estar marcada. El ticket va a prometer este monto, y el c&oacute;digo le aparece al cliente al terminar de opinar.</small></div>
     <div class="form-actions"><button class="btn btn-secondary" onclick="closeCuponModal()">Cancelar</button><button class="btn btn-primary" onclick="saveCupon()"><i class="bi bi-check-lg"></i> Guardar</button></div>
     </div></div>
     <!-- MODAL INFO CLIENTE AUTH -->

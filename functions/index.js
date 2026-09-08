@@ -280,7 +280,7 @@ exports.premiarResena = onDocumentWritten(
       await db.collection('cupones').doc(codigo).set({
         codigo: codigo,
         monto: Number(p.monto || 0),
-        limite: Number(p.limite || 0),
+        limiteCompra: Number(p.limiteCompra != null ? p.limiteCompra : (p.limite || 0)),
         maxUsos: 1, usos: 0, activo: true,
         vence: vence,
         creadoEn: new Date(),
@@ -295,7 +295,7 @@ exports.premiarResena = onDocumentWritten(
       await premioRef.set({
         codigo: codigo,
         monto: Number(p.monto || 0),
-        limite: Number(p.limite || 0),
+        limiteCompra: Number(p.limiteCompra != null ? p.limiteCompra : (p.limite || 0)),
         vence: vence,
         uid: uid,
         creadoEn: new Date(),

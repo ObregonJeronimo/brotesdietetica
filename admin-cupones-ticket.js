@@ -93,7 +93,11 @@ function cuponTicketValidar(cupon, subtotal, ahoraMs) {
     return { ok: false, motivo: 'Ese cupón venció el ' + _ctkFecha(cupon.vence) + '.' };
   }
 
-  const minimo = Number(cupon.limite || 0);
+  /* El campo se llama `limiteCompra` en todo el sistema: asi lo guarda el panel
+     y asi lo lee la tienda (app.js ~2039). Se acepta `limite` como alternativa
+     por si quedo algo escrito con ese nombre. Leerlo mal no da error: da un
+     minimo de cero, o sea que el cupon vale para cualquier compra. */
+  const minimo = Number(cupon.limiteCompra != null ? cupon.limiteCompra : (cupon.limite || 0));
   const sub = Number(subtotal || 0);
   if (minimo > 0 && sub < minimo) {
     return { ok: false, motivo: 'Vale a partir de ' + _ctkPesos(minimo) +
@@ -117,7 +121,7 @@ function cuponTicketDesdePromo(promo, codigo, ventaId, diasVigencia, ahoraMs) {
   return {
     codigo: codigo,
     monto: Number(promo.monto || 0),
-    limite: Number(promo.limite || 0),
+    limiteCompra: Number(promo.limiteCompra != null ? promo.limiteCompra : (promo.limite || 0)),
     maxUsos: 1,                       /* una entrega, un uso */
     usos: 0,
     activo: true,
@@ -139,7 +143,12 @@ function cuponTicketDesdePromo(promo, codigo, ventaId, diasVigencia, ahoraMs) {
    que se dijo que se iba a entregar. */
 function cuponTicketPromosDisponibles(cupones) {
   return (cupones || []).filter(c => {
-    if (!c || c.origen === 'ticket') return false;   /* los códigos ya entregados no son promos */
+    /* Una PROMO es un cupón sin `origen`. Los códigos entregados lo tienen:
+       'ticket' los del mostrador, 'resena' los que da la Cloud Function. Se
+       descarta cualquiera que lo traiga, y no una lista de valores conocidos:
+       con una lista, el día que aparezca un tercer origen se colaría como promo
+       y la cajera podría entregarle a alguien el cupón de otro cliente. */
+    if (!c || c.origen) return false;
     if (c.activo === false) return false;
     const max = Number(c.maxUsos || 0);
     if (max > 0 && Number(c.entregados || 0) >= max) return false;
@@ -283,7 +292,7 @@ function cuponTicketPromosPintar() {
   sel.innerHTML = promos.map(p =>
     '<option value="' + esc(p.id || p.codigo) + '">' +
     esc(p.nombre || p.id || p.codigo) + ' &middot; ' + _ctkPesos(p.monto) +
-    (p.limite ? ' desde ' + _ctkPesos(p.limite) : '') + '</option>').join('');
+    (p.limiteCompra ? ' desde ' + _ctkPesos(p.limiteCompra) : '') + '</option>').join('');
 }
 
 function cuponEmitirCambio() {
@@ -328,7 +337,7 @@ async function cuponTicketEmitir(ventaId) {
       logAction('crear', 'Cupón entregado: ' + codigo + ' (' + _ctkPesos(datos.monto) + ')',
         (promo.nombre || promoId) + ' | venta ' + (ventaId || ''));
     }
-    return { codigo: codigo, monto: datos.monto, limite: datos.limite, vence: datos.vence };
+    return { codigo: codigo, monto: datos.monto, limiteCompra: datos.limiteCompra, vence: datos.vence };
   } catch (e) {
     /* La venta ya se guardo. Se avisa y el ticket sale sin cupon, que es mejor
        que imprimir un codigo que no existe en la base. */

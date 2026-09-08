@@ -102,7 +102,7 @@ t('las transposiciones tambien se atrapan (' + tProb + ' probadas, ' + tColados 
 /* ===================================================== LA VALIDACIÓN */
 console.log('\n-- cuando se puede usar y cuando no --');
 const HOY = new Date('2026-09-07T12:00:00').getTime();
-const base = { codigo: 'ABC2345', monto: 2000, limite: 0, maxUsos: 1, usos: 0, activo: true };
+const base = { codigo: 'ABC2345', monto: 2000, limiteCompra: 0, maxUsos: 1, usos: 0, activo: true };
 
 t('uno nuevo, en una venta que da, pasa', M.validar(base, 10000, HOY).ok);
 t('  y descuenta lo que dice', M.validar(base, 10000, HOY).monto === 2000);
@@ -124,7 +124,7 @@ t('entiende la fecha de Firestore',
   !M.validar(Object.assign({}, base, { vence: { seconds: (HOY - 86400000) / 1000 } }), 10000, HOY).ok);
 
 /* Compra mínima */
-const conMinimo = Object.assign({}, base, { limite: 15000 });
+const conMinimo = Object.assign({}, base, { limiteCompra: 15000 });
 t('por debajo del minimo no pasa', !M.validar(conMinimo, 10000, HOY).ok);
 t('  y dice cuanto falta', /15\.000/.test(M.validar(conMinimo, 10000, HOY).motivo));
 t('justo en el minimo si pasa', M.validar(conMinimo, 15000, HOY).ok);
@@ -137,10 +137,10 @@ t('un cupon sin monto no pasa', !M.validar(Object.assign({}, base, { monto: 0 })
 
 /* ===================================================== DE PROMO A CÓDIGO */
 console.log('\n-- generar un codigo desde una promo --');
-const promo = { id: 'VOLVE2000', nombre: 'Volvé y llevate $2.000', monto: 2000, limite: 12000, maxUsos: 100 };
+const promo = { id: 'VOLVE2000', nombre: 'Volvé y llevate $2.000', monto: 2000, limiteCompra: 12000, maxUsos: 100 };
 const nuevo = M.desdePromo(promo, 'XYZ2345', 'venta9', 30, HOY);
 t('copia el monto de la promo', nuevo.monto === 2000);
-t('copia la compra minima', nuevo.limite === 12000);
+t('copia la compra minima', nuevo.limiteCompra === 12000);
 /* Lo que NO se copia: el limite de la promo es cuantas se entregan; el del
    codigo es cuantas veces se usa ESE codigo, y es una. */
 t('el codigo vale UNA sola vez, no las 100 de la promo', nuevo.maxUsos === 1);
@@ -161,7 +161,9 @@ const lista = [
   { id: 'C', monto: 1000, activo: true, maxUsos: 50, entregados: 50 },/* agotada */
   { id: 'D', monto: 0, activo: true },                                 /* sin monto */
   { id: 'E', monto: 5000, activo: true },                              /* sin tope */
-  { id: 'XYZ2345', monto: 2000, activo: true, origen: 'ticket' },      /* ya entregado */
+  { id: 'XYZ2345', monto: 2000, activo: true, origen: 'ticket' },      /* entregado en un ticket */
+  { id: 'QWE4567', monto: 1500, activo: true, origen: 'resena' },      /* entregado por una resena */
+  { id: 'RTY8901', monto: 1500, activo: true, origen: 'loquesea' },    /* un origen que todavia no existe */
 ];
 const disp = M.promos(lista).map(c => c.id);
 t('ofrece la que tiene cupo', disp.indexOf('A') >= 0);
@@ -171,7 +173,11 @@ t('no ofrece una agotada', disp.indexOf('C') < 0);
 t('no ofrece una sin monto', disp.indexOf('D') < 0);
 /* Sin esto, la lista de la cajera se llenaria con los cientos de codigos ya
    entregados y no encontraria las cinco promos de verdad. */
-t('no ofrece los codigos ya entregados', disp.indexOf('XYZ2345') < 0);
+t('no ofrece los codigos entregados en un ticket', disp.indexOf('XYZ2345') < 0);
+t('ni los entregados por una resena', disp.indexOf('QWE4567') < 0);
+/* Y tampoco uno de un origen que todavia no existe: filtrar por una lista de
+   valores conocidos dejaria entrar al proximo que se invente. */
+t('ni los de un origen nuevo que aparezca manana', disp.indexOf('RTY8901') < 0);
 t('sin cupones no rompe', M.promos(null).length === 0);
 
 /* ================================================== QUE ESTE ENCHUFADO */
@@ -212,8 +218,11 @@ t('sin cupon emitido no imprime nada',
 
 /* La lista de cupones del panel es para las PROMOS. Si entraran los codigos
    entregados, en un mes no se encuentra ninguna promo entre cientos de codigos. */
+/* Una promo es un cupon SIN origen. Filtrar por 'ticket' dejaba entrar los que
+   entrega la Cloud Function por una resena -origen 'resena'-, y esos apareceran
+   como promos elegibles: la cajera podria entregarle a alguien el cupon de otro. */
 t('los codigos entregados no ensucian la lista de promos',
-  /\.filter\(c=>c\.origen!=='ticket'\)/.test(html));
+  /\.filter\(c=>!c\.origen\)/.test(html));
 
 /* El contador de usos lo lleva la Cloud Function procesarUsoCupon al crearse el
    documento de uso. Tocarlo tambien aca lo contaria dos veces. */
@@ -238,6 +247,22 @@ t('y NO aflojan lo que tapo el agujero del cliente comun',
 /* El codigo generado lleva fecha: la lista del panel ordena por creadoEn y
    Firestore deja afuera en silencio a los documentos que no lo tienen. */
 t('el cupon generado lleva creadoEn', /creadoEn: new Date\(ahora\)/.test(mod));
+
+/* EL NOMBRE DEL CAMPO DEL MINIMO DE COMPRA.
+   El panel lo guarda como `limiteCompra` y la tienda lo lee asi (app.js ~2039).
+   Este modulo lo leia como `limite`, que no existe: el minimo quedaba en cero y
+   un cupon para compras desde $50.000 servia para una de $100. No daba error ni
+   se veia en pantalla. Las pruebas no lo atraparon porque le pasaban el nombre
+   equivocado a proposito, que es la forma mas facil de probar algo que no existe. */
+console.log('\n-- el nombre del campo del minimo --');
+const app = fs.readFileSync(path.join(RAIZ, 'app.js'), 'utf8');
+t('la tienda lee limiteCompra', app.indexOf('limiteCompra') > 0);
+t('el panel lo guarda como limiteCompra', html.indexOf('limiteCompra:limite') > 0);
+t('este modulo lo lee igual', mod.indexOf('cupon.limiteCompra') > 0);
+t('y la funcion tambien',
+  fs.readFileSync(path.join(RAIZ, 'functions', 'index.js'), 'utf8').indexOf('p.limiteCompra') > 0);
+t('el minimo se respeta de verdad',
+  !M.validar({ monto: 2000, limiteCompra: 50000, maxUsos: 1, usos: 0, activo: true }, 100, HOY).ok);
 
 /* ============================== EL PASO 2: LA RESEÑA ==============================
    El cupón por dejar una reseña lo genera una Cloud Function, no el navegador:
