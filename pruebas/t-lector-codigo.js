@@ -107,5 +107,57 @@ t('mira en memoria y tambien contra la base',
 t('se excluye a si mismo al editar', /p\.id !== idActual/.test(vcb));
 t('vacio es valido: casi ningun producto tiene codigo de barras', /if \(!cod\) return '';/.test(vcb));
 
+console.log('\nUN PRODUCTO QUE TODAVIA NO ESTA EN EL CATALOGO');
+/* "Asignar" sirve cuando el producto YA existe y solo le falta el codigo. En el
+   mostrador pasa seguido lo otro: llega mercaderia nueva y no esta cargada. Sin
+   salida, el cajero quedaba trabado a mitad de una venta: la lista decia "Ningun
+   producto con ese nombre" y el unico boton era Cancelar. */
+t('el modal ofrece crear el producto', /onclick="crearProductoConCodigo\(\)"/.test(admin));
+t('con un icono, no un emoji', /crearProductoConCodigo\(\)"><i class="bi bi-plus-lg"><\/i>/.test(admin));
+const cpc=cuerpoDe(src,'crearProductoConCodigo');
+t('cierra el de asignar antes de abrir la ficha', cpc.indexOf('closeAsignarCodigo()') < cpc.indexOf('openModal()'));
+t('va a la seccion Productos, que es donde vive el formulario', /switchSection\('products'\)/.test(cpc));
+t('deja el codigo de barras ya cargado', /campo\.value = cod/.test(cpc));
+t('y sugiere un codigo interno libre', /sugerirCodigoProducto\(\)/.test(cpc));
+t('pone el foco en el nombre, que es lo unico que falta escribir', /nom\.focus\(\)/.test(cpc));
+t('y explica como sigue', /escanealo otra vez/.test(cpc));
+
+console.log('\nCon "codigo desconocido" abierto no se sigue escaneando a ciegas');
+/* El chequeo de ventaModal esta mas abajo y ese modal sigue abierto DETRAS: sin
+   esta guarda la lectura siguiente entraba a la venta de atras mientras la pantalla
+   mostraba el codigo viejo, y si despues elegia un producto le asignaba el ANTERIOR. */
+t('la guarda existe', /_modalAbierto\('asignarCodigoModal'\)/.test(src));
+/* Acotado a procesarCodigoLeido: _modalAbierto('ventaModal') tambien aparece en
+   _ventaRapidaDestino, que esta antes en el archivo, y comparar posiciones sobre
+   el archivo entero no probaria el orden que importa. */
+const pcl=cuerpoDe(src,'procesarCodigoLeido');
+t('la guarda esta dentro del ruteo', /_modalAbierto\('asignarCodigoModal'\)/.test(pcl));
+t('y corta ANTES de rutear a la venta',
+    pcl.indexOf("_modalAbierto('asignarCodigoModal')") < pcl.indexOf("_modalAbierto('ventaModal')"));
+t('avisa por que no hizo nada', /Resolv/.test(src) && /qued/.test(src) && /pendiente/.test(src));
+
+console.log('\nEl codigo que se sugiere tiene que poder imprimirse');
+/* La etiqueta del local es un EAN-13 que lleva el codigo interno adentro: con
+   letras no se puede codificar. Se sugeria 'P-####' y el catalogo real usa 6
+   digitos en 1480 de 1484 productos; esos 4 con P- son justo los que NO pueden
+   tener etiqueta. */
+const sc=cuerpoDe(admin,'sugerirCodigoProducto');
+t('ya no sugiere P-####', !/'P-' \+ String\(n\)/.test(sc));
+t('sugiere solo digitos, con ceros adelante', /String\(n\)\.padStart\(6, '0'\)/.test(sc));
+t('continua desde el mas alto que existe, no desde la cantidad de productos',
+    /max = Math\.max\(max/.test(sc));
+(function(){
+  const g=new Function('allProducts',cuerpoDe(admin,'sugerirCodigoProducto')+'\nreturn sugerirCodigoProducto;');
+  const s1=g([{codigo:'000684'},{codigo:'P-0002'}])();
+  t('con 000684 cargado sugiere 000685', s1==='000685');
+  t('y es codificable en un EAN-13', /^[0-9]{1,11}$/.test(s1));
+  t('con el catalogo vacio arranca en 000001', g([])()==='000001');
+  const g2=g([{codigo:'000010'}]);
+  const res=new Set(); const dd=[];
+  for(let i=0;i<3;i++){ const c=g2(res); res.add(c); dd.push(c); }
+  t('tres seguidos no se repiten', new Set(dd).size===3);
+  t('y siguen la serie', dd[0]==='000011'&&dd[1]==='000012'&&dd[2]==='000013');
+})();
+
 console.log('\n'+ok+' pasaron, '+fail+' fallaron');
 process.exit(fail?1:0);

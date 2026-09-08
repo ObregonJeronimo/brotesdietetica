@@ -103,7 +103,11 @@ const PRODUCCION = [
   let { api, DOM, reg } = armar(JSON.parse(JSON.stringify(PRODUCCION)));
   api.abrir('p2');
   t('el campo Codigo NO queda vacio', DOM.pCodigo.value !== '', '"' + DOM.pCodigo.value + '"');
-  t('se completa con un codigo con forma de codigo', /^P-\d{4}$/.test(DOM.pCodigo.value), DOM.pCodigo.value);
+  /* Solo digitos: la etiqueta con codigo de barras que imprime el local es un
+     EAN-13 que lleva el codigo interno adentro, y con letras no se puede codificar.
+     El catalogo real usa 6 digitos en 1480 de 1484 productos. */
+  t('se completa con un codigo de solo digitos, que se puede etiquetar',
+    /^\d{6,}$/.test(DOM.pCodigo.value), DOM.pCodigo.value);
   t('se abrio el formulario de verdad', reg.abiertos.indexOf('p2') >= 0);
   t('un producto sin tipoVenta arranca como unidad', reg.tipoVenta[0] === 'unidad', reg.tipoVenta[0]);
 
@@ -124,7 +128,7 @@ const PRODUCCION = [
   console.log('\nUN PRODUCTO NUEVO SIGUE FUNCIONANDO COMO ANTES');
   ({ api, DOM, reg } = armar(JSON.parse(JSON.stringify(PRODUCCION))));
   api.abrir(null);
-  t('sugiere un codigo', /^P-\d{4}$/.test(DOM.pCodigo.value), DOM.pCodigo.value);
+  t('sugiere un codigo de solo digitos', /^\d{6,}$/.test(DOM.pCodigo.value), DOM.pCodigo.value);
   t('y arranca en unidad', reg.tipoVenta[0] === 'unidad');
 
   console.log('\nEL SUGERIDO NO CHOCA CON UNO QUE YA EXISTE');
@@ -144,7 +148,7 @@ const PRODUCCION = [
   let a = armar(base);
   a.api.abrir('p1');
   const cod1 = a.DOM.pCodigo.value;
-  t('el primero recibe un codigo', /^P-\d{4}$/.test(cod1), cod1);
+  t('el primero recibe un codigo', /^\d{6,}$/.test(cod1), cod1);
   base[0].codigo = cod1;                    /* como si lo hubiera guardado */
   a = armar(base);
   a.api.abrir('p2');
@@ -195,7 +199,7 @@ const PRODUCCION = [
   a3 = armar(JSON.parse(JSON.stringify(CAT)));
   a3.api.abrir('p3');
   t('un producto sin codigo abre con el sugerido y sin acusar nada',
-    /^P-\d{4}$/.test(a3.DOM.pCodigo.value) && !/Ya lo usa/.test(a3.ayuda.textContent),
+    /^\d{6,}$/.test(a3.DOM.pCodigo.value) && !/Ya lo usa/.test(a3.ayuda.textContent),
     a3.DOM.pCodigo.value + ' | ' + a3.ayuda.textContent);
   t('   y su original queda vacio, asi no dice "se va a cambiar de  a X"',
     a3.DOM.pCodigo.dataset.original === '' && !/cambiar/.test(a3.ayuda.textContent),

@@ -1952,16 +1952,32 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         /* `reservados` son los codigos que se acaban de asignar en la misma tanda y
            todavia no estan en allProducts. Sin eso, dar de alta varios de una vez
            -el PDF Semanal lo hace- les pone a todos el mismo. */
+        /* Se sugiere SOLO DIGITOS, y ese detalle no es estetico: la etiqueta con codigo
+           de barras que imprime el local es un EAN-13 que lleva el codigo interno
+           adentro, y un codigo con letras no se puede codificar. Antes se sugeria
+           'P-####' y el catalogo real usa 6 digitos: de 1484 productos, 1480 son
+           ###### y solo 4 son P-####. Esos 4 son exactamente los que NO pueden tener
+           etiqueta impresa. Siguiendo sugiriendo P- todo producto nuevo nacia sin
+           poder etiquetarse.
+
+           Se continua desde el numero mas alto que ya existe, no desde la cantidad de
+           productos: con bajas de por medio, contar productos devuelve un numero ya
+           usado. Los codigos viejos con letras siguen valiendo, no se toca ninguno. */
         function sugerirCodigoProducto(reservados){
             const usados = new Set((allProducts || []).map(p => String(p.codigo || '').toUpperCase()));
             if (reservados) reservados.forEach(c => usados.add(String(c).toUpperCase()));
-            let n = (allProducts || []).length + 1;
-            for (let i = 0; i < 10000; i++){
-                const c = 'P-' + String(n).padStart(4, '0');
+            let max = 0;
+            usados.forEach(c => {
+                const d = String(c).replace(/\D/g, '');
+                if (d) max = Math.max(max, parseInt(d, 10) || 0);
+            });
+            let n = max + 1;
+            for (let i = 0; i < 100000; i++){
+                const c = String(n).padStart(6, '0');
                 if (!usados.has(c)) return c;
                 n++;
             }
-            return 'P-' + Date.now().toString().slice(-6);
+            return String(Date.now()).slice(-9);
         }
 
         function normCodigo(v){
@@ -7035,7 +7051,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         </div>
         <div id="asignarCodigoLista" style="max-height:44vh;overflow-y:auto"></div>
       </div>
-      <div class="modal-footer"><button class="btn btn-secondary" onclick="closeAsignarCodigo()">Cancelar</button></div>
+      <div class="modal-footer"><button class="btn btn-primary" onclick="crearProductoConCodigo()"><i class="bi bi-plus-lg"></i> Crear producto nuevo</button><button class="btn btn-secondary" onclick="closeAsignarCodigo()">Cancelar</button></div>
     </div></div>
 
     <div class="modal-overlay" id="atajosAyudaModal"><div class="modal-box" style="max-width:560px;width:96vw;max-height:88vh;display:flex;flex-direction:column">

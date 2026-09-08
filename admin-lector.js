@@ -237,6 +237,17 @@ function procesarCodigoLeido(cod) {
     return;
   }
 
+  /* CON "CODIGO DESCONOCIDO" ABIERTO NO SE SIGUE ESCANEANDO A CIEGAS.
+     El chequeo de ventaModal esta mas abajo y ese modal sigue abierto DETRAS, asi
+     que sin esto la lectura siguiente entraba a la venta de atras mientras la
+     pantalla seguia mostrando el codigo viejo: el cajero no veia lo que estaba
+     cargando, y si despues elegia un producto le asignaba el codigo ANTERIOR.
+     Se resuelve el que quedo pendiente -asignarlo, crearlo o cancelar- y se sigue. */
+  if (_modalAbierto('asignarCodigoModal')) {
+    showAdminToast('Resolvé primero el código que quedó pendiente, o cancelá.', 'error');
+    return;
+  }
+
   const prod = buscarPorCodigo(cod);
 
   /* Dos productos con el mismo codigo: no se adivina. Pasa si alguien cargo dos
@@ -350,6 +361,42 @@ function openAsignarCodigo(cod, destino) {
 function closeAsignarCodigo() {
   document.getElementById('asignarCodigoModal').classList.remove('show');
   _lecCodigoPendiente = null;
+}
+
+/* EL PRODUCTO NO EXISTE TODAVIA.
+
+   "Asignar" sirve cuando el producto YA esta cargado y lo unico que le falta es el
+   codigo. Pero en el mostrador pasa seguido lo otro: llega mercaderia nueva, el
+   cajero la escanea y no esta en el catalogo. Sin esta salida quedaba trabado a
+   mitad de una venta -la lista decia "Ningun producto con ese nombre" y el unico
+   boton era Cancelar-, y habia que cancelar, ir a Productos, crearlo, volver y
+   empezar la venta de nuevo.
+
+   Ahora se abre la ficha de producto nuevo con el codigo de barras ya puesto y un
+   codigo interno sugerido. Al guardarlo, se escanea otra vez y entra a la venta:
+   una lectura mas, y ningun camino raro que mantener. */
+function crearProductoConCodigo() {
+  const pend = _lecCodigoPendiente;
+  const cod = pend ? pend.cod : '';
+  closeAsignarCodigo();
+  if (typeof switchSection === 'function') switchSection('products');
+  if (typeof openModal !== 'function') {
+    if (typeof showAdminToast === 'function') showAdminToast('No se pudo abrir la ficha del producto', 'error');
+    return;
+  }
+  openModal();
+  const campo = document.getElementById('pCodigoBarras');
+  if (campo && cod) campo.value = cod;
+  const cInterno = document.getElementById('pCodigo');
+  if (cInterno && !cInterno.value && typeof sugerirCodigoProducto === 'function') {
+    cInterno.value = sugerirCodigoProducto();
+    if (typeof _pintarEstadoCodigo === 'function') _pintarEstadoCodigo();
+  }
+  const nom = document.getElementById('pNombre');
+  if (nom) setTimeout(function () { nom.focus(); }, 80);
+  if (typeof showAdminToast === 'function') {
+    showAdminToast('Cargá el producto y guardalo. Después escanealo otra vez y entra a la venta.', 'info');
+  }
 }
 
 function renderAsignarCodigoLista() {
