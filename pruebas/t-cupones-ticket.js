@@ -239,5 +239,64 @@ t('y NO aflojan lo que tapo el agujero del cliente comun',
    Firestore deja afuera en silencio a los documentos que no lo tienen. */
 t('el cupon generado lleva creadoEn', /creadoEn: new Date\(ahora\)/.test(mod));
 
+/* ============================== EL PASO 2: LA RESEÑA ==============================
+   El cupón por dejar una reseña lo genera una Cloud Function, no el navegador:
+   crear un cupón es escribir en /cupones y eso las reglas se lo reservan a los
+   admins. Si el cliente pudiera, se pondría el monto que quisiera.
+
+   El generador de códigos está escrito DOS VECES -una en el navegador, otra en el
+   servidor- porque son dos mundos que no comparten código. Que sean iguales no se
+   puede dar por sentado: si alguien toca uno solo, el local emitiría códigos con
+   un alfabeto y la caja validaría con otro, y nadie se enteraría hasta que un
+   cliente reclame. Por eso se comparan acá. */
+console.log('\n-- el cupon por dejar una resena --');
+const fn = fs.readFileSync(path.join(RAIZ, 'functions', 'index.js'), 'utf8');
+const reglas2 = fs.readFileSync(path.join(RAIZ, 'firestore.rules'), 'utf8');
+const res = fs.readFileSync(path.join(RAIZ, 'resena.html'), 'utf8');
+
+const alfFn = (fn.match(/const ALF = '([^']+)'/) || [])[1];
+t('el alfabeto del servidor existe', !!alfFn);
+t('y es identico al del navegador', alfFn === M.ALF);
+/* La cuenta del control tambien: si difiere, la caja rechazaria todos los codigos
+   que entrega la funcion. */
+t('la cuenta del caracter de control es la misma',
+  fn.indexOf('ALF.indexOf(c[i]) * (i + 2)') > 0 && mod.indexOf('* (i + 2)') > 0);
+
+t('la funcion premiarResena existe', fn.indexOf('exports.premiarResena = onDocumentWritten') > 0);
+/* Solo en el momento exacto en que la resena se completa. */
+t('solo entrega cuando la resena pasa a completada',
+  fn.indexOf('if (antes && antes.usado === true) return;') > 0);
+t('no entrega dos veces por la misma resena',
+  fn.indexOf('if ((await premioRef.get()).exists) return;') > 0);
+t('sin cuenta no entrega: no hay a quien darselo', fn.indexOf('if (!uid) return;') > 0);
+t('sin una promo marcada tampoco', fn.indexOf("'paraResenas', '==', true") > 0);
+t('el codigo entregado vale una sola vez', fn.indexOf('maxUsos: 1, usos: 0, activo: true') > 0);
+t('y se comprueba que el codigo no exista antes de usarlo',
+  fn.indexOf("db.collection('cupones').doc(c).get()).exists") > 0);
+
+/* El codigo NO puede vivir en la resena: las completadas las lista cualquiera
+   -asi las muestra la tienda- y ahi seria publico para todo el mundo. */
+t('el codigo va en resenaPremios, no en la resena',
+  fn.indexOf("collection('resenaPremios')") > 0);
+t('y solo lo lee su dueno',
+  /match \/resenaPremios[\s\S]{0,220}resource\.data\.uid == request\.auth\.uid/.test(reglas2));
+t('nadie puede escribirlo desde el navegador',
+  !/match \/resenaPremios[\s\S]{0,260}allow (write|create|update)/.test(reglas2));
+
+/* La pagina de la resena lo muestra al terminar. */
+t('la pagina de resena espera el cupon', res.indexOf('function esperarPremio') > 0);
+t('  y lo pide despues de enviar', /showView\('successArea'\);\s*esperarPremio/.test(res));
+t('  lo lee de resenaPremios', res.indexOf("collection('resenaPremios')") > 0);
+/* Si la funcion no llega a tiempo, mejor no mostrar nada que prometer un
+   descuento que no aparece. */
+t('  y si no llega a tiempo no promete nada', res.indexOf('for(let intento=0;intento<12') > 0);
+
+/* El ticket promete el monto SOLO si hay una promo activa para resenas: no se
+   puede prometer un descuento que no se va a entregar. */
+t('el ticket promete el descuento', html.indexOf('function _ctkPromesaResena') > 0);
+t('  con el monto de la promo', html.indexOf("y llevate <b>$'+") > 0);
+t('  y sin promo activa vuelve al texto de siempre',
+  html.indexOf("if(!p)return 'Escane&aacute; el QR y") > 0);
+
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

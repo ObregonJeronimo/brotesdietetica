@@ -86,6 +86,7 @@
         </div>
 
         <div class="state-view" id="successArea">
+            <div id="premioArea" style="display:none"></div>
             <div class="icon">&#10003;</div>
             <h2 style="color:var(--color-primary)">¡Gracias por tu opinión!</h2>
             <p>Tu comentario nos ayuda a mejorar cada día.</p>
@@ -231,6 +232,49 @@
             });
         }
 
+        /* EL CUPON NO LO ESCRIBE ESTA PAGINA. Lo genera la Cloud Function
+           premiarResena cuando ve que la resena se completo, porque crear un cupon
+           es escribir en /cupones y eso las reglas se lo reservan a los admins -si
+           el cliente pudiera, se pondria el monto que quisiera-.
+
+           Entonces aca se espera. La funcion tarda un segundo o dos en arrancar, y
+           si esta dormida puede tardar mas, asi que se reintenta un rato. Si no
+           llega, no se muestra nada: es mejor que prometer un descuento que no
+           existe. El cupon igual quedo generado y se lo pueden dar en el local.
+
+           Se lee de /resenaPremios y no de la resena porque las resenas completadas
+           las puede listar cualquiera, y el codigo quedaria a la vista de todos. */
+        async function esperarPremio(tokenId){
+            const caja=document.getElementById('premioArea');
+            if(!caja)return;
+            for(let intento=0;intento<12;intento++){
+                await new Promise(r=>setTimeout(r,intento<4?900:2200));
+                try{
+                    const snap=await db.collection('resenaPremios').doc(tokenId).get();
+                    if(!snap.exists)continue;
+                    const p=snap.data();
+                    if(!p||!p.codigo)continue;
+                    const vence=p.vence&&p.vence.seconds?new Date(p.vence.seconds*1000):null;
+                    caja.innerHTML='<div style="border:2px dashed var(--color-primary);border-radius:12px;'+
+                        'padding:16px;margin-bottom:18px;text-align:center">'+
+                        '<div style="font-size:0.8rem;letter-spacing:.5px;font-weight:700;opacity:.75">'+
+                        'TU REGALO POR OPINAR</div>'+
+                        '<div style="font-size:2rem;font-weight:800;letter-spacing:4px;margin:6px 0;'+
+                        'font-family:monospace">'+p.codigo+'</div>'+
+                        '<div style="font-weight:700">$'+Number(p.monto||0).toLocaleString('es-AR')+' de descuento</div>'+
+                        (p.limite>0?'<div style="font-size:0.85rem;opacity:.8">en compras desde $'+
+                            Number(p.limite).toLocaleString('es-AR')+'</div>':'')+
+                        (vence?'<div style="font-size:0.85rem;opacity:.8">Válido hasta el '+
+                            vence.toLocaleDateString('es-AR')+'</div>':'')+
+                        '<div style="font-size:0.8rem;margin-top:8px;opacity:.8">'+
+                        'Mostralo en el local en tu próxima compra.</div>'+
+                        '</div>';
+                    caja.style.display='block';
+                    return;
+                }catch(e){ /* sin permiso o sin red: se reintenta */ }
+            }
+        }
+
         async function submitReview(){
             if(!currentUser){showView('needsLoginArea');return;}
             const nombre=document.getElementById('rNombre').value.trim();
@@ -266,6 +310,7 @@
                 if(extra)updateData.respuestaExtra=extra;
                 await db.collection('resenas').doc(tokenId).update(updateData);
                 showView('successArea');
+                esperarPremio(tokenId);
             }catch(e){
                 console.error(e);
                 showToast('Error al enviar, intenta de nuevo');

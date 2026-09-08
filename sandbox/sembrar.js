@@ -289,6 +289,10 @@ async function main() {
   const PROMOS = [
     { id: 'VOLVE2000', nombre: 'Volvé y llevate $2.000', monto: 2000, limite: 12000,
       maxUsos: 100, entregados: 0, activo: true, diasVigencia: 30 },
+    /* La que se entrega por dejar una reseña: la elige la Cloud Function
+       premiarResena buscando paraResenas == true. */
+    { id: 'RESENA1500', nombre: 'Gracias por tu opinión', monto: 1500, limite: 8000,
+      maxUsos: 500, entregados: 0, activo: true, diasVigencia: 45, paraResenas: true },
     { id: 'PRIMERA5000', nombre: 'Primera compra $5.000', monto: 5000, limite: 25000,
       maxUsos: 50, entregados: 0, activo: true, diasVigencia: 60 },
     { id: 'AGOTADA', nombre: 'Promo agotada', monto: 1000, limite: 0,
@@ -318,7 +322,7 @@ async function main() {
   console.log('  ' + ventas.length + ' ventas, ' + pedidos.length + ' pedidos');
   console.log('  ' + compras.length + ' compras, ' + deudas.length + ' a deber por $' +
     debe.toLocaleString('es-AR'));
-  console.log('  4 promos de cupon (2 usables, 1 agotada, 1 apagada)');
+  console.log('  5 promos de cupon (2 usables, 1 para resenas, 1 agotada, 1 apagada)');
   console.log('  admins: ' + ADMINS.join(', '));
 }
 

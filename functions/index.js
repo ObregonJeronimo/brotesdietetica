@@ -2,6 +2,8 @@
  * BROTES Cloud Functions
  * - notifyTelegramOnNewOrder: dispara mensaje a Telegram cada vez que se crea un pedido web
  * - procesarUsoCupon:         incrementa usos del cupon y lo desactiva al llegar a maxUsos
+ * - premiarResena:            al completarse una resena, genera el cupon de descuento
+ *                             (el cliente no puede escribir en /cupones, y con razon)
  * - rateLimitPedidos:         borra el pedido si el mismo uid hizo mas de 5 en una hora
  * - sanitizarPedido:          limpia los campos de texto del pedido del lado del servidor
  * - sincronizarClaimAdmin:    pone/saca el custom claim `admin` segun la coleccion /admins
@@ -197,6 +199,118 @@ exports.procesarUsoCupon = onDocumentCreated(
  * OJO con la region: si se pasa solo el path (sin objeto de opciones) la
  * funcion se despliega en us-central1 y queda en otra region que Firestore.
  */
+/* =============================================================================
+   PREMIAR LA RESEÑA CON UN CUPÓN
+   =============================================================================
+   Cuando alguien completa una reseña, se le genera un cupón de descuento.
+
+   POR QUÉ TIENE QUE SER UNA FUNCIÓN Y NO EL NAVEGADOR
+
+   Crear un cupón es escribir en /cupones, que las reglas reservan a los admins,
+   y con razón: si el cliente pudiera crearlos se pondría el monto que quisiera.
+   Aflojar esa regla para este caso significaba pedirle a firestore.rules que
+   validara el monto contra la promo, que sea uno solo por reseña y que la reseña
+   sea suya. Se puede escribir, pero queda una regla que nadie entiende y que se
+   rompe sin avisar. Acá el servidor lo hace y listo.
+
+   POR QUÉ EL CÓDIGO NO VA EN LA RESEÑA
+
+   Las reseñas completadas son LISTABLES por cualquiera -así las muestra la
+   tienda-, así que un código guardado ahí sería público. Va en /resenaPremios,
+   que solo puede leer su dueño.
+
+   QUÉ PROMO SE ENTREGA
+
+   La que esté marcada con `paraResenas: true` en /cupones. Si no hay ninguna, no
+   se entrega nada: es la forma de tener la promoción apagada sin tocar código.
+   ============================================================================= */
+exports.premiarResena = onDocumentWritten(
+  {
+    document: 'resenas/{resenaId}',
+    region: 'southamerica-east1',
+    memory: '256MiB',
+    timeoutSeconds: 30
+  },
+  async (event) => {
+    const antes = event.data?.before?.data();
+    const despues = event.data?.after?.data();
+    /* Solo en el momento exacto en que se completa. Si se dispara por cualquier
+       otra edición no se entrega nada de nuevo. */
+    if (!despues || despues.usado !== true) return;
+    if (antes && antes.usado === true) return;
+
+    const resenaId = event.params.resenaId;
+    const uid = despues.clienteAuthUid;
+    if (!uid) return;   /* sin cuenta no hay a quién entregárselo */
+
+    try {
+      /* Si ya tiene premio, no se genera otro: la función puede correr dos veces
+         para el mismo evento y eso no puede significar dos cupones. */
+      const premioRef = db.collection('resenaPremios').doc(resenaId);
+      if ((await premioRef.get()).exists) return;
+
+      const promoSnap = await db.collection('cupones')
+        .where('paraResenas', '==', true).where('activo', '==', true).limit(1).get();
+      if (promoSnap.empty) return;   /* la promoción está apagada */
+      const promo = promoSnap.docs[0];
+      const p = promo.data();
+
+      /* Mismo alfabeto que admin-cupones-ticket.js: sin 0/O ni 1/I/L, más un
+         carácter de control. Se repite acá a propósito -son dos mundos, servidor
+         y navegador- pero t-cupones-ticket.js verifica que sean idénticos. */
+      const ALF = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+      const codigoNuevo = () => {
+        let c = '';
+        for (let i = 0; i < 6; i++) c += ALF[Math.floor(Math.random() * ALF.length)];
+        let suma = 0;
+        for (let i = 0; i < c.length; i++) suma += ALF.indexOf(c[i]) * (i + 2);
+        return c + ALF[suma % ALF.length];
+      };
+
+      let codigo = null;
+      for (let i = 0; i < 6 && !codigo; i++) {
+        const c = codigoNuevo();
+        if (!(await db.collection('cupones').doc(c).get()).exists) codigo = c;
+      }
+      if (!codigo) { logger.error('premiarResena: no pude generar un código libre'); return; }
+
+      const dias = parseInt(p.diasVigencia) > 0 ? parseInt(p.diasVigencia) : 30;
+      const vence = new Date(Date.now() + dias * 86400000);
+
+      await db.collection('cupones').doc(codigo).set({
+        codigo: codigo,
+        monto: Number(p.monto || 0),
+        limite: Number(p.limite || 0),
+        maxUsos: 1, usos: 0, activo: true,
+        vence: vence,
+        creadoEn: new Date(),
+        origen: 'resena',
+        promoId: promo.id,
+        promoNombre: p.nombre || promo.id,
+        resenaId: resenaId,
+      });
+
+      /* Lo que el cliente puede leer. Va aparte de la reseña justamente para que
+         no sea público. */
+      await premioRef.set({
+        codigo: codigo,
+        monto: Number(p.monto || 0),
+        limite: Number(p.limite || 0),
+        vence: vence,
+        uid: uid,
+        creadoEn: new Date(),
+      });
+
+      await promo.ref.update({
+        entregados: admin.firestore.FieldValue.increment(1),
+      }).catch(() => {});
+      logger.info(`Cupón ${codigo} entregado por la reseña ${resenaId}`);
+    } catch (e) {
+      logger.error('Error premiando reseña:', e);
+    }
+  }
+);
+
 exports.rateLimitPedidos = onDocumentCreated(
   {
     document: 'pedidos/{pedidoId}',

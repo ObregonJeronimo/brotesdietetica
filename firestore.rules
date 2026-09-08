@@ -262,6 +262,19 @@ service cloud.firestore {
        Queda pendiente algo que esto no arregla: las resenas completadas guardan
        clienteEmail, y ese documento SI es publico. Sacar el mail de ahi es un
        cambio de esquema aparte. */
+    /* ===== PREMIOS POR RESEÑA =====
+       El cupon que se gana al dejar una resena. Vive aca y NO adentro de la
+       resena porque las resenas completadas son listables por cualquiera -asi
+       las muestra la tienda-, y ahi el codigo seria publico para todo el mundo.
+
+       Solo lo lee su dueno, y solo lo escribe el servidor: la Cloud Function
+       premiarResena usa el Admin SDK, que no pasa por estas reglas. Por eso no
+       hay ningun allow write: nadie mas tiene por que escribir aca. */
+    match /resenaPremios/{doc} {
+      allow get: if isAuthUser() && resource.data.uid == request.auth.uid;
+      allow list: if isAdmin();
+    }
+
     match /resenas/{doc} {
       allow get: if true;
       allow list: if isAdmin() || resource.data.usado == true;
