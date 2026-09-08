@@ -1,6 +1,6 @@
 # Brotes Dietética — estado y pendientes
 
-> Actualizado: 07/09/2026.
+> Actualizado: 08/09/2026.
 > No se publica: `.vercelignore` excluye todos los `*.md`.
 
 **El software está terminado.** Lo que falta para entregar no es programar: es cargar
@@ -12,7 +12,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | Pruebas | 1518 en 50 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
-| **Datos** | **1484 productos, 28 listas, 30 categorías.** Los 611 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A) |
+| **Datos** | **1488 productos, 28 listas, 30 categorías.** Los 615 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A). **Ninguno en $0**: los 373 que faltaban se cargaron el 08/09 (§1-bis I) |
 | Último deploy | al día. Vercel despliega solo con `git push origin main`; las functions y las reglas no cambiaron desde el 27/08 |
 
 **Del 28/08 al 04/09 entraron 27 commits**, casi todos de Thiago: compras con lector de
@@ -764,9 +764,10 @@ entra** al carrito y avisa por que; el que tiene precio **sigue entrando**.
 
 `t-sin-precio.js`: 27 asertos, 13 fallan contra `ddc1dfe`.
 
-**Lo que sigue siendo del dueño:** cargar los precios que faltan. Son 197 visibles; salen del
-panel filtrando por lista (`FRUTICOR 1` tiene 79 y `OTRO` 77). Mientras tanto la tienda los
-muestra como "Consultar precio", que es honesto y no regala nada.
+**Los precios que faltaban se cargaron el 08/09** desde las fotos del reporte del sistema
+viejo: ver §1-bis I. Hoy **no queda ningún producto en $0**, así que el aviso "Consultar
+precio" no se dibuja en ninguna pantalla — pero la guarda queda, que es lo que importa: si
+mañana alguien carga un producto sin precio, no se puede llevar.
 
 ---
 
@@ -810,6 +811,61 @@ tiene código de barras.
 Verificado abriendo el panel: con el foco en `BODY` —sin tocar nada— escanear el código
 interno agrega x1, el de barras también, repetirlo suma x2, y `320` no agarra `000320`.
 `t-lector-codigo.js`: **41 asertos**. Las cuatro funciones nuevas no existían en `92492ec`.
+
+---
+
+### I) Los 373 productos que quedaron en $0 ya tienen precio · **HECHO** (08/09/2026)
+
+El arreglo de §G tapó el agujero —un producto sin precio no se puede llevar— pero dejaba
+**373 productos del catálogo original invisibles como "Consultar precio"**. El dueño pasó
+las **16 páginas** del reporte *Stock valorizado* del sistema viejo (Zoo Logic Dragonfish)
+**en fotos**, y de ahí salieron los precios.
+
+**Por qué se pudo emparejar por código, y no a ojo.** Los códigos del reporte
+(`000001`–`000684`) son los **mismos** que los de Brotes. Donde Brotes **ya** tenía precio
+cargado se pudo cotejar: de **231 cotejables, 165 dan exacto**. Los 66 que difieren **no son
+errores de lectura sino subas de precio**, y se nota porque son *sistemáticas* —las 6
+Milanesas Sojitas todas en +28 %, las chalitas en +9 %—, cosa que un error de transcripción
+no hace. Esa es la prueba de que la transcripción de las fotos sirve.
+
+**El costo no está en el reporte y se deduce.** El margen de la casa es **65 % sobre el
+costo**, así que `costo = precio / 1,65`. Tampoco es una creencia: de los **82 productos que
+ya tenían costo y precio cargados, 79 están exactamente en 1,65** —la mediana, el p25 y el
+p75 son los tres 1,65—.
+
+**El granel no se convierte.** A granel Brotes guarda el precio **POR KILO** y el reporte ya
+viene así: de **70 productos a granel cotejables, 63 dan exacto**. Por eso el script no
+divide por nada y **no aplica la trampa del x1000 de §5**. De los 373 cargados, **129 son a
+granel**.
+
+**Las filas a $1,05 se descartan**: es el relleno que usa el sistema viejo para las filas sin
+precio real, no un precio de un peso.
+
+| | antes | después |
+|---|---|---|
+| catálogo original en $0 | **373** | **0** |
+| visibles en la tienda en $0 | 190 | **0** |
+
+**Medido releyendo los documentos de la base, no contando lo que se mandó:** los **373 de 373**
+quedaron con `precio`, `costo` y `porcentaje 65` correctos, **0 fallaron**. Antes de escribir,
+el script guardó los valores previos de los 373 documentos en `respaldo-precios.json`.
+
+Los cinco controles que corren antes de escribir —y que abortan si alguno da distinto de 0—:
+precio inválido, costo inválido o mayor o igual al precio, **pisar un precio ya cargado**,
+margen que no dé 1,65, y precio fuera de $100–$200.000. Los cinco dieron **0**.
+
+Dónde estaban: **206 en `OTRO`**, 93 en `FRUTICOR 1`, 32 en `MARTIN F.S`, 13 en `NATURA` y el
+resto repartido en 10 listas más.
+
+El script es `migracion/precios.js` (`--dry` no escribe nada y deja `informe-precios.txt`;
+`--escribir` aplica). Los precios transcritos viven en `migracion/lista1.txt` como
+`codigo|precio`, **644 filas con precio real**.
+
+**Lo que queda decidir (es del dueño).** El reporte trae **40 códigos que Brotes no tiene**.
+Tres no son productos —`000001`, `000148 Envios` y `000407 Saldo`—, así que son **37
+productos reales del negocio que no están cargados**. No se pueden crear solos: en Brotes
+**categoría y lista son obligatorias** y el reporte no las trae. Hay que decidir a qué
+categoría y a qué lista van antes de subirlos.
 
 ---
 
