@@ -319,6 +319,67 @@ function usadas(texto) {
   return { clases, vars };
 }
 
+/* ============================ ESTILO EN LINEA QUE TAPA A LA CLASE ============
+   Un bloque que se abre y se cierra alternando una clase:
+
+     <div class="v-items" style="display:none">...</div>
+     .v-items{display:none}  .v-items.show{display:block}
+     onclick="...querySelector('.v-items').classList.toggle('show')"
+
+   El estilo EN LINEA le gana siempre a una regla de clase. O sea que se agrega
+   la clase, se saca, se vuelve a agregar, y el bloque nunca se ve. No da error,
+   no se rompe nada: el clic simplemente no hace nada, y eso solo se descubre
+   usando la pantalla.
+
+   Paso de verdad con el detalle de items de una venta, y estuvo asi mucho
+   tiempo. En el mismo archivo habia otro caso identico -ch-items- que alguien ya
+   habia arreglado poniendole !important, sin que el arreglo llegara al otro.
+
+   Se revisa: si un elemento trae display:none en el atributo style, y su clase
+   tiene una regla .clase.show -o .clase.abierto, .clase.visible- que cambia el
+   display SIN !important, entonces ese bloque no se puede abrir nunca. */
+function revisarEstiloEnLinea(html, problemas) {
+  const MODIFICADORES = ['show', 'abierto', 'abierta', 'visible', 'open', 'activo'];
+
+  /* Reglas del tipo `.algo.show{...display:...}`, con o sin !important. */
+  const reglas = {};
+  const reRegla = new RegExp(
+    '\\.([A-Za-z][\\w-]*)\\.(' + MODIFICADORES.join('|') + ')\\s*\\{([^}]*)\\}', 'g');
+  let m;
+  while ((m = reRegla.exec(html))) {
+    const decl = m[3];
+    if (!/display\s*:/.test(decl)) continue;
+    reglas[m[1]] = reglas[m[1]] || { conImportant: false, mod: m[2] };
+    if (/display\s*:[^;]*!important/.test(decl)) reglas[m[1]].conImportant = true;
+  }
+
+  /* Elementos con display:none escrito en el atributo style. */
+  const reElem = /class="([^"]+)"\s+style="([^"]*)"/g;
+  const vistos = new Set();
+  while ((m = reElem.exec(html))) {
+    if (!/display\s*:\s*none/.test(m[2])) continue;
+    for (const clase of m[1].split(/\s+/)) {
+      const r = reglas[clase];
+      if (!r || r.conImportant || vistos.has(clase)) continue;
+      /* Que ademas alguien la alterne: si nadie la toca, el display:none en
+         linea es simplemente redundante y no molesta a nadie. */
+      const seAlterna = new RegExp(
+        'toggle\\((\\\\?[\'"])' + r.mod + '\\1\\)').test(html) ||
+        new RegExp('classList\\.add\\((\\\\?[\'"])' + r.mod + '\\1\\)').test(html);
+      if (!seAlterna) continue;
+      vistos.add(clase);
+      const linea = html.slice(0, m.index).split('\n').length;
+      problemas.push(
+        'ESTILO EN LINEA que tapa a la clase: <div class="' + clase + '" style="display:none">' +
+        ' (admin.html:' + linea + ')\n' +
+        '    Se alterna con la clase .' + r.mod + ', pero el style en linea le gana' +
+        ' y el bloque no se abre nunca.\n' +
+        '    Saca el display:none del atributo style: la regla .' + clase +
+        ' ya lo oculta.');
+    }
+  }
+}
+
 function revisarCss(archivo, textoQueUsa, cssDisponible, textoConGanchos) {
   const fallas = [];
   const def = definidas(cssDisponible);
@@ -364,6 +425,7 @@ const JS_PANEL = MODULOS
   }).join('\n') + '\n' + html;
 
 problemas.push(...revisarCss('admin.html', html, CSS_ADMIN, JS_PANEL));
+revisarEstiloEnLinea(html, problemas);
 
 /* Los modulos sueltos dibujan HTML con las clases del panel, asi que se comparan
    contra el CSS de admin.html. Se pasa SOLO el modulo como texto que usa, para no

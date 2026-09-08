@@ -175,8 +175,14 @@ function armarVentas(productos) {
       id: 'venta' + String(i + 1).padStart(3, '0'),
       datos: {
         numero: i + 1, fecha: diasAtras(i * 2), items: items, total: total,
-        metodoPago: ['Efectivo', 'Transferencia', 'Debito'][i % 3],
-        tipoEntrega: 'mostrador', canal: 'caja',
+        /* El panel lee `medioPago` y `cliente`. Escribirlos con otro nombre no da
+           error: la pantalla muestra "undefined" y parece un bug del panel cuando
+           en realidad es la siembra la que esta mal. */
+        medioPago: ['Efectivo', 'Transferencia', 'Débito'][i % 3],
+        cliente: i % 4 === 0 ? 'Consumidor Final' : 'Cliente Prueba ' + (i % 7 + 1),
+        subtotalProductos: total, descuentoPct: 0, descuentoMonto: 0, envio: 0,
+        tipoEntrega: 'retiro', origen: 'mostrador', stockDescontado: true,
+        creadoEn: diasAtras(i * 2),
         usuario: 'sandbox@local',
       },
     });
@@ -243,7 +249,7 @@ function armarPedidos(productos) {
         items: [{ id: p.id, nombre: p.datos.nombre, cantidad: cant,
                   precio: p.datos.precio, subtotal: sub }],
         total: sub, tipoEntrega: i % 2 ? 'envio' : 'retiro', costoEnvio: i % 2 ? 2500 : 0,
-        metodoPago: 'Efectivo',
+        medioPago: 'Efectivo',
       },
     };
   });
