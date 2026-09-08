@@ -323,5 +323,57 @@ t('  con el monto de la promo', html.indexOf("y llevate <b>$'+") > 0);
 t('  y sin promo activa vuelve al texto de siempre',
   html.indexOf("if(!p)return 'Escane&aacute; el QR y") > 0);
 
+/* ================== QUE EL CUPON SE MIRE OTRA VEZ AL GUARDAR
+   La validacion corria solo al apretar "Aplicar". Entre eso y guardar, el carrito
+   puede cambiar entero: se aplicaba el cupon con el carrito lleno -que llega al
+   minimo-, despues se sacaban productos, y la venta se guardaba con el descuento
+   igual. La compra minima se esquivaba sin ningun truco. */
+console.log('\n-- revalidar antes de guardar --');
+t('existe la revalidacion', mod.indexOf('async function cuponCajaRevalidar') > 0);
+t('relee el cupon de la base y no confia en la pantalla',
+  /cuponCajaRevalidar[\s\S]{0,600}db\.collection\('cupones'\)\.doc\(c\.codigo\)\.get\(\)/.test(mod));
+t('lo valida contra el subtotal que se le pasa',
+  /cuponTicketValidar\(cupon, subtotal, Date\.now\(\)\)/.test(mod));
+/* El de un pedido web ya se cobro en el checkout: revalidarlo al pasarlo a venta
+   lo rechazaria sin motivo, porque el cliente ya lo gasto. */
+t('solo revalida los que aplico la cajera', /if \(!c\.deCaja\) return \{ ok: true \};/.test(mod));
+t('y por eso los marca al aplicarlos', /deCaja: true/.test(mod));
+/* Si la venta quedo mas chica que el descuento, se descuenta lo que corresponde
+   ahora, no lo de cuando se aplico. */
+t('ajusta el monto si cambio', /window\._pedidoCuponVenta\.monto = v\.monto/.test(mod));
+
+t('guardar la venta la llama', html.indexOf('await cuponCajaRevalidar(subtotalProductos)') > 0);
+/* Solo al CREAR. Al editar una venta que ya uso el cupon, ese cupon figura usado
+   -por esta misma venta-, asi que revalidarlo la rechazaria y no se podria ni
+   corregir el nombre del cliente. */
+t('  pero solo al crear, no al editar',
+  html.indexOf("if(!isEdit&&typeof cuponCajaRevalidar==='function')") > 0);
+t('  y con el subtotal final, no con el de cuando se aplico',
+  /const totales=calcularTotalesVenta\(\);const subtotalProductos=totales\.subtotal;[\s\S]{0,900}cuponCajaRevalidar\(subtotalProductos\)/.test(html));
+/* Si no pasa, la venta NO se guarda: es plata. */
+t('si el cupon ya no sirve, no guarda', /if\(!_rev\.ok\)\{/.test(html));
+t('  avisa por que', html.indexOf("'El cupón ya no se puede usar: '+_rev.motivo") > 0);
+t('  saca el cupon para que se pueda guardar sin el',
+  /if\(typeof cuponCajaQuitar==='function'\)cuponCajaQuitar\(\);return;/.test(html));
+/* Sin restaurar el boton, la pantalla queda con "Guardando..." para siempre y
+   parece colgada. */
+t('  y devuelve el boton a su estado',
+  /_rev\.ok\)\{btn\.disabled=false;btn\.innerHTML='<i class="bi bi-check-lg"><\/i> Registrar Venta'/.test(html));
+
+/* El uso se anota UNA vez, al crear. Al editar una venta que ya tenia cupon no se
+   puede volver a anotar: contaria dos veces y el cupon se apagaria antes de tiempo. */
+/* Borrar la venta NO devuelve el cupon: el canje vive en cuponesUsos y la Cloud
+   Function que cuenta los usos no sabe restar. Si era de un solo uso, el cliente
+   se queda sin nada, asi que hay que decirlo ANTES de borrar. */
+t('borrar una venta avisa si uso un cupon',
+  html.indexOf('OJO: esta venta uso el cupon ') > 0 &&
+  html.indexOf('borrar la venta no se lo devuelve al cliente') > 0);
+t('  y el aviso se arma antes de preguntar',
+  html.indexOf('const _avisoCup=') < html.indexOf("'Eliminar venta #'+num"));
+t('  y no aparece si la venta no uso ninguno', /_vCup&&_vCup\.codigo/.test(html));
+
+t('el uso se registra una sola vez, al crear la venta',
+  (html.match(/cuponCajaRegistrarUso\(/g) || []).length === 1);
+
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

@@ -201,7 +201,10 @@ async function cuponCajaAplicar() {
     const v = cuponTicketValidar(cupon, sub, Date.now());
     if (!v.ok) { _ctkAviso(v.motivo, false); return; }
 
-    window._pedidoCuponVenta = { codigo: codigo, monto: v.monto, id: codigo };
+    /* `deCaja` distingue este cupon del que trae un pedido web ya cobrado: ese se
+       valido en el checkout y el cliente ya lo gasto, asi que revalidarlo al pasar
+       el pedido a venta lo rechazaria sin motivo. */
+    window._pedidoCuponVenta = { codigo: codigo, monto: v.monto, id: codigo, deCaja: true };
     inp.value = '';
     _ctkPintarAplicado();
     if (typeof renderVentaItems === 'function') renderVentaItems();
@@ -273,6 +276,35 @@ async function cuponCajaRegistrarUso(ventaId, numero) {
     console.warn('cuponesUsos:', e);
     showAdminToast('La venta se guardó, pero no se pudo marcar el cupón como usado: ' +
       e.message, 'error');
+  }
+}
+
+/* Se vuelve a mirar el cupon JUSTO ANTES de guardar, contra el subtotal final.
+
+   Sin esto se podia esquivar la compra minima sin ningun truco: se aplica el cupon
+   con el carrito lleno -que si llega al minimo-, despues se sacan productos, y la
+   venta se guarda con el descuento igual. La validacion solo corria al apretar
+   "Aplicar", y desde ahi hasta guardar el carrito puede cambiar entero.
+
+   Se relee el cupon de la base, no se confia en lo que quedo en pantalla: entre que
+   se aplico y se guarda pueden haber pasado minutos, y en el medio el cupon se pudo
+   usar en otra venta o vencer. */
+async function cuponCajaRevalidar(subtotal) {
+  const c = window._pedidoCuponVenta;
+  if (!c || !c.codigo) return { ok: true };
+  /* Solo los que aplico la cajera. El de un pedido web ya se cobro alla. */
+  if (!c.deCaja) return { ok: true };
+  try {
+    const snap = await db.collection('cupones').doc(c.codigo).get();
+    const cupon = snap.exists ? Object.assign({ id: snap.id, codigo: snap.id }, snap.data()) : null;
+    const v = cuponTicketValidar(cupon, subtotal, Date.now());
+    if (!v.ok) return { ok: false, motivo: v.motivo };
+    /* Si el monto cambio -porque la venta quedo mas chica que el descuento- se usa
+       el que corresponde ahora, no el de cuando se aplico. */
+    if (v.monto !== c.monto) window._pedidoCuponVenta.monto = v.monto;
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, motivo: 'No se pudo verificar el cupón: ' + e.message };
   }
 }
 
@@ -359,6 +391,7 @@ if (typeof window !== 'undefined') {
   window.cuponCajaQuitar = cuponCajaQuitar;
   window.cuponCajaReset = cuponCajaReset;
   window.cuponCajaRegistrarUso = cuponCajaRegistrarUso;
+  window.cuponCajaRevalidar = cuponCajaRevalidar;
   window.cuponTicketPromosPintar = cuponTicketPromosPintar;
   window.cuponEmitirCambio = cuponEmitirCambio;
   window.cuponTicketEmitir = cuponTicketEmitir;
