@@ -52,6 +52,12 @@ Module._load = function (req) {
   if (req === 'firebase-admin') {
     return { initializeApp: () => {}, firestore: Object.assign(() => crearDb(), { FieldValue: FieldValue }), storage: () => ({ bucket: () => ({ getFiles: async () => [[], null] }) }) };
   }
+  /* FieldValue se importa por su camino propio, no como admin.firestore.FieldValue:
+     ese atajo queda en undefined adentro del emulador de funciones. El mock tiene
+     que seguir el mismo camino que el codigo, o la prueba comprueba algo que ya
+     nadie usa -y eso fue justo lo que paso: quedo en rojo sin que nada estuviera
+     roto en el codigo-. */
+  if (req === 'firebase-admin/firestore') return { FieldValue };
   if (req === 'firebase-functions') return { logger: { info(){}, warn(){}, error(){} } };
   if (req === 'firebase-functions/v1') {
     /* .auth es una PROPIEDAD, no un metodo: functionsV1.region(x).auth.user().onCreate(f) */
