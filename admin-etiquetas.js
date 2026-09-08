@@ -365,6 +365,73 @@ let _etqSoloPeso = false;
 let _etqBusqueda = '';
 let _etqLista = '';
 
+/* ============ EL CODIGO DE BARRAS DENTRO DE LA FICHA DEL PRODUCTO ============
+   Ver como va a salir la etiqueta ANTES de imprimir doscientas. El simbolo no se
+   "ve mal" cuando esta mal: sale un dibujo de barras perfectamente plausible que
+   la pistola no engancha. Por eso el preview usa el MISMO etiquetaBarrasSVG que
+   la impresion, no un dibujo aparte. */
+function _prodDelFormulario() {
+  const g = id => (document.getElementById(id) || {}).value;
+  return {
+    codigo: g('pCodigo'),
+    nombre: g('pNombre'),
+    nombreMostrado: g('pNombreMostrado'),
+    gramaje: g('pGramaje'),
+    precio: Number(String(g('pPrecio') || '').replace(/[^\d.-]/g, '')) || 0,
+    tipoVenta: (document.querySelector('.tv-toggle .active') || {}).dataset
+      ? (document.querySelector('.tv-toggle .active').dataset.tv || 'unidad') : 'unidad'
+  };
+}
+
+/* Se redibuja al escribir el codigo: es el unico campo del que depende. */
+function refrescarBarrasProducto() {
+  const wrap = document.getElementById('pBarrasWrap');
+  const cont = document.getElementById('pBarrasSvg');
+  const vacio = document.getElementById('pBarrasVacio');
+  if (!wrap || !cont) return;
+  const p = _prodDelFormulario();
+  const ean = etiquetaCodigoDe(p);
+  if (!ean) {
+    wrap.style.display = 'none';
+    if (vacio) vacio.style.display = '';
+    return;
+  }
+  wrap.style.display = '';
+  if (vacio) vacio.style.display = 'none';
+  cont.innerHTML =
+    '<div style="font:700 11px Helvetica,Arial,sans-serif;color:#000;margin-bottom:2px">' +
+      esc(p.nombreMostrado || p.nombre || '') + '</div>' +
+    /* etiquetaBarrasSVG ya dibuja los digitos debajo de las barras: agregarlos de
+       nuevo los mostraba dos veces. */
+    etiquetaBarrasSVG(ean, 12, 45);
+}
+
+/* Imprime UNA etiqueta, con el mismo motor que la impresion en tanda: si el
+   simbolo sale bien aca, sale bien alla. Usa el formato termico chico, que es el
+   que tiene sentido para una sola. */
+function imprimirEtiquetaProducto() {
+  const p = _prodDelFormulario();
+  const ean = etiquetaCodigoDe(p);
+  if (!ean) {
+    if (typeof showAdminToast === 'function') showAdminToast('Ponele un codigo interno al producto para poder imprimir su etiqueta', 'error');
+    return;
+  }
+  const f = Object.assign({}, etiquetaFormato('ter-58x40'), { continuo: true, separacion: 0 });
+  const cuerpo = etiquetaDocumento([{ producto: p, copias: 1 }], f,
+    { precio: Number(p.precio) > 0, codigo: true });
+  if (!cuerpo) { if (typeof showAdminToast === 'function') showAdminToast('No se pudo armar la etiqueta', 'error'); return; }
+  const win = window.open('', '_blank', 'width=520,height=620');
+  if (!win) { if (typeof showAdminToast === 'function') showAdminToast('El navegador bloqueo la ventana de impresion', 'error'); return; }
+  win.document.write('<html><head><title>Etiqueta</title><style>' +
+    etiquetaEstilos(f) + '</style></head><body>' + cuerpo + '</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function () { win.print(); }, 350);
+  if (typeof logAction === 'function') {
+    logAction('imprimir', 'Etiqueta de "' + (p.nombreMostrado || p.nombre || p.codigo) + '"', 'Una etiqueta, ' + f.nombre);
+  }
+}
+
 function openEtiquetasModal() {
   _etqSel = {};
   _etqBusqueda = '';
@@ -635,6 +702,8 @@ function etiquetasImprimir() {
 
 
 if (typeof window !== 'undefined') {
+  window.refrescarBarrasProducto = refrescarBarrasProducto;
+  window.imprimirEtiquetaProducto = imprimirEtiquetaProducto;
   window.etiquetaCodigoDe = etiquetaCodigoDe;
   window.etiquetaProductoDe = etiquetaProductoDe;
   window.etiquetaBarrasSVG = etiquetaBarrasSVG;
