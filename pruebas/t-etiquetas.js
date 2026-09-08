@@ -333,5 +333,34 @@ t('el aviso de codigo repetido se muestra antes de imprimir',
   mod.indexOf('const ambiguos = etiquetaAmbiguos(pedidos') > 0 &&
   mod.indexOf('no va a distinguir cu&aacute;l es cu&aacute;l') > 0);
 
+console.log('\nEL ROLLO TERMICO: continuo o troquelado');
+/* Hay dos clases de rollo y confundirlas cuesta caro. En un rollo CONTINUO -la
+   misma tira lisa de los tickets- imprimir "una etiqueta = una pagina" hace que
+   las impresoras con guillotina corten al terminar cada una: treinta codigos
+   dejan treinta papelitos sueltos y gastan el triple de papel. En un rollo
+   TROQUELADO cada etiqueta TIENE que ser su propia pagina, para que el papel
+   avance justo una. No se puede adivinar cual tiene el comercio: lo elige el. */
+(function () {
+  const base = M.formato('ter-58x40');
+  const cs = M.estilos(Object.assign({}, base, { continuo: true, separacion: 2 }));
+  const ts = M.estilos(Object.assign({}, base, { continuo: false }));
+  const as = M.estilos(M.formato('a4-3x8'));
+  t('continuo: la pagina es una sola tira de alto automatico', /@page\{size:58mm auto/.test(cs));
+  t('continuo: NO corta entre etiqueta y etiqueta', !/page-break-after:always/.test(cs));
+  t('continuo: las separa con un margen para poder tijeretear', /margin-bottom:2mm/.test(cs));
+  t('continuo: la ultima no deja margen colgando', /\.etq:last-child\{margin-bottom:0\}/.test(cs));
+  t('troquelado: la pagina mide exactamente la etiqueta', /@page\{size:58mm 40mm/.test(ts));
+  t('troquelado: si salta de pagina en cada una', /page-break-after:always/.test(ts));
+  t('la separacion es configurable', /margin-bottom:5mm/.test(M.estilos(Object.assign({}, base, { continuo: true, separacion: 5 }))));
+  t('y admite 0 mm, pegadas', /margin-bottom:0mm/.test(M.estilos(Object.assign({}, base, { continuo: true, separacion: 0 }))));
+  t('en A4 nada de esto aplica', /@page\{size:A4/.test(as) && !/margin-bottom:2mm/.test(as));
+})();
+t('el modal deja elegir el tipo de rollo', html.indexOf('id="etqContinuo"') > 0);
+t('y viene en continuo por defecto, que es el que no rompe nada',
+  /id="etqContinuo"[^>]*checked/.test(html));
+t('la separacion se puede cambiar', html.indexOf('id="etqSeparacion"') > 0);
+t('la opcion se esconde cuando no es termica',
+  /rollo\.style\.display = esTermica \? '' : 'none'/.test(mod));
+
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

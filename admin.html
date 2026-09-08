@@ -7173,6 +7173,18 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
           </div>
         </div>
 
+        <div id="etqRollo" style="display:none;background:#1a2a3a;border:1px solid #2a4a6a;padding:0.6rem 0.75rem;border-radius:var(--radius);margin-bottom:0.75rem">
+          <label style="display:flex;align-items:flex-start;gap:0.6rem;cursor:pointer;margin:0">
+            <input type="checkbox" id="etqContinuo" checked style="width:auto;margin-top:0.2rem" onchange="etqResumen()">
+            <span><span style="display:block;font-size:0.88rem;font-weight:600">Rollo continuo (una sola tira)</span>
+            <span style="display:block;font-size:0.78rem;color:#80b3ff;line-height:1.45">Sale todo junto y la impresora corta <b>una sola vez, al final</b>. Es lo que ahorra papel.<br><b>Destildalo</b> si el rollo ya viene troquelado en etiquetas: ah&iacute; cada una tiene que ser su propia p&aacute;gina.</span></span>
+          </label>
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;font-size:0.8rem;color:var(--text-dim)">
+            <label style="margin:0">Separaci&oacute;n entre etiquetas</label>
+            <input type="number" class="form-input" id="etqSeparacion" value="2" min="0" max="20" step="0.5" style="width:80px;padding:3px 7px" onchange="etqResumen()">
+            <span>mm</span>
+          </div>
+        </div>
         <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin:0.9rem 0">
           <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem">
             <input type="checkbox" id="etqConPrecio" checked onchange="etqResumen()"> Incluir el precio

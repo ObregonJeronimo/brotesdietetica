@@ -262,7 +262,31 @@ function etiquetaEstilos(f) {
     '.etq-bc{display:block;margin-top:0.4mm}';
 
   if (esTermica) {
-    /* Una etiqueta por página: el rollo avanza al terminar cada una. */
+    /* DOS CLASES DE ROLLO, Y LA DIFERENCIA IMPORTA MUCHO.
+
+       a) TROQUELADO: el rollo ya viene cortado en etiquetas. Cada una tiene que
+          ser su propia pagina para que el papel avance justo una etiqueta.
+
+       b) CONTINUO: el rollo es una tira lisa, la misma que se usa para los
+          tickets. Ahi "una etiqueta = una pagina" es lo PEOR que se puede hacer:
+          las impresoras con guillotina cortan al terminar cada pagina, asi que
+          imprimir treinta codigos deja treinta papelitos sueltos y gasta el
+          triple de papel. En continuo van todas en UNA sola pagina, una debajo
+          de la otra con una separacion chica para poder tijeretear, y la maquina
+          corta una sola vez al final.
+
+       No se puede adivinar cual tiene el comercio: lo elige el, y por defecto va
+       continuo, que es el que no rompe nada -en un rollo troquelado sale corrido,
+       molesto pero recuperable; al reves se cortan treinta etiquetas sanas-. */
+    if (f.continuo) {
+      const sep = (typeof f.separacion === 'number') ? f.separacion : 2;
+      return base +
+        /* Alto auto: la tira mide lo que sume, y es UNA sola pagina. */
+        '@page{size:' + f.ancho + 'mm auto;margin:0}' +
+        '.etq{page-break-after:auto;break-after:auto;height:' + f.alto + 'mm;' +
+          'margin-bottom:' + sep + 'mm}' +
+        '.etq:last-child{margin-bottom:0}';
+    }
     return base +
       '@page{size:' + f.ancho + 'mm ' + f.alto + 'mm;margin:0}' +
       '.etq{page-break-after:always;break-after:page}' +
@@ -449,14 +473,38 @@ function etqFormatoCambio() {
   _etqFormato = (sel && sel.value) || 'a4-3x8';
   const caja = document.getElementById('etqCustom');
   if (caja) caja.style.display = _etqFormato === 'custom' ? 'grid' : 'none';
+  /* La eleccion de rollo solo tiene sentido en termica: en A4 se esconde para no
+     ofrecer una opcion que no hace nada. */
+  const rollo = document.getElementById('etqRollo');
+  if (rollo) {
+    const f = etiquetaFormato(_etqFormato);
+    const esTermica = _etqFormato === 'custom'
+      ? !!(document.getElementById('etqCustomTermica') || {}).checked
+      : f.hoja === 'termica';
+    rollo.style.display = esTermica ? '' : 'none';
+  }
   etqResumen();
 }
 
 /* El formato que se va a usar de verdad: si es "personalizado" se leen los
    campos, con topes para que no salga una etiqueta más grande que la hoja. */
+/* El tipo de rollo lo elige el comercio, no lo adivina el sistema. Solo aplica a
+   las termicas; en A4 no significa nada. */
+function etqRolloContinuo() {
+  const c = document.getElementById('etqContinuo');
+  return c ? !!c.checked : true;
+}
+function etqSeparacionMm() {
+  const v = Number((document.getElementById('etqSeparacion') || {}).value);
+  return isFinite(v) && v >= 0 ? Math.min(20, v) : 2;
+}
+
 function etqFormatoActual() {
   const base = etiquetaFormato(_etqFormato);
-  if (_etqFormato !== 'custom') return base;
+  if (_etqFormato !== 'custom') {
+    if (base.hoja !== 'termica') return base;
+    return Object.assign({}, base, { continuo: etqRolloContinuo(), separacion: etqSeparacionMm() });
+  }
   const g = (id, def, min, max) => {
     const v = Number((document.getElementById(id) || {}).value);
     return isFinite(v) && v > 0 ? Math.max(min, Math.min(max, v)) : def;
@@ -471,6 +519,8 @@ function etqFormatoActual() {
     filas: esTermica ? 1 : g('etqCustomFilas', 8, 1, 20),
     margenH: esTermica ? 0 : g('etqCustomMargenH', 0, 0, 40),
     margenV: esTermica ? 0 : g('etqCustomMargenV', 5, 0, 40),
+    continuo: esTermica ? etqRolloContinuo() : false,
+    separacion: etqSeparacionMm(),
   };
 }
 
