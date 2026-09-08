@@ -114,7 +114,11 @@ function armarProductos() {
     const cat = cats[i % cats.length];
     const subs = CATEGORIAS[cat];
     const porPeso = i % 3 === 0;
-    const costo = 1500 + (i * 137) % 18000;
+    /* Mezclado a proposito. Antes era 1500 + i*137, o sea que el costo crecia
+       junto con el codigo: ordenar la tabla por costo, por precio o por codigo
+       daba SIEMPRE la misma lista, y el sandbox no servia para darse cuenta si
+       ordenar dejaba de funcionar. */
+    const costo = 1500 + ((i * 7919) % 173) * 100;
     const pct = 60 + (i % 5) * 10;
     const precio = Math.round(costo * (1 + pct / 100) / 10) * 10;
     /* Un poco de todo, para que las pantallas tengan casos de verdad:
