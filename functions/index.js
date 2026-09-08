@@ -301,9 +301,21 @@ exports.premiarResena = onDocumentWritten(
         creadoEn: new Date(),
       });
 
-      await promo.ref.update({
-        entregados: admin.firestore.FieldValue.increment(1),
-      }).catch(() => {});
+      /* Contar la entrega es lo MENOS importante de todo esto: el cupon ya esta
+         creado y el cliente ya lo tiene. Va en su propio try para que no pueda
+         tirar abajo lo que si importa.
+
+         Y no se usa admin.firestore.FieldValue.increment: dentro del emulador de
+         funciones ese camino da undefined -le pasa tambien a recalcularUsoStorage-
+         y la funcion moria DESPUES de haber entregado el cupon, con lo cual el
+         emulador la reintentaba y en pantalla no aparecia nada. Se lee y se
+         escribe, que son dos operaciones mas pero funcionan en los dos lados. */
+      try {
+        const antesN = Number(p.entregados || 0);
+        await promo.ref.update({ entregados: antesN + 1 });
+      } catch (e2) {
+        logger.warn('No se pudo contar la entrega de la promo:', e2);
+      }
       logger.info(`Cupón ${codigo} entregado por la reseña ${resenaId}`);
     } catch (e) {
       logger.error('Error premiando reseña:', e);
