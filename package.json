@@ -11,7 +11,7 @@
     "test": "node pruebas/correr.js",
     "build": "npm run check && npm run build:js && npm run build:css",
     "test:reglas": "node sandbox/con-java.js firebase emulators:exec --only firestore --project demo-brotes \"node pruebas/reglas-cliente.js\"",
-    "sandbox": "node sandbox/con-java.js firebase emulators:exec --only firestore,auth,storage --project demo-brotes \"node sandbox/arrancar.js\"",
+    "sandbox": "node sandbox/con-java.js firebase emulators:exec --only firestore,auth,storage,functions --project demo-brotes \"node sandbox/arrancar.js\"",
     "sandbox:sembrar": "node sandbox/sembrar.js"
   },
   "devDependencies": {

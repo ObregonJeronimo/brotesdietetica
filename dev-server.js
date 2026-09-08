@@ -61,6 +61,41 @@ const REWRITES = {
   '/setup-inicial': '/setup-inicial.html',
 };
 
+/* Sirve una pagina cambiando UNA cadena: cual es el archivo de configuracion de
+   Firebase. El HTML no se copia ni se toca en disco. Si la pagina dejara de
+   cargar firebase-config.js, se devuelve un error explicito en vez de servir algo
+   a medias que apuntaria a produccion sin avisar. */
+function servirSandbox(archivo, res) {
+  fs.readFile(archivo, 'utf8', (err, html) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('No existe esa pagina: ' + path.basename(archivo));
+      return;
+    }
+    const marca = 'firebase-config.js';
+    if (html.indexOf(marca) < 0) {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(path.basename(archivo) + ' no carga ' + marca + '. ' +
+              'Esta pagina no usa Firebase con el SDK, asi que no hay a donde ' +
+              'apuntarla y no se puede garantizar que no toque la base real ' +
+              '-config-negocio.js, por ejemplo, lee por REST-. Se corta antes de ' +
+              'servir algo que pareceria sandbox y no lo seria. Para verla tal ' +
+              'cual es, usa la ruta normal.');
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': MIME['.html'],
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex, nofollow',
+    });
+    /* En /sandbox/<pagina> el navegador resuelve las rutas relativas contra
+       /sandbox/, no contra la raiz: todos los scripts daban 404 y la pagina se
+       quedaba sin Firebase. Un <base> lo endereza sin tocar el HTML en disco. */
+    const conBase = html.replace(/<head([^>]*)>/i, '<head$1><base href="/">');
+    res.end(conBase.replace(marca, 'firebase-config.sandbox.js'));
+  });
+}
+
 http.createServer((req, res) => {
   const pedida = decodeURIComponent(req.url.split('?')[0]);
   let pathname = pedida;
@@ -112,24 +147,22 @@ http.createServer((req, res) => {
     return;
   }
 
-  if (pedida === '/sandbox' || pedida === '/sandbox/') {
-    fs.readFile(path.join(ROOT, 'admin.html'), 'utf8', (err, html) => {
-      if (err) { res.writeHead(500).end('no pude leer admin.html'); return; }
-      const marca = 'firebase-config.js';
-      if (html.indexOf(marca) < 0) {
-        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('admin.html ya no carga ' + marca + ': hay que actualizar el sandbox.');
-        return;
-      }
-      res.writeHead(200, {
-        'Content-Type': MIME['.html'],
-        'Cache-Control': 'no-store',
-        'X-Robots-Tag': 'noindex, nofollow',
-      });
-      res.end(html.replace(marca, 'firebase-config.sandbox.js'));
-    });
+  /* /sandbox/<pagina> sirve cualquier pagina del sitio contra el emulador, no
+     solo el panel. Sin esto el sandbox cubria /admin y nada mas, asi que abrir
+     la pagina de resena en local se conectaba a la base REAL de la clienta: se
+     podia completar una resena de verdad creyendo que era de prueba. */
+  const mSandbox = pedida.match(/^\/sandbox\/([a-z0-9-]+)\/?$/);
+  if (mSandbox) {
+    const destino = REWRITES['/' + mSandbox[1]] || ('/' + mSandbox[1] + '.html');
+    servirSandbox(path.join(ROOT, destino.replace(/^\//, '')), res);
     return;
   }
+
+  if (pedida === '/sandbox' || pedida === '/sandbox/') {
+    servirSandbox(path.join(ROOT, 'admin.html'), res);
+    return;
+  }
+
 
   fs.readFile(filePath, (err, data) => {
     if (err) {

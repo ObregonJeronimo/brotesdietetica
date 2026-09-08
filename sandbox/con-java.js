@@ -69,6 +69,12 @@ if (!args.length) {
 
 const entorno = Object.assign({}, process.env);
 
+/* El emulador de funciones carga el modulo y espera a que declare que exporta.
+   El limite por defecto son 10 segundos y en una maquina cargada no alcanza: se
+   cae con "Cannot determine backend specification. Timeout after 10000", que
+   suena a un error del codigo y no lo es -el modulo carga en un instante-. */
+if (!entorno.FUNCTIONS_DISCOVERY_TIMEOUT) entorno.FUNCTIONS_DISCOVERY_TIMEOUT = '90';
+
 if (!javaEnPath()) {
   const bin = buscarJava();
   if (!bin) {

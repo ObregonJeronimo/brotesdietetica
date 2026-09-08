@@ -306,6 +306,16 @@ async function main() {
       Object.assign({ creadoEn: diasAtras(10 + i) }, PROMOS[i]));
   }
 
+  /* Un token de resena pendiente, para poder probar el premio sin tener que armar
+     un pedido web entero. En el sistema real estos tokens SOLO nacen de ventas que
+     vienen de la tienda: las de mostrador no generan resena a proposito, porque
+     /resenas es publica y cada venta del local dejaba ahi el nombre del cliente.
+     Sin clienteAuthUid, lo puede completar cualquier cuenta del sandbox. */
+  await escribir('resenas', 'PRUEBA01', {
+    usado: false, ventaNum: 9001, creadoEn: diasAtras(1),
+    nombre: '', comentario: '', estrellas: 0,
+  });
+
   await escribir('config', 'comprasCount', { count: compras.length });
   await escribir('config', 'ventasCount', { count: ventas.length });
   await escribir('config', 'pedidosCount', { count: pedidos.length });
@@ -323,6 +333,7 @@ async function main() {
   console.log('  ' + compras.length + ' compras, ' + deudas.length + ' a deber por $' +
     debe.toLocaleString('es-AR'));
   console.log('  5 promos de cupon (2 usables, 1 para resenas, 1 agotada, 1 apagada)');
+  console.log('  1 token de resena pendiente: /sandbox/resena?id=PRUEBA01');
   console.log('  admins: ' + ADMINS.join(', '));
 }
 

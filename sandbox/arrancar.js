@@ -52,6 +52,19 @@ async function elegirPuerto() {
   console.log('   SANDBOX  ·  base de prueba, nada de esto es real');
   console.log('  ---------------------------------------------------------\n');
 
+  /* El emulador de funciones necesita las dependencias de functions/. Si faltan
+     se cae con un error que no dice que hacer; se avisa antes. */
+  const fs = require('fs');
+  if (!fs.existsSync(path.join(RAIZ, 'functions', 'node_modules'))) {
+    console.log('  Faltan las dependencias de las Cloud Functions. Corriendo npm install...\n');
+    await new Promise((ok, err) => {
+      const p = spawn('npm', ['install', '--no-audit', '--no-fund'],
+        { cwd: path.join(RAIZ, 'functions'), stdio: 'inherit', shell: true });
+      p.on('exit', c => (c === 0 ? ok() : err(new Error('no se pudieron instalar'))));
+    });
+    console.log('');
+  }
+
   await correr(path.join(__dirname, 'sembrar.js'));
 
   const { puerto, movido } = await elegirPuerto();
