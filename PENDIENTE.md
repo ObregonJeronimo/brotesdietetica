@@ -861,11 +861,13 @@ El script es `migracion/precios.js` (`--dry` no escribe nada y deja `informe-pre
 `--escribir` aplica). Los precios transcritos viven en `migracion/lista1.txt` como
 `codigo|precio`, **644 filas con precio real**.
 
-**Lo que queda decidir (es del dueño).** El reporte trae **40 códigos que Brotes no tiene**.
-Tres no son productos —`000001`, `000148 Envios` y `000407 Saldo`—, así que son **37
-productos reales del negocio que no están cargados**. No se pueden crear solos: en Brotes
-**categoría y lista son obligatorias** y el reporte no las trae. Hay que decidir a qué
-categoría y a qué lista van antes de subirlos.
+**Lo que queda decidir (es del dueño).** El reporte trae **37 códigos que no existen en
+ninguna lista de Brotes** —contados contra el catálogo entero y **normalizando los ceros de
+adelante**, porque hay productos cargados como `272` y `00295`—. Tres no son productos
+—`000001`, `000148 Envios` y `000407 Saldo`—, así que son **34 productos reales del negocio
+que no están cargados**. No se pueden crear solos: en Brotes **categoría y lista son
+obligatorias** y el reporte no las trae. Hay que decidir a qué categoría y a qué lista van
+antes de subirlos.
 
 ---
 
