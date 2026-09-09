@@ -871,6 +871,70 @@ antes de subirlos.
 
 ---
 
+### J) FRUTICOR 1 fundida contra FRUTICOR-TODOS · **HECHO** (09/09/2026)
+
+**Lo pedido:** que `FRUTICOR 1` desaparezca, que **no quede ningún producto repetido**, y
+que **no se pierdan los códigos** —es con lo que buscan en el mostrador en vez de tipear el
+nombre—. `FRUTICOR-TODOS` es la lista de Fruticor completa y **no cambia**.
+
+**Por qué sobrevive el de FRUTICOR-TODOS pero con los datos del de FRUTICOR 1.** Medido
+sobre los 52 nombres repetidos, el patrón era siempre el mismo: el de FRUTICOR-TODOS estaba
+**oculto**, con el stock redondo que traía de YERCO (8 kg, 10 kg, 25 kg) y **con el precio de
+YERCO**; el de FRUTICOR 1 estaba **visible**, con el stock real y el precio de este negocio.
+Borrar el de FRUTICOR 1 sin más habría dejado el bicarbonato a **$2.600 en vez de $4.100** y
+con 8 kg que no existen. Así que el documento que queda es el de FRUTICOR-TODOS —nombre, foto
+y lista de Fruticor— y **recibe del otro el código, el precio, el costo, el stock, la
+visibilidad y la categoría**.
+
+| | antes | después |
+|---|---|---|
+| FRUTICOR 1 | 188 productos | **0, lista borrada** |
+| FRUTICOR-TODOS | 883 | **883** (no entra ni sale ninguno) |
+| OTRO | 208 | 236 |
+| productos | 1491 | **1331** |
+
+**160 fusiones y 28 mudanzas a `OTRO`.** Los 28 **no son de Fruticor** —tés Tucangua,
+tostadas Molinos del Bosque, mieles Paneles del Mistol, goma xántica, espirulina— y por eso
+no entran a FRUTICOR-TODOS; se mudan enteros, con su código.
+
+**Medido releyendo la base:** 160 de 160 fusiones correctas (código y precio pasados, el
+viejo borrado), 0 fallaron, 28 de 28 mudados, **0 códigos repetidos**, **0 códigos que
+choquen ignorando los ceros de adelante**, 0 sin código, 0 en $0.
+
+**Verificado abriendo la tienda:** `OREGANO EXTRA x 1 Kg` quedó en $9.150 con 420 g —los
+datos del `000336 Oregano`—, `PAPRIKA x 1Kg` en $17.900 con 660 g, y `Lenteja turca` con
+**7,5 kg** (5 kg + 2,5 kg sumados, porque el negocio la había recreado a mano). **0 nombres
+repetidos** en las 952 que dibuja la tienda.
+
+#### Las tres trampas del emparejamiento de nombres
+
+YERCO escribe `MIJO PELADO x 5 kg` y el negocio `Mijo Pelado`. Cada versión del comparador
+falló distinto, y las tres se vieron sólo mirando qué movía:
+
+1. **Pedir 2 palabras en común** decía que `Oregano` no estaba en FRUTICOR-TODOS. Es una
+   sola palabra: nunca podía llegar a dos. Daba **148 productos perdidos** que sí estaban.
+2. **Sacar la medida sólo cuando viene con x delante** dejaba fuera `Mermelada De Higo
+   C/Stevia **330Gr**`, que allá es `MERMELADA DE HIGO C/STEVIA x 330 gr` —el mismo
+   producto—. Y exigir marcas que del otro lado no existen (`CACHAFAZ`) rompía el resto.
+3. **Una sola palabra en común no alcanza** si enfrente el nombre dice tres cosas más:
+   `Fibras` caía en `SALUTARIS FIBRA VEGETAL incaico x 250g` —granel a $7.420 el kilo contra
+   un envase de 250 g a $23.400—, `Miel Paneles Del Mistol` en `GALLETA -ORGANICA- CACAO Y
+   MIEL` y `Mango Trozado Congelado` en `MERMELADA DE MANGO`.
+
+Y el desempate entre varios candidatos **no puede ser el precio solo**: `Lentejas` ($4.724)
+se iba a `LENTEJA TURCA x 1 kg` ($5.200) en vez de a la lenteja común, y encima la turca ya
+tenía su propio producto. Gana el que **agrega menos palabras**, y recién después el precio.
+
+#### Lo que apareció de paso
+
+El personal estaba **recreando a mano productos que ya existían**, con el código mal tipeado
+—`272` por `000272`, `00295` por `000295`—, porque al buscar el código correcto no
+aparecía. El catálogo usa **6 dígitos con ceros adelante**. Se normalizaron los 4 que
+quedaban fuera de formato. **Falta que el buscador del panel encuentre `000272` cuando se
+tipea `272`**, que es lo que evita que vuelva a pasar.
+
+---
+
 ## 2. Decisiones tuyas
 
 **Ya decididas:**
