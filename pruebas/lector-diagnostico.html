@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnóstico del lector</title>
+<!--
+  QUE ES ESTO
+  ===========
+  El lector de codigos no agrega el producto en la venta, y leyendo el codigo no
+  se puede saber por que: depende de como teclea LA PISTOLA DE ESTE LOCAL, que es
+  un dato que no tenemos. Esta pagina lo mide.
+
+  La regla que usa admin-lector.js hoy es: si entre CADA DOS teclas pasan 40 ms o
+  menos, y termina en Enter, lo escribio una maquina. Si una sola tecla llega mas
+  tarde, la rafaga se corta y el codigo se descarta.
+
+  Aca se registra cada tecla con su separacion real y se dice, al final, si la
+  regla actual habria disparado y por que no.
+
+  COMO SE USA
+  -----------
+  1. Abrir este archivo con doble clic (no hace falta servidor ni internet).
+  2. Escanear un producto. No hay que hacer clic en ningun lado.
+  3. Mandar la captura de lo que aparece.
+
+  No se conecta a nada ni guarda nada: es una pagina suelta.
+-->
+<style>
+  :root{
+    --bg:#10140F; --panel:#171C15; --line:#262D23; --ink:#E7ECE3;
+    --dim:#98A18F; --ok:#6FBF73; --bad:#E06C5F; --warn:#E0A542;
+    --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:28px 22px 60px}
+  .wrap{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+  h1{font-size:1.45rem;margin:0;letter-spacing:-.01em}
+  p{margin:0;color:var(--dim);max-width:66ch}
+  .paso{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+  .paso b{color:var(--ink)}
+  #veredicto{font-size:1.05rem;font-weight:600;padding:16px 18px;border-radius:8px;
+             border:1px solid var(--line);background:var(--panel)}
+  #veredicto.ok{border-color:var(--ok);color:var(--ok)}
+  #veredicto.bad{border-color:var(--bad);color:var(--bad)}
+  #veredicto small{display:block;font-weight:400;color:var(--dim);margin-top:6px;font-size:.85rem}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.82rem}
+  th,td{text-align:left;padding:5px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--dim);font-weight:500;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  tr.lento td{color:var(--warn)}
+  tr.enter td{color:var(--ok)}
+  .tabla-wrap{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+              overflow:auto;max-height:46vh}
+  .resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;
+           background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .r{background:var(--panel);padding:12px 14px}
+  .r .v{font-family:var(--mono);font-size:1.15rem;font-variant-numeric:tabular-nums}
+  .r .k{font-size:.75rem;color:var(--dim);margin-top:2px}
+  button{font:inherit;font-size:.88rem;background:var(--panel);color:var(--ink);
+         border:1px solid var(--line);border-radius:6px;padding:8px 16px;cursor:pointer}
+  button:hover{border-color:var(--dim)}
+  button:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+  .campo{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  input[type=text]{font-family:var(--mono);font-size:.9rem;background:var(--bg);color:var(--ink);
+                   border:1px solid var(--line);border-radius:6px;padding:8px 12px;flex:1;min-width:220px}
+  label{font-size:.85rem;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Diagnóstico del lector de códigos</h1>
+  <p>Escaneá un producto. No hace falta hacer clic en ningún lado ni tener internet.
+     Esta página no se conecta a nada y no guarda nada.</p>
+
+  <div id="veredicto">Esperando un escaneo…</div>
+
+  <div class="resumen">
+    <div class="r"><div class="v" id="rCodigo">—</div><div class="k">Código leído</div></div>
+    <div class="r"><div class="v" id="rTeclas">—</div><div class="k">Teclas</div></div>
+    <div class="r"><div class="v" id="rMax">—</div><div class="k">Pausa más larga</div></div>
+    <div class="r"><div class="v" id="rProm">—</div><div class="k">Pausa promedio</div></div>
+    <div class="r"><div class="v" id="rTotal">—</div><div class="k">Duración total</div></div>
+  </div>
+
+  <div class="tabla-wrap">
+    <table>
+      <thead><tr>
+        <th>#</th><th>e.key</th><th>e.code</th><th class="n">keyCode</th>
+        <th class="n">pausa</th><th>shift</th><th>dónde estaba el foco</th>
+      </tr></thead>
+      <tbody id="filas"><tr><td colspan="7" style="color:var(--dim)">—</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="paso">
+    <div class="campo">
+      <button id="limpiar" type="button">Limpiar y escanear de nuevo</button>
+      <label for="foco">Probar con el foco dentro de un campo:</label>
+      <input type="text" id="foco" placeholder="hacé clic acá y escaneá">
+    </div>
+    <p style="margin-top:10px;font-size:.85rem">
+      Probá <b>las dos veces</b>: una sin tocar nada (el foco queda en la página) y otra
+      con el cursor dentro de esa casilla. En el panel real, el buscador de la venta puede
+      quedarse con el foco, y ahí cada dígito dispara el filtrado de todo el catálogo —
+      que es justo lo que puede estar alargando las pausas.
+    </p>
+  </div>
+
+  <p style="font-size:.85rem">
+    La regla actual de <code>admin-lector.js</code>: se considera una máquina si
+    <b>cada</b> pausa es de <b>40 ms o menos</b>, el código tiene <b>4 caracteres o más</b>
+    y termina en <b>Enter</b> que también llega dentro de esos 40 ms.
+  </p>
+
+</div>
+
+<script>
+/* La MISMA regla que corre hoy en admin-lector.js, para poder decir si habria
+   disparado. Si se cambia alla, cambiar aca. */
+var GAP_MAX = 40;
+var LARGO_MIN = 4;
+
+var filas = [];
+var buf = '';
+var ultima = 0;
+var arranque = 0;
+
+var tbody = document.getElementById('filas');
+var veredicto = document.getElementById('veredicto');
+
+function cortito(el){
+  if (!el) return '(nada)';
+  var t = (el.tagName || '').toLowerCase();
+  if (t === 'body' || t === 'html') return t + '  (fuera de todo campo)';
+  return t + (el.id ? '#' + el.id : '') + '  (es un campo)';
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  var t = e.timeStamp;
+  var gap = ultima ? Math.round(t - ultima) : 0;
+  ultima = t;
+
+  if (typeof e.key !== 'string') return;
+
+  /* Empieza una lectura nueva si paso mucho tiempo desde la anterior. */
+  if (gap > 400 || !filas.length) { filas = []; buf = ''; arranque = t; gap = 0; }
+
+  filas.push({ key: e.key, code: e.code || '', kc: e.keyCode || 0, gap: gap,
+               shift: e.shiftKey, foco: cortito(document.activeElement) });
+
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    pintar(t);
+    return;
+  }
+  if (e.key.length === 1) buf += e.key;
+  pintar(t);
+}, true);
+
+function pintar(t) {
+  tbody.innerHTML = filas.map(function (f, i) {
+    var cls = f.key === 'Enter' ? 'enter' : (f.gap > GAP_MAX && i > 0 ? 'lento' : '');
+    return '<tr class="' + cls + '"><td class="n">' + (i + 1) + '</td>' +
+      '<td>' + (f.key === ' ' ? '(espacio)' : f.key) + '</td>' +
+      '<td>' + f.code + '</td>' +
+      '<td class="n">' + f.kc + '</td>' +
+      '<td class="n">' + (i === 0 ? '—' : f.gap + ' ms') + '</td>' +
+      '<td>' + (f.shift ? 'sí' : '') + '</td>' +
+      '<td>' + f.foco + '</td></tr>';
+  }).join('');
+
+  var gaps = filas.slice(1).map(function (f) { return f.gap; });
+  var max = gaps.length ? Math.max.apply(null, gaps) : 0;
+  var prom = gaps.length ? Math.round(gaps.reduce(function (a, b) { return a + b; }, 0) / gaps.length) : 0;
+
+  document.getElementById('rCodigo').textContent = buf || '—';
+  document.getElementById('rTeclas').textContent = filas.length;
+  document.getElementById('rMax').textContent = max + ' ms';
+  document.getElementById('rProm').textContent = prom + ' ms';
+  document.getElementById('rTotal').textContent = Math.round(t - arranque) + ' ms';
+
+  var ultimo = filas[filas.length - 1];
+  if (!ultimo || ultimo.key !== 'Enter') {
+    veredicto.className = '';
+    veredicto.innerHTML = 'Leyendo…<small>Termina cuando llegue el Enter de la pistola. ' +
+      'Si nunca llega, la pistola no está configurada para mandar Enter al final — ' +
+      'y eso solo ya explicaría todo.</small>';
+    return;
+  }
+
+  /* Se reproduce la regla real, tecla por tecla. */
+  var rafaga = false, acum = '', motivo = '';
+  for (var i = 0; i < filas.length - 1; i++) {
+    var f = filas[i];
+    if (f.key.length !== 1) { acum = ''; rafaga = false; continue; }
+    if (i > 0 && f.gap > GAP_MAX) { acum = f.key; rafaga = false; }
+    else { acum += f.key; rafaga = acum.length >= 2; }
+  }
+  var gapEnter = ultimo.gap;
+  var pasa = rafaga && acum.length >= LARGO_MIN && gapEnter <= GAP_MAX;
+
+  if (!rafaga || acum.length < LARGO_MIN) {
+    motivo = 'Se cortó la ráfaga: hubo una pausa de más de ' + GAP_MAX + ' ms en el medio, ' +
+             'así que el código se descartó y solo sobrevivieron "' + acum + '" (' + acum.length + ' caracteres).';
+  } else if (gapEnter > GAP_MAX) {
+    motivo = 'El código se armó bien, pero el Enter final llegó ' + gapEnter + ' ms después ' +
+             'de la última tecla, y el máximo son ' + GAP_MAX + ' ms. Se tomó como un Enter de persona.';
+  }
+
+  veredicto.className = pasa ? 'ok' : 'bad';
+  veredicto.innerHTML = pasa
+    ? 'El panel SÍ lo habría tomado como un escaneo.<small>Código: ' + buf +
+      ' · pausa más larga ' + max + ' ms · Enter a ' + gapEnter + ' ms. ' +
+      'Si aun así no agrega el producto en la venta, el problema no es la detección.</small>'
+    : 'El panel NO lo habría tomado como un escaneo.<small>' + motivo + '</small>';
+}
+
+document.getElementById('limpiar').addEventListener('click', function () {
+  filas = []; buf = ''; ultima = 0; arranque = 0;
+  tbody.innerHTML = '<tr><td colspan="7" style="color:var(--dim)">—</td></tr>';
+  ['rCodigo','rTeclas','rMax','rProm','rTotal'].forEach(function (id) {
+    document.getElementById(id).textContent = '—';
+  });
+  veredicto.className = '';
+  veredicto.textContent = 'Esperando un escaneo…';
+  document.getElementById('foco').value = '';
+  this.blur();
+});
+</script>
+</body>
+</html>
