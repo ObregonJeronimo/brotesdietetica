@@ -59,7 +59,11 @@ t('  y después de form.reset(), que además cierra el panel',
   /addEventListener\('reset', \(\) => \{ cerrar\(false\); setTimeout\(pintar, 0\); \}\)/.test(mejorar));
 t('el foco que pide saveProduct va al botón', /sel\.focus = \(\) =>/.test(mejorar));
 t('los nombres se escriben con textContent', /b\.textContent = visibles\[i\]\.texto/.test(mejorar));
-t('Escape cierra el buscador sin cerrar el modal entero', /'Escape'\)[\s\S]{0,60}stopPropagation/.test(mejorar));
+t('Escape cierra el buscador', /'Escape'\)[\s\S]{0,60}cerrar\(true\)/.test(mejorar));
+t('  también con el foco afuera del buscador',
+  /document\.addEventListener\('keydown', e => \{ if \(e\.key === 'Escape' && !panel\.hidden\) cerrar\(true\); \}\)/.test(mejorar));
+t('  sin cerrar el formulario de atrás: atajos se fija si hay un panel abierto (t-escape.js)',
+  leer('admin-atajos.js').indexOf('.selb-panel:not([hidden])') > 0);
 t('el script se carga', html.indexOf('<script src="admin-selector.js"></script>') > 0);
 t('la lista no tiene required: el aviso del navegador apuntaría a un select invisible', html.indexOf('id="pLista" required') < 0);
 t('  y la sigue controlando saveProduct', /if\(!_listaVal\)\{showAdminToast\('Seleccioná una lista de proveedor'/.test(html));

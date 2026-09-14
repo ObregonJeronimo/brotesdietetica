@@ -113,7 +113,8 @@ function selbMejorar(sel, opciones) {
     if (e.key === 'ArrowDown') { e.preventDefault(); foco++; pintarLista(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); foco--; pintarLista(); }
     else if (e.key === 'Enter') { e.preventDefault(); elegir(visibles[foco]); }
-    /* Sin stopPropagation, el Escape también cerraba el modal del producto entero. */
+    /* El formulario de atrás no se cierra porque admin-atajos.js, que se entera antes
+       del Escape, se fija si hay un panel abierto. stopPropagation solo no alcanzaba. */
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cerrar(true); }
     else if (e.key === 'Tab') cerrar(false);
   });
@@ -126,6 +127,9 @@ function selbMejorar(sel, opciones) {
     elegir(visibles[Number(b.dataset.i)]);
   });
   document.addEventListener('mousedown', e => { if (!caja.contains(e.target)) cerrar(false); });
+  /* Escape con el panel abierto pero el foco afuera del buscador: un clic en el borde
+     del panel lo saca de ahí, y así no lo cerraba nadie. */
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) cerrar(true); });
 
   const propiedad = nombre => {
     const d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, nombre);

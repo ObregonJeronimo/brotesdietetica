@@ -121,6 +121,13 @@ document.addEventListener('keydown', function (e) {
   if (e.ctrlKey || e.altKey || e.metaKey) return;
 
   if (e.key === 'Escape') {
+    /* Con un diálogo o el panel de un desplegable abierto, el Escape es de ellos: se
+       cierran solos y el modal de atrás tiene que quedar. Este handler se entera
+       primero -captura sobre document, registrado antes que ellos-, así que el
+       stopPropagation de ellos no lo frena. Sin esto, cancelar con Escape el
+       "¿Vender igual?" o el pedido de gramos cerraba también la venta, y al volver
+       a abrirla el carrito arrancaba vacío. */
+    if (document.querySelector('.dlg-overlay, .selb-panel:not([hidden])')) return;
     /* Cierra el modal de más arriba. Es lo único que funciona con un modal abierto. */
     const abiertos = document.querySelectorAll('.modal-overlay.show');
     if (abiertos.length) { abiertos[abiertos.length - 1].classList.remove('show'); e.preventDefault(); }
