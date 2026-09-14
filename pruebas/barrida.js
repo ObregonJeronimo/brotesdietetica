@@ -48,6 +48,9 @@
     /salir|cerrar sesi|logout|signout/i,
     /sembrar|reasignar|migrar|importar/i,
     /pagar|canjear|entregar/i,
+    /* Depurar y restaurar cambian qué productos existen en todas las pantallas: una
+       barrida que los apriete deja el panel distinto del que empezó a revisar. */
+    /depurarSeleccionados|depuracionRestaurar|depuracionExcluir|depuracionIncluir/,
   ];
 
   /* Un envoltorio cuyo unico onclick es frenar la propagacion NO es un boton:

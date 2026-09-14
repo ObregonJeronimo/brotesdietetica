@@ -194,13 +194,15 @@ function _provPorCategoria(prods) {
 function _provNoVendidos(lista, r) {
   const vendidosIds = new Set(r.top.map(p => p.id).filter(Boolean));
   return (typeof allProducts !== 'undefined' ? allProducts : [])
-    .filter(p => p.lista === lista.id && !vendidosIds.has(p.id))
+    .filter(p => p.lista === lista.id && !vendidosIds.has(p.id) && p.depurado !== true)
     .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || '')));
 }
 
 /* Todo lo que se sabe de un proveedor, venga o no de las ventas. */
 function _provResumen(lista) {
-  const prods = (typeof allProducts !== 'undefined' ? allProducts : []).filter(p => p.lista === lista.id);
+  /* Los depurados no se cuentan: la ficha tiene que decir lo mismo que la tabla de
+     Productos filtrada por este proveedor. */
+  const prods = (typeof allProducts !== 'undefined' ? allProducts : []).filter(p => p.lista === lista.id && p.depurado !== true);
   const d = (_provDatos && _provDatos.porLista[lista.id]) || { facturado: 0, ventas: 0, productos: {} };
   const vendidos = Object.keys(d.productos).length;
   return {

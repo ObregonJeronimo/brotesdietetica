@@ -431,7 +431,7 @@ revisarEstiloEnLinea(html, problemas);
    contra el CSS de admin.html. Se pasa SOLO el modulo como texto que usa, para no
    volver a reportar lo que ya se reporto arriba. */
 ['admin-caja.js', 'admin-alertas.js', 'admin-dialogo.js', 'admin-stats.js',
- 'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js']
+ 'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js', 'admin-depuracion.js']
   .forEach((f) => {
     const ruta = path.join(__dirname, f);
     if (!fs.existsSync(ruta)) return;

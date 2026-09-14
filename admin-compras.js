@@ -225,7 +225,7 @@ function compraBuscarProd(q) {
   const prov = (document.getElementById('compraProveedor') || {}).value || _compraProveedor;
   const t = String(q || '').trim().toLowerCase();
   const yaEsta = new Set(_compraItems.map(i => i.id));
-  let prods = (typeof allProducts !== 'undefined' ? allProducts : []).filter(p => p.lista === prov);
+  let prods = (typeof allProducts !== 'undefined' ? allProducts : []).filter(p => p.lista === prov && p.depurado !== true);
   if (t) prods = prods.filter(p => String(p.nombreMostrado || p.nombre || '').toLowerCase().includes(t) ||
                                    String(p.codigo || '').toLowerCase().includes(t));
   prods = prods.filter(p => !yaEsta.has(p.id)).slice(0, 40);
@@ -281,6 +281,14 @@ function _cpFocoCantidad(i) {
    veces, que con una pistola pasa todo el tiempo. */
 function compraEscanear(prod) {
   if (!prod) return;
+  /* Un depurado que llega en una compra vuelve a estar en uso: se ofrece
+     restaurarlo antes de agregarlo, para que su stock no quede escondido. */
+  if (prod.depurado === true) {
+    if (typeof depuracionOfrecerRestaurar === 'function') {
+      depuracionOfrecerRestaurar(prod, 'volver a comprarlo').then(ok => { if (ok) compraEscanear(prod); });
+    }
+    return;
+  }
   const prov = (document.getElementById('compraProveedor') || {}).value || _compraProveedor;
   const nombre = prod.nombreMostrado || prod.nombre || 'el producto';
 
@@ -404,6 +412,15 @@ async function _cpLeerRemito(file) {
       r.ignoradas.length + ' rengl' + (r.ignoradas.length === 1 ? '&oacute;n' : 'ones') +
       ' sin usar: ' + esc(r.ignoradas.slice(0, 3).map(x => x.motivo).join('; ')) +
       (r.ignoradas.length > 3 ? '...' : '') + '</div>';
+  }
+  const depEnRemito = nuevos.filter(i => {
+    const p = (allProducts || []).find(x => x.id === i.id);
+    return p && p.depurado === true;
+  });
+  if (depEnRemito.length) {
+    html += '<div style="color:#EDB833;margin-top:0.25rem">&middot; ' + depEnRemito.length +
+      (depEnRemito.length === 1 ? ' est&aacute; depurado' : ' est&aacute;n depurados') + ' (' + esc(depEnRemito.map(i => i.nombre).join(', ')) +
+      '): al guardar la compra se ofrece restaurarlos.</div>';
   }
   html += '<div style="color:var(--text-dim);margin-top:0.35rem">' +
     'Revis&aacute; las cantidades contra el papel antes de guardar.</div>';
@@ -615,6 +632,18 @@ async function guardarCompra() {
     /* Recién ahora se ofrece mover los costos: la compra ya está guardada, así
        que decir que no acá no pierde nada. */
     await ofrecerActualizarCostos(conCantidad);
+
+    /* Si trajo productos depurados, entraron de nuevo al local. Sin restaurarlos
+       su stock queda sumado pero escondido de todas las listas. */
+    const depEnCompra = conCantidad.map(i => (allProducts || []).find(x => x.id === i.id))
+      .filter(p => p && p.depurado === true);
+    if (depEnCompra.length && typeof depuracionRestaurar === 'function' && await pedirConfirmacion(
+        'Esta compra incluye ' + depEnCompra.length + ' producto' + (depEnCompra.length === 1 ? '' : 's') + ' depurado' +
+        (depEnCompra.length === 1 ? '' : 's') + ': ' + depEnCompra.slice(0, 5).map(p => p.nombreMostrado || p.nombre).join(', ') +
+        (depEnCompra.length > 5 ? '...' : '') + '.\n\nSin restaurarlos, su stock queda sumado pero no aparecen en ninguna lista.',
+        { titulo: 'Productos depurados', aceptar: 'Restaurar' })) {
+      await depuracionRestaurar(depEnCompra.map(p => p.id), 'volvieron a comprarse');
+    }
 
     if (typeof _refrescarAlertas === 'function') _refrescarAlertas(true);
     if (typeof loadProveedores === 'function') loadProveedores();

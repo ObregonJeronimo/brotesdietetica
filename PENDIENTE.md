@@ -813,6 +813,72 @@ interno agrega x1, el de barras también, repetirlo suma x2, y `320` no agarra `
 
 ---
 
+### I) Depuración de productos · **HECHO EN EL SANDBOX — FALTA LA PARTE DE FIREBASE** (14/09/2026)
+
+**Lo pedido:** una sección nueva, **Depuración de productos**, que junte los productos que ya no
+se mueven para esconderlos sin borrarlos: 30/60/90 días a elección, una tabla con qué criterio
+cumple cada uno, **Depurar**, la lista de **Productos depurados** con **Restaurar**, y
+**Productos excluidos** para los que no se tienen que sugerir nunca (lo estacional).
+
+**Cómo decide.** Es candidato si cumple 2 de 3 en los últimos X días:
+
+| criterio | de dónde sale |
+|---|---|
+| Sin ventas | ventas y ventas mayoristas. Los pedidos web entran: no pasan a confirmado ni a entregado sin generar la venta |
+| Sin stock | stock en 0 o negativo |
+| Sin reposición | `stockSubioEn`, que escribe una función que **todavía no existe**. Sin ese registro dice "sin datos" y no cuenta |
+
+No se ofrece aunque cumpla si se dio de alta hace menos de X días (`creadoEn`), si tiene un pedido
+abierto (cualquier estado que no sea entregado o cancelado), o si sus presentaciones
+(`gramajePadreId`) o sus envasados propios (`padreId`) se siguen vendiendo. La pantalla dice
+cuántos quedaron afuera por cada motivo.
+
+**La regla que no se puede romper: el depurado sigue en `allProducts`.** Se saca solo de las
+pantallas donde se elige un producto —tablas, buscadores, exportaciones, alertas— y de la tienda.
+Hay 22 funciones que usan esa lista para buscar datos, y si faltara: Importar Nuevos lo crearía
+duplicado y le repetiría el código, el lector del mostrador no lo encontraría, y
+`borrarImagenesQueSobran` le **borraría las fotos**. `t-depuracion.js` falla si alguna lo filtra.
+
+**Chequeo profundo del 14/09: cinco errores, arreglados y probados en el sandbox.**
+
+1. Depurar releía el stock pero no las ventas: algo vendido con la lista abierta se depuraba igual.
+2. Un granel cuyos envasados se venden —o un principal cuyas presentaciones se venden— se
+   ofrecía para depurar.
+3. Vender un depurado por peso pedía los gramos dos veces: el control estaba en `addVentaItem`,
+   que se reemplaza por `_agregarItemVenta`.
+4. Convertir un pedido web en venta no avisaba si traía un depurado.
+5. Con el panel abierto desde temprano, la lista usaba ventas viejas.
+
+Y dos menores: la ficha de proveedor contaba los depurados, y la barrida de clics podía apretar
+Restaurar.
+
+**Lo que falta, en Firebase (cuando la clienta no esté usando el sistema):**
+
+- Una función `onDocumentWritten('productos/{id}')` que escriba `stockSubioEn` cuando el stock
+  sube —incluido un alta con stock— y que no escriba cuando lo único que cambió es ese campo: si
+  no, se dispara a sí misma.
+- `config/depuracion.registroStockDesde`: la fecha del deploy, escrita **una sola vez**. Si se
+  pisa, "Sin reposición" vuelve a "sin datos".
+- Completar `creadoEn` en los productos que ya existen con el `createTime` de Firestore, que lo lee
+  el Admin SDK y no el navegador.
+- Hasta entonces, en producción un producto es candidato solo si no se vendió y no tiene stock.
+
+**Volver a chequear cuando esté Firebase:**
+
+- Que `stockSubioEn` se escriba desde todos los caminos que suben stock: compra, Stock, edición del
+  producto, Importar Nuevos, devolución al cancelar un pedido o al borrar una venta.
+- Que la función no se dispare en bucle (mirar las invocaciones en el emulador).
+- Que "Sin reposición" empiece a contar recién cuando `registroStockDesde` cubra los días elegidos.
+- Que el relleno de `creadoEn` no pise los que ya lo tienen.
+- `t-depuracion.js`, la suite entera, y la barrida sobre la sección.
+
+Verificado en el sandbox: depurar con el aviso de stock y de presentaciones, restaurar, sacar de la
+lista y volver, vender un depurado (también por peso), escanearlo en una compra, Importar Nuevos con
+un depurado adentro, la tienda sin depurados, 30/60/90 días, paginado y celular.
+`t-depuracion.js`: **103 asertos**. Suite: **2063 / 0**.
+
+---
+
 ## 2. Decisiones tuyas
 
 **Ya decididas:**

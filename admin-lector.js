@@ -403,7 +403,7 @@ function renderAsignarCodigoLista() {
   const cont = document.getElementById('asignarCodigoLista');
   if (!cont) return;
   const q = ((document.getElementById('asignarCodigoBuscar') || {}).value || '').toLowerCase().trim();
-  let arr = (typeof allProducts !== 'undefined' && Array.isArray(allProducts)) ? allProducts : [];
+  let arr = (typeof allProducts !== 'undefined' && Array.isArray(allProducts)) ? allProducts.filter(p => p.depurado !== true) : [];
   if (q) arr = arr.filter(p => ((p.nombreMostrado || '') + ' ' + (p.nombre || '')).toLowerCase().includes(q));
   else arr = arr.filter(p => !p.codigoBarras);   /* sin buscar, los que faltan asignar */
   arr = arr.slice(0, 40);
