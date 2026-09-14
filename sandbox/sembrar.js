@@ -239,52 +239,34 @@ function armarCompras(productos) {
 }
 
 function armarPedidos(productos) {
-  const estados = ['nuevo', 'preparando', 'listo', 'entregado', 'cancelado'];
+  /* Con los estados y los campos que usa la tienda de verdad (app.js). Antes eran
+     "nuevo", "preparando" y "listo" -que el tablero no tiene- y no llevaban creadoEn:
+     el tablero ordena por ese campo, y Firestore deja AFUERA los documentos que no lo
+     tienen. El tablero de Pedidos del sandbox se veia siempre vacio. */
+  const estados = ['pendiente', 'pendiente', 'confirmado', 'entregado', 'cancelado'];
   return estados.map((e, i) => {
     const p = productos[i * 11];
-    const cant = 2;
-    const sub = p.datos.precio * cant;
+    const esPeso = p.datos.tipoVenta === 'peso';
+    const cant = esPeso ? 500 : 2;
+    const sub = esPeso ? Math.round(p.datos.precio * cant / 1000) : p.datos.precio * cant;
+    const envio = i % 2 ? 2500 : 0;
     return {
       id: 'pedido' + String(i + 1).padStart(3, '0'),
       datos: {
-        numero: i + 1, estado: e, fecha: diasAtras(i + 1),
-        cliente: { nombre: 'Cliente Prueba ' + (i + 1), telefono: '351400000' + i,
-                   email: 'cliente' + i + '@local', direccion: 'Calle Falsa ' + (100 + i) },
-        items: [{ id: p.id, nombre: p.datos.nombre, cantidad: cant,
-                  precio: p.datos.precio, subtotal: sub }],
-        total: sub, tipoEntrega: i % 2 ? 'envio' : 'retiro', costoEnvio: i % 2 ? 2500 : 0,
-        medioPago: 'Efectivo',
+        numero: i + 1, estado: e, origen: 'web',
+        creadoEn: diasAtras(i + 1), fecha: diasAtras(i + 1),
+        cliente: 'Cliente Prueba ' + (i + 1), telefono: '351400000' + i,
+        clienteEmail: 'cliente' + i + '@local', clienteAuthUid: null, clienteId: null,
+        direccion: i % 2 ? 'Calle Falsa ' + (100 + i) : null, notas: null,
+        tipoEntrega: i % 2 ? 'envio' : 'retiro', stockDescontado: false,
+        items: [{ id: p.id, nombre: p.datos.nombre, tipoVenta: p.datos.tipoVenta,
+                  precio: p.datos.precio, precioOriginal: p.datos.precio, descuento: 0,
+                  cantidad: cant, subtotal: sub }],
+        subtotalProductos: sub, envio: envio, envioGratis: false, total: sub + envio,
+        cupon: null, medioPago: 'Efectivo',
       },
     };
   });
-}
-
-/* ============================ DEPURACION DE PRODUCTOS ============================
-   `stockSubioEn` y config/depuracion.registroStockDesde los va a escribir una funcion
-   de Firebase que todavia no existe. Se siembran a mano para que en el sandbox la
-   columna "Sin reposicion" se vea andando, en vez de "sin datos" en todos.
-   Y casos armados a proposito: uno depurado, uno sacado de la lista, uno nuevo, y
-   un producto principal con una presentacion. */
-function prepararDepuracion(productos, compras) {
-  const porId = {};
-  productos.forEach(p => { porId[p.id] = p.datos; });
-  /* Lo que entro en compras de los ultimos 90 dias: su stock subio. */
-  compras.forEach(c => {
-    if (!c.datos.sumoStock || (HOY - c.datos.fecha) / 86400000 > 90) return;
-    c.datos.items.forEach(i => { if (porId[i.id]) porId[i.id].stockSubioEn = c.datos.fecha; });
-  });
-  /* Y ajustes a mano repartidos: unos recientes, otros de hace mucho. */
-  productos.forEach((p, i) => {
-    if (i % 5 === 0 && !p.datos.stockSubioEn) p.datos.stockSubioEn = diasAtras(i % 2 ? 110 : 8 + (i % 40));
-  });
-  Object.assign(porId.prod090, { depurado: true, depuradoEn: diasAtras(10), depuradoPor: 'sandbox@local',
-    depuradoMotivo: { dias: 90, criterios: ['sinVentas', 'sinReposicion'], stock: porId.prod090.stock, ultimaVenta: null } });
-  Object.assign(porId.prod095, { excluidoDepuracion: true, excluidoDepuracionEn: diasAtras(4), excluidoDepuracionPor: 'sandbox@local' });
-  /* Sin stock y sin ventas, pero dado de alta hace 3 dias: no se ofrece. */
-  porId.prod100.creadoEn = diasAtras(3);
-  /* El principal no se vende ni tiene stock; su presentacion si se vende. */
-  Object.assign(porId.prod056, { gramaje: '500 Gr' });
-  Object.assign(porId.prod057, { gramaje: '1 Kg', gramajePadreId: 'prod056' });
 }
 
 /* ================================ SEMBRAR ================================ */

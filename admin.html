@@ -459,6 +459,9 @@
            habia que salir del modal para saber si quedaba stock. */
         .vprod-row{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:0.65rem;align-items:center;padding:7px 9px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s}
         .vprod-row:last-child{border-bottom:none}
+        .vprod-ocultos{display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:8px 10px;font-size:0.78rem;color:var(--text-dim);border-top:1px dashed var(--border)}
+        .vprod-ocultos button{flex:0 0 auto;background:none;border:1px solid #434859;border-radius:8px;color:var(--accent-light);font:inherit;font-weight:600;padding:3px 10px;cursor:pointer}
+        .vprod-ocultos button:hover{border-color:var(--accent)}
         .vprod-row:hover{background:var(--bg-input)}
         .vprod-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
         .vprod-img-ph{position:relative;overflow:hidden;width:38px;height:38px;border-radius:7px;background:var(--bg-input);display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:0.95rem}
@@ -2931,7 +2934,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
            Antes esto era el nombre y un precio suelto. Para saber si quedaba stock
            habia que salir del modal, y en la mayorista no habia forma de notar que un
            producto no tenia precio mayorista cargado. */
-        function _filaProdVenta(p,ctx){
+        function _filaProdVenta(p,ctx,op){
             const min=Number(p.precio||0), may=Number(p.precioMayorista||0), stock=Number(p.stock||0);
             const principal = ctx==='may' ? (may||min) : min;
             const sufKg = esPorPeso(p) ? ' el kilo' : '';
@@ -2949,8 +2952,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                             : '<span class="vprod-chip ok">Stock '+(peso?fmtPeso(stock):stock)+'</span>'));
             if(peso)chips.push('<span class="vprod-chip neutro">POR PESO</span>');
             if(p.gramaje)chips.push('<span class="vprod-chip neutro">'+esc(p.gramaje)+'</span>');
-            /* Un producto oculto no esta en la tienda, pero SI se puede vender en el
-               mostrador: se muestra, marcado, en vez de esconderlo. */
+            /* Un oculto solo llega aca si se toco "Ver" abajo de la lista: va marcado. */
             if(p.oculto)chips.push('<span class="vprod-chip neutro">OCULTO</span>');
             /* En mayorista, sin precio mayorista se cobra el de mostrador. Se avisa
                aca y otra vez antes de guardar. */
@@ -2958,7 +2960,9 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const img='<div class="vprod-img-ph"><i class="bi bi-box"></i>'+
                 (p.imagen?'<img class="vprod-img" src="'+_attrHtml(p.imagen)+'" alt="" loading="lazy" onerror="this.remove()">':'')+'</div>';
             const fn = ctx==='may' ? 'addVentaMayItem' : 'addVentaItem';
-            return '<div class="vprod-row" onclick="'+fn+'(\''+_attrHtml(p.id)+'\')" title="Agregar a la venta">'+
+            /* Un oculto que se vio con "Ver" ya se eligio a proposito: no se vuelve a preguntar. */
+            const accion=(op&&op.ocultoVisto)?'_agregarItemVenta(\''+_attrHtml(p.id)+'\',\''+ctx+'\',true)':fn+'(\''+_attrHtml(p.id)+'\')';
+            return '<div class="vprod-row" onclick="'+accion+'" title="Agregar a la venta">'+
                 img+
                 '<div style="min-width:0">'+
                     '<div class="vprod-nom">'+esc(p.nombreMostrado||p.nombre||'(sin nombre)')+'</div>'+
@@ -2969,15 +2973,27 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             '</div>';
         }
 
+        /* Si un producto coincide con lo que se escribio en el buscador de la venta. Lo usan
+           los visibles y los ocultos: con dos copias, algun dia buscarian distinto. */
+        function _coincideVenta(p,t){
+            return ((p.nombreMostrado||'')+' '+(p.nombre||'')+' '+(p.gramaje||'')+' '+(p.codigo||'')).toLowerCase().includes(t)
+                || String(p.codigoBarras||'')===t;
+        }
         function _buscarProdVenta(q){
             const t=(q||'').toLowerCase().trim();
             if(!t)return null;
-            /* Los ocultos tampoco (pedido del comercio, 14/09): antes salian con la etiqueta
-               OCULTO. Si alguien escanea uno, _agregarItemVenta pregunta si venderlo igual. */
-            return allProducts.filter(p=>p.depurado!==true&&p.oculto!==true).filter(p=>
-                ((p.nombreMostrado||'')+' '+(p.nombre||'')+' '+(p.gramaje||'')+' '+(p.codigo||'')).toLowerCase().includes(t)
-                || String(p.codigoBarras||'')===t
-            ).slice(0,25);
+            /* Los ocultos no salen en la lista (pedido del comercio, 14/09). Abajo se avisa
+               cuantos coinciden y se pueden ver: _ocultosVenta. */
+            return allProducts.filter(p=>p.depurado!==true&&p.oculto!==true).filter(p=>_coincideVenta(p,t)).slice(0,25);
+        }
+        /* Los ocultos que coinciden, para el aviso de abajo de la lista. Con el codigo de una
+           etiqueta, solo ese producto. */
+        function _ocultosVenta(q){
+            const t=(q||'').toLowerCase().trim();
+            if(!t)return [];
+            const propio=(typeof etiquetaProductoDe==='function')?etiquetaProductoDe((q||'').trim(),allProducts||[]):null;
+            if(propio)return (propio.oculto===true&&propio.depurado!==true)?[propio]:[];
+            return allProducts.filter(p=>p.depurado!==true&&p.oculto===true).filter(p=>_coincideVenta(p,t)).slice(0,25);
         }
 
         /* El buscador de la caja tambien tiene que entender las etiquetas que
@@ -2993,9 +3009,23 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const c=document.getElementById(contId);
             if(!c)return;
             const res=_buscarProdVentaConEtiqueta(q);
-            if(res===null){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Escriba el nombre del producto o escanee su c\u00f3digo de barras.</div>';return;}
-            if(!res.length){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Ning\u00fan producto coincide con esa b\u00fasqueda.</div>';return;}
-            c.innerHTML=res.map(p=>_filaProdVenta(p,ctx)).join('');
+            window._ventaVerOcultos=window._ventaVerOcultos||{};
+            if(res===null){window._ventaVerOcultos[contId]=false;c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Escriba el nombre del producto o escanee su c\u00f3digo de barras.</div>';return;}
+            /* Los ocultos no se listan, pero se dice cuantos coinciden y se pueden ver (pedido del
+               comercio, 14/09): quien busca un producto que oculto tiene que poder encontrarlo sin
+               ir a Productos a mostrarlo. */
+            const ocultos=_ocultosVenta(q);
+            const n=ocultos.length;
+            const ver=n>0&&!!window._ventaVerOcultos[contId];
+            const pie=n?'<div class="vprod-ocultos"><span><i class="bi bi-eye-slash"></i> '+n+(n===1?' producto oculto coincide':' productos ocultos coinciden')+' con la b\u00fasqueda</span>'+
+                '<button type="button" onclick="event.stopPropagation();_verOcultosVenta(\''+contId+'\',\''+ctx+'\','+(ver?'false':'true')+')">'+(ver?'No mostrarlos':'Ver')+'</button></div>':'';
+            if(!res.length&&!ver){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Ning\u00fan producto '+(n?'visible ':'')+'coincide con esa b\u00fasqueda.</div>'+pie;return;}
+            c.innerHTML=res.map(p=>_filaProdVenta(p,ctx)).join('')+(ver?ocultos.map(p=>_filaProdVenta(p,ctx,{ocultoVisto:true})).join(''):'')+pie;
+        }
+        function _verOcultosVenta(contId,ctx,ver){
+            window._ventaVerOcultos=window._ventaVerOcultos||{};
+            window._ventaVerOcultos[contId]=!!ver;
+            (ctx==='may'?filterVentaMayProducts:filterVentaProducts)();
         }
 
         function filterVentaProducts(){_pintarBusqueda('ventaProdList',(document.getElementById('ventaProdSearch')||{}).value,'min');}
@@ -3017,7 +3047,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
            corrige la cantidad a mano: si ya estaba, se SUMAN los gramos nuevos
            (el cliente pidio 200 y despues 100 mas), y si es la primera vez se
            reemplaza el 1 que dejo la original. */
-        async function _agregarItemVenta(id, ctx){
+        async function _agregarItemVenta(id, ctx, ocultoVisto){
             const p=(allProducts||[]).find(x=>x.id===id);
             const may = ctx==='may';
             const lista = may ? ventaMayItems : ventaItems;
@@ -3033,7 +3063,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             }
             /* Un oculto no sale en el buscador, pero con la pistola llega igual. Se pregunta:
                bloquearlo frenaria una venta con el producto en la mano. */
-            if(p && p.oculto===true){
+            if(p && p.oculto===true && !ocultoVisto){
                 if(!(await pedirConfirmacion('"'+(p.nombreMostrado||p.nombre)+'" está oculto: no aparece en la tienda ni en el buscador de ventas.\n\n¿Venderlo igual?',{titulo:'Producto oculto',aceptar:'Vender igual'})))return;
             }
 
