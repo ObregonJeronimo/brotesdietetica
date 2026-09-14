@@ -303,6 +303,37 @@ function compraEscanear(prod) {
   showAdminToast('Agregado: ' + nombre, 'success');
 }
 
+/* AVISO TEMPORAL SOBRE LA LECTURA DEL PDF.
+
+   Esta aca mientras el lector no entienda los remitos que cuentan BOLSAS. Un
+   renglon como "MANI TOSTADO X 5 KG   2   4900   9800" -dos bolsas de 5 kg a
+   $4.900 cada una- se lee como 2.000 g a $4.900 el kilo, cuando entraron
+   10.000 g a $980. Y sale marcado como verificado: el KG de la descripcion
+   pasa por la marca de kilos, y 2 x 4.900 = 9.800 cierra la cuenta igual.
+
+   Los renglones que traen la cantidad en kilos se leen bien, pero no hay forma
+   de saber de antemano como escribe sus remitos cada proveedor. Hasta que eso
+   se arregle, el cartel pide revisar todo antes de guardar.
+
+   Va adentro de compraLectura y no suelto en el modal, a proposito: esa caja
+   se vacia sola al cerrar, al reabrir y al cambiar de archivo, asi que el
+   cartel no puede quedar colgado de una compra anterior. Y como esa caja esta
+   debajo de la fila Factura/Notas -el porque, en admin.html-, el cartel va de
+   punta a punta. Lleva display:flex porque .cp-aviso arranca oculto -el de
+   stock lo prende desde el codigo-.
+
+   Cuando el lector entienda las bolsas: borrar esta constante y su uso en
+   _aviso, adentro de _cpLeerRemito. */
+const _CP_AVISO_LECTURA_PDF =
+  '<div class="cp-aviso" style="display:flex;margin:0 0 0.45rem;color:var(--text)">' +
+    '<i class="bi bi-exclamation-triangle" style="color:#EDB833;flex:0 0 auto;margin-top:1px"></i>' +
+    '<div><b>AVISO:</b> La lectura automática de archivos PDF puede presentar <b>errores o inconsistencias</b> ' +
+    'al interpretar la información. Esto se debe a que <b>cada proveedor utiliza diferentes formatos</b> y ' +
+    'criterios para cargar y declarar sus productos y la información asociada.' +
+    '<div style="margin-top:0.3rem">Por favor, <b>revise cuidadosamente</b> toda la información cargada ' +
+    '<b>antes de confirmar</b> y aceptar la compra.</div></div>' +
+  '</div>';
+
 /* Lee el remito y precarga los items. No pisa lo que ya haya cargado a mano:
    agrega lo que falta y avisa lo que salteo. */
 async function _cpLeerRemito(file) {
@@ -316,7 +347,7 @@ async function _cpLeerRemito(file) {
     if (!caja) return;
     caja.style.display = 'block';
     caja.style.color = color || 'var(--text-dim)';
-    caja.innerHTML = html;
+    caja.innerHTML = _CP_AVISO_LECTURA_PDF + html;
   };
   _aviso('<i class="bi bi-arrow-repeat spin"></i> Leyendo el remito...');
 
