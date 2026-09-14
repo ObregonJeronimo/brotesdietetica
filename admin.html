@@ -470,7 +470,7 @@
         .venta-modal-box{max-width:1120px;width:96vw}
         .venta-modal-body{display:grid;grid-template-columns:minmax(250px,310px) minmax(0,1fr);gap:1.25rem;align-items:start}
         .venta-col{min-width:0;display:flex;flex-direction:column;gap:0.9rem}
-        .venta-pie{grid-column:1/-1;border-top:1px solid var(--border);padding-top:1rem}
+        .venta-pie{grid-column:1/-1;border-top:1px solid var(--border);padding-top:1rem}/* El pie del pedido tiene tres botones: en celular no entran en un renglon y, sin poder bajar, ensanchaban la caja mas alla de la pantalla. */.venta-pie .form-actions{flex-wrap:wrap}
         .venta-bloque{background:var(--bg-input);border-radius:var(--radius);padding:0.85rem}
         .venta-sub{font-size:0.78rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-dim);margin-bottom:0.6rem;display:flex;align-items:center;gap:0.4rem}
         @media(max-width:900px){.venta-modal-body{grid-template-columns:1fr}}
@@ -7684,13 +7684,17 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
       </div>
     </div>
     <div class="modal-overlay" id="pedidoModal">
-      <div class="modal-box" style="max-width:720px">
+      <!-- Mismo armado que la venta y la mayorista: dos columnas y los botones abajo. Usaba la
+           grilla de dos columnas de la venta (df1bfb5) con sus siete bloques sueltos, y la grilla
+           los repartia en zigzag -cliente contra entrega, buscador contra su lista- dentro de una
+           caja de 720px: los rotulos se partian en cuatro renglones y no se leia el medio de pago. -->
+      <div class="modal-box venta-modal-box">
         <div class="modal-header">
           <h3 id="pedidoModalTitle"><i class="bi bi-bag-check"></i> Pedido</h3>
           <button class="modal-close" onclick="closePedidoModal()"><i class="bi bi-x-lg"></i></button>
         </div>
         <div class="venta-modal-body">
-          <div class="form-row" style="grid-template-columns:1.4fr 1fr 1fr;margin-bottom:1rem">
+          <div class="venta-col">
             <div class="form-group">
               <label>Cliente *</label>
               <div id="pedClienteAuthInfo" style="display:none;margin-bottom:6px"></div>
@@ -7706,7 +7710,6 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                 <input type="hidden" id="pedClienteId" value="">
                 <div class="cliente-select-list" id="pedClienteSelectList"></div>
               </div>
-
             </div>
             <div class="form-group">
               <label>Medio de pago</label>
@@ -7716,37 +7719,37 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
               <label>Fecha</label>
               <input type="date" class="form-input" id="pedFecha">
             </div>
-          </div>
-          <div class="form-row" style="grid-template-columns:1fr;margin-bottom:1rem">
             <div class="form-group">
               <label>Tipo de entrega</label>
               <div class="entrega-toggle">
-                <button type="button" class="entrega-btn active" data-ped-entrega="envio" onclick="setPedEntrega('envio')"><i class="bi bi-truck"></i> Con envio</button>
+                <button type="button" class="entrega-btn active" data-ped-entrega="envio" onclick="setPedEntrega('envio')"><i class="bi bi-truck"></i> Con env&iacute;o</button>
                 <button type="button" class="entrega-btn" data-ped-entrega="retiro" onclick="setPedEntrega('retiro')"><i class="bi bi-shop"></i> Retiro</button>
               </div>
             </div>
-          </div>
-          <div class="toolbar" style="margin-bottom:0.5rem">
-            <div class="search-box" style="flex:1"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto para agregar..." id="pedProdSearch" oninput="filterPedProducts()"></div>
-          </div>
-          <div class="venta-prod-list" id="pedProdList" style="max-height:160px;overflow-y:auto"></div>
-          <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
-            <h4 style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Items del pedido</h4>
-            <div id="pedItems" class="venta-items"></div>
-            <div id="pedTotalBreakdown"></div>
-            <div class="venta-total-row"><span>TOTAL:</span><span id="pedTotal" class="venta-total-val">$0</span></div>
-          </div>
-          <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
-            <h4 style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem"><i class="bi bi-tools"></i> Insumos utilizados (opcional)</h4>
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:0.5rem">
-              <select class="form-input" id="pedInsumoSelect" style="flex:1" onchange="addPedInsumoFromSelect()"><option value="">+ Agregar insumo...</option></select>
+            <div class="venta-bloque">
+              <h4 class="venta-sub"><i class="bi bi-tools"></i> Insumos utilizados (opcional)</h4>
+              <select class="form-input" id="pedInsumoSelect" onchange="addPedInsumoFromSelect()"><option value="">+ Agregar insumo...</option></select>
+              <div id="pedInsumosList" style="display:flex;flex-direction:column;gap:6px;margin-top:0.5rem"></div>
             </div>
-            <div id="pedInsumosList" style="display:flex;flex-direction:column;gap:6px"></div>
           </div>
-          <div class="form-actions">
-            <button class="btn btn-secondary" onclick="closePedidoModal()">Cancelar</button>
-            <button class="btn btn-sm btn-convertir-venta" id="convertirVentaBtn" style="display:none" onclick="convertirPedidoEnVentaDesdeModal()"><i class="bi bi-cart-check"></i> Convertir a venta</button>
-            <button class="btn btn-primary" onclick="savePedidoDesdeModal()" id="savePedidoBtn"><i class="bi bi-check-lg"></i> Guardar pedido</button>
+
+          <div class="venta-col">
+            <div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar producto para agregar..." id="pedProdSearch" oninput="filterPedProducts()"></div>
+            <div class="venta-prod-list" id="pedProdList"></div>
+            <div class="venta-bloque">
+              <h4 class="venta-sub"><i class="bi bi-basket"></i> Items del pedido</h4>
+              <div id="pedItems" class="venta-items"></div>
+              <div id="pedTotalBreakdown"></div>
+              <div class="venta-total-row"><span>TOTAL:</span><span id="pedTotal" class="venta-total-val">$0</span></div>
+            </div>
+          </div>
+
+          <div class="venta-pie">
+            <div class="form-actions" style="margin-top:0">
+              <button class="btn btn-secondary" onclick="closePedidoModal()">Cancelar</button>
+              <button class="btn btn-sm btn-convertir-venta" id="convertirVentaBtn" style="display:none" onclick="convertirPedidoEnVentaDesdeModal()"><i class="bi bi-cart-check"></i> Convertir a venta</button>
+              <button class="btn btn-primary" onclick="savePedidoDesdeModal()" id="savePedidoBtn"><i class="bi bi-check-lg"></i> Guardar pedido</button>
+            </div>
           </div>
         </div>
       </div>
