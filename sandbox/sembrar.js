@@ -269,6 +269,34 @@ function armarPedidos(productos) {
   });
 }
 
+/* ============================ DEPURACION DE PRODUCTOS ============================
+   `stockSubioEn` y config/depuracion.registroStockDesde los va a escribir una funcion
+   de Firebase que todavia no existe. Se siembran a mano para que en el sandbox la
+   columna "Sin reposicion" se vea andando, en vez de "sin datos" en todos.
+   Y casos armados a proposito: uno depurado, uno sacado de la lista, uno nuevo, y
+   un producto principal con una presentacion. */
+function prepararDepuracion(productos, compras) {
+  const porId = {};
+  productos.forEach(p => { porId[p.id] = p.datos; });
+  /* Lo que entro en compras de los ultimos 90 dias: su stock subio. */
+  compras.forEach(c => {
+    if (!c.datos.sumoStock || (HOY - c.datos.fecha) / 86400000 > 90) return;
+    c.datos.items.forEach(i => { if (porId[i.id]) porId[i.id].stockSubioEn = c.datos.fecha; });
+  });
+  /* Y ajustes a mano repartidos: unos recientes, otros de hace mucho. */
+  productos.forEach((p, i) => {
+    if (i % 5 === 0 && !p.datos.stockSubioEn) p.datos.stockSubioEn = diasAtras(i % 2 ? 110 : 8 + (i % 40));
+  });
+  Object.assign(porId.prod090, { depurado: true, depuradoEn: diasAtras(10), depuradoPor: 'sandbox@local',
+    depuradoMotivo: { dias: 90, criterios: ['sinVentas', 'sinReposicion'], stock: porId.prod090.stock, ultimaVenta: null } });
+  Object.assign(porId.prod095, { excluidoDepuracion: true, excluidoDepuracionEn: diasAtras(4), excluidoDepuracionPor: 'sandbox@local' });
+  /* Sin stock y sin ventas, pero dado de alta hace 3 dias: no se ofrece. */
+  porId.prod100.creadoEn = diasAtras(3);
+  /* El principal no se vende ni tiene stock; su presentacion si se vende. */
+  Object.assign(porId.prod056, { gramaje: '500 Gr' });
+  Object.assign(porId.prod057, { gramaje: '1 Kg', gramajePadreId: 'prod056' });
+}
+
 /* ================================ SEMBRAR ================================ */
 
 async function main() {
