@@ -365,6 +365,26 @@
         .selb-op:hover,.selb-op.foco{background:rgba(255,255,255,0.07)}
         .selb-op.activo{color:var(--accent-light);font-weight:600}
         .selb-nada{padding:0.6rem 0.7rem;font-size:0.84rem;color:var(--text-dim)}
+        /* ======= LO QUE SE PUEDE TOCAR, MAS A LA VISTA (primer paso, pedido del 14/09) =======
+           Para alguien poco acostumbrado, el buscador y los botones se confundian con el fondo:
+           el borde (#2e3140) era casi del color de la tarjeta (#1a1d27) y la lupa, gris. Primer
+           paso chico, para ver como queda antes de tocar mas: se pisan colores, bordes y el
+           anillo de foco, y el buscador sube apenas la letra. Ni posiciones ni otros tamaños. */
+        .search-box input{background:var(--bg-input);border:2px solid #4a5068;font-size:0.95rem}
+        .search-box input::placeholder{color:#a3a6b3}
+        .search-box input:hover{border-color:#6b7188}
+        .search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(95,168,122,0.28)}
+        .search-box i{color:var(--accent-light);font-size:1.05rem}
+        .toolbar select.form-input{border-color:#4a5068}
+        .toolbar select.form-input:hover{border-color:#6b7188}
+        .toolbar select.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(95,168,122,0.28)}
+        .btn-secondary{border-color:#434859}
+        /* Con :not(:disabled): si no, las flechas apagadas del paginado se iluminaban al pasar el mouse, como si se pudieran tocar. */
+        .btn-secondary:not(:disabled):hover{border-color:var(--accent);background:#2c3040;color:#fff}
+        .btn-icon{border-color:#434859;color:#b4b7c2;background:rgba(255,255,255,0.03)}
+        .btn-icon:hover{border-color:var(--accent);color:var(--accent-light);background:rgba(95,168,122,0.14)}
+        .btn-icon.delete:hover{border-color:var(--danger);color:var(--danger);background:rgba(229,69,69,0.12)}
+        .btn:focus-visible,.btn-icon:focus-visible{outline:2px solid var(--accent-light);outline-offset:2px}
         .stock-masivo{display:flex;align-items:center;gap:0.9rem;flex-wrap:wrap;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:0.7rem 0.95rem;margin-bottom:0.85rem}.stock-masivo-lbl{display:flex;align-items:center;gap:0.5rem;font-size:0.84rem;color:var(--text-dim);cursor:pointer;user-select:none}.stock-masivo-lbl input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}.stock-masivo-cuenta{font-size:0.8rem;color:var(--accent-light);font-weight:600;white-space:nowrap}.stock-masivo-acc{display:flex;align-items:flex-end;gap:0.75rem;margin-left:auto;flex-wrap:wrap}
         /* Los dos campos, cada uno con su rotulo arriba. Antes habia uno solo con
            el placeholder "Cantidad", que ademas no entraba y se leia "Cantidac". */
