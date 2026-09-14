@@ -11,7 +11,9 @@
  * 2. Que el aviso cuente los ocultos que coinciden, y no los depurados.
  * 3. Que visibles y ocultos se busquen con el MISMO criterio: con dos copias, un
  *    día el aviso diría "2 ocultos coinciden" de algo que la lista no encuentra.
- * 4. Que escanear un oculto pregunte, y que uno elegido con "Ver" no vuelva a
+ * 4. Que "Ver" valga para esa búsqueda: con otra vuelven a esconderse. Si no, un
+ *    "Ver" de antes mostraba los ocultos de algo que no se buscó.
+ * 5. Que escanear un oculto pregunte, y que uno elegido con "Ver" no vuelva a
  *    preguntar: ya se eligió a propósito.
  */
 const fs = require('fs');
@@ -64,16 +66,48 @@ t('  pero entra en el aviso', ids(api.ocultos('2000000000010')) === 'm');
 t('la de uno visible lo trae', ids(api.conEtiqueta('2000000000011')) === 't');
 t('  y no avisa nada', api.ocultos('2000000000011').length === 0);
 
-console.log('\n-- la pantalla --');
-const pintar = cuerpo(html, '_pintarBusqueda');
-t('la lista pide los ocultos', /const ocultos=_ocultosVenta\(q\)/.test(pintar));
-t('avisa cuántos coinciden', pintar.indexOf(' productos ocultos coinciden') > 0 && pintar.indexOf(' producto oculto coincide') > 0);
-t('con un botón para verlos y otro para dejar de verlos', /_verOcultosVenta\(/.test(pintar) && pintar.indexOf("'No mostrarlos':'Ver'") > 0);
-t('al borrar la búsqueda se vuelven a esconder', /if\(res===null\)\{window\._ventaVerOcultos\[contId\]=false;/.test(pintar));
+/* ======================================================= EL BOTON VER
+   Se corren las funciones de verdad de admin.html con un document de mentira. Lo
+   único que se reemplaza es la fila, que arma HTML con precios y stock: acá alcanza
+   con saber qué producto es y si se mostró con "Ver". */
+console.log('\n-- el botón Ver --');
+const dom = { ventaProdSearch: { value: '' }, ventaProdList: { innerHTML: '' },
+              ventaMayBuscaProd: { value: '' }, ventaMayProdListDropdown: { innerHTML: '' } };
+const ui = new Function('allProducts', 'etiquetaProductoDe', 'document', 'window',
+  ['_coincideVenta', '_buscarProdVenta', '_ocultosVenta', '_buscarProdVentaConEtiqueta',
+   '_pintarBusqueda', '_verOcultosVenta', 'filterVentaProducts', 'filterVentaMayProducts'].map(n => cuerpo(html, n)).join('\n') +
+  '\nfunction _filaProdVenta(p, ctx, op) { return "[" + p.id + (op && op.ocultoVisto ? " visto" : "") + "]"; }' +
+  '\nreturn { filtrar: filterVentaProducts, filtrarMay: filterVentaMayProducts, ver: _verOcultosVenta };')(
+  PRODS, etiqueta, { getElementById: id => dom[id] || null }, {});
+const buscar = txt => { dom.ventaProdSearch.value = txt; ui.filtrar(); return dom.ventaProdList.innerHTML; };
+const tocarVer = () => { ui.ver('ventaProdList', 'min', true); return dom.ventaProdList.innerHTML; };
+const conVer = h => h.indexOf('>No mostrarlos</button>') > 0;
+const sinVer = h => h.indexOf(' visto]') < 0 && h.indexOf('>Ver</button>') > 0;
+
+let h = buscar('mani');
+t('sin tocar Ver, la lista trae solo los visibles', h.indexOf('[t]') >= 0 && h.indexOf('[m') < 0 && h.indexOf('[c') < 0);
+t('  y abajo dice cuántos ocultos coinciden, con el botón', h.indexOf('2 productos ocultos coinciden') > 0 && sinVer(h));
+h = tocarVer();
+t('con Ver aparecen, marcados para no volver a preguntar', h.indexOf('[m visto]') >= 0 && h.indexOf('[c visto]') >= 0 && conVer(h));
+h = buscar('mani cro');
+t('siguiendo la misma búsqueda, siguen a la vista', h.indexOf('[c visto]') >= 0 && conVer(h));
+h = buscar('crocante');
+t('con otra búsqueda vuelven a esconderse', sinVer(h));
+t('  y si solo coincide un oculto, se aclara que no hay visibles',
+  h.indexOf('Ningún producto visible coincide') >= 0 && h.indexOf('1 producto oculto coincide') > 0);
+t('  que con Ver también se muestra', tocarVer().indexOf('[c visto]') >= 0);
+buscar('mani'); tocarVer(); buscar('');
+t('borrar la búsqueda también los esconde', sinVer(buscar('mani')));
+tocarVer(); ui.ver('ventaProdList', 'min', false);
+t('"No mostrarlos" los esconde', sinVer(dom.ventaProdList.innerHTML));
+tocarVer(); dom.ventaMayBuscaProd.value = 'mani'; ui.filtrarMay();
+t('el Ver de la minorista no se pasa a la mayorista', sinVer(dom.ventaMayProdListDropdown.innerHTML));
+ui.ver('ventaMayProdListDropdown', 'may', true);
+t('  que tiene el suyo, con su propio buscador', dom.ventaMayProdListDropdown.innerHTML.indexOf('[m visto]') >= 0);
+
+console.log('\n-- agregarlos --');
 t('los que se ven con Ver agregan sin volver a preguntar',
   /\(op&&op\.ocultoVisto\)\?'_agregarItemVenta\(/.test(cuerpo(html, '_filaProdVenta')));
-
-console.log('\n-- escanearlo --');
 const agregar = cuerpo(html, '_agregarItemVenta');
 t('escanear un oculto pregunta si venderlo igual', /if\(p && p\.oculto===true && !ocultoVisto\)\{[\s\S]{0,160}pedirConfirmacion\(/.test(agregar));
 t('  si dice que no, no lo agrega', /Vender igual'\}\)\)\)return;/.test(agregar));
@@ -81,7 +115,7 @@ t('  y pregunta antes de pedir los gramos', agregar.indexOf("titulo:'Producto oc
   agregar.indexOf("titulo:'Producto oculto'") < agregar.indexOf('pedirCantidadPeso'));
 t('la venta mayorista usa el mismo buscador',
   /function filterVentaMayProducts\(\)\{_pintarBusqueda\('ventaMayProdListDropdown'/.test(html) &&
-  /_buscarProdVentaConEtiqueta\(q\)/.test(pintar));
+  /_buscarProdVentaConEtiqueta\(q\)/.test(cuerpo(html, '_pintarBusqueda')));
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

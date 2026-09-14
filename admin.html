@@ -3016,7 +3016,11 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                ir a Productos a mostrarlo. */
             const ocultos=_ocultosVenta(q);
             const n=ocultos.length;
-            const ver=n>0&&!!window._ventaVerOcultos[contId];
+            /* "Ver" vale para la busqueda en la que se toco, y mientras se la siga escribiendo
+               ("mani" -> "mani cro"). Con otra -pisar el texto, o borrarlo- vuelven a esconderse:
+               si no, un "Ver" de antes mostraba los ocultos de algo que no se busco. */
+            const vistoCon=window._ventaVerOcultos[contId];
+            const ver=n>0&&typeof vistoCon==='string'&&vistoCon!==''&&(q||'').toLowerCase().trim().startsWith(vistoCon);
             const pie=n?'<div class="vprod-ocultos"><span><i class="bi bi-eye-slash"></i> '+n+(n===1?' producto oculto coincide':' productos ocultos coinciden')+' con la b\u00fasqueda</span>'+
                 '<button type="button" onclick="event.stopPropagation();_verOcultosVenta(\''+contId+'\',\''+ctx+'\','+(ver?'false':'true')+')">'+(ver?'No mostrarlos':'Ver')+'</button></div>':'';
             if(!res.length&&!ver){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Ning\u00fan producto '+(n?'visible ':'')+'coincide con esa b\u00fasqueda.</div>'+pie;return;}
@@ -3024,7 +3028,8 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         }
         function _verOcultosVenta(contId,ctx,ver){
             window._ventaVerOcultos=window._ventaVerOcultos||{};
-            window._ventaVerOcultos[contId]=!!ver;
+            /* Se guarda el texto en el que se toco, no un si/no: ver _pintarBusqueda. */
+            window._ventaVerOcultos[contId]=ver?((document.getElementById(ctx==='may'?'ventaMayBuscaProd':'ventaProdSearch')||{}).value||'').toLowerCase().trim():false;
             (ctx==='may'?filterVentaMayProducts:filterVentaProducts)();
         }
 
