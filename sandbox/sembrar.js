@@ -270,9 +270,13 @@ function armarPedidos(productos) {
 }
 
 /* ============================ DEPURACION DE PRODUCTOS ============================
-   `stockSubioEn` y config/depuracion.registroStockDesde los va a escribir una funcion
-   de Firebase que todavia no existe. Se siembran a mano para que en el sandbox la
-   columna "Sin reposicion" se vea andando, en vez de "sin datos" en todos.
+   `stockSubioEn` lo escribe la funcion registrarReposicion (functions/index.js) cada
+   vez que sube el stock, y config/depuracion.registroStockDesde se escribio una sola
+   vez en produccion, al desplegarla. Aca se siembran a mano para que la columna "Sin
+   reposicion" se vea andando desde el primer dia, en vez de "sin datos" en todos.
+   Ojo: el sandbox tambien corre la funcion, asi que los productos que se siembran CON
+   stock quedan con stockSubioEn de hoy -un alta con stock cuenta como reposicion-. La
+   fecha simulada sobrevive en los que se siembran sin stock.
    Y casos armados a proposito: uno depurado, uno sacado de la lista, uno nuevo, y
    un producto principal con una presentacion. */
 function prepararDepuracion(productos, compras) {

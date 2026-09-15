@@ -813,7 +813,7 @@ interno agrega x1, el de barras también, repetirlo suma x2, y `320` no agarra `
 
 ---
 
-### I) Depuración de productos · **HECHO EN EL SANDBOX — FALTA LA PARTE DE FIREBASE** (14/09/2026)
+### I) Depuración de productos · **PUBLICADO, CON LA PARTE DE FIREBASE** (14/09/2026)
 
 **Lo pedido:** una sección nueva, **Depuración de productos**, que junte los productos que ya no
 se mueven para esconderlos sin borrarlos: 30/60/90 días a elección, una tabla con qué criterio
@@ -826,7 +826,7 @@ cumple cada uno, **Depurar**, la lista de **Productos depurados** con **Restaura
 |---|---|
 | Sin ventas | ventas y ventas mayoristas. Los pedidos web entran: no pasan a confirmado ni a entregado sin generar la venta |
 | Sin stock | stock en 0 o negativo |
-| Sin reposición | `stockSubioEn`, que escribe una función que **todavía no existe**. Sin ese registro dice "sin datos" y no cuenta |
+| Sin reposición | `stockSubioEn`, que escribe la función `registrarReposicion` cuando sube el stock. Mientras `config/depuracion.registroStockDesde` no cubra los días elegidos, dice "sin datos" y no cuenta |
 
 No se ofrece aunque cumpla si se dio de alta hace menos de X días (`creadoEn`), si tiene un pedido
 abierto (cualquier estado que no sea entregado o cancelado), o si sus presentaciones
@@ -852,25 +852,42 @@ duplicado y le repetiría el código, el lector del mostrador no lo encontraría
 Y dos menores: la ficha de proveedor contaba los depurados, y la barrida de clics podía apretar
 Restaurar.
 
-**Lo que falta, en Firebase (cuando la clienta no esté usando el sistema):**
+**Lo de Firebase, hecho el 14/09/2026 (con la clienta sin usar el sistema):**
 
-- Una función `onDocumentWritten('productos/{id}')` que escriba `stockSubioEn` cuando el stock
-  sube —incluido un alta con stock— y que no escriba cuando lo único que cambió es ese campo: si
-  no, se dispara a sí misma.
-- `config/depuracion.registroStockDesde`: la fecha del deploy, escrita **una sola vez**. Si se
-  pisa, "Sin reposición" vuelve a "sin datos".
-- Completar `creadoEn` en los productos que ya existen con el `createTime` de Firestore, que lo lee
-  el Admin SDK y no el navegador.
-- Hasta entonces, en producción un producto es candidato solo si no se vendió y no tiene stock.
+- **`registrarReposicion`** (functions/index.js), Gen 2 en `southamerica-east1`, escucha
+  `productos/{productoId}` y escribe `stockSubioEn` cuando el stock **sube y queda positivo**,
+  también en un alta con stock. Un -2 que se corrige a 0 no cuenta: sigue sin mercadería. Se
+  desplegó sola (`firebase deploy --only functions:registrarReposicion`): las otras funciones no
+  se tocaron.
+- **`config/depuracion.registroStockDesde` = 14/09/2026 21:57 (Córdoba)**, escrito una sola vez,
+  con la función ya activa y con la condición de que el documento no existiera.
+- **`creadoEn` completado en los 1346 productos** con el `createTime` de cada documento. Se hizo
+  antes de desplegar la función, para no dispararla 1346 veces; solo en los que no lo tenían, y
+  exigiendo que el producto no hubiera cambiado desde que se leyó. No falló ninguno.
 
-**Volver a chequear cuando esté Firebase:**
+Las escrituras en producción se hicieron con la sesión del CLI de Firebase (su cliente
+autenticado), sin claves en archivos.
 
-- Que `stockSubioEn` se escriba desde todos los caminos que suben stock: compra, Stock, edición del
-  producto, Importar Nuevos, devolución al cancelar un pedido o al borrar una venta.
-- Que la función no se dispare en bucle (mirar las invocaciones en el emulador).
-- Que "Sin reposición" empiece a contar recién cuando `registroStockDesde` cubra los días elegidos.
-- Que el relleno de `creadoEn` no pise los que ya lo tienen.
-- `t-depuracion.js`, la suite entera, y la barrida sobre la sección.
+**Qué va a ver la clienta, y desde cuándo.** El catálogo se cargó en dos tandas (442 productos el
+28/08 y 874 el 07/09) y la primera venta es del 31/08. Con `creadoEn` completado, un producto no se
+ofrece hasta que cumple en el sistema los días elegidos: con 30 días, los primeros candidatos
+aparecen desde el **27/09**, y los productos del 07/09 desde el 07/10. Es a propósito: antes no hay
+historial para decir "no se vendió en 30 días". "Sin reposición" dice "sin datos" hasta que el
+registro cubra el período: desde el **14/10** con 30 días, el 13/11 con 60 y el 13/12 con 90.
+
+**Chequeado el 14/09:**
+
+- Todos los caminos que suben stock escriben el campo `stock` del producto (compra y remito, Stock,
+  carga en tanda, edición, Excel e Importar Nuevos, devolución de un pedido y de una venta
+  borrada), así que la función los ve a todos. Probado en el sandbox con las funciones reales del
+  panel: la sección Stock anota, una venta no, la devolución vuelve a anotar y un alta con stock
+  anota.
+- Sin bucle: `npm run test:reposicion` corre la función de verdad en el emulador (7 asertos). Cada
+  reposición la dispara dos veces: la que anota y la de su propia escritura, que sale sin escribir.
+- "Sin reposición" según el período: `t-depuracion.js` (103 asertos).
+- `t-reposicion.js` (17 asertos, con simulaciones), la suite entera y la barrida sobre la sección:
+  38 elementos, 31 apretados, sin errores. Los "sin efecto" eran el menú lateral y los botones de
+  período, que sí cambian: se comprobó a mano.
 
 Verificado en el sandbox: depurar con el aviso de stock y de presentaciones, restaurar, sacar de la
 lista y volver, vender un depurado (también por peso), escanearlo en una compra, Importar Nuevos con

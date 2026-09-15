@@ -7,9 +7,10 @@
    ES CANDIDATO si cumple al menos 2 de estos 3, mirando los últimos X días:
      - sinVentas:     no aparece en ninguna venta ni venta mayorista
      - sinStock:      stock en 0 o negativo
-     - sinReposicion: el stock no subió. Sale de `stockSubioEn`, que escribe una
-                      función de Firebase. Mientras ese registro no cubra los X
-                      días, el criterio dice "sin datos" y NO cuenta.
+     - sinReposicion: el stock no subió. Sale de `stockSubioEn`, que escribe la
+                      función registrarReposicion (functions/index.js) cada vez que
+                      sube el stock. Mientras config/depuracion.registroStockDesde
+                      no cubra los X días, el criterio dice "sin datos" y NO cuenta.
    Y además no tiene que ser nuevo (creadoEn dentro de los X días), ni tener un
    pedido abierto, ni tener presentaciones o envasados propios que se sigan
    vendiendo, ni estar sacado de la lista a mano (excluidoDepuracion).
