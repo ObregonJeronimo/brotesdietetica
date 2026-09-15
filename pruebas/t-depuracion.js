@@ -8,7 +8,8 @@
  *    duplicados, se repiten códigos y se borran fotos, y nada de eso da error.
  * 2. Que una lectura de ventas fallida no se convierta en "nadie compró nada":
  *    el catálogo entero saldría para depurar.
- * 3. Que no se ofrezca depurar algo nuevo, con un pedido abierto o sacado a mano.
+ * 3. Que no se ofrezca depurar algo nuevo, con un pedido abierto o sacado a mano, ni
+ *    algo que se vendió en el período: sin ventas es obligatorio.
  * 4. Que "Sin reposición" no invente: sin registro que cubra el período, no cuenta.
  * 5. Que desaparezca de las pantallas donde se elige un producto, y de la tienda.
  */
@@ -70,6 +71,13 @@ console.log('\n-- los criterios --');
   t('de varias ventas se queda con la más nueva', v.get('a').getTime() === hace(5).getTime());
 }
 t('el stock negativo cuenta como sin stock', evaluar([prod('a', { stock: -3 })]).candidatos.length === 1);
+{
+  /* Se vendió ayer y se quedó sin stock: sin stock y sin reposición suman 2, pero se está vendiendo. */
+  const r = evaluar([prod('a', { stock: 0 })],
+    { ultimasVentas: M.ultimas([{ fecha: hace(1), items: [{ id: 'a' }] }]), registroStockDesde: hace(120) }, 90);
+  t('sin stock y sin reposición pero vendido ayer: no es candidato, sin ventas es obligatorio',
+    r.candidatos.length === 0 && r.nuevos.length === 0 && r.familiaActiva.length === 0);
+}
 
 /* =============================================================== REPOSICION */
 console.log('\n-- sin reposición: no inventa --');
@@ -118,6 +126,20 @@ console.log('\n-- los que no se ofrecen --');
       .candidatos.some(f => f.producto.id === 'granel'));
 }
 
+{
+  /* Los dos campos y todos los niveles. */
+  const ventasF = M.ultimas([{ fecha: hace(3), items: [{ id: 'hijo2' }] }, { fecha: hace(2), items: [{ id: 'nieto' }] },
+                             { fecha: hace(1), items: [{ id: 'ciclo1' }] }]);
+  const rf = evaluar([prod('principalA'), prod('graneloB'), prod('hijo2', { stock: 1, gramajePadreId: 'principalA', padreId: 'graneloB' }),
+                      prod('abuelo'), prod('padre2', { gramajePadreId: 'abuelo' }), prod('nieto', { stock: 1, padreId: 'padre2' }),
+                      prod('ciclo1', { padreId: 'ciclo2' }), prod('ciclo2', { padreId: 'ciclo1' })],
+    { ultimasVentas: ventasF });
+  const frenados = ids(rf.familiaActiva).split(',');
+  t('un producto con los dos campos frena a sus dos padres', frenados.indexOf('principalA') >= 0 && frenados.indexOf('graneloB') >= 0);
+  t('la venta de un nieto frena al padre y también al abuelo', frenados.indexOf('padre2') >= 0 && frenados.indexOf('abuelo') >= 0);
+  t('un ciclo mal cargado (A padre de B y B de A) no cuelga la cuenta', frenados.indexOf('ciclo2') >= 0);
+}
+
 /* ================================================== PRESENTACIONES Y MOTIVO */
 console.log('\n-- presentaciones y motivo --');
 {
@@ -138,6 +160,8 @@ console.log('\n-- una lectura fallida no es "nadie compró nada" --');
 const cargar = cuerpo(src, '_depLeer');
 t('la carga de ventas no tiene un catch que devuelva vacío', cargar.length > 0 && !/catch\s*[({]/.test(cargar));
 t('lee ventas y ventas mayoristas', /ventasDe\('ventas'\)/.test(cargar) && /ventasDe\('ventasMayoristas'\)/.test(cargar));
+t('sin tope de fecha arriba: una venta mayorista de hoy se guarda a las 12:00', cargar.indexOf("'<='") < 0);
+t('Recalcular relee también los productos', cuerpo(src, 'loadDepuracion').indexOf('if (forzar ||') > 0);
 t('si falla, la pantalla no muestra candidatos',
   /if \(_depError \|\| !_depDatos\) \{[\s\S]{0,600}return;/.test(cuerpo(src, 'depuracionRender')));
 const depurar = cuerpo(src, 'depurarSeleccionados');
@@ -177,6 +201,10 @@ console.log('\n-- desaparece de donde se elige un producto --');
 t('el PDF semanal no ofrece ocultar lo que ya está depurado',
   /pdfNames\.has\(p\.nombre\)&&p\.oculto!==true&&p\.depurado!==true/.test(cuerpo(html, 'processWeeklyPdf')));
 t('  y marca los depurados en los cambios de precio', /depurado:bdd\.depurado===true/.test(html) && /r\.depurado\?/.test(html));
+t('marca los depurados entre los ocultos que volvieron al PDF', html.indexOf('depurado:p.depurado===true,oldCost') > 0);
+t('  y al mostrarlos los restaura, para que se vean de verdad', cuerpo(html, 'wpApplyReappeared').indexOf('if(r.depurado){upd.depurado=false;') > 0);
+t('al confirmar un pedido, lo ocultado o depurado con la pestaña abierta sale del carrito',
+  app.indexOf('if(prod.oculto===true||prod.depurado===true){_noDisp.push(') > 0 && app.indexOf('if(_noDisp.length){') > 0);
 t('la tienda los saca del catálogo', /\.filter\(p => !p\.oculto && !p\.depurado\)/.test(app));
 t('  y lee el campo', /depurado:r\.depurado===true/.test(app));
 
@@ -189,10 +217,30 @@ const agregar = cuerpo(html, '_agregarItemVenta');
 t('vender un depurado ofrece restaurarlo, minorista y mayorista', /if\(p && p\.depurado===true\)\{[\s\S]{0,200}depuracionOfrecerRestaurar\(p,'venderlo'\)/.test(agregar));
 t('  y lo pregunta ANTES de pedir los gramos', agregar.indexOf("depuracionOfrecerRestaurar(p,'venderlo')") < agregar.indexOf('pedirCantidadPeso'));
 t('  las originales ya no preguntan: se preguntaba dos veces', cuerpo(html, 'addVentaItem').indexOf('depurado') < 0 && cuerpo(html, 'addVentaMayItem').indexOf('depurado') < 0);
+t('  y si además está oculto, pregunta eso primero: si no, quedaba restaurado sin venderse',
+  agregar.indexOf("titulo:'Producto oculto'") > 0 && agregar.indexOf("titulo:'Producto oculto'") < agregar.indexOf("depuracionOfrecerRestaurar(p,'venderlo')"));
 t('convertir un pedido web en venta ofrece restaurar los depurados', /_depEnPedido/.test(cuerpo(html, 'convertirPedidoEnVentaDesdeModal')));
 t('escanearlo en una compra ofrece restaurarlo', /prod\.depurado === true/.test(cuerpo(compras, 'compraEscanear')));
+{
+  const esc = cuerpo(compras, 'compraEscanear');
+  t('  pero primero mira el proveedor: si no, quedaba restaurado sin comprarse',
+    esc.indexOf('no es de este proveedor') > 0 && esc.indexOf('no es de este proveedor') < esc.indexOf('prod.depurado === true'));
+  const lec = leer('admin-lector.js');
+  const iAbre = lec.indexOf('openModal(prod.id);');
+  const iAviso = lec.indexOf('prod.depurado === true', iAbre);
+  t('escanearlo fuera de una venta abre la ficha y avisa que está depurado', iAbre > 0 && iAviso > iAbre && iAviso - iAbre < 400);
+}
+t('Importar Nuevos avisa cuando lo que "ya existe" está depurado',
+  html.indexOf('function importadosDepurados(r)') > 0 && cuerpo(html, 'avisosDeImportacion').indexOf('importadosDepurados(r)') > 0);
 t('guardar una compra con depurados ofrece restaurarlos', /depEnCompra/.test(cuerpo(compras, 'guardarCompra')));
 t('el remito avisa que trae un depurado', /depEnRemito/.test(cuerpo(compras, '_cpLeerRemito')));
+
+/* ==================================================== LO QUE DICE LA PANTALLA */
+console.log('\n-- lo que dice la pantalla --');
+t('sin última venta dice "sin ventas en 90 días", no "hace más de 90"',
+  src.indexOf('hace m&aacute;s de 90') < 0 && src.indexOf('sin ventas en 90 d&iacute;as') > 0);
+t('sin candidatos, dice desde cuándo puede haber', cuerpo(src, 'depuracionRender').indexOf('se puede sugerir desde el') > 0);
+t('el botón Recalcular dice que relee los productos', html.indexOf('title="Vuelve a leer los productos, las ventas y los pedidos"') > 0);
 
 /* =============================================================== FECHA DE ALTA */
 console.log('\n-- fecha de alta --');

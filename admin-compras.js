@@ -281,19 +281,21 @@ function _cpFocoCantidad(i) {
    veces, que con una pistola pasa todo el tiempo. */
 function compraEscanear(prod) {
   if (!prod) return;
-  /* Un depurado que llega en una compra vuelve a estar en uso: se ofrece
-     restaurarlo antes de agregarlo, para que su stock no quede escondido. */
-  if (prod.depurado === true) {
-    if (typeof depuracionOfrecerRestaurar === 'function') {
-      depuracionOfrecerRestaurar(prod, 'volver a comprarlo').then(ok => { if (ok) compraEscanear(prod); });
-    }
-    return;
-  }
   const prov = (document.getElementById('compraProveedor') || {}).value || _compraProveedor;
   const nombre = prod.nombreMostrado || prod.nombre || 'el producto';
 
   if (prov && prod.lista !== prov) {
     showAdminToast('"' + nombre + '" no es de este proveedor: no se agrega.', 'error');
+    return;
+  }
+  /* Un depurado que llega en una compra vuelve a estar en uso: se ofrece
+     restaurarlo antes de agregarlo, para que su stock no quede escondido. Va DESPUES
+     de mirar el proveedor: antes se restauraba y recien ahi salia "no es de este
+     proveedor", y quedaba restaurado sin haberse comprado. */
+  if (prod.depurado === true) {
+    if (typeof depuracionOfrecerRestaurar === 'function') {
+      depuracionOfrecerRestaurar(prod, 'volver a comprarlo').then(ok => { if (ok) compraEscanear(prod); });
+    }
     return;
   }
 

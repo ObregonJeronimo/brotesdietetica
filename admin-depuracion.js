@@ -4,7 +4,8 @@
    Productos que ya no se mueven se DEPURAN: desaparecen de las listas y de la
    tienda, pero no se borran. Restaurar es volver un campo atrás.
 
-   ES CANDIDATO si cumple al menos 2 de estos 3, mirando los últimos X días:
+   ES CANDIDATO si cumple al menos 2 de estos 3, mirando los últimos X días, y uno
+   de los 2 es sinVentas:
      - sinVentas:     no aparece en ninguna venta ni venta mayorista
      - sinStock:      stock en 0 o negativo
      - sinReposicion: el stock no subió. Sale de `stockSubioEn`, que escribe la
@@ -14,6 +15,12 @@
    Y además no tiene que ser nuevo (creadoEn dentro de los X días), ni tener un
    pedido abierto, ni tener presentaciones o envasados propios que se sigan
    vendiendo, ni estar sacado de la lista a mano (excluidoDepuracion).
+
+   SIN VENTAS ES OBLIGATORIO
+
+   El comercio pidió "que no tengan movimientos recientes", y vender es moverse. Con
+   2 de 3 sueltos, algo que se vendió ayer y se quedó sin stock -sin stock y sin
+   reposición- salía para depurar justo cuando más se vende.
 
    "SIN VENTAS" DICE QUE SÍ, "SIN MOVIMIENTOS" NO EXISTE, A PROPÓSITO
 
@@ -119,12 +126,27 @@ function depEvaluar(productos, datos, opciones) {
   /* La última venta de sus presentaciones (gramajePadreId) y de sus envasados propios
      (padreId). Un granel casi no se vende directo: se vende fraccionado, en los
      envasados que salen de él. Mirando solo sus propias ventas figuraba "sin ventas",
-     y se ofrecía depurar justo el producto que alimenta a los que más salen. */
+     y se ofrecía depurar justo el producto que alimenta a los que más salen.
+     Se miran LOS DOS campos y TODOS los niveles. Con "gramajePadreId || padreId", un
+     producto con los dos -hay dos así- le avisaba solo a uno de sus padres, y en una
+     cadena (el envasado de una presentación) la venta no llegaba al principal.
+     vistos corta un ciclo mal cargado. */
+  const porId = {};
+  lista.forEach(p => { if (p && p.id) porId[p.id] = p; });
+  const padresDe = p => [p.gramajePadreId, p.padreId].filter((x, i, a) => x && a.indexOf(x) === i);
   const ventaFamilia = {};
   lista.forEach(p => {
-    const padre = p && (p.gramajePadreId || p.padreId);
-    const f = padre && ultimas.get(p.id);
-    if (f && (!ventaFamilia[padre] || f > ventaFamilia[padre])) ventaFamilia[padre] = f;
+    const f = p && ultimas.get(p.id);
+    if (!f) return;
+    const vistos = new Set([p.id]);
+    const pendientes = padresDe(p);
+    while (pendientes.length) {
+      const id = pendientes.pop();
+      if (vistos.has(id)) continue;
+      vistos.add(id);
+      if (!ventaFamilia[id] || f > ventaFamilia[id]) ventaFamilia[id] = f;
+      if (porId[id]) padresDe(porId[id]).forEach(x => pendientes.push(x));
+    }
   });
 
   const r = {
@@ -143,7 +165,8 @@ function depEvaluar(productos, datos, opciones) {
     };
     const cumple = (criterios.sinVentas ? 1 : 0) + (criterios.sinStock ? 1 : 0) +
                    (criterios.sinReposicion === 'si' ? 1 : 0);
-    if (cumple < 2) return;
+    /* Sin ventas es obligatorio: ver "SIN VENTAS ES OBLIGATORIO" arriba. */
+    if (cumple < 2 || !criterios.sinVentas) return;
     const fila = { producto: p, criterios: criterios, cumple: cumple, ultimaVenta: ultimaVenta, hijos: hijosDe[p.id] || [] };
     /* Estos cumplirían, pero no se ofrecen. Se cuentan igual, para poder decir
        en pantalla por qué no están. */
@@ -188,10 +211,11 @@ let _depPagCand = 1, _depPagDep = 1;
    entre 30, 60 y 90 recalcula en memoria, sin volver a leer. */
 async function _depLeer(forzar) {
   if (_depDatos && !forzar) return _depDatos;
-  const hasta = new Date();
-  const desde = new Date(hasta.getTime() - 90 * DEP_DIA_MS);
+  const desde = new Date(Date.now() - 90 * DEP_DIA_MS);
+  /* Sin tope arriba. Una venta mayorista se guarda a las 12:00 del día elegido: cargada
+     a la mañana quedaba DESPUÉS de "ahora", no se leía, y el producto figuraba sin ventas. */
   const ventasDe = async col => {
-    const q = await db.collection(col).where('fecha', '>=', desde).where('fecha', '<=', hasta).get();
+    const q = await db.collection(col).where('fecha', '>=', desde).get();
     const out = [];
     q.forEach(d => out.push(d.data()));
     return out;
@@ -220,7 +244,9 @@ async function loadDepuracion(forzar) {
   _depError = '';
   depuracionRender();
   try {
-    if (typeof allProducts === 'undefined' || !allProducts.length) await loadProducts();
+    /* Recalcular relee también los productos: el stock y el stockSubioEn que cambiaron
+       desde otra PC, o que la función de reposición escribió después de una compra. */
+    if (forzar || typeof allProducts === 'undefined' || !allProducts.length) await loadProducts();
     /* Con el panel abierto desde temprano, las ventas en memoria son las de la mañana:
        pasados 10 minutos se vuelven a leer al entrar a la sección. */
     const viejo = !!(_depDatos && Date.now() - _depDatos.leidoEn.getTime() > 10 * 60000);
@@ -336,7 +362,14 @@ function depuracionRender() {
   const pc = _depPagina(ev.candidatos, _depPagCand);
   _depPagCand = pc.pagina;
   if (!ev.candidatos.length) {
-    h += '<div class="empty-state"><i class="bi bi-check2-circle"></i><p>No hay productos para depurar con ' + ev.dias + ' d&iacute;as.</p></div>';
+    /* Con el catálogo recién cargado todos son nuevos: se dice desde cuándo puede haber. */
+    const altas = ev.nuevos.map(f => depFecha(f.producto.creadoEn)).filter(Boolean).sort((a, b) => a - b);
+    const desdeCuando = altas.length
+      ? '<p class="dep-sub">Lo dado de alta hace menos de ' + ev.dias + ' d&iacute;as no se sugiere: el primero que cumple ' +
+        'se puede sugerir desde el ' + _depFmt(new Date(altas[0].getTime() + ev.dias * DEP_DIA_MS)) + '.</p>'
+      : '';
+    h += '<div class="empty-state"><i class="bi bi-check2-circle"></i><p>No hay productos para depurar con ' + ev.dias + ' d&iacute;as.</p>' +
+      desdeCuando + '</div>';
   } else {
     h += _depBarra('cand', ev.candidatos.length, _depSelCand.size,
         '<button class="btn btn-primary dep-ancho" onclick="depurarSeleccionados()"' + (_depSelCand.size ? '' : ' disabled') +
@@ -350,7 +383,7 @@ function depuracionRender() {
           ? ' &middot; <span class="dep-chip">' + f.hijos.length + ' presentaci' + (f.hijos.length === 1 ? '&oacute;n' : 'ones') + '</span>' : '';
         return '<tr>' + _depCheck('cand', p.id, _depSelCand.has(p.id)) +
           '<td>' + _depLinea(p, pres) + '</td><td>' + _depStock(p) + '</td>' +
-          '<td>' + (f.ultimaVenta ? _depFmt(f.ultimaVenta) : '<span class="dep-no">hace m&aacute;s de 90 d&iacute;as</span>') + '</td>' +
+          '<td>' + (f.ultimaVenta ? _depFmt(f.ultimaVenta) : '<span class="dep-no">sin ventas en 90 d&iacute;as</span>') + '</td>' +
           _depCelda(f.criterios.sinVentas) + _depCelda(f.criterios.sinStock) + _depCelda(f.criterios.sinReposicion) +
           '<td><button class="btn btn-sm btn-secondary" title="No volver a sugerirlo" onclick="depuracionExcluir(\'' +
           _depEsc(p.id) + '\')">Sacar de la lista</button></td></tr>';

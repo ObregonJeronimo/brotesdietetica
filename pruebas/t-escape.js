@@ -12,6 +12,9 @@
  * stopPropagation de los otros no lo frena. Ahora se fija si hay un diálogo o un
  * panel abierto, y en ese caso los deja cerrarse solos.
  *
+ * El panel tiene que VERSE: uno que quedó abierto adentro de un modal que ya se
+ * cerró se comía el Escape de todo lo que se abriera después.
+ *
  * Se corre admin-atajos.js de verdad, con un document de mentira.
  */
 const fs = require('fs');
@@ -25,19 +28,21 @@ let ok = 0, fail = 0;
 const t = (d, c) => { if (c) { ok++; console.log('  OK   ' + d); } else { fail++; console.log('  FALLA ' + d); } };
 
 /* Carga admin-atajos.js y devuelve el handler de teclado que registra. `estado` dice
-   qué hay abierto en la pantalla de mentira. */
+   qué hay abierto en la pantalla de mentira: `panel` es un panel a la vista, y
+   `paneles` deja armar paneles a mano (offsetParent null = escondido). */
 function handlerCon(estado) {
   let escucha = null;
   const hay = s => (s === '.dlg-overlay' && !!estado.dialogo) ||
                    (s === '.selb-panel:not([hidden])' && !!estado.panel) ||
                    (s === '.modal-overlay.show' && estado.modales.some(m => m.show));
+  const paneles = () => estado.paneles || (estado.panel ? [{ offsetParent: {} }] : []);
   const document = {
     addEventListener: (tipo, fn, captura) => { if (tipo === 'keydown') { escucha = fn; estado.captura = captura; } },
     getElementById: () => null,
     querySelector: sel => (sel.split(',').map(s => s.trim()).some(hay) ? {} : null),
     querySelectorAll: sel => (sel === '.modal-overlay.show'
       ? estado.modales.filter(m => m.show).map(m => ({ classList: { remove: c => { if (c === 'show') m.show = false; } } }))
-      : []),
+      : sel === '.selb-panel:not([hidden])' ? paneles() : []),
   };
   vm.runInNewContext(atajos, { document, window: {}, setTimeout, clearTimeout, console });
   return escucha;
@@ -61,6 +66,12 @@ t('con un diálogo abierto -"¿Vender igual?", los gramos- la venta de atrás qu
 e = { modales: [{ id: 'producto', show: true }], panel: true };
 handlerCon(e)(escape());
 t('con el panel de un desplegable abierto, el formulario de producto queda', abiertos(e) === 'producto');
+e = { modales: [{ id: 'venta', show: true }], paneles: [{ offsetParent: null }] };
+handlerCon(e)(escape());
+t('un panel abierto adentro de un modal ya cerrado no se come el Escape de la venta', abiertos(e) === '');
+e = { modales: [{ id: 'producto', show: true }], paneles: [{ offsetParent: null }, { offsetParent: {} }] };
+handlerCon(e)(escape());
+t('  pero si además hay uno a la vista, el formulario queda', abiertos(e) === 'producto');
 
 console.log('\n-- las clases que mira son las de verdad --');
 const dialogo = leer('admin-dialogo.js');
@@ -69,6 +80,7 @@ t('  y cada uno cierra con su propio Escape', (dialogo.match(/if \(e\.key === 'E
 const selector = leer('admin-selector.js');
 t('el panel del desplegable es .selb-panel y se esconde con hidden',
   /panel\.className = 'selb-panel'/.test(selector) && /panel\.hidden = true/.test(selector));
+t('atajos mira si el panel se ve, no solo si no está hidden', /offsetParent !== null/.test(atajos));
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

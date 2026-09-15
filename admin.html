@@ -802,7 +802,7 @@
       </div>
       <div id="clientesAuthList" class="hist-list"><div class="empty-state" style="padding:2rem"><p>Cargando...</p></div></div>
     </div>
-    <div class="section-content" id="sec-depuracion"><div class="toolbar dep-barra"><span class="dep-rotulo">Sin vender hace</span><span class="dep-per" id="depPeriodo"></span><button class="btn btn-secondary dep-der" onclick="loadDepuracion(true)" title="Vuelve a leer las ventas y los pedidos"><i class="bi bi-arrow-clockwise"></i> Recalcular</button><button class="btn btn-secondary dep-ancho" onclick="abrirDepExcluidos()"><i class="bi bi-eye-slash"></i> Productos excluidos <span id="depExcluidosN"></span></button></div><div id="depContenido"></div></div>
+    <div class="section-content" id="sec-depuracion"><div class="toolbar dep-barra"><span class="dep-rotulo">Sin vender hace</span><span class="dep-per" id="depPeriodo"></span><button class="btn btn-secondary dep-der" onclick="loadDepuracion(true)" title="Vuelve a leer los productos, las ventas y los pedidos"><i class="bi bi-arrow-clockwise"></i> Recalcular</button><button class="btn btn-secondary dep-ancho" onclick="abrirDepExcluidos()"><i class="bi bi-eye-slash"></i> Productos excluidos <span id="depExcluidosN"></span></button></div><div id="depContenido"></div></div>
     <div class="section-content" id="sec-historial"><div id="histUserStats" class="stats-row" style="margin-bottom:1rem"></div><div class="toolbar" style="margin-bottom:1rem"><select class="form-input" id="histMesFiltro" style="width:auto;min-width:170px;font-weight:600;background:#1e3a5f;color:#fff;border-color:#1e3a5f" onchange="filterHistorial()"><option value="">Todos los meses</option></select><div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Buscar en historial..." id="histSearch" oninput="filterHistorial()"></div><select class="form-input" style="width:auto;min-width:140px" id="histUserFilter" onchange="filterHistorial()"><option value="">Todos los usuarios</option></select><button class="btn btn-secondary" style="width:auto" onclick="loadHistorial()"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div><div id="histList" class="hist-list"><div class="empty-state" style="padding:2rem"><p>Cargue el historial con el bot&oacute;n Actualizar</p></div></div><div class="price-pager" id="histPager"></div></div>
     <div class="section-content" id="sec-resenas"><div class="toolbar"><h3 style="font-size:1rem;color:var(--text-main);margin:0"><i class="bi bi-star"></i> Reseñas de clientes</h3><button class="btn btn-secondary" style="width:auto" onclick="loadAdminReviews()"><i class="bi bi-arrow-clockwise"></i></button><button class="btn btn-secondary" style="width:auto;background:#5a2a7a;border-color:#5a2a7a;color:#fff;margin-left:auto" onclick="generarLinkResena()" title="Genera un link de reseña suelto para pasarle a alguien a mano"><i class="bi bi-link-45deg"></i> Link de reseña</button><button class="btn btn-secondary" style="width:auto" onclick="openConfigResenasModal()" title="Configurar preguntas"><i class="bi bi-gear"></i></button></div><div style="display:flex;gap:0.5rem;margin:1rem 0;flex-wrap:wrap"><div style="flex:1;min-width:120px;background:var(--bg-input);padding:0.75rem;border-radius:var(--radius)"><strong style="color:var(--accent-light)" id="rvTotal">0</strong><span style="font-size:0.8rem;color:var(--text-dim)"> total</span></div><div style="flex:1;min-width:120px;background:var(--bg-input);padding:0.75rem;border-radius:var(--radius)"><strong style="color:#e6a817" id="rvAvg">0</strong><span style="font-size:0.8rem;color:var(--text-dim)"> promedio</span></div><div style="flex:1;min-width:120px;background:var(--bg-input);padding:0.75rem;border-radius:var(--radius)"><strong style="color:#67c23a" id="rvVisible">0</strong><span style="font-size:0.8rem;color:var(--text-dim)"> visibles</span></div></div><div id="rvList" class="hist-list"><div class="empty-state" style="padding:2rem"><p>Cargando...</p></div></div></div>
     <div class="section-content" id="sec-factura"><div class="toolbar" style="margin-bottom:1rem"><h3 style="font-size:1rem;font-weight:700;flex:1"><i class="bi bi-receipt"></i> Editor de Factura / Etiqueta</h3><button class="btn btn-primary" style="width:auto" onclick="saveFacturaFromEditor()" id="saveFcEditorBtn"><i class="bi bi-check-lg"></i> Guardar</button></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
@@ -1856,7 +1856,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function updateCategoryFilter(){const cats=_todasLasCategorias();['filterCat','stockFilterCat'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const cur=s.value;s.innerHTML='<option value="">Todas</option>'+cats.map(c=>'<option value="'+c+'">'+c+'</option>').join('');if(cur&&cats.indexOf(cur)>=0){s.value=cur;}else if(cur){s.value='';if(id==='filterCat'&&typeof filterTable==='function')filterTable();else if(id==='stockFilterCat'&&typeof renderStockList==='function')renderStockList();}});updateCatSelects();}
         function updateCatSelects(){const cats=_todasLasCategorias();const sel=document.getElementById('pCategoria');if(sel){const cur=sel.value;sel.innerHTML='<option value="">Seleccionar...</option>'+cats.map(c=>'<option value="'+c+'">'+c+'</option>').join('');if(cur)sel.value=cur;}updateSubcatSelect();}
         /* Se puede guardar sin categoria (pedido del comercio, 14/09): queda en la tarjeta "Sin categoria" de Productos, desde donde se completa. Mientras este vacia, se avisa. */function _pintarAvisoCategoria(){const a=document.getElementById('pCatAviso');if(!a)return;a.style.display=(document.getElementById('pCategoria')||{}).value?'none':'flex';}
-        function updateSubcatSelect(){_pintarAvisoCategoria();const cat=document.getElementById('pCategoria')?.value||'';const subs=_subcategoriasDe(cat);const sel=document.getElementById('pSubcategoria');if(sel){const cur=sel.value;sel.innerHTML='<option value="">Ninguna</option>'+subs.map(s=>'<option value="'+s+'">'+s+'</option>').join('');if(cur)sel.value=cur;}}
+        function updateSubcatSelect(){_pintarAvisoCategoria();const cat=document.getElementById('pCategoria')?.value||'';/* Sin categoria no se ofrecen subcategorias: _subcategoriasDe('') devuelve TODAS, y se podia guardar una subcategoria sin categoria. Y la elegida queda solo si existe en la categoria nueva: si no, el desplegable quedaba en blanco en vez de "Ninguna". */const subs=cat?_subcategoriasDe(cat):[];const sel=document.getElementById('pSubcategoria');if(sel){const cur=sel.value;sel.innerHTML='<option value="">Ninguna</option>'+subs.map(s=>'<option value="'+s+'">'+s+'</option>').join('');if(cur&&subs.indexOf(cur)>=0)sel.value=cur;}}
         let adminSortField=null,adminSortDir='asc';
         /* El criterio de busqueda de productos, en UN solo lugar. Lo usan la tabla
            de Productos y los dos selectores -el de las herramientas de precios y
@@ -2530,7 +2530,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 const r=armarProductosDesdeFilas(rows,'');
                 if(!r.prods.length){
                     pw.style.display='none';
-                    showAdminToast(r.duplicados?'Todos los productos ya existen ('+r.duplicados+' duplicados)':'Sin productos validos','error');
+                    showAdminToast(r.duplicados?'Todos los productos ya existen ('+r.duplicados+' duplicados'+(importadosDepurados(r).length?', '+importadosDepurados(r).length+' depurados: se restauran desde Depuración':'')+')':'Sin productos validos','error');
                     excelInput.value='';
                     return;
                 }
@@ -2574,7 +2574,10 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
            las filas se arman en un solo lugar. */
         function armarProductosDesdeFilas(rows,listaLote){
             const listaPorNombre={};listasData.forEach(l=>{listaPorNombre[claveProducto(l.nombre)]=l.id;});
-            const yaEnBase=new Set(allProducts.map(p=>claveProducto(p.nombre)));
+            /* Por nombre, con TODOS los productos que lo tienen: avisosDeImportacion mira si
+               alguno de ellos se puede encontrar en Productos. */
+            const yaEnBase=new Map();
+            allProducts.forEach(p=>{const k=claveProducto(p.nombre);if(!yaEnBase.has(k))yaEnBase.set(k,[]);yaEnBase.get(k).push(p);});
             /* El codigo de producto es obligatorio y unico (validarCodigoProducto), asi
                que la importacion tiene que asignarlo: si no, un catalogo de 800 filas
                entra sin codigo y el formulario lo pide de a uno al editar cualquiera.
@@ -2594,7 +2597,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                Excel -pasa siempre: el mismo producto en dos hojas, o una vez por gramaje-
                entraba dos veces porque solo se miraba la base. */
             const yaEnArchivo=new Set();
-            const r={prods:[],duplicados:0,repetidosArchivo:0,sinCategoria:0,sinPrecio:0,ejemploSinPrecio:[],codigosCorregidos:0,ejemploCodigo:[]};
+            const r={prods:[],duplicados:0,yaExistentes:[],repetidosArchivo:0,sinCategoria:0,sinPrecio:0,ejemploSinPrecio:[],codigosCorregidos:0,ejemploCodigo:[]};
             for(const row of rows){
                 const keys=Object.keys(row);
                 const get=opts=>{for(const o of opts){const f=keys.find(k=>k.toUpperCase().trim()===o.toUpperCase());if(f&&row[f]!=='')return row[f];}return null;};
@@ -2602,7 +2605,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 if(!n)continue;
                 const nombre=String(n).trim();
                 const clave=claveProducto(nombre);
-                if(yaEnBase.has(clave)){r.duplicados++;continue;}
+                if(yaEnBase.has(clave)){r.duplicados++;r.yaExistentes.push(yaEnBase.get(clave));continue;}
                 if(yaEnArchivo.has(clave)){r.repetidosArchivo++;continue;}
                 yaEnArchivo.add(clave);
                 /* La pantalla dice que CATEGORIA es obligatoria pero el codigo nunca corto:
@@ -2660,7 +2663,15 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             if(r.sinCategoria)a.push('• '+r.sinCategoria+' sin CATEGORIA: quedan en "Sin categoría", que en la tienda aparece como un filtro más.');
             if(r.sinPrecio)a.push('• '+r.sinPrecio+' quedarían en $0 y NO se pueden comprar: '+r.ejemploSinPrecio.join(', ')+(r.sinPrecio>r.ejemploSinPrecio.length?', ...':'')+'. Revisá que el Excel traiga COSTO + PORCENTAJE, o una columna PRECIO.');
             if(r.codigosCorregidos)a.push('• '+r.codigosCorregidos+' traían un CODIGO inválido o ya usado y se les asignó uno nuevo: '+r.ejemploCodigo.join(', ')+(r.codigosCorregidos>r.ejemploCodigo.length?', ...':'')+'. El código admite letras, números, punto, guion y guion bajo, hasta 40.');
+            const dep=importadosDepurados(r);
+            if(dep.length)a.push('• '+dep.length+(dep.length===1?' ya existe pero está depurado, así que no aparece':' ya existen pero están depurados, así que no aparecen')+' en Productos: '+dep.slice(0,5).join(', ')+(dep.length>5?', ...':'')+'. No se cargan de nuevo: si vuelven a venderse, se restauran desde Depuración de productos.');
             return a;
+        }
+
+        /* Los nombres del archivo que ya estan en la base, pero SOLO como depurados: se omiten
+           "porque ya existen" y en Productos no se encuentran. */
+        function importadosDepurados(r){
+            return (r.yaExistentes||[]).filter(g=>g.length&&g.every(p=>p.depurado===true)).map(g=>g[0].nombreMostrado||g[0].nombre);
         }
 
         /* Escribe el lote en tandas de 450 y deja la barra al dia. */
@@ -2691,7 +2702,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 const r=armarProductosDesdeFilas(rows,selLista?selLista.value:'');
                 if(!r.prods.length){
                     pw.style.display='none';
-                    showAdminToast(r.duplicados?'Todos los productos ya existen ('+r.duplicados+' duplicados)':'Sin productos validos en el archivo','error');
+                    showAdminToast(r.duplicados?'Todos los productos ya existen ('+r.duplicados+' duplicados'+(importadosDepurados(r).length?', '+importadosDepurados(r).length+' depurados: se restauran desde Depuración':'')+')':'Sin productos validos en el archivo','error');
                     excelInputNew.value='';
                     return;
                 }
@@ -2899,7 +2910,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             else if(window._pedidoEnvioVenta&&window._pedidoEnvioVenta.tipoEntrega===ventaTipoEntrega&&envio!==0)envio=Number(window._pedidoEnvioVenta.envio)||0;
             return {subtotal,descuentoPct,descuentoMonto,subtotalConDesc,envio,total:subtotalConDesc+envio};
         }
-        function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='envio';window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;if(typeof cuponCajaReset==='function')setTimeout(cuponCajaReset,0);/* _pedidoOrigenVentaId lo soltaba SOLO closeVentaModal, y Escape (admin-atajos.js) cierra el modal sacandole la clase 'show' sin pasar por ahi: convertir un pedido, arrepentirse con Escape y despues cargar una venta de mostrador la guardaba como origen 'web' colgada de aquel pedido, y le marcaba el pedido como confirmado con la venta equivocada. */window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='envio'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
+        function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='envio';window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;if(typeof cuponCajaReset==='function')setTimeout(cuponCajaReset,0);/* _pedidoOrigenVentaId lo soltaba SOLO closeVentaModal, y Escape (admin-atajos.js) cierra el modal sacandole la clase 'show' sin pasar por ahi: convertir un pedido, arrepentirse con Escape y despues cargar una venta de mostrador la guardaba como origen 'web' colgada de aquel pedido, y le marcaba el pedido como confirmado con la venta equivocada. */window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='envio'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';/* El buscador se limpia tambien al ABRIR: Escape cierra la venta sin pasar por closeVentaModal, y la siguiente arrancaba con la busqueda vieja, y con sus ocultos a la vista si se habia tocado Ver. */const _psAbrir=document.getElementById('ventaProdSearch');if(_psAbrir)_psAbrir.value='';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
         async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio',stockDescontado:!!v.stockDescontado}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i)}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';/* El uid del cliente registrado vive en clienteAuthUid, no en clienteId: precargando solo clienteId el input oculto quedaba VACIO, y al guardar cualquier cambio (por ejemplo pasar de Efectivo a Transferencia) saveVenta lee ese mismo input y escribe clienteId:null Y clienteAuthUid:null, con lo que la venta se desengancha del cliente para siempre y deja de aparecer en su ficha (admin.html:1265). El formato 'auth:<uid>' es el que ya usa el flujo de pedido a venta. */document.getElementById('ventaClienteId').value=v.clienteAuthUid?('auth:'+v.clienteAuthUid):(v.clienteId||'');document.getElementById('ventaMedio').value=v.medioPago||'Efectivo';/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+nroVta(v.numero||0);const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;
             /* Restaurar cupón si la venta lo tiene */
             window._pedidoCuponVenta=v.cupon||null;
@@ -2917,7 +2928,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             let authCard=document.getElementById('ventaAuthCard');
             if(!authCard){authCard=document.createElement('div');authCard.id='ventaAuthCard';ventaClienteWrap?.parentNode.insertBefore(authCard,ventaClienteWrap);}
             _renderClienteCard(v,authCard,ventaClienteWrap);
-            renderVentaItems();renderVentaInsumosUsados();refreshVentaInsumosSelect();filterVentaProducts();document.getElementById('ventaModal').classList.add('show');}
+            renderVentaItems();renderVentaInsumosUsados();refreshVentaInsumosSelect();const _psEditar=document.getElementById('ventaProdSearch');if(_psEditar)_psEditar.value='';filterVentaProducts();document.getElementById('ventaModal').classList.add('show');}
         function closeVentaModal(){const ac=document.getElementById('ventaAuthCard');if(ac)ac.style.display='none';const cr=document.getElementById('ventaCuponRow');if(cr)cr.remove();const cw=document.querySelector('#ventaModal .cliente-select-wrap');if(cw)cw.style.display='';
             /* Se suelta el pedido de origen al cerrar. Antes solo se limpiaba despues de
                guardar con exito, asi que si alguien empezaba a convertir un pedido en venta
@@ -2980,8 +2991,11 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                             : '<span class="vprod-chip ok">Stock '+(peso?fmtPeso(stock):stock)+'</span>'));
             if(peso)chips.push('<span class="vprod-chip neutro">POR PESO</span>');
             if(p.gramaje)chips.push('<span class="vprod-chip neutro">'+esc(p.gramaje)+'</span>');
-            /* Un oculto solo llega aca si se toco "Ver" abajo de la lista: va marcado. */
+            /* Un oculto llega aca si se toco "Ver" abajo de la lista, o por la etiqueta de un
+               depurado: va marcado. El depurado tambien, para que no parezca uno comun: al tocarlo
+               se ofrece restaurarlo. */
             if(p.oculto)chips.push('<span class="vprod-chip neutro">OCULTO</span>');
+            if(p.depurado===true)chips.push('<span class="vprod-chip bajo">DEPURADO</span>');
             /* En mayorista, sin precio mayorista se cobra el de mostrador. Se avisa
                aca y otra vez antes de guardar. */
             if(ctx==='may'&&!may)chips.push('<span class="vprod-chip bajo">SIN PRECIO MAY.</span>');
@@ -3021,7 +3035,8 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             if(!t)return [];
             const propio=(typeof etiquetaProductoDe==='function')?etiquetaProductoDe((q||'').trim(),allProducts||[]):null;
             if(propio)return (propio.oculto===true&&propio.depurado!==true)?[propio]:[];
-            return allProducts.filter(p=>p.depurado!==true&&p.oculto===true).filter(p=>_coincideVenta(p,t)).slice(0,25);
+            /* Sin tope: _pintarBusqueda dibuja 25, pero el aviso cuenta todos. */
+            return allProducts.filter(p=>p.depurado!==true&&p.oculto===true).filter(p=>_coincideVenta(p,t));
         }
 
         /* El buscador de la caja tambien tiene que entender las etiquetas que
@@ -3030,7 +3045,10 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function _buscarProdVentaConEtiqueta(q){
             const propio=(typeof etiquetaProductoDe==='function')
                 ? etiquetaProductoDe((q||'').trim(),allProducts||[]) : null;
-            return (propio&&propio.oculto!==true)?[propio]:_buscarProdVenta(q);
+            /* La etiqueta de un depurado lo trae aunque ademas este oculto. Si no, no salia en
+               ningun lado -ni en la lista ni en el aviso de ocultos, que no cuenta depurados- y
+               escribiendo su codigo no habia forma de ofrecer restaurarlo. */
+            return (propio&&(propio.oculto!==true||propio.depurado===true))?[propio]:_buscarProdVenta(q);
         }
 
         function _pintarBusqueda(contId,q,ctx){
@@ -3044,15 +3062,19 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                ir a Productos a mostrarlo. */
             const ocultos=_ocultosVenta(q);
             const n=ocultos.length;
-            /* "Ver" vale para la busqueda en la que se toco, y mientras se la siga escribiendo
-               ("mani" -> "mani cro"). Con otra -pisar el texto, o borrarlo- vuelven a esconderse:
-               si no, un "Ver" de antes mostraba los ocultos de algo que no se busco. */
+            /* "Ver" vale para el texto EXACTO en el que se toco. Con otro -escribir mas, pisarlo o
+               borrarlo- vuelven a esconderse. Antes seguia valiendo mientras el texto empezara
+               igual: un "Ver" tocado con "a" mostraba despues los ocultos de "avena" o "aceite",
+               y esos se agregaban sin la pregunta de "Vender igual" sin que nadie los hubiera visto. */
             const vistoCon=window._ventaVerOcultos[contId];
-            const ver=n>0&&typeof vistoCon==='string'&&vistoCon!==''&&(q||'').toLowerCase().trim().startsWith(vistoCon);
+            const ver=n>0&&typeof vistoCon==='string'&&vistoCon!==''&&(q||'').toLowerCase().trim()===vistoCon;
             const pie=n?'<div class="vprod-ocultos"><span><i class="bi bi-eye-slash"></i> '+n+(n===1?' producto oculto coincide':' productos ocultos coinciden')+' con la b\u00fasqueda</span>'+
                 '<button type="button" onclick="event.stopPropagation();_verOcultosVenta(\''+contId+'\',\''+ctx+'\','+(ver?'false':'true')+')">'+(ver?'No mostrarlos':'Ver')+'</button></div>':'';
             if(!res.length&&!ver){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Ning\u00fan producto '+(n?'visible ':'')+'coincide con esa b\u00fasqueda.</div>'+pie;return;}
-            c.innerHTML=res.map(p=>_filaProdVenta(p,ctx)).join('')+(ver?ocultos.map(p=>_filaProdVenta(p,ctx,{ocultoVisto:true})).join(''):'')+pie;
+            /* Se cuentan todos y se dibujan 25. Con el conteo cortado en 25, el aviso decia
+               "25 ocultos coinciden" aunque fueran 80. */
+            const masDe25=(ver&&n>25)?'<div class="vprod-ocultos"><span>Se muestran 25 de '+n+': afiná la búsqueda para encontrar el que buscás.</span></div>':'';
+            c.innerHTML=res.map(p=>_filaProdVenta(p,ctx)).join('')+(ver?ocultos.slice(0,25).map(p=>_filaProdVenta(p,ctx,{ocultoVisto:true})).join(''):'')+masDe25+pie;
         }
         function _verOcultosVenta(contId,ctx,ver){
             window._ventaVerOcultos=window._ventaVerOcultos||{};
@@ -3087,17 +3109,19 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const orig = may ? _origAddVentaMayItem : _origAddVentaItem;
             const repintar = may ? renderVentaMayItems : renderVentaItems;
 
-            /* Un depurado no sale en el buscador, pero llega igual con la pistola o con el
-               codigo de una etiqueta. Se pregunta ACA y no en addVentaItem: esta es la que de
-               verdad corre -las otras se reemplazan por ella- y asi se pregunta antes de pedir
-               los gramos. Preguntando despues, al restaurar volvia a pedirlos. */
-            if(p && p.depurado===true){
-                if(typeof depuracionOfrecerRestaurar!=='function'||!(await depuracionOfrecerRestaurar(p,'venderlo')))return;
-            }
             /* Un oculto no sale en el buscador, pero con la pistola llega igual. Se pregunta:
                bloquearlo frenaria una venta con el producto en la mano. */
             if(p && p.oculto===true && !ocultoVisto){
                 if(!(await pedirConfirmacion('"'+(p.nombreMostrado||p.nombre)+'" está oculto: no aparece en la tienda ni en el buscador de ventas.\n\n¿Venderlo igual?',{titulo:'Producto oculto',aceptar:'Vender igual'})))return;
+            }
+            /* Un depurado no sale en el buscador, pero llega igual con la pistola o con el
+               codigo de una etiqueta. Se pregunta ACA y no en addVentaItem: esta es la que de
+               verdad corre -las otras se reemplazan por ella- y asi se pregunta antes de pedir
+               los gramos. Preguntando despues, al restaurar volvia a pedirlos.
+               Va DESPUES de la pregunta de oculto: con uno oculto y depurado, se restauraba
+               primero, y si despues se decia que no a "Vender igual" quedaba restaurado sin venderse. */
+            if(p && p.depurado===true){
+                if(typeof depuracionOfrecerRestaurar!=='function'||!(await depuracionOfrecerRestaurar(p,'venderlo')))return;
             }
 
             if(p && esPorPeso(p)){
@@ -5653,7 +5677,7 @@ async function previewEditorImg(input,field){
                    desocultar productos de otros proveedores que casualmente se llamen igual
                    -en Brotes hay 47 nombres repetidos entre listas-. Las otras tres secciones
                    ya filtran por lista; esta se habia quedado afuera. */
-                wpReappeared=[];allProducts.filter(p=>!wpListaId||p.lista===wpListaId).forEach(p=>{if(p.oculto===true&&pdfByName[p.nombre]){const pp=pdfByName[p.nombre];const oldCost=p.costo||0;/* Misma conversion que arriba: si no se puede, se deja el costo que ya tenia y no se marca como cambiado. */const _c=costoDesdePdf(p,pp.precio);const newCost=(_c===null)?oldCost:_c;wpReappeared.push({id:p.id,nombre:p.nombre,categoria:p.categoria||'',subcategoria:p.subcategoria||'',oldCost,newCost,costChanged:oldCost!==newCost,porcentaje:p.porcentaje||0});}});
+                wpReappeared=[];allProducts.filter(p=>!wpListaId||p.lista===wpListaId).forEach(p=>{if(p.oculto===true&&pdfByName[p.nombre]){const pp=pdfByName[p.nombre];const oldCost=p.costo||0;/* Misma conversion que arriba: si no se puede, se deja el costo que ya tenia y no se marca como cambiado. */const _c=costoDesdePdf(p,pp.precio);const newCost=(_c===null)?oldCost:_c;wpReappeared.push({id:p.id,nombre:p.nombre,categoria:p.categoria||'',subcategoria:p.subcategoria||'',depurado:p.depurado===true,oldCost,newCost,costChanged:oldCost!==newCost,porcentaje:p.porcentaje||0});}});
                 pb.style.width='90%';pt.textContent='Generando resultados...';
                 document.getElementById('wpRemovedCount').textContent=wpRemoved.length;
                 document.getElementById('wpPriceCount').textContent=wpPriceChanges.length;
@@ -5759,7 +5783,7 @@ async function previewEditorImg(input,field){
         function renderWpReappeared(){
             const el=document.getElementById('wpReappearedList');
             if(!wpReappeared.length){el.innerHTML='<div class="empty-state" style="padding:1rem"><p style="color:var(--text-dim)"><i class="bi bi-dash-circle"></i> No hay productos ocultos que hayan vuelto al PDF</p></div>';return;}
-            el.innerHTML='<div style="background:#1a2a3a;border:1px solid #2d4a5a;padding:0.6rem;border-radius:var(--radius);margin-bottom:8px;font-size:0.82rem;color:var(--text-dim)"><i class="bi bi-info-circle"></i> Estos productos estaban <strong>ocultos</strong> pero el proveedor los volvio a incluir en el PDF. Al aplicar: se <strong>vuelven a mostrar</strong> en el catalogo y se <strong>actualiza el costo</strong> si cambio.</div><div style="margin-bottom:8px"><label style="font-size:0.82rem;color:var(--text-dim)"><input type="checkbox" id="wpSelAllReapp" onchange="document.querySelectorAll(\'.wp-sel-reapp\').forEach(c=>c.checked=this.checked)"> Seleccionar todos</label><button class="btn btn-sm" style="margin-left:8px;background:#60a5fa;border-color:#60a5fa;color:#000" onclick="wpApplyReappeared()"><i class="bi bi-eye"></i> Mostrar y actualizar costo</button></div>'+wpReappeared.map((r,i)=>{const sub=r.subcategoria?' / '+esc(r.subcategoria):'';let costoHtml;if(r.costChanged){const diff=r.newCost-r.oldCost;const color=diff>0?'#f56c6c':'#67c23a';const arrow=diff>0?'\u2191':'\u2193';costoHtml='<span style="font-family:var(--mono);font-size:0.82rem"><span style="color:var(--text-dim)">$'+r.oldCost.toLocaleString('es-AR')+'</span> <span style="color:'+color+'">'+arrow+'</span> <span style="font-weight:600;color:'+color+'">$'+r.newCost.toLocaleString('es-AR')+'</span></span>';}else{costoHtml='<span style="font-family:var(--mono);color:var(--text-dim);font-size:0.82rem">$'+r.oldCost.toLocaleString('es-AR')+' (sin cambio)</span>';}return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)"><input type="checkbox" class="wp-sel-reapp" data-id="'+r.id+'" data-idx="'+i+'" checked><div style="flex:1"><span style="color:#60a5fa">'+(i+1)+'. '+esc(r.nombre)+'</span><span style="font-size:0.78rem;color:var(--text-dim);margin-left:8px">'+esc(r.categoria)+sub+'</span></div>'+costoHtml+'</div>';}).join('');
+            el.innerHTML='<div style="background:#1a2a3a;border:1px solid #2d4a5a;padding:0.6rem;border-radius:var(--radius);margin-bottom:8px;font-size:0.82rem;color:var(--text-dim)"><i class="bi bi-info-circle"></i> Estos productos estaban <strong>ocultos</strong> pero el proveedor los volvio a incluir en el PDF. Al aplicar: se <strong>vuelven a mostrar</strong> en el catalogo y se <strong>actualiza el costo</strong> si cambio.'+(wpReappeared.some(r=>r.depurado)?' Los marcados <strong>depurado</strong> tambi&eacute;n se restauran.':'')+'</div><div style="margin-bottom:8px"><label style="font-size:0.82rem;color:var(--text-dim)"><input type="checkbox" id="wpSelAllReapp" onchange="document.querySelectorAll(\'.wp-sel-reapp\').forEach(c=>c.checked=this.checked)"> Seleccionar todos</label><button class="btn btn-sm" style="margin-left:8px;background:#60a5fa;border-color:#60a5fa;color:#000" onclick="wpApplyReappeared()"><i class="bi bi-eye"></i> Mostrar y actualizar costo</button></div>'+wpReappeared.map((r,i)=>{const sub=r.subcategoria?' / '+esc(r.subcategoria):'';let costoHtml;if(r.costChanged){const diff=r.newCost-r.oldCost;const color=diff>0?'#f56c6c':'#67c23a';const arrow=diff>0?'\u2191':'\u2193';costoHtml='<span style="font-family:var(--mono);font-size:0.82rem"><span style="color:var(--text-dim)">$'+r.oldCost.toLocaleString('es-AR')+'</span> <span style="color:'+color+'">'+arrow+'</span> <span style="font-weight:600;color:'+color+'">$'+r.newCost.toLocaleString('es-AR')+'</span></span>';}else{costoHtml='<span style="font-family:var(--mono);color:var(--text-dim);font-size:0.82rem">$'+r.oldCost.toLocaleString('es-AR')+' (sin cambio)</span>';}return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)"><input type="checkbox" class="wp-sel-reapp" data-id="'+r.id+'" data-idx="'+i+'" checked><div style="flex:1"><span style="color:#60a5fa">'+(i+1)+'. '+esc(r.nombre)+'</span>'+(r.depurado?' <span class="dep-chip">depurado</span>':'')+'<span style="font-size:0.78rem;color:var(--text-dim);margin-left:8px">'+esc(r.categoria)+sub+'</span></div>'+costoHtml+'</div>';}).join('');
         }
 
         async function wpApplyReappeared(){
@@ -5767,7 +5791,9 @@ async function previewEditorImg(input,field){
             if(!checks.length){showAdminToast('Selecciona productos','error');return;}
             const selected=[];checks.forEach(c=>{const idx=parseInt(c.dataset.idx);if(wpReappeared[idx])selected.push(wpReappeared[idx]);});
             const conCambio=selected.filter(r=>r.costChanged).length;
-            if(!await pedirConfirmacion('Mostrar '+selected.length+' productos en el catalogo?\n'+(conCambio?conCambio+' tienen cambio de costo y se actualizaran tambien':'Ninguno tiene cambio de costo')))return;
+            /* Uno oculto y ademas depurado no se veria con oculto:false solo: se restaura tambien. */
+            const conDepurado=selected.filter(r=>r.depurado).length;
+            if(!await pedirConfirmacion('Mostrar '+selected.length+' productos en el catalogo?\n'+(conCambio?conCambio+' tienen cambio de costo y se actualizaran tambien':'Ninguno tiene cambio de costo')+(conDepurado?'\n'+conDepurado+' estan depurados y se restauran tambien':'')))return;
             try{
                 /* Si vuelve un padre de envasado propio, mostrar también sus hijos ocultos */
                 const idsSel=new Set(selected.map(r=>r.id));
@@ -5776,6 +5802,7 @@ async function previewEditorImg(input,field){
                     const batch=db.batch();
                     selected.slice(i,i+450).forEach(r=>{
                         const upd={oculto:false};
+                        if(r.depurado){upd.depurado=false;upd.restauradoEn=new Date();upd.restauradoPor=(typeof _depUsuario==='function')?_depUsuario():'';}
                         if(r.costChanged){upd.costo=r.newCost;upd.precio=Math.round(r.newCost*(1+(r.porcentaje||0)/100));}
                         batch.update(db.collection('productos').doc(r.id),upd);
                     });
@@ -5789,7 +5816,7 @@ async function previewEditorImg(input,field){
                 }
                 const hijosMsg=hijosReactivar.length?' (+'+hijosReactivar.length+' hijos de envasado propio)':'';
                 showAdminToast(selected.length+' productos mostrados en el catalogo'+hijosMsg,'success');
-                logAction('editar','PDF Semanal: '+selected.length+' productos reactivados'+(conCambio?' ('+conCambio+' con costo actualizado)':''),'Nombres: '+selected.map(r=>r.nombre).join(', ')+(hijosReactivar.length?' | Hijos reactivados: '+hijosReactivar.map(h=>h.nombre).join(', '):''));
+                logAction('editar','PDF Semanal: '+selected.length+' productos reactivados'+(conCambio?' ('+conCambio+' con costo actualizado)':'')+(conDepurado?' ('+conDepurado+' restaurados de Depuración)':''),'Nombres: '+selected.map(r=>r.nombre).join(', ')+(hijosReactivar.length?' | Hijos reactivados: '+hijosReactivar.map(h=>h.nombre).join(', '):''));
                 await loadProducts();
                 const idsAplicados=new Set(selected.map(r=>r.id));
                 wpReappeared=wpReappeared.filter(r=>!idsAplicados.has(r.id));

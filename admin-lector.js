@@ -299,6 +299,12 @@ function procesarCodigoLeido(cod) {
   if (prod) {
     switchSection('products');
     openModal(prod.id);
+    /* Un depurado no sale en Productos: sin este aviso se editaba y se guardaba sin
+       saber que seguia escondido. */
+    if (prod.depurado === true) {
+      showAdminToast('"' + (prod.nombreMostrado || prod.nombre) + '" está depurado: no aparece en la tienda ni en las listas. ' +
+        'Se restaura desde Depuración de productos.', 'info');
+    }
   } else {
     openAsignarCodigo(cod, 'ficha');
   }

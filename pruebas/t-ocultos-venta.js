@@ -11,7 +11,7 @@
  * 2. Que el aviso cuente los ocultos que coinciden, y no los depurados.
  * 3. Que visibles y ocultos se busquen con el MISMO criterio: con dos copias, un
  *    día el aviso diría "2 ocultos coinciden" de algo que la lista no encuentra.
- * 4. Que "Ver" valga para esa búsqueda: con otra vuelven a esconderse. Si no, un
+ * 4. Que "Ver" valga para ESA búsqueda, exacta: escribiendo más o con otra, vuelven a esconderse. Si no, un
  *    "Ver" de antes mostraba los ocultos de algo que no se buscó.
  * 5. Que escanear un oculto pregunte, y que uno elegido con "Ver" no vuelva a
  *    preguntar: ya se eligió a propósito.
@@ -38,6 +38,7 @@ const PRODS = [
   { id: 't', nombre: 'Mani Tostado', codigo: '000011' },
   { id: 'd', nombre: 'Mani Salado', codigo: '000012', depurado: true },
   { id: 'c', nombre: 'Mani Crocante', codigo: '000013', oculto: true },
+  { id: 'x', nombre: 'Mani Viejo', codigo: '000014', oculto: true, depurado: true },
 ];
 /* etiquetaProductoDe de mentira: un código de etiqueta es "2" + el código del producto. */
 const etiqueta = (cod, lista) => (/^2\d{12}$/.test(cod) ? (lista.find(p => '2' + p.codigo.padStart(12, '0') === cod) || null) : null);
@@ -65,6 +66,9 @@ t('la de un oculto no lo trae a la lista', api.conEtiqueta('2000000000010').leng
 t('  pero entra en el aviso', ids(api.ocultos('2000000000010')) === 'm');
 t('la de uno visible lo trae', ids(api.conEtiqueta('2000000000011')) === 't');
 t('  y no avisa nada', api.ocultos('2000000000011').length === 0);
+t('la de uno depurado y oculto lo trae igual: al tocarlo se ofrece restaurarlo', ids(api.conEtiqueta('2000000000014')) === 'x');
+t('  y no entra en el aviso de ocultos, que no cuenta depurados', api.ocultos('2000000000014').length === 0);
+t('en la lista el depurado va marcado', cuerpo(html, '_filaProdVenta').indexOf('if(p.depurado===true)chips.push(') > 0);
 
 /* ======================================================= EL BOTON VER
    Se corren las funciones de verdad de admin.html con un document de mentira. Lo
@@ -89,8 +93,10 @@ t('sin tocar Ver, la lista trae solo los visibles', h.indexOf('[t]') >= 0 && h.i
 t('  y abajo dice cuántos ocultos coinciden, con el botón', h.indexOf('2 productos ocultos coinciden') > 0 && sinVer(h));
 h = tocarVer();
 t('con Ver aparecen, marcados para no volver a preguntar', h.indexOf('[m visto]') >= 0 && h.indexOf('[c visto]') >= 0 && conVer(h));
+h = buscar('mani');
+t('repintando la misma búsqueda, siguen a la vista', h.indexOf('[m visto]') >= 0 && conVer(h));
 h = buscar('mani cro');
-t('siguiendo la misma búsqueda, siguen a la vista', h.indexOf('[c visto]') >= 0 && conVer(h));
+t('escribiendo más vuelven a esconderse: con "empieza con", un Ver tocado con "a" valía para todo lo que empezara con a', sinVer(h));
 h = buscar('crocante');
 t('con otra búsqueda vuelven a esconderse', sinVer(h));
 t('  y si solo coincide un oculto, se aclara que no hay visibles',
@@ -104,6 +110,29 @@ tocarVer(); dom.ventaMayBuscaProd.value = 'mani'; ui.filtrarMay();
 t('el Ver de la minorista no se pasa a la mayorista', sinVer(dom.ventaMayProdListDropdown.innerHTML));
 ui.ver('ventaMayProdListDropdown', 'may', true);
 t('  que tiene el suyo, con su propio buscador', dom.ventaMayProdListDropdown.innerHTML.indexOf('[m visto]') >= 0);
+
+{
+  /* Muchos ocultos: el aviso los cuenta a todos y la lista dibuja 25. */
+  const MUCHOS = Array.from({ length: 30 }, (_, i) => ({ id: 'o' + i, nombre: 'Te ' + i, codigo: String(500 + i), oculto: true }));
+  const dom2 = { ventaProdSearch: { value: 'te' }, ventaProdList: { innerHTML: '' }, ventaMayBuscaProd: { value: '' }, ventaMayProdListDropdown: { innerHTML: '' } };
+  const ui2 = new Function('allProducts', 'etiquetaProductoDe', 'document', 'window',
+    ['_coincideVenta', '_buscarProdVenta', '_ocultosVenta', '_buscarProdVentaConEtiqueta',
+     '_pintarBusqueda', '_verOcultosVenta', 'filterVentaProducts', 'filterVentaMayProducts'].map(n => cuerpo(html, n)).join('\n') +
+    '\nfunction _filaProdVenta(p, ctx, op) { return "[" + p.id + (op && op.ocultoVisto ? " visto" : "") + "]"; }' +
+    '\nreturn { filtrar: filterVentaProducts, ver: _verOcultosVenta };')(MUCHOS, etiqueta, { getElementById: id => dom2[id] || null }, {});
+  ui2.filtrar();
+  t('con 30 ocultos que coinciden, el aviso dice 30 y no 25', dom2.ventaProdList.innerHTML.indexOf('30 productos ocultos coinciden') > 0);
+  ui2.ver('ventaProdList', 'min', true);
+  const h2 = dom2.ventaProdList.innerHTML;
+  t('  con Ver dibuja 25 y avisa que hay más', (h2.match(/ visto\]/g) || []).length === 25 && h2.indexOf('Se muestran 25 de 30') > 0);
+}
+{
+  const abrir = cuerpo(html, 'openVentaModal');
+  const iLimpia = abrir.indexOf("_psAbrir.value=''");
+  t('abrir la venta limpia el buscador antes de pintar: Escape la cierra sin pasar por closeVentaModal',
+    iLimpia > 0 && iLimpia < abrir.indexOf('filterVentaProducts()'));
+  t('  y editar una venta también', html.indexOf("_psEditar.value='';filterVentaProducts()") > 0);
+}
 
 console.log('\n-- agregarlos --');
 t('los que se ven con Ver agregan sin volver a preguntar',

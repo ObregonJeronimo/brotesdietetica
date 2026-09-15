@@ -127,7 +127,11 @@ document.addEventListener('keydown', function (e) {
        stopPropagation de ellos no lo frena. Sin esto, cancelar con Escape el
        "¿Vender igual?" o el pedido de gramos cerraba también la venta, y al volver
        a abrirla el carrito arrancaba vacío. */
-    if (document.querySelector('.dlg-overlay, .selb-panel:not([hidden])')) return;
+    /* Solo cuenta un panel que se VE: si el formulario se cerro con un panel abierto
+       adentro -tocando Lista durante un guardado lento-, ese panel quedaba "abierto"
+       dentro de un modal escondido y se comia el Escape de la venta siguiente. */
+    if (document.querySelector('.dlg-overlay') ||
+        [...document.querySelectorAll('.selb-panel:not([hidden])')].some(p => p.offsetParent !== null)) return;
     /* Cierra el modal de más arriba. Es lo único que funciona con un modal abierto. */
     const abiertos = document.querySelectorAll('.modal-overlay.show');
     if (abiertos.length) { abiertos[abiertos.length - 1].classList.remove('show'); e.preventDefault(); }

@@ -76,6 +76,8 @@ t('hay un aviso', html.indexOf('id="pCatAviso"') > 0 && html.indexOf('Este produ
 t('se ve solo con la categoría vacía',
   /a\.style\.display=\(document\.getElementById\('pCategoria'\)\|\|\{\}\)\.value\?'none':'flex'/.test(html));
 t('se repinta al cambiar la categoría', /function updateSubcatSelect\(\)\{_pintarAvisoCategoria\(\);/.test(html));
+t('sin categoría no ofrece subcategorías (antes ofrecía todas)', html.indexOf('const subs=cat?_subcategoriasDe(cat):[];') > 0);
+t('  y la elegida queda solo si existe en la categoría nueva', html.indexOf('if(cur&&subs.indexOf(cur)>=0)sel.value=cur;') > 0);
 t('  y cuando el código pone el valor, al editar', /alPintar: \(\) => \{ if \(typeof _pintarAvisoCategoria === 'function'\) _pintarAvisoCategoria\(\); \}/.test(src));
 t('saveProduct guarda la categoría vacía tal cual', /categoria:document\.getElementById\('pCategoria'\)\.value\.trim\(\)/.test(html));
 
