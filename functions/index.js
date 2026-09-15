@@ -816,22 +816,31 @@ exports.recalcularUsoStorage = onDocumentWritten(
 
 /**
  * Trigger: cada escritura en productos/{id}.
- * Anota stockSubioEn cuando el stock SUBE y queda positivo: una compra, un ajuste en
- * Stock, la edicion del producto, Importar Nuevos, la devolucion de un pedido
- * cancelado o de una venta borrada, y tambien un alta que ya trae stock. La usa la
- * seccion Depuracion para el criterio "Sin reposicion".
+ * Anota stockSubioEn cuando el stock SUBE: una compra, un ajuste en Stock, la edicion
+ * del producto, Importar Nuevos, la devolucion de un pedido cancelado o de una venta
+ * borrada, y tambien un alta que ya trae stock. La usa la seccion Depuracion para el
+ * criterio "Sin reposicion".
+ *
+ * Cuenta aunque el stock siga en 0 o negativo. Hay productos con stock negativo -un
+ * pedido web descuenta aunque no alcance- y una compra de -3 a -1 es mercaderia que
+ * entro. Pedir que quedara positivo la dejaba sin anotar, y el producto salia
+ * candidato a depurar recien comprado. Anotar de mas un ajuste es el lado seguro: a lo
+ * sumo no se sugiere algo que se podria depurar.
  *
  * Escucha la base y no las pantallas: cualquier camino que suba el stock termina en
  * una escritura del producto, asi que ninguno se puede olvidar de anotarlo.
  *
  * No se dispara en bucle: su propia escritura solo cambia stockSubioEn, el stock
- * queda igual y la comparacion corta ahi. Un -2 que se corrige a 0 no cuenta: sigue
- * sin haber mercaderia.
+ * queda igual y la comparacion corta ahi.
+ *
+ * retry: un error inesperado se relanza y se reintenta. Tragarlo dejaba un hueco en
+ * el registro sin avisar, mientras registroStockDesde dice que cubre todo el periodo.
  */
 exports.registrarReposicion = onDocumentWritten(
   {
     document: 'productos/{productoId}',
-    region: 'southamerica-east1'
+    region: 'southamerica-east1',
+    retry: true
   },
   async (event) => {
     const antes = event.data && event.data.before;
@@ -839,13 +848,14 @@ exports.registrarReposicion = onDocumentWritten(
     if (!despues || !despues.exists) return;   /* se borro el producto */
     const stockAntes = (antes && antes.exists) ? (Number(antes.data().stock) || 0) : 0;
     const stockDespues = Number(despues.data().stock) || 0;
-    if (!(stockDespues > stockAntes && stockDespues > 0)) return;
+    if (!(stockDespues > stockAntes)) return;
     try {
       await despues.ref.update({stockSubioEn: FieldValue.serverTimestamp()});
     } catch (e) {
       /* Si el producto se borro entre la escritura y esta funcion, no hay nada que anotar. */
       if (e && (e.code === 5 || e.code === 'not-found')) return;
       logger.error(`No se pudo anotar stockSubioEn en ${event.params.productoId}:`, e);
+      throw e;
     }
   }
 );

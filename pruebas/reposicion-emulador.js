@@ -82,6 +82,14 @@ async function quieto(id, ms) {
   await esperar(6000);
   t('un alta sin stock no la anota', subioEn(await leer('repo2')) === null);
 
+  /* Hay productos con stock negativo: una compra que no llega a 0 igual es mercaderia que entro. */
+  await escribir('repo3', { nombre: 'Lino', stock: -3 });
+  await esperar(6000);
+  t('un alta con stock negativo no la anota', subioEn(await leer('repo3')) === null);
+  await escribir('repo3', { stock: -1 });
+  const negativo = await hastaQue(async () => subioEn(await leer('repo3')), 30000);
+  t('de -3 a -1 la anota, aunque siga en negativo', !!negativo, negativo);
+
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('ERROR: ' + e.message); process.exit(1); });
