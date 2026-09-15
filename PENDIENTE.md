@@ -820,7 +820,8 @@ se mueven para esconderlos sin borrarlos: 30/60/90 días a elección, una tabla 
 cumple cada uno, **Depurar**, la lista de **Productos depurados** con **Restaurar**, y
 **Productos excluidos** para los que no se tienen que sugerir nunca (lo estacional).
 
-**Cómo decide.** Es candidato si cumple 2 de 3 en los últimos X días:
+**Cómo decide.** Es candidato si cumple 2 de 3 en los últimos X días, y uno de los 2 es **Sin ventas**
+(obligatorio desde el segundo chequeo del 14/09: algo vendido ayer y sin stock salía para depurar):
 
 | criterio | de dónde sale |
 |---|---|
@@ -855,8 +856,11 @@ Restaurar.
 **Lo de Firebase, hecho el 14/09/2026 (con la clienta sin usar el sistema):**
 
 - **`registrarReposicion`** (functions/index.js), Gen 2 en `southamerica-east1`, escucha
-  `productos/{productoId}` y escribe `stockSubioEn` cuando el stock **sube y queda positivo**,
-  también en un alta con stock. Un -2 que se corrige a 0 no cuenta: sigue sin mercadería. Se
+  `productos/{productoId}` y escribe `stockSubioEn` cuando el stock **sube**, también en un alta
+  con stock y aunque siga en 0 o negativo: una compra de -3 a -1 es mercadería que entró, y hay
+  36 productos con stock negativo. (La primera versión pedía que quedara positivo; se corrigió y
+  se redesplegó el mismo 14/09.) Sin reintento automático: activarlo exige `--force` al
+  desplegar porque los reintentos se cobran, así que queda para decidir. Se
   desplegó sola (`firebase deploy --only functions:registrarReposicion`): las otras funciones no
   se tocaron.
 - **`config/depuracion.registroStockDesde` = 14/09/2026 21:57 (Córdoba)**, escrito una sola vez,
@@ -882,17 +886,36 @@ registro cubra el período: desde el **14/10** con 30 días, el 13/11 con 60 y e
   borrada), así que la función los ve a todos. Probado en el sandbox con las funciones reales del
   panel: la sección Stock anota, una venta no, la devolución vuelve a anotar y un alta con stock
   anota.
-- Sin bucle: `npm run test:reposicion` corre la función de verdad en el emulador (7 asertos). Cada
+- Sin bucle: `npm run test:reposicion` corre la función de verdad en el emulador (9 asertos, con el caso de -3 a -1). Cada
   reposición la dispara dos veces: la que anota y la de su propia escritura, que sale sin escribir.
-- "Sin reposición" según el período: `t-depuracion.js` (103 asertos).
-- `t-reposicion.js` (17 asertos, con simulaciones), la suite entera y la barrida sobre la sección:
+- "Sin reposición" según el período: `t-depuracion.js` (119 asertos).
+- `t-reposicion.js` (20 asertos, con simulaciones), la suite entera y la barrida sobre la sección:
   38 elementos, 31 apretados, sin errores. Los "sin efecto" eran el menú lateral y los botones de
   período, que sí cambian: se comprobó a mano.
 
 Verificado en el sandbox: depurar con el aviso de stock y de presentaciones, restaurar, sacar de la
 lista y volver, vender un depurado (también por peso), escanearlo en una compra, Importar Nuevos con
 un depurado adentro, la tienda sin depurados, 30/60/90 días, paginado y celular.
-`t-depuracion.js`: **103 asertos**. Suite: **2063 / 0**.
+`t-depuracion.js`: **119 asertos**. Suite: **2237 / 0**.
+
+**Segundo chequeo profundo del 14/09 (después de publicar):** arreglado, probado y verificado en el sandbox.
+
+- **Depuración:** sin ventas es obligatorio; las ventas se leen sin tope arriba (una venta mayorista
+  de hoy se guarda a las 12:00 y, cargada a la mañana, no contaba); la familia mira `gramajePadreId` y
+  `padreId` en todos los niveles; Recalcular relee también los productos; dice "sin ventas en 90 días"
+  en vez de "hace más de 90 días", y sin candidatos dice desde cuándo puede haber.
+- **Con el producto en la mano:** en la venta, con uno oculto y depurado pregunta primero lo de oculto
+  (si no, quedaba restaurado sin venderse); en la compra mira el proveedor antes de ofrecer restaurar;
+  el lector avisa que está depurado al abrir la ficha; el PDF semanal marca y restaura los depurados
+  que vuelven; Importar Nuevos avisa cuando lo que "ya existe" está depurado; la etiqueta de un
+  depurado lo trae en el buscador de la venta, marcado.
+- **Ventas y formulario:** "Ver" ocultos vale solo para el texto exacto (con "empieza con", un Ver
+  tocado con "a" dejaba agregar ocultos de "avena" sin preguntar); el aviso cuenta todos los ocultos
+  y la lista dibuja 25; abrir o editar una venta limpia el buscador; sin categoría no se ofrecen
+  subcategorías; un panel escondido ya no frena el Escape.
+- **Tienda:** al confirmar, lo ocultado o depurado con la página abierta sale del carrito.
+- **Queda para decidir:** si el buscador de *pedidos* tiene que esconder los ocultos como el de la
+  venta, y si `registrarReposicion` reintenta sola ante un error (se cobra).
 
 ---
 
