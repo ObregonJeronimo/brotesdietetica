@@ -16,7 +16,7 @@
  *    stock queda igual. (En el emulador, con la funcion de verdad:
  *    npm run test:reposicion.)
  * 4. Que un producto borrado en el medio no sea un error, y que cualquier otro error se
- *    relance para que se reintente: tragarlo dejaba un hueco en el registro sin avisar.
+ *    relance: queda como ejecucion fallida en los logs, en vez de tragarse.
  *
  * Carga functions/index.js de verdad, con firebase-admin y firebase-functions
  * simulados, igual que test-funcion-precios.js.
@@ -80,7 +80,8 @@ const anoto = r => r.escrituras.length === 1 && Object.keys(r.escrituras[0]).joi
   const op = OPCIONES['productos/{productoId}'];
   t('escucha productos/{productoId}', !!op);
   t('en southamerica-east1, la region de Firestore', !!op && op.region === 'southamerica-east1', op && op.region);
-  t('con reintento: un error no deja un hueco en el registro', !!op && op.retry === true, op && op.retry);
+  /* Reintentar se cobra y exige --force al desplegar: queda para que lo decida el comercio. */
+  t('sin reintento automatico, hasta que se decida', !!op && op.retry !== true, op && op.retry);
 
   console.log('\n-- anota --');
   t('cuando el stock sube (una compra)', anoto(await escribir({ nombre: 'Mani', stock: 5 }, { nombre: 'Mani', stock: 12 })));
@@ -106,7 +107,7 @@ const anoto = r => r.escrituras.length === 1 && Object.keys(r.escrituras[0]).joi
   t('un producto borrado en el medio no es un error', (await escribir({ stock: 1 }, { stock: 2 })).error === null);
   const caido = Object.assign(new Error('14 UNAVAILABLE'), { code: 14 });
   FALLAR = caido;
-  t('otro error se relanza, para que Functions lo reintente', (await escribir({ stock: 1 }, { stock: 2 })).error === caido);
+  t('otro error se relanza: queda como ejecucion fallida en los logs', (await escribir({ stock: 1 }, { stock: 2 })).error === caido);
   FALLAR = null;
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');

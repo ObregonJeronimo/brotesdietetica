@@ -833,14 +833,15 @@ exports.recalcularUsoStorage = onDocumentWritten(
  * No se dispara en bucle: su propia escritura solo cambia stockSubioEn, el stock
  * queda igual y la comparacion corta ahi.
  *
- * retry: un error inesperado se relanza y se reintenta. Tragarlo dejaba un hueco en
- * el registro sin avisar, mientras registroStockDesde dice que cubre todo el periodo.
+ * Un error inesperado se relanza: queda como ejecucion fallida en los logs de Functions,
+ * en vez de un logger.error que no frena nada. SIN reintento automatico por ahora:
+ * activarlo (retry: true) obliga a desplegar con --force, porque los reintentos se
+ * cobran y pueden seguir hasta 7 dias. Es una decision del comercio, no un arreglo.
  */
 exports.registrarReposicion = onDocumentWritten(
   {
     document: 'productos/{productoId}',
-    region: 'southamerica-east1',
-    retry: true
+    region: 'southamerica-east1'
   },
   async (event) => {
     const antes = event.data && event.data.before;
