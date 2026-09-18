@@ -962,8 +962,13 @@
             <div id="ventaItems" class="venta-items"></div>
             <div id="ventaTotalBreakdown"></div>
             <div class="venta-descuento-row">
-              <label for="ventaDescuentoPct" style="font-size:0.82rem;color:var(--text-dim);display:flex;align-items:center;gap:6px"><i class="bi bi-tag"></i> Descuento (%):</label>
-              <input type="number" id="ventaDescuentoPct" class="form-input" min="0" max="100" step="1" value="0" style="width:80px;padding:4px 8px;text-align:right;font-family:var(--mono)" oninput="onChangeDescuento()">
+              <label style="font-size:0.82rem;color:var(--text-dim);display:flex;align-items:center;gap:6px"><i class="bi bi-tag"></i> Descuento:</label>
+              <div style="display:flex;align-items:center;gap:4px">
+                <span style="color:var(--text-dim);font-size:0.82rem">$</span>
+                <input type="number" id="ventaDescuentoMonto" class="form-input" min="0" step="1" value="0" style="width:88px;padding:4px 8px;text-align:right;font-family:var(--mono)" oninput="onChangeDescuentoMonto()" title="Descuento en pesos (calcula el %)">
+                <input type="number" id="ventaDescuentoPct" class="form-input" min="0" max="100" step="0.01" value="0" style="width:62px;padding:4px 8px;text-align:right;font-family:var(--mono)" oninput="onChangeDescuento()" title="Descuento en %">
+                <span style="color:var(--text-dim);font-size:0.82rem">%</span>
+              </div>
             </div>
             <div class="venta-total-row"><span>TOTAL:</span><span id="ventaTotal" class="venta-total-val">$0</span></div>
           </div>
@@ -2811,8 +2816,8 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             else if(window._pedidoEnvioVenta&&window._pedidoEnvioVenta.tipoEntrega===ventaTipoEntrega&&envio!==0)envio=Number(window._pedidoEnvioVenta.envio)||0;
             return {subtotal,descuentoPct,descuentoMonto,subtotalConDesc,envio,total:subtotalConDesc+envio};
         }
-        function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='envio';window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;/* _pedidoOrigenVentaId lo soltaba SOLO closeVentaModal, y Escape (admin-atajos.js) cierra el modal sacandole la clase 'show' sin pasar por ahi: convertir un pedido, arrepentirse con Escape y despues cargar una venta de mostrador la guardaba como origen 'web' colgada de aquel pedido, y le marcaba el pedido como confirmado con la venta equivocada. */window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='envio'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
-        async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio',stockDescontado:!!v.stockDescontado}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i)}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';/* El uid del cliente registrado vive en clienteAuthUid, no en clienteId: precargando solo clienteId el input oculto quedaba VACIO, y al guardar cualquier cambio (por ejemplo pasar de Efectivo a Transferencia) saveVenta lee ese mismo input y escribe clienteId:null Y clienteAuthUid:null, con lo que la venta se desengancha del cliente para siempre y deja de aparecer en su ficha (admin.html:1265). El formato 'auth:<uid>' es el que ya usa el flujo de pedido a venta. */document.getElementById('ventaClienteId').value=v.clienteAuthUid?('auth:'+v.clienteAuthUid):(v.clienteId||'');document.getElementById('ventaMedio').value=v.medioPago||'Efectivo';/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+nroVta(v.numero||0);const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;
+        function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='envio';window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;/* _pedidoOrigenVentaId lo soltaba SOLO closeVentaModal, y Escape (admin-atajos.js) cierra el modal sacandole la clase 'show' sin pasar por ahi: convertir un pedido, arrepentirse con Escape y despues cargar una venta de mostrador la guardaba como origen 'web' colgada de aquel pedido, y le marcaba el pedido como confirmado con la venta equivocada. */window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='envio'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value='0';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
+        async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio',stockDescontado:!!v.stockDescontado}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i)}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';/* El uid del cliente registrado vive en clienteAuthUid, no en clienteId: precargando solo clienteId el input oculto quedaba VACIO, y al guardar cualquier cambio (por ejemplo pasar de Efectivo a Transferencia) saveVenta lee ese mismo input y escribe clienteId:null Y clienteAuthUid:null, con lo que la venta se desengancha del cliente para siempre y deja de aparecer en su ficha (admin.html:1265). El formato 'auth:<uid>' es el que ya usa el flujo de pedido a venta. */document.getElementById('ventaClienteId').value=v.clienteAuthUid?('auth:'+v.clienteAuthUid):(v.clienteId||'');document.getElementById('ventaMedio').value=v.medioPago||'Efectivo';/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+nroVta(v.numero||0);const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value=v.descuentoMonto||0;
             /* Restaurar cupón si la venta lo tiene */
             window._pedidoCuponVenta=v.cupon||null;
             const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();
@@ -2990,23 +2995,39 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function addVentaItem(id){const existing=ventaItems.find(i=>i.id===id);if(existing){existing.cantidad++;renderVentaItems();return;}const p=allProducts.find(x=>x.id===id);if(!p)return;ventaItems.push({id:p.id,nombre:p.nombre,precio:p.precio,costo:p.costo||0,cantidad:1,descuento:p.descuento||0,tipoVenta:p.tipoVenta||'unidad'});renderVentaItems();}
         function removeVentaItem(id){ventaItems=ventaItems.filter(i=>i.id!==id);renderVentaItems();}
         function updateVentaQty(id,val){const item=ventaItems.find(i=>i.id===id);if(item){item.cantidad=Math.max(1,parseInt(val)||1);}renderVentaItems();}
-        function onChangeDescuento(){
-            const el=document.getElementById('ventaDescuentoPct');
-            if(!el)return;
-            let v=parseFloat(el.value);
-            if(isNaN(v)||v<0)v=0;
-            if(v>100)v=100;
-            /* Normalizar el value visualmente solo si esta fuera de rango */
-            if(parseFloat(el.value)<0||parseFloat(el.value)>100)el.value=v;
-            renderVentaItems();
+        /* Subtotal de items, sobre el que se calcula el descuento general. Pasa por
+           subtotalItem() y NO por precio*cantidad: en los de peso el precio es POR KILO
+           y la cantidad va en GRAMOS, asi que la cuenta cruda daria mil veces mas y el
+           descuento en $ saldria mal por ese mismo factor (§5, la familia del x1000).
+           Es la misma suma que hace calcularTotalesVenta(). */
+        function _ventaSubtotalItems(){return ventaItems.reduce(function(s,i){return s+subtotalItem(i);},0);}
+        /* Mantiene sincronizados el monto ($) y el porcentaje (%) del descuento general.
+           El % es lo que se guarda (descuentoPct); el $ es una comodidad de carga: en el
+           mostrador se piensa "le hago $500", no "le hago 13,89%". `fuente` es el campo
+           que se acaba de tocar; el otro se recalcula sobre el subtotal. */
+        function _syncDescuentoInputs(fuente){
+            var sub=_ventaSubtotalItems();
+            var pctEl=document.getElementById('ventaDescuentoPct');
+            var monEl=document.getElementById('ventaDescuentoMonto');
+            if(!pctEl||!monEl)return;
+            if(fuente==='monto'){
+                var monto=parseFloat(monEl.value); if(isNaN(monto)||monto<0)monto=0; if(monto>sub)monto=sub;
+                pctEl.value=sub>0?Math.round(monto/sub*10000)/100:0;
+            }else{
+                var p=parseFloat(pctEl.value); if(isNaN(p)||p<0)p=0; if(p>100)p=100;
+                pctEl.value=p;
+                if(document.activeElement!==monEl)monEl.value=Math.round(sub*p/100);
+            }
         }
+        function onChangeDescuento(){ _syncDescuentoInputs('pct'); renderVentaItems(); }
+        function onChangeDescuentoMonto(){ _syncDescuentoInputs('monto'); renderVentaItems(); }
         function toggleVtaDsc(id){var w=document.getElementById('dscwrap-vta-'+id);if(!w)return;/* Se mira el estilo CALCULADO y no el inline: el display:none inicial viene de
      la clase .vi-dsc-wrap, asi que w.style.display arranca vacio y comparar contra
      'none' daba falso en el primer click. El campo se abria recien al segundo. */if(getComputedStyle(w).display==='none'){w.style.display='flex';w.querySelector('input').focus();}else{w.style.display='none';setVentaItemDsc(id,0);w.querySelector('input').value=0;}}
         function setVentaItemDsc(id,val){var pct=Math.min(100,Math.max(0,parseInt(val)||0));var inp=document.getElementById('dscwrap-vta-'+id)?.querySelector('input');if(inp&&parseInt(inp.value)!==pct)inp.value=pct;var it=ventaItems.find(function(x){return x.id===id;});if(!it)return;it.descuento=pct;var sub=subtotalItem({precio:it.precio,cantidad:it.cantidad,descuento:pct,tipoVenta:it.tipoVenta});var item=document.getElementById('dscwrap-vta-'+id)?.closest('.venta-item');if(item){var subEl=item.querySelector('.vi-sub');if(subEl)subEl.textContent='$'+sub.toLocaleString('es-AR');var badgeEl=document.getElementById('badge-vta-'+id);if(badgeEl){badgeEl.textContent=pct>0?'-'+pct+'%':'';badgeEl.style.display=pct>0?'inline':'none';}}var t=calcularTotalesVenta();var totalEl=document.getElementById('ventaTotal');if(totalEl)totalEl.textContent='$'+t.total.toLocaleString('es-AR');}
         function renderVentaItems(){
             var c=document.getElementById('ventaItems');
-            if(!ventaItems.length){c.innerHTML='<div style="color:var(--text-dim);font-size:0.85rem;padding:0.5rem 0">Agrega productos buscando arriba</div>';var bde=document.getElementById('ventaTotalBreakdown');if(bde)bde.innerHTML='';document.getElementById('ventaTotal').textContent='$0';return;}
+            if(!ventaItems.length){c.innerHTML='<div style="color:var(--text-dim);font-size:0.85rem;padding:0.5rem 0">Agrega productos buscando arriba</div>';var bde=document.getElementById('ventaTotalBreakdown');if(bde)bde.innerHTML='';document.getElementById('ventaTotal').textContent='$0';/* sin items no hay de que descontar: el campo $ no puede quedar con el numero de la venta anterior */var _me0=document.getElementById('ventaDescuentoMonto');if(_me0&&document.activeElement!==_me0)_me0.value=0;return;}
             c.innerHTML=ventaItems.map(function(i){
                 var precioDsc=Math.round(i.precio*(1-(i.descuento||0)/100));
                 var sub=subtotalItem(i);
@@ -3046,6 +3067,10 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 bd.innerHTML=bh;
             }
             document.getElementById('ventaTotal').textContent='$'+t.total.toLocaleString('es-AR');
+            /* El campo $ sigue al total, salvo mientras se esta tipeando adentro: pisarlo
+               en cada tecla no dejaria escribir "500" (al teclear el 5 ya se reescribiria). */
+            var _me=document.getElementById('ventaDescuentoMonto');
+            if(_me&&document.activeElement!==_me)_me.value=t.descuentoMonto||0;
         }
         /* Genera un resenaId garantizado unico. Verifica en Firestore que no exista y reintenta si colisiona. */
         async function _generarResenaIdUnico(maxRetries){
@@ -4288,6 +4313,9 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             if(q)items=items.filter(cl=>(cl.nombre||'').toLowerCase().includes(q));
             if(!items.length){list.classList.remove('open');return;}
             list.innerHTML=items.map(cl=>'<div class="cliente-select-item" onmousedown="pickPedCliente(\''+cl.id+'\',\''+cl.nombre.replace(/'/g,"\\'")+'\')"><span>'+cl.nombre+'</span>'+(cl.telefono?'<small>'+cl.telefono+'</small>':'')+'</div>').join('');
+            /* Mismo patron que el selector de la venta: tocar el scrollbar no desenfoca.
+               Aca los items traen su onmousedown inline y tambien se eligen igual. */
+            list.onmousedown=function(e){ e.preventDefault(); };
             list.classList.add('open');
         }
         function pickPedCliente(id,nombre){document.getElementById('pedCliente').value=nombre;document.getElementById('pedClienteId').value=id;pedClienteSelected=true;document.getElementById('pedClienteSelectList').classList.remove('open');if(!pedidoDirty){const cvb=document.getElementById('convertirVentaBtn');if(cvb&&cvb.style.display!=='none'){cvb.disabled=false;cvb.title='';}}}
@@ -4604,7 +4632,11 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             if(!clientesAuthData.length){
                 db.collection('clientesAuth').get().then(snap=>{
                     clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));
-                    showClienteSelect();
+                    /* Solo si el input SIGUE enfocado. La lectura tarda, y cuando volvia
+                       re-llamaba a showClienteSelect() a ciegas: si para entonces la lista
+                       ya se habia cerrado -porque eligieron, o tocaron afuera-, la RE-ABRIA
+                       sola y quedaba tapando los campos de abajo. */
+                    if(document.activeElement===document.getElementById('ventaCliente'))showClienteSelect();
                 }).catch(()=>{});
             }
             let items=[];
@@ -4624,6 +4656,11 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                 d.addEventListener('mousedown',function(){pickCliente(cl.id,cl.nombre);});
                 list.appendChild(d);
             });
+            /* preventDefault en el mousedown de la LISTA: al tocar el scrollbar o un hueco
+               el input no pierde el foco, asi que la lista no se cierra a mitad de scroll.
+               Los items tienen su propio listener y se siguen eligiendo igual: este corre
+               despues, cuando el pick ya paso. */
+            list.onmousedown=function(e){ e.preventDefault(); };
             list.classList.add('open');
         }
 
@@ -4639,7 +4676,13 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             },150);
         }
         function pickCliente(id,nombre){document.getElementById('ventaCliente').value=nombre;document.getElementById('ventaClienteId').value=id;ventaClienteSelected=true;document.getElementById('clienteSelectList').classList.remove('open');}
-        document.addEventListener('click',function(e){if(!e.target.closest('.cliente-select-wrap'))document.getElementById('clienteSelectList')?.classList.remove('open');});
+        /* Cierre al tocar afuera: pointerdown (dispara ANTES que el blur y que el cambio de
+           foco) en captura, y limitado al selector de la venta. Adentro del wrap -input,
+           lista, scrollbar- no cierra; afuera cierra al toque. Reemplaza al 'click', que
+           no era confiable con el scrollbar y dejaba la lista abierta tapando los campos.
+           El scope a #ventaModal hace falta porque hay tres wraps con la misma clase
+           (venta, pedido, mayorista): sin scope, tocar el de al lado cerraba este. */
+        document.addEventListener('pointerdown',function(e){var list=document.getElementById('clienteSelectList');if(!list||!list.classList.contains('open'))return;if(e.target.closest('#ventaModal .cliente-select-wrap'))return;list.classList.remove('open');if(!ventaClienteSelected)pickCliente('','Consumidor Final');},true);
 
         /* === EXPORTAR/IMPORTAR COSTOS EXCEL === */
         function exportCostosExcel(){if(!allProducts.length){showAdminToast('No hay productos','error');return;}document.getElementById('exportFormatModal').classList.add('show');}
