@@ -1,6 +1,6 @@
 # Brotes Dietética — estado y pendientes
 
-> Actualizado: 08/09/2026.
+> Actualizado: 17/09/2026.
 > No se publica: `.vercelignore` excluye todos los `*.md`.
 
 **El software está terminado.** Lo que falta para entregar no es programar: es cargar
@@ -21,6 +21,39 @@ la derecha, límite de stock bajo separado para envasado y suelto, exportaciones
 arreglos de seguridad en el borrado de archivos, y el Brandbook 2025 (paleta, tipografías y
 logos). De acá salieron el rediseño de la barra de listas de proveedores y el arreglo de
 sus contadores (§3, tanda 7).
+
+
+## 0. LO QUE SIGUE, EN ORDEN (al 17/09/2026)
+
+Sistema **entregado y en uso diario**. Esta lista es por dónde seguir.
+
+1. **Entrar a Caja después de vender tarda** (§1-bis L). Diagnosticado, sin arreglar. Es lo
+   que más molesta en el mostrador todos los días.
+2. **La pistola no agrega el producto al escanear con la venta abierta** (§1-bis H sigue
+   abierto). **Bloqueado esperando al dueño**: tiene que abrir
+   `pruebas/lector-diagnostico.html`, escanear una vez y mandar la captura. Sin esos
+   milisegundos reales no se puede elegir el umbral; la sospecha es que la regla de 40 ms
+   entre teclas se rompe cuando el buscador filtra 1.350 productos con cada dígito.
+3. **Ticket térmico después de la venta** y **roles por empleado**: especificados en
+   `SPEC-ROLES-TICKET.md`. **El ticket primero** (es autocontenido y reusa
+   `admin-etiquetas.js`); los roles después (tocan reglas, una Cloud Function y las 17
+   secciones). Los dos están prometidos en el dossier del cliente nuevo.
+4. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I). No se pueden crear
+   solos: categoría y lista son obligatorias y el reporte no las trae.
+5. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
+   está en Blaze, **sin tope y sin ninguna alerta**.
+6. **Revisar en qué plan está Vercel.** El plan Hobby es *non-commercial only* y Brotes
+   vende: si está en Hobby, el riesgo es que **pausen el sitio**, no una factura. Pro son
+   USD 20/mes.
+7. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
+8. **Portar a YERCO** lo de §6 (reporte de duplicados, elección de lista del PDF Semanal,
+   filtro "Volvieron al PDF"). **YERCO se toca desde su propia sesión, no desde acá.**
+
+**Costos, medido el 14/09:** hoy **$0**. El gasto escala con las visitas a la tienda, porque
+cada visita baja el catálogo entero (~1.500 lecturas, con caché de 3 minutos). Límite gratis:
+50.000 lecturas/día; el peor día del mes fueron 50.505. Estimado: ~80 visitas/día ≈ USD 1/mes,
+~300 ≈ USD 6, ~1.000 ≈ USD 20. Si alguna vez pasa las ~100 visitas diarias, el arreglo barato
+es servir el catálogo desde **un solo documento** en vez de 1.491.
 
 ---
 
@@ -932,6 +965,60 @@ El personal estaba **recreando a mano productos que ya existían**, con el códi
 aparecía. El catálogo usa **6 dígitos con ceros adelante**. Se normalizaron los 4 que
 quedaban fuera de formato. **Falta que el buscador del panel encuentre `000272` cuando se
 tipea `272`**, que es lo que evita que vuelva a pasar.
+
+
+---
+
+### K) La pantalla de Productos, como la queria el duenio · **HECHO** (17/09/2026)
+
+Cuatro pedidos sobre `Productos`, más uno de la ficha:
+
+1. **Al entrar no queda ninguna lista seleccionada.** Antes se restauraba la última usada y
+   el catálogo aparecía recortado a un proveedor sin que nadie lo pidiera: el total de
+   arriba no coincidía con lo de abajo y parecía que faltaban productos.
+2. **La lista que se clickea ya no se va al primer lugar.** Saltaba al principio y las
+   demás se corrían, así que la que uno acababa de mirar no estaba donde la había dejado.
+   Ahora el orden es **alfabético fijo**.
+3. **Se ven todas las listas de una.** El "Ver todas" pedía dos clics para llegar a una del
+   fondo, y el primero no filtraba nada. Se sacó el colapso entero.
+4. **Casilla "No mostrar ocultos", tildada por defecto**, en lugar del desplegable de
+   visibilidad. Destildarla muestra también los ocultos, en el mismo orden alfabético.
+   **Se perdió el filtro "solo ocultos"** que tenía el desplegable; nadie lo pidió.
+5. **Los campos de la ficha del producto** vienen con el borde pintado del color del foco
+   al **45%**, para que se vea dónde se escribe sin hacer clic antes. Un cliente no
+   encontraba los campos. Acotado a `#productForm`: el resto del panel no cambia.
+
+Verificado abriendo la página y ejecutando las funciones reales con datos de prueba: 4 de 4
+pastillas sin recorte ni botón, orden idéntico después de clickear, la casilla filtra y
+deja de filtrar, `#pNombre` en `rgba(95,168,122,0.45)` y `#searchInput` sin tocar, sin
+errores de consola. Commit `b8bd5ff`.
+
+---
+
+### L) Entrar a Caja después de vender tarda · **DIAGNOSTICADO, SIN ARREGLAR** (17/09/2026)
+
+**Lo reportado:** con la caja abierta, venden tocando **V** parados en Productos, y *"tarda
+en cargar la venta en la caja"*.
+
+**Lo medido, leyendo el código:**
+
+- `renderCaja()` se llama **únicamente desde `admin-caja.js`**. Desde `admin.html`, que es
+  donde vive `saveVenta`, **no se llama nunca**: al registrar la venta, la Caja no se entera.
+- `switchSection('caja')` llama a **`loadCaja()` completo en cada visita**, y eso son varias
+  consultas encadenadas: `getCajaAbierta()`, `cargarDatosCaja()` (movimientos + `ventas`
+  filtradas por `cajaId`), `cargarVentasSueltas()` y `loadHistorialCajas()`.
+
+O sea: la demora **no es de la venta**, es que **la sección Caja se reconstruye entera cada
+vez que se entra**.
+
+**Por qué no se tocó:** cambiar cómo la Caja trae y cachea sus datos, en un comercio que está
+vendiendo, merece su propia pasada con mediciones (cuánto tarda hoy cada consulta) y no un
+apurón al final de una sesión. **Es lo primero de la lista.**
+
+**Camino propuesto:** que `saveVenta` sume la venta recién creada a `cajaVentas` y llame a
+`renderCaja()` cuando la venta cae en la caja abierta —aparece al instante y sin consultar
+nada—, y que `loadCaja()` no repita las consultas si ya corrió recién. Medir antes y después
+con la pestaña de red abierta.
 
 ---
 
