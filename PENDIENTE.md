@@ -1,6 +1,6 @@
 # Brotes Dietética — estado y pendientes
 
-> Actualizado: 17/09/2026.
+> Actualizado: 18/09/2026.
 > No se publica: `.vercelignore` excluye todos los `*.md`.
 
 **El software está terminado.** Lo que falta para entregar no es programar: es cargar
@@ -9,7 +9,7 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 1518 en 50 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
+| Pruebas | 1875 en 55 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
 | **Datos** | **1488 productos, 28 listas, 30 categorías.** Los 615 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A). **Ninguno en $0**: los 373 que faltaban se cargaron el 08/09 (§1-bis I) |
@@ -23,30 +23,28 @@ logos). De acá salieron el rediseño de la barra de listas de proveedores y el 
 sus contadores (§3, tanda 7).
 
 
-## 0. LO QUE SIGUE, EN ORDEN (al 17/09/2026)
+## 0. LO QUE SIGUE, EN ORDEN (al 18/09/2026)
 
 Sistema **entregado y en uso diario**. Esta lista es por dónde seguir.
 
-1. **Entrar a Caja después de vender tarda** (§1-bis L). Diagnosticado, sin arreglar. Es lo
-   que más molesta en el mostrador todos los días.
-2. **La pistola no agrega el producto al escanear con la venta abierta** (§1-bis H sigue
+1. **La pistola no agrega el producto al escanear con la venta abierta** (§1-bis H sigue
    abierto). **Bloqueado esperando al dueño**: tiene que abrir
    `pruebas/lector-diagnostico.html`, escanear una vez y mandar la captura. Sin esos
    milisegundos reales no se puede elegir el umbral; la sospecha es que la regla de 40 ms
    entre teclas se rompe cuando el buscador filtra 1.350 productos con cada dígito.
-3. **Ticket térmico después de la venta** y **roles por empleado**: especificados en
+2. **Ticket térmico después de la venta** y **roles por empleado**: especificados en
    `SPEC-ROLES-TICKET.md`. **El ticket primero** (es autocontenido y reusa
    `admin-etiquetas.js`); los roles después (tocan reglas, una Cloud Function y las 17
    secciones). Los dos están prometidos en el dossier del cliente nuevo.
-4. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I). No se pueden crear
+3. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I). No se pueden crear
    solos: categoría y lista son obligatorias y el reporte no las trae.
-5. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
+4. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
    está en Blaze, **sin tope y sin ninguna alerta**.
-6. **Revisar en qué plan está Vercel.** El plan Hobby es *non-commercial only* y Brotes
+5. **Revisar en qué plan está Vercel.** El plan Hobby es *non-commercial only* y Brotes
    vende: si está en Hobby, el riesgo es que **pausen el sitio**, no una factura. Pro son
    USD 20/mes.
-7. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
-8. **Portar a YERCO** lo de §6 (reporte de duplicados, elección de lista del PDF Semanal,
+6. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
+7. **Portar a YERCO** lo de §6 (reporte de duplicados, elección de lista del PDF Semanal,
    filtro "Volvieron al PDF"). **YERCO se toca desde su propia sesión, no desde acá.**
 
 **Costos, medido el 14/09:** hoy **$0**. El gasto escala con las visitas a la tienda, porque
@@ -995,30 +993,83 @@ errores de consola. Commit `b8bd5ff`.
 
 ---
 
-### L) Entrar a Caja después de vender tarda · **DIAGNOSTICADO, SIN ARREGLAR** (17/09/2026)
+### L) Entrar a Caja después de vender tardaba · **ARREGLADO Y MEDIDO** (18/09/2026)
 
 **Lo reportado:** con la caja abierta, venden tocando **V** parados en Productos, y *"tarda
 en cargar la venta en la caja"*.
 
-**Lo medido, leyendo el código:**
+#### Lo medido ANTES de tocar nada
 
-- `renderCaja()` se llama **únicamente desde `admin-caja.js`**. Desde `admin.html`, que es
-  donde vive `saveVenta`, **no se llama nunca**: al registrar la venta, la Caja no se entera.
-- `switchSection('caja')` llama a **`loadCaja()` completo en cada visita**, y eso son varias
-  consultas encadenadas: `getCajaAbierta()`, `cargarDatosCaja()` (movimientos + `ventas`
-  filtradas por `cajaId`), `cargarVentasSueltas()` y `loadHistorialCajas()`.
+Contra la base real, leyendo y sin escribir. Tres vueltas seguidas, en ms:
 
-O sea: la demora **no es de la venta**, es que **la sección Caja se reconstruye entera cada
-vez que se entra**.
+| etapa | v1 | v2 | v3 | lo que trae |
+|---|---|---|---|---|
+| `config/cajaConfig` | 90 | 65 | 91 | **no existe el documento** |
+| `config/cajaEstado` | 68 | 75 | 67 | el puntero a la caja abierta |
+| `cajas/<id>` | 83 | 66 | 89 | la caja |
+| `cargarDatosCaja()` (3 en paralelo) | 117 | 116 | 90 | 22 ventas + 0 may. + 3 movimientos |
+| `cargarVentasSueltas()` (2 en paralelo) | 93 | 112 | 92 | las 22 del día |
+| historial (`limit 120`) | 75 | 88 | 75 | 11 cajas |
+| **total** | **527** | **521** | **504** | |
 
-**Por qué no se tocó:** cambiar cómo la Caja trae y cachea sus datos, en un comercio que está
-vendiendo, merece su propia pasada con mediciones (cuánto tarda hoy cada consulta) y no un
-apurón al final de una sesión. **Es lo primero de la lista.**
+**El tamaño no era el problema.** En toda la base hay 159 ventas, 11 cajas y 0 mayoristas;
+el día más cargado fueron 22 ventas. Cada consulta tarda entre 65 y 117 ms **porque es una
+ida y vuelta**, no por lo que trae. El problema era que salían **en seis tandas, una atrás
+de la otra**, y que `switchSection('caja')` rehacía las seis **en cada visita**.
 
-**Camino propuesto:** que `saveVenta` sume la venta recién creada a `cajaVentas` y llame a
-`renderCaja()` cuando la venta cae en la caja abierta —aparece al instante y sin consultar
-nada—, y que `loadCaja()` no repita las consultas si ya corrió recién. Medir antes y después
-con la pestaña de red abierta.
+Para medirlo en el navegador -y para poder repetirlo- quedó `pruebas/caja-banco.html`:
+carga `admin-caja.js` tal cual, trae la sección de `/admin` en vivo, y le pone a cada
+consulta la demora medida arriba. Se abre con `npm run dev`.
+
+#### Lo que se cambió
+
+1. **Las nueve consultas, en tres tandas.** De las seis, solo tres dependían de la anterior:
+   la config, el puntero y el historial no se necesitan entre sí; la caja necesita el
+   puntero; y las cinco del final necesitan la caja. `cargarDatosCaja()` y
+   `cargarVentasSueltas()` se esperaban una a la otra sin motivo.
+2. **Volver a entrar no consulta nada.** `switchSection('caja')` ahora llama a
+   `entrarACaja()`: si ya hay datos cargados de hace menos de 5 minutos, dibuja con lo que
+   hay en memoria y **relee por detrás**; si son más viejos, espera la lectura como antes,
+   porque dibujar plata de hace cuatro horas es mentirle a alguien que está contando. Una
+   sola relectura a la vez, aunque se entre y salga diez veces.
+3. **`saveVenta` le avisa a la Caja** (`cajaRegistrarVenta()`): la venta recién escrita se
+   suma a `cajaVentas` y se redibuja, sin consultar. No se cuenta dos veces -se chequea el
+   `docId`-, no entra si es de otra caja, y la mayorista hace lo mismo.
+
+#### Lo medido DESPUÉS, con el mismo banco y la misma demora
+
+| | antes | después |
+|---|---|---|
+| entrar por primera vez | 572 ms (6 tandas) | **282 ms (3 tandas)** |
+| vender y entrar a la Caja | 565 ms | **1 ms** |
+| entrar de nuevo sin cambiar nada | 564 ms | **2 ms** |
+
+Las nueve consultas siguen siendo nueve: no se sacó ninguna lectura, se sacó la espera.
+El dibujado tarda 1 ms.
+
+**Verificado abriendo la página**: la sección dibujada por `renderCaja()` con la venta
+recién hecha ya adentro (Ventas (23)), el arqueo cuadrando -efectivo + tarjeta = bruto, y
+esperado = fondo + efectivo + ingresos − egresos-, las 10 cajas del historial en su tabla,
+**cero errores de consola**, y el historial **sin parpadear** durante la relectura de atrás
+(muestreado cada 20 ms: ninguna muestra en blanco).
+
+`pruebas/t-caja-entrar.js` (39 asertos) afirma todo eso contra el fuente real: cuenta las
+tandas **por el momento en que sale cada consulta**, no por milisegundos, así que no depende
+de lo rápida que esté la máquina. **Contra el commit anterior fallan 25 de 39** (6 tandas:
+1+1+1+3+2+1, y no existen ni `entrarACaja()` ni `cajaRegistrarVenta()`); los 14 que pasan son
+los que cuidan que no se haya perdido nada: las mismas nueve consultas, la pantalla dibujada,
+el resumen del historial.
+
+**El precio de dibujar primero y leer después:** si alguien **edita o borra una venta**
+desde la sección Ventas y entra a la Caja, el primer dibujado muestra el número viejo y la
+relectura de atrás lo corrige medio segundo después. Se corrige solo, y no se tocó ninguno
+de esos dos caminos para no meter mano en más lugares de un panel que está vendiendo. Si
+alguna vez molesta, el arreglo es una línea: `_cajaCargadaEn = 0` al editar y al borrar.
+
+**Lo que sigue abierto:** `config/cajaConfig` **no existe** en la base, así que la Caja usa
+los valores por defecto (tolerancia $500, exige motivo si difiere, arqueo no ciego). Es una
+ida y vuelta por carga para traer un documento que no está. No se tocó: crearlo es escribir
+en producción, y eso se avisa antes.
 
 ---
 

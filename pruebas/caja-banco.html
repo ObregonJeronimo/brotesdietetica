@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Cronómetro de la Caja - cuánto tarda entrar</title>
+<!--
+  CRONÓMETRO DE LA SECCIÓN CAJA
+
+  Mide lo que se reporta en el mostrador: "entrar a Caja después de vender tarda".
+
+  QUÉ MIDE Y QUÉ NO. Adentro hay un Firestore de mentira, en memoria, que le
+  suma a cada consulta una demora fija -la "ida y vuelta"-. No inventa el
+  número: el valor por defecto (90 ms) es el MEDIDO contra la base real de la
+  clienta el 18/09/2026, donde las seis etapas de loadCaja() dieron entre 65 y
+  117 ms cada una y 520 ms en total.
+
+  Entonces: la demora de red está modelada, y lo que se mide de verdad acá es
+  CUÁNTAS idas y vueltas encadena el código -que es lo que hay que bajar- y
+  cuánto tarda el dibujado. admin-caja.js se carga TAL CUAL, sin tocarle una
+  línea, y la sección se trae de /admin en vivo para no mantener una copia.
+
+  No se conecta a ninguna base: no hay proyecto de Firebase en este archivo.
+
+  Se abre con:  npm run dev  ->  http://localhost:5173/pruebas/caja-banco.html
+-->
+<style>
+  body{margin:0;background:#12151b;color:#e8edf4;
+       font:14px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:1.4rem}
+  .envoltorio{max-width:1250px;margin:0 auto}
+  h1{font-size:1.3rem;margin:0 0 .2rem}
+  h2{font-size:.8rem;margin:0 0 .6rem;color:#7fd3a2;text-transform:uppercase;letter-spacing:.6px}
+  .cartel{background:rgba(78,167,116,.12);border:1px solid #4ea774;border-radius:9px;
+          padding:.7rem .9rem;margin:.9rem 0 1.2rem;font-size:.86rem}
+  .cartel b{color:#7fd3a2}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start}
+  @media(max-width:1000px){.cols{grid-template-columns:1fr}}
+  .caja{background:#1a1f27;border:1px solid #2c3543;border-radius:11px;padding:1rem 1.1rem;margin-bottom:1rem}
+  .bt{background:#212832;color:#e8edf4;border:1px solid #2c3543;border-radius:7px;
+      padding:.42rem .8rem;font:inherit;font-size:.85rem;cursor:pointer;margin:0 .35rem .4rem 0}
+  .bt:hover{border-color:#4ea774}
+  .bt.p{background:#4ea774;border-color:#4ea774;color:#0d1116;font-weight:600}
+  input[type=number]{background:#212832;color:#e8edf4;border:1px solid #2c3543;border-radius:7px;
+      padding:.35rem .5rem;font:inherit;font-size:.85rem;width:5.5rem}
+  pre{margin:0;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;
+      max-height:60vh;overflow:auto}
+  .ok{color:#7fd3a2}.err{color:#ff8b8b}.dim{color:#8b95a4}
+  #montaje{margin-top:1.2rem;border-top:1px solid #2c3543;padding-top:1rem}
+</style>
+</head>
+<body>
+<div class="envoltorio">
+  <h1>Cuánto tarda entrar a Caja</h1>
+  <div class="cartel">
+    Base <b>de mentira</b>, en memoria: no se conecta a ningún Firebase. Cada consulta
+    espera <b id="rttTxt">90</b> ms, que es lo medido contra la base real el 18/09/2026.
+    Lo que se mide es <b>cuántas idas y vueltas encadena <code>loadCaja()</code></b>.
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="caja">
+        <h2>Medir</h2>
+        <label class="dim">ida y vuelta (ms)</label>
+        <input type="number" id="rtt" value="90" min="0" max="2000" step="5"
+               oninput="document.getElementById('rttTxt').textContent=this.value">
+        <label class="dim" style="margin-left:.8rem">vueltas</label>
+        <input type="number" id="vueltas" value="3" min="1" max="20">
+        <div style="margin-top:.7rem">
+          <button class="bt p" onclick="medirEntrar()">Entrar a Caja (frío)</button>
+          <button class="bt p" onclick="medirVenderYEntrar()">Vender y entrar a Caja</button>
+          <button class="bt" onclick="medirDosSeguidas()">Entrar dos veces seguidas</button>
+          <button class="bt" onclick="sembrar();pintar('Base reiniciada',1)">Reiniciar base</button>
+          <button class="bt" onclick="document.getElementById('log').innerHTML=''">Limpiar</button>
+        </div>
+      </div>
+      <div class="caja">
+        <h2>Resultados</h2>
+        <pre id="log"></pre>
+      </div>
+    </div>
+    <div>
+      <div class="caja">
+        <h2>Lo que hay en la base de mentira</h2>
+        <pre id="base"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div id="montaje">
+    <h2>La sección Caja de verdad, dibujada por renderCaja()</h2>
+    <div id="seccion"></div>
+  </div>
+</div>
+
+<script src="../admin-caja.js"></script>
+<script>
+/* ===================== FIRESTORE DE MENTIRA, CON DEMORA =====================
+   Solo lo que usa la carga de la Caja. Cada .get() cuenta una ida y vuelta y
+   espera lo que diga el campo de arriba. Las que salen juntas en un Promise.all
+   esperan en paralelo, igual que en la realidad. */
+let BASE = { config: {}, cajas: [], movimientos: {}, ventas: [], ventasMayoristas: [] };
+let IDAS = 0, ETAPAS = [];
+
+const dormir = ms => new Promise(r => setTimeout(r, ms));
+const RTT = () => Number(document.getElementById('rtt').value || 0);
+
+function marcaTiempo(seg) { return { seconds: seg, toDate: () => new Date(seg * 1000) }; }
+const aMillis = v => (v && v.seconds != null) ? v.seconds * 1000
+                   : (v instanceof Date ? v.getTime() : v);
+
+async function ida(etiqueta) {
+  IDAS++;
+  ETAPAS.push(etiqueta);
+  await dormir(RTT());
+}
+
+function snapDocs(arr) {
+  const docs = arr.map(d => ({ id: d.docId, exists: true, data: () => d }));
+  return { size: docs.length, empty: !docs.length, docs,
+           forEach: f => docs.forEach(f) };
+}
+
+function consulta(nombre, filas) {
+  const estado = { filas: filas.slice(), wh: [], orden: null, tope: 0 };
+  const api = {
+    where: (campo, op, valor) => { estado.wh.push([campo, op, valor]); return api; },
+    orderBy: (campo, dir) => { estado.orden = [campo, dir]; return api; },
+    limit: n => { estado.tope = n; return api; },
+    get: async () => {
+      await ida(nombre + (estado.wh.length ? ' where ' + estado.wh.map(w => w[0] + w[1]).join(',') : '')
+                       + (estado.orden ? ' orderBy ' + estado.orden[0] : '')
+                       + (estado.tope ? ' limit ' + estado.tope : ''));
+      let r = estado.filas.filter(d => estado.wh.every(([c, op, v]) => {
+        const x = d[c];
+        if (op === '==') return x === v;
+        if (op === '>=') return aMillis(x) >= aMillis(v);
+        if (op === '<=') return aMillis(x) <= aMillis(v);
+        return true;
+      }));
+      if (estado.orden) {
+        const [c, dir] = estado.orden;
+        r.sort((a, b) => (aMillis(a[c]) > aMillis(b[c]) ? 1 : -1) * (dir === 'desc' ? -1 : 1));
+      }
+      if (estado.tope) r = r.slice(0, estado.tope);
+      return snapDocs(r);
+    }
+  };
+  return api;
+}
+
+const db = {
+  collection: (nombre) => {
+    if (nombre === 'config') {
+      return {
+        doc: (id) => ({
+          get: async () => {
+            await ida('config/' + id);
+            const d = BASE.config[id];
+            return { exists: !!d, id, data: () => d };
+          }
+        })
+      };
+    }
+    if (nombre === 'cajas') {
+      const api = consulta('cajas', BASE.cajas);
+      api.doc = (id) => ({
+        get: async () => {
+          await ida('cajas/' + id);
+          const d = BASE.cajas.find(c => c.docId === id);
+          return { exists: !!d, id, data: () => d };
+        },
+        collection: (sub) => consulta('cajas/' + id + '/' + sub, BASE.movimientos[id] || [])
+      });
+      return api;
+    }
+    if (nombre === 'ventas' || nombre === 'ventasMayoristas') return consulta(nombre, BASE[nombre]);
+    throw new Error('el cronómetro no simula la colección "' + nombre + '"');
+  }
+};
+
+/* ================= LO QUE ADMIN-CAJA.JS ESPERA DEL PANEL ================= */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function showAdminToast(m, tipo) { pintar((tipo === 'error' ? 'ERROR: ' : '') + m, tipo !== 'error', tipo === 'error'); }
+function logAction() {}
+function keyDeMedio(m) {
+  const t = (m || '').toLowerCase();
+  if (t.startsWith('efec')) return 'efectivo';
+  if (t.startsWith('tarj') || t.includes('debi') || t.includes('cred')) return 'tarjeta';
+  if (t.startsWith('trans')) return 'transferencia';
+  if (t.includes('corriente') || t.includes('fiado')) return 'cuenta_corriente';
+  return 'otro';
+}
+function medioKeyDeVenta(v) { return (v && v.medioPagoKey) || keyDeMedio(v && v.medioPago); }
+function hoyAR() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+const auth = { currentUser: { email: 'prueba@local' } };
+const ADMIN_PER_PAGE = 20;
+
+/* ============================ LA SIEMBRA ============================
+   La forma es la REAL, contada contra la base de la clienta el 18/09/2026:
+   ~20 ventas por caja, 0 a 3 movimientos, 11 cajas en el historial. */
+function sembrar() {
+  const hoy = hoyAR();
+  const cajas = [];
+  for (let i = 10; i >= 1; i--) {
+    const f = new Date(); f.setDate(f.getDate() - i);
+    const fs = f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0') + '-' + String(f.getDate()).padStart(2, '0');
+    cajas.push({ docId: 'caja' + i, numero: 20 - i, fecha: fs, estado: 'cerrada',
+      abiertoEn: marcaTiempo(Math.floor(f.getTime() / 1000)), abiertoPor: 'duenio@local',
+      montoInicial: 20000, ventasBruto: 180000 + i * 1000, esperadoEfectivo: 150000,
+      contadoEfectivo: 150000 - (i % 3 === 0 ? 500 : 0), diferencia: i % 3 === 0 ? -500 : 0 });
+  }
+  const abierta = { docId: 'cajaHoy', numero: 21, fecha: hoy, estado: 'abierta',
+    abiertoEn: marcaTiempo(Math.floor(Date.now() / 1000) - 3600), abiertoPor: 'duenio@local',
+    montoInicial: 20000 };
+  cajas.push(abierta);
+
+  const ventas = [];
+  for (let i = 1; i <= 22; i++) {
+    ventas.push({ docId: 'v' + i, numero: 500 + i, cajaId: 'cajaHoy',
+      fecha: marcaTiempo(Math.floor(Date.now() / 1000) - (22 - i) * 600),
+      total: 3000 + i * 250, envio: 0,
+      medioPago: i % 4 === 0 ? 'Tarjeta de debito' : 'Efectivo',
+      cliente: 'Consumidor Final', items: [{ nombre: 'Producto ' + i, cantidad: 1 }] });
+  }
+  BASE = {
+    config: { cajaEstado: { cajaAbiertaId: 'cajaHoy' } },   /* cajaConfig NO existe: tampoco existe en la base real */
+    cajas,
+    movimientos: { cajaHoy: [
+      { docId: 'm1', tipo: 'ingreso', concepto: 'aporte_cambio', monto: 5000, detalle: 'cambio', fecha: marcaTiempo(Math.floor(Date.now() / 1000) - 5000) },
+      { docId: 'm2', tipo: 'egreso', concepto: 'gasto', monto: 1200, detalle: 'café', fecha: marcaTiempo(Math.floor(Date.now() / 1000) - 3000) },
+      { docId: 'm3', tipo: 'egreso', concepto: 'pago_proveedor', monto: 30000, detalle: 'FRUTICOR', fecha: marcaTiempo(Math.floor(Date.now() / 1000) - 1000) }
+    ] },
+    ventas,
+    ventasMayoristas: []
+  };
+  pintarBase();
+}
+
+function pintarBase() {
+  document.getElementById('base').textContent =
+    BASE.cajas.length + ' cajas (' + BASE.cajas.filter(c => c.estado === 'abierta').length + ' abierta)\n' +
+    BASE.ventas.filter(v => v.cajaId === 'cajaHoy').length + ' ventas en la caja abierta\n' +
+    BASE.ventas.filter(v => !v.cajaId).length + ' ventas sueltas (sin cajaId)\n' +
+    (BASE.movimientos.cajaHoy || []).length + ' movimientos\n' +
+    BASE.ventasMayoristas.length + ' ventas mayoristas\n\n' +
+    'config/cajaEstado -> ' + JSON.stringify(BASE.config.cajaEstado) + '\n' +
+    'config/cajaConfig -> no existe (igual que en la base real)';
+}
+
+/* ============================ EL CRONÓMETRO ============================ */
+let _renderMs = 0, _renders = 0;
+const _renderCajaOriginal = renderCaja;
+renderCaja = function () {                      /* se envuelve para medir el dibujado */
+  const t0 = performance.now();
+  const r = _renderCajaOriginal.apply(this, arguments);
+  _renderMs += performance.now() - t0; _renders++;
+  return r;
+};
+
+async function cronometrar(nombre, fn) {
+  IDAS = 0; ETAPAS = []; _renderMs = 0; _renders = 0;
+  const t0 = performance.now();
+  await fn();
+  const ms = performance.now() - t0;
+  return { nombre, ms: Math.round(ms), idas: IDAS, etapas: ETAPAS.slice(),
+           render: Math.round(_renderMs), renders: _renders,
+           /* el mínimo teórico: cuántas idas van encadenadas una atrás de otra */
+           encadenadas: Math.round((ms - _renderMs) / Math.max(RTT(), 1)) };
+}
+
+function informe(r) {
+  const fondo = Math.max(0, r.ms - r.render);
+  /* Si no esperó ni una ida y vuelta, las consultas que se ven salieron POR
+     DETRÁS: la pantalla ya estaba dibujada cuando arrancaron. */
+  const porDetras = fondo < RTT();
+  return r.nombre + '\n' +
+    '   ' + String(r.ms).padStart(5) + ' ms  de punta a punta\n' +
+    '   ' + String(fondo).padStart(5) + ' ms  esperando la base   (' +
+      (porDetras ? 'no esperó ninguna; ' + r.idas + ' salieron por detrás'
+                 : r.idas + ' consultas, ~' + r.encadenadas + ' tandas encadenadas') + ')\n' +
+    '   ' + String(r.render).padStart(5) + ' ms  dibujando         (' + r.renders + ' renderCaja)\n' +
+    '   consultas: ' + (r.etapas.length ? r.etapas.join(' | ') : 'ninguna');
+}
+
+function promedio(rs) {
+  const m = k => Math.round(rs.reduce((s, r) => s + r[k], 0) / rs.length);
+  return { nombre: rs[0].nombre + '  (promedio de ' + rs.length + ')', ms: m('ms'), idas: rs[0].idas,
+           etapas: rs[0].etapas, render: m('render'), renders: rs[0].renders, encadenadas: m('encadenadas') };
+}
+
+async function medirEntrar() {
+  const n = Number(document.getElementById('vueltas').value || 1), rs = [];
+  for (let i = 0; i < n; i++) {
+    sembrarSiHaceFalta();
+    olvidarCache();
+    rs.push(await cronometrar('ENTRAR A CAJA (primera vez)', () => loadCaja()));
+  }
+  pintar(informe(promedio(rs)), 1);
+}
+
+async function medirDosSeguidas() {
+  sembrarSiHaceFalta(); olvidarCache();
+  const a = await cronometrar('1ra visita', () => loadCaja());
+  const b = await cronometrar('2da visita, sin haber cambiado nada', () => entrarACajaCompat());
+  pintar(informe(a) + '\n' + informe(b), 1);
+}
+
+/* Vender parado en Productos y despues entrar a Caja: lo que pasa todos los dias. */
+async function medirVenderYEntrar() {
+  sembrarSiHaceFalta(); olvidarCache();
+  await loadCaja();                                    /* el cajero ya entro alguna vez */
+  const nro = 600 + BASE.ventas.length;
+  const venta = { docId: 'v' + nro, numero: nro, cajaId: 'cajaHoy',
+    fecha: marcaTiempo(Math.floor(Date.now() / 1000)), total: 9999, envio: 0,
+    medioPago: 'Efectivo', cliente: 'Consumidor Final', items: [{ nombre: 'Lo recién vendido', cantidad: 1 }] };
+  BASE.ventas.push(venta);
+  pintarBase();
+
+  /* Lo que hace admin.html al guardar la venta, si existe el enganche. */
+  if (typeof window.cajaRegistrarVenta === 'function') window.cajaRegistrarVenta(venta, 'cajaHoy');
+
+  const r = await cronometrar('VENDER Y ENTRAR A CAJA', () => entrarACajaCompat());
+  const texto = document.getElementById('cajaTop').textContent || '';
+  const cuenta = (texto.match(/Ventas \((\d+)\)/) || [])[1];
+  pintar(informe(r) + '\n   la venta recién hecha ' +
+    (Number(cuenta) === BASE.ventas.filter(v => v.cajaId === 'cajaHoy').length
+      ? 'SÍ aparece (Ventas (' + cuenta + '))'
+      : 'NO aparece (la pantalla dice Ventas (' + cuenta + ') y en la base hay ' +
+        BASE.ventas.filter(v => v.cajaId === 'cajaHoy').length + ')'), 1);
+}
+
+/* switchSection('caja') llama a loadCaja(). Si algún día llama a otra cosa, se
+   usa esa: así el cronómetro mide lo que hace el panel, no lo que supone. */
+function entrarACajaCompat() {
+  return (typeof entrarACaja === 'function') ? entrarACaja() : loadCaja();
+}
+function olvidarCache() {
+  if (typeof window._cajaOlvidarCache === 'function') window._cajaOlvidarCache();
+}
+function sembrarSiHaceFalta() { if (!BASE.cajas.length) sembrar(); }
+
+function pintar(msg, ok, err) {
+  const l = document.getElementById('log');
+  const hora = new Date().toLocaleTimeString('es-AR');
+  l.innerHTML = '<div class="' + (err ? 'err' : ok ? 'ok' : '') + '">' + hora + '\n' + esc(msg) + '</div>\n' + l.innerHTML;
+}
+
+/* ===================== LA SECCIÓN, TRAÍDA DE /admin =====================
+   Sin copiarla: si mañana cambia el panel, el cronómetro cambia con él. */
+async function montar() {
+  const txt = await (await fetch('/admin')).text();
+  const doc = new DOMParser().parseFromString(txt, 'text/html');
+  doc.querySelectorAll('style').forEach(s => {
+    const c = document.createElement('style');
+    c.textContent = s.textContent;
+    document.head.appendChild(c);
+  });
+  const sec = doc.getElementById('sec-caja');
+  if (!sec) { pintar('no encontré #sec-caja en /admin', 0, 1); return; }
+  sec.classList.add('active');
+  sec.style.display = 'block';
+  document.getElementById('seccion').appendChild(sec);
+  const icons = document.createElement('link');
+  icons.rel = 'stylesheet';
+  icons.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
+  document.head.appendChild(icons);
+  document.body.style.background = '#12151b';
+  pintar('Sección traída de /admin. Listo para medir.', 1);
+}
+
+sembrar();
+montar();
+</script>
+</body>
+</html>

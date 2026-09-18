@@ -83,22 +83,108 @@ const _hora = ts => (ts && ts.seconds)
   ? new Date(ts.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
   : '';
 
-/* ============================ CARGA ============================ */
+/* ============================ CARGA ============================
+
+   ENTRAR A LA CAJA TARDABA MEDIO SEGUNDO Y ERA CULPA DEL ORDEN.
+
+   Medido el 18/09/2026 contra la base real: las consultas de esta seccion
+   tardan entre 65 y 117 ms cada una -son nueve, y traen 22 ventas y 3
+   movimientos: nada, el tamanio no es el problema-. Pero se pedian una atras de
+   otra, en SEIS tandas encadenadas, y eso daba 520 ms de espera en la base por
+   cada visita a la seccion, con el dibujado tardando 2 ms.
+
+   De las seis, solo tres dependen de la anterior:
+
+     tanda 1   cajaConfig  +  cajaEstado  +  historial      (no se necesitan entre si)
+     tanda 2   cajas/<id>                                    (necesita el id de la tanda 1)
+     tanda 3   ventas+mayoristas+movimientos  +  sueltas     (necesitan la caja)
+
+   Asi quedo: tres idas y vueltas en vez de seis. Las de cada tanda salen juntas.
+
+   Lo que NO cambia: loadCaja() sigue siendo la recarga completa, y sigue
+   dejando la pantalla dibujada con lo que hay en la base. La usan abrir caja,
+   cerrar caja, los movimientos y el boton Actualizar, y todas esperan eso. */
 
 async function loadCaja() {
-  await loadCajaConfig();
-  cajaActual = await getCajaAbierta();
+  /* El historial no depende de la caja abierta: sale en la primera tanda y se
+     dibuja cuando llega. Se guarda la promesa para no terminar antes que el. */
+  const historial = loadHistorialCajas();
+  const [, caja] = await Promise.all([loadCajaConfig(), getCajaAbierta()]);
+  cajaActual = caja;
   if (cajaActual) {
-    await cargarDatosCaja(cajaActual.docId);
-    await cargarVentasSueltas(cajaActual.fecha);
+    /* Estas dos tampoco se necesitan entre si: una trae lo de ESTA caja y la
+       otra las ventas del dia que quedaron sin caja. */
+    await Promise.all([
+      cargarDatosCaja(cajaActual.docId),
+      cargarVentasSueltas(cajaActual.fecha)
+    ]);
   } else {
     cajaMovs = []; cajaVentas = []; cajaVentasSueltas = [];
   }
   renderCaja();
-  await loadHistorialCajas();
+  _cajaCargadaEn = Date.now();
+  await historial;
   /* La campana avisa si la caja quedo abierta de un dia anterior, y eso recien
      se sabe cuando termina de cargarse. */
   if (typeof actualizarBadgeAlertas === 'function') actualizarBadgeAlertas();
+}
+
+/* ====================== ENTRAR A LA SECCION ======================
+
+   Lo que se reporto del mostrador: venden tocando V parados en Productos y
+   despues entrar a Caja "tarda". Tarda porque switchSection('caja') rehacia
+   loadCaja() ENTERO cada vez, aunque se hubiera entrado hace diez segundos.
+
+   Ahora, si ya hay datos cargados y son de hace menos de CAJA_FRESCA_MS, la
+   pantalla se dibuja YA con lo que hay en memoria -sin una sola consulta- y la
+   relectura sale por detras: cuando llega, se vuelve a dibujar. La espera
+   pasa de medio segundo a los 2 ms que tarda el dibujado.
+
+   Por que se puede: la venta recien hecha ya esta en memoria -saveVenta llama a
+   cajaRegistrarVenta()-, y los movimientos solo se cargan desde esta misma
+   seccion, que recarga al guardarlos. Lo que puede faltar es lo que hizo OTRO
+   admin en otra pestania, y EDITAR O BORRAR una venta desde la seccion Ventas:
+   en esos casos el primer dibujado muestra el numero viejo y la relectura lo
+   corrige medio segundo despues. Se corrige solo; si alguna vez molesta, el
+   arreglo es poner _cajaCargadaEn = 0 en esos dos caminos.
+
+   Por que hay un limite de tiempo igual: si el panel quedo abierto toda la
+   maniana, dibujar numeros de plata de hace cuatro horas -aunque se corrijan
+   medio segundo despues- es mentirle a alguien que esta contando. Pasado ese
+   rato se espera la lectura, como antes. */
+
+const CAJA_FRESCA_MS = 5 * 60 * 1000;
+let _cajaCargadaEn = 0;      /* cuando termino la ultima carga completa */
+let _cajaRelectura = null;   /* la relectura de atras, si hay una en vuelo */
+
+function entrarACaja() {
+  const fresca = _cajaCargadaEn && (Date.now() - _cajaCargadaEn) < CAJA_FRESCA_MS;
+  if (!fresca) return loadCaja();
+  renderCaja();
+  renderHistorialCajas();
+  /* Una sola relectura a la vez: entrar y salir de la seccion tres veces
+     seguidas no puede disparar tres cargas en paralelo. */
+  if (!_cajaRelectura) {
+    _cajaRelectura = loadCaja()
+      .catch(e => console.warn('relectura de caja:', e))
+      .then(() => { _cajaRelectura = null; });
+  }
+  return Promise.resolve();
+}
+
+/* La llama saveVenta (y saveVentaMay) apenas la venta queda escrita. Sin esto,
+   la Caja solo se enteraba de la venta volviendo a consultar la base entera.
+
+   Se agrega a mano en vez de releer porque es EXACTAMENTE lo que se acaba de
+   escribir: el documento ya esta en la mano. Y se chequea el docId para que una
+   relectura posterior no la deje contada dos veces. */
+function cajaRegistrarVenta(venta, tipo) {
+  if (!venta || !cajaActual || cajaActual.estado !== 'abierta') return false;
+  if (!venta.cajaId || venta.cajaId !== cajaActual.docId) return false;
+  if (venta.docId && cajaVentas.some(v => v.docId === venta.docId)) return false;
+  cajaVentas.push(Object.assign({ _tipo: tipo === 'mayorista' ? 'mayorista' : 'minorista' }, venta));
+  renderCaja();
+  return true;
 }
 
 async function loadCajaConfig() {
@@ -357,7 +443,10 @@ async function loadHistorialCajas() {
      "Todos los meses" y la pantalla no esconda las cajas apenas se abre. */
   if (sel && !sel.options.length && typeof _buildMesOptions === 'function') _buildMesOptions('cajaHistMes', true);
   const mes = sel ? sel.value : '';
-  cont.innerHTML = '<p style="font-size:0.85rem;color:var(--text-dim)">Cargando...</p>';
+  /* Solo si no hay nada dibujado. Cuando la relectura corre por detras -entrar a
+     la seccion con datos frescos-, pisar la tabla con "Cargando..." hacia
+     parpadear el historial que ya se estaba viendo. */
+  if (!_cajasHistorial.length) cont.innerHTML = '<p style="font-size:0.85rem;color:var(--text-dim)">Cargando...</p>';
   let docs = [];
   try {
     let q = db.collection('cajas');
