@@ -191,6 +191,33 @@ problemas.push(...revisarHtml('admin.html', html));
     problemas.push(...revisarHtml(f, fs.readFileSync(p, 'utf8')));
   });
 
+/* ------------------------------ 5-bis) caracteres de control sueltos
+   La vineta de los dialogos estuvo rota sin que nadie lo viera: el CSS decia
+   content:'<U+0082>2' en vez de la vineta, asi que toda lista adentro de un dialogo
+   mostraba un cuadradito con un 2 al lado. Sale de editar con algo que se come un
+   escape (\2022 se convierte en 2) y no lo avisa nadie: el navegador no tira error,
+   dibuja mal y listo. Estos caracteres no tienen ningun uso legitimo en el fuente. */
+function revisarCaracteres(archivo, texto) {
+  const fallas = [];
+  texto.split('\n').forEach((l, i) => {
+    [...l].forEach((c) => {
+      const n = c.codePointAt(0);
+      if ((n >= 0x80 && n <= 0x9f) || n === 0xfffd) {
+        fallas.push('CARACTER RARO U+' + n.toString(16).toUpperCase().padStart(4, '0') +
+          ' en ' + archivo + ':' + (i + 1) + '  ->  ' + JSON.stringify(l.trim().slice(0, 80)));
+      }
+    });
+  });
+  return fallas.slice(0, 5);
+}
+['admin.html', 'index.html', 'mayoristas.html', 'politicas.html', 'resena.html', 'setup-inicial.html']
+  .concat(fs.readdirSync(__dirname).filter((f) => /^(admin-|app)[\w-]*\.js$/.test(f)))
+  .forEach((f) => {
+    const p = path.join(__dirname, f);
+    if (!fs.existsSync(p)) return;
+    problemas.push(...revisarCaracteres(f, fs.readFileSync(p, 'utf8')));
+  });
+
 
 /* ------------------------------------- 6) CSS fantasma: usado y nunca definido
 

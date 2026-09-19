@@ -77,6 +77,10 @@ console.log('\n-- las clases que mira son las de verdad --');
 const dialogo = leer('admin-dialogo.js');
 t('los dos diálogos, confirmar y gramos, usan .dlg-overlay', (dialogo.match(/ov\.className = 'dlg-overlay'/g) || []).length === 2);
 t('  y cada uno cierra con su propio Escape', (dialogo.match(/if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\); cerrar\(/g) || []).length === 2);
+/* El CSS decia content:'<caracter de control>2' y toda lista adentro de un dialogo
+   mostraba un cuadradito con un 2. check-admin.js ahora tambien lo agarra. */
+t('la viñeta de las listas del diálogo es una viñeta de verdad',
+  /\.dlg-linea\.item:before\{content:'•'/.test(leer('admin.html')));
 const selector = leer('admin-selector.js');
 t('el panel del desplegable es .selb-panel y se esconde con hidden',
   /panel\.className = 'selb-panel'/.test(selector) && /panel\.hidden = true/.test(selector));

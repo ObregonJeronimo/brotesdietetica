@@ -410,11 +410,11 @@
         .dlg-cab h3{font-size:1.02rem;font-weight:700;margin:0}
         .dlg-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--accent-bg);color:var(--accent-light);font-size:1.05rem}
         .dlg-box.peligro .dlg-ico{background:rgba(229,69,69,0.15);color:var(--danger)}
-        .dlg-msg{font-size:0.9rem;line-height:1.55;color:var(--text);max-height:52vh;overflow-y:auto}
-        .dlg-linea{margin:0 0 0.35rem}
+        .dlg-msg{font-size:0.9rem;line-height:1.55;color:var(--text);max-height:52vh;overflow-y:auto;overflow-x:hidden}
+        .dlg-linea{margin:0 0 0.35rem;overflow-wrap:break-word}
         .dlg-linea:last-child{margin-bottom:0}
         .dlg-linea.item{padding-left:0.9rem;position:relative;color:var(--text-dim);font-size:0.86rem;margin-bottom:0.15rem}
-        .dlg-linea.item:before{content:'2';position:absolute;left:0;color:var(--text-dim)}
+        .dlg-linea.item:before{content:'•';position:absolute;left:0;color:var(--text-dim)}
         .dlg-vacio{height:0.6rem}
         .dlg-pie{display:flex;gap:0.7rem;margin-top:1.35rem}
         .dlg-pie .btn{flex:1 1 auto;width:auto;padding:0.7rem 1rem}
