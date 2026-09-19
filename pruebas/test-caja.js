@@ -17,7 +17,7 @@ function keyDeMedio(m){const t=(m||'').toLowerCase();
 function medioKeyDeVenta(v){return (v&&v.medioPagoKey)||keyDeMedio(v&&v.medioPago);}
 `;
 
-const TESTS = `
+const TESTS = 'const SRC_CAJA = ' + JSON.stringify(SRC) + ';\n' + `
 let fallos = 0, pasados = 0;
 function chk(nombre, real, esperado){
   const ok = JSON.stringify(real) === JSON.stringify(esperado);
@@ -153,6 +153,23 @@ chk('las etiquetas div abren y cierran igual',
 const _vacia = _columnaVentas('Ventas mayoristas', 'bi-box-seam', []);
 chk('sin ventas avisa en vez de quedar en blanco', tiene(_vacia, 'No hubo ventas'), true);
 chk('y dice 0 ventas', tiene(_vacia, '0 ventas'), true);
+
+/* ---------- La fecha de la caja, como se lee aca ---------- */
+console.log('\\nCaso 10 - la fecha de la caja se muestra dia/mes/anio');
+chk('2026-09-19 se muestra 19/09/2026', _cajaFecha('2026-09-19'), '19/09/2026');
+/* new Date('2026-01-01') se lee como UTC y en Argentina cae el 31/12: por eso el
+   texto se da vuelta a mano y no pasa por Date. */
+chk('no se corre un dia', _cajaFecha('2026-01-01'), '01/01/2026');
+chk('vacio no rompe', _cajaFecha(''), '');
+chk('null no rompe', _cajaFecha(null), '');
+chk('un Timestamp tambien se entiende', _cajaFecha({ toDate: () => new Date(2026, 8, 19) }), '19/09/2026');
+chk('un texto que no es fecha se muestra tal cual', _cajaFecha('sin fecha'), 'sin fecha');
+/* Lo que NO cambio: se sigue guardando AAAA-MM-DD, y el archivo que se descarga
+   tambien, para que los arqueos ordenen por nombre. */
+chk("en la base se sigue guardando AAAA-MM-DD",
+    SRC_CAJA.indexOf("fecha: (typeof hoyAR === 'function') ? hoyAR()") > 0, true);
+chk("el archivo exportado sigue con la fecha que ordena",
+    SRC_CAJA.indexOf("'_' + (c.fecha || '')") > 0, true);
 
 console.log('\\n' + pasados + ' pasaron, ' + fallos + ' fallaron');
 globalThis.__fallos = fallos;
