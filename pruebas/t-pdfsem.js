@@ -110,6 +110,31 @@ t('escribe en un solo batch', (g.match(/db\.batch\(\)/g)||[]).length===1);
 t('redibuja la barra despues de guardar', /filterTable\(\);/.test(g));
 t('deja rastro en el historial', /logAction\('editar','PDF Semanal: lista predeterminada/.test(g));
 
+console.log('\nEl boton se ve siempre; apagado si el filtro muestra otra lista (19/09)');
+/* Esconderlo dejaba a la gente buscandolo, sobre todo desde que no se elige ninguna
+   lista sola. Pero usarlo desde otra lista sigue prohibido: comparar el PDF de un
+   proveedor contra el catalogo de otro manda a ocultar todo lo del otro. */
+const motivo=new Function(cuerpo('listaUsaPdfSemanal')+cuerpo('motivoPdfSemanalApagado')+';return motivoPdfSemanalApagado;')();
+const FRU={id:'l1',nombre:'FRUTICOR',pdfSemanal:true},OTRA={id:'l2',nombre:'REAL ESSENZE',pdfSemanal:false};
+t('sin filtro se puede usar: trabaja sobre la marcada', motivo(null,FRU)==='');
+t('con la marcada elegida en el filtro, tambien', motivo(FRU,FRU)==='');
+t('con otra lista elegida queda apagado', motivo(OTRA,FRU)!=='');
+t('  y el motivo nombra las dos listas', motivo(OTRA,FRU).indexOf('FRUTICOR')>0 && motivo(OTRA,FRU).indexOf('REAL ESSENZE')>0);
+t('si todavia no hay ninguna marcada se puede entrar igual: la lista se elige adentro',
+    motivo(OTRA,null)==='');
+t('el boton ya no se esconde', /wrapSemanal\.style\.display=''/.test(src));
+t('el motivo va tambien en el contenedor, que es quien muestra el globo con el boton apagado',
+    /wrapSemanal\.title=globoSem/.test(src) && /#tbSemanalWrap button:disabled\{pointer-events:none\}/.test(src));
+
+console.log('\nEl modal arranca en la lista que se esta viendo, y el desplegable manda');
+const pintar=cuerpo('wpPintarLista');
+t('el destino sale del filtro de Productos si hay uno', /getElementById\('filterLista'\)/.test(pintar));
+t('  y si no, de la marcada', /\|\|listaPdfSemanal\(\)/.test(pintar));
+t('el selector se abre con el destino actual', /const actual=\(document\.getElementById\('wpListaFiltro'\)\|\|\{\}\)\.value\|\|''/.test(cuerpo('wpMostrarSelector')));
+t('elegir en el desplegable cambia el destino de esta pasada',
+    /onchange="wpListaSeleccionCambio\(\)"/.test(src) && /hid\.value=l\?l\.id:''/.test(cuerpo('wpListaSeleccionCambio')));
+t('  y la ayuda del modal lo dice', /Lo que elijas ac&aacute; vale para este PDF/.test(src));
+
 console.log('\nAl entrar no queda ninguna lista elegida (pedido del comercio, 19/09)');
 /* Antes loadListas dejaba activa la ultima usada y, si no habia, la PRIMERA por nombre.
    Productos abria mostrando un solo proveedor sin que nadie hubiera filtrado, y de yapa
