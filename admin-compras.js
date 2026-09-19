@@ -405,9 +405,20 @@ async function _cpLeerRemito(file) {
                 ' sin cantidad, revisalos</span>');
   }
   let html = partes.join(' &middot; ');
-  if (r.dudosos.length) {
+  /* Los de peso van juntos: son muchos y el motivo es siempre el mismo. Uno por
+     renglon tapaba a los que de verdad hay que mirar. */
+  const dudPeso = r.dudosos.filter(d => d.porPeso);
+  const dudOtros = r.dudosos.filter(d => !d.porPeso);
+  if (dudPeso.length) {
+    html += '<div style="color:#EDB833;margin-top:0.25rem">&middot; <b>' + dudPeso.length +
+      (dudPeso.length === 1 ? ' producto por peso</b>' : ' productos por peso</b>') +
+      ': el remito no dice si el n&uacute;mero son kilos o bultos, as&iacute; que la cantidad y el ' +
+      'costo van a mano (' + esc(dudPeso.slice(0, 4).map(d => d.nombre).join(', ')) +
+      (dudPeso.length > 4 ? ' y ' + (dudPeso.length - 4) + ' m&aacute;s' : '') + ').</div>';
+  }
+  if (dudOtros.length) {
     html += '<div style="color:#EDB833;margin-top:0.25rem">' +
-      r.dudosos.map(d => '&middot; ' + esc(d.nombre) + ': ' + esc(d.motivo)).join('<br>') + '</div>';
+      dudOtros.map(d => '&middot; ' + esc(d.nombre) + ': ' + esc(d.motivo)).join('<br>') + '</div>';
   }
   if (r.ignoradas.length) {
     html += '<div style="color:var(--text-dim);margin-top:0.25rem">' +

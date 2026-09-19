@@ -919,6 +919,44 @@ un depurado adentro, la tienda sin depurados, 30/60/90 días, paginado y celular
 
 ---
 
+### J) El lector de remitos cargaba bolsas como kilos · **ARREGLADO** (19/09/2026)
+
+Lo encontró el dueño revisando un mensaje viejo. Un renglón en bolsas:
+
+```
+000123 MANI TOSTADO X 5 KG   2   4900   9800
+```
+
+son **2 bolsas de 5 kg**: 10.000 g a $980 el kilo. El lector cargaba **2.000 g a $4.900 el
+kilo** —cinco veces menos stock, el costo al quíntuple— y **con el tilde de verificado**, que
+es lo peor, porque invita a no revisarlo.
+
+La causa: el control de "KG" miraba el renglón entero, así que el "X 5 KG" del **nombre**
+contaba como si la cantidad viniera en kilos, y la cuenta de control cerraba igual
+(2 × 4.900 = 9.800). Falló en las cuatro variantes probadas: `X5KG` pegado, `$4.900,00` y con
+una sola bolsa. Los renglones en kilos de verdad los leía bien.
+
+Las pruebas no lo agarraban porque los 5 remitos reales de `pruebas/remitos/` tienen 48
+renglones y **ninguno viene en bolsas**.
+
+**La decisión, del comercio (19/09):** desde el papel no se puede saber si el número son kilos
+o bultos —cada proveedor escribe distinto—, así que **los productos por peso no cargan cantidad
+ni costo**. El renglón carga el producto y queda en "revisar", igual que cuando la cuenta no
+cierra; la cantidad y el costo los pone la persona mirando el remito. Es menos cómodo y no se
+equivoca. Los productos por unidad no cambian: ahí el número no es ambiguo.
+
+De paso se sacó `enKilos` de la lectura del renglón: era una bandera que decía una verdad a
+medias, y es la que provocó el error. Si alguien la vuelve a necesitar, que la saque de la zona
+de los números y no del renglón entero.
+
+`t-remito.js`: **87 asertos** (antes 80). Verificado en el sandbox con un PDF armado para eso:
+los dos renglones por peso quedan sin cantidad y con el costo que ya tenían, los dos por unidad
+cargan normal, y el cartel los agrupa: *"2 productos por peso: el remito no dice si el número
+son kilos o bultos, así que la cantidad y el costo van a mano"*.
+
+**Queda por mirar:** si en producción ya entró alguna compra así. Se revisa comparando las
+compras de productos a granel cargadas desde un remito contra el papel.
+
 ## 2. Decisiones tuyas
 
 **Ya decididas:**

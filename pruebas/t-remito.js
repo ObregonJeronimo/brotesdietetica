@@ -20,6 +20,18 @@
  * Y las cantidades entran solo si cantidad x unitario = importe. Es el unico
  * control que no depende del catalogo, y en un PDF digital vale porque los
  * digitos estan copiados, no interpretados.
+ *
+ * LOS PRODUCTOS POR PESO NO CARGAN CANTIDAD NI COSTO (19/09/2026)
+ *
+ * Un renglon en bolsas -"000123 MANI TOSTADO X 5 KG  2  4900  9800"- son 2 bolsas de
+ * 5 kg: 10.000 g a $980 el kilo. Se leia 2.000 g a $4.900 el kilo, con el tilde de
+ * verificado puesto, porque el control de KG miraba el renglon entero -el KG era del
+ * nombre- y la cuenta de control cerraba igual. Cinco veces menos stock, y el tilde
+ * invitando a no revisarlo.
+ *
+ * Desde el papel no hay forma de saber si el numero son kilos o bultos, y cada
+ * proveedor escribe distinto, asi que el comercio eligio lo seguro: el renglon carga
+ * el producto y la persona pone cantidad y costo. Los de unidad no cambian.
  */
 const fs = require('fs');
 const path = require('path');
@@ -161,34 +173,43 @@ t('remito 4: la continuacion de la descripcion no crea un item fantasma', r4.ite
 /* ================================ 5) kilos, decimales y la cuenta que no cierra */
 const r5 = API.items(LINEAS['remito-5-kilos-y-error'], CAT, 'L1');
 t('remito 5: reconoce los 4 productos', r5.items.length === 4);
+/* Los cuatro son por peso: entran como fila para completar a mano. Antes este
+   remito cargaba 1,500 KG como 1500 g, que esta bien... si el renglon viene en kilos.
+   El problema es que el lector no puede saberlo, y con bolsas cargaba cinco veces menos. */
+t('remito 5: ninguno carga cantidad, son todos por peso', r5.items.every(i => i.cantidad === 0));
+t('remito 5: ninguno queda verificado', r5.items.every(i => i.verificado === false));
 const anillo = r5.items.find(i => i.id === 'k1');
-/* 1,500 KG son 1500 GRAMOS: el sistema guarda gramos y el costo es por kilo. */
-t('remito 5: 1,500 KG se guardan como 1500 gramos', anillo.cantidad === 1500);
-t('remito 5: el costo queda POR KILO', anillo.costoUnitario === 14000.5);
-t('remito 5: y la cuenta cierra contra el importe impreso', anillo.verificado === true);
-const azucar = r5.items.find(i => i.id === 'k2');
-t('remito 5: 0,750 KG son 750 gramos', azucar.cantidad === 750);
+t('remito 5: al de 1,500 KG se le deja el costo que ya tenia, no el del papel', anillo.costoUnitario === 9000);
+t('remito 5: se explica que van a mano', r5.dudosos.every(d => /a mano/.test(d.motivo)));
+t('remito 5: quedan marcados como de peso, para agruparlos en el aviso',
+  r5.dudosos.every(d => d.porPeso === true));
+t('remito 5: el resumen dice 4 reconocidos y ninguno con cantidad',
+  r5.resumen.reconocidos === 4 && r5.resumen.conCantidad === 0);
 
-/* EL CASO QUE JUSTIFICA TODO EL CONTROL: 4 kg x $5.000 deberia dar $20.000 y
-   el remito dice $2.000. Se carga el producto, pero NO la cantidad. */
-const bandejas = r5.items.find(i => i.id === 'k4');
-t('remito 5: el renglon con la cuenta mal NO carga cantidad', bandejas.cantidad === 0);
-t('remito 5: queda marcado como no verificado', bandejas.verificado === false);
-/* Y tampoco se le cree el costo: se deja el del catalogo. */
-t('remito 5: tampoco se le toma el costo al renglon dudoso', bandejas.costoUnitario === 7777);
-t('remito 5: se explica por que quedo dudoso',
-  r5.dudosos.some(d => d.codigo === '000064' && /no cierra/.test(d.motivo)));
-t('remito 5: el resumen distingue reconocidos de verificados',
-  r5.resumen.reconocidos === 4 && r5.resumen.conCantidad === 3);
+/* EL CONTROL QUE JUSTIFICA TODO, ahora probado con uno por unidad: 4 x $5.000
+   deberia dar $20.000 y el renglon dice $2.000. Se carga el producto, no la cantidad. */
+const malaCuenta = API.items(['000272 Lenteja Turca 4 5.000,00 2.000,00'], CAT, 'L1');
+t('la cuenta que no cierra NO carga cantidad', malaCuenta.items[0].cantidad === 0);
+t('  y queda sin verificar', malaCuenta.items[0].verificado === false);
+t('  tampoco se le toma el costo al renglon', malaCuenta.items[0].costoUnitario === 0);
+t('  y se explica por que', /no cierra/.test(malaCuenta.dudosos[0].motivo));
+t('  el de unidad que si cierra sigue cargando', API.items(['000272 Lenteja Turca 4 5.000,00 20.000,00'], CAT, 'L1').items[0].cantidad === 4);
 
 /* ==================================================== bordes y seguridad */
 t('sin lineas no rompe', API.items([], CAT, 'L1').items.length === 0);
 t('sin catalogo no rompe', API.items(LINEAS['remito-1-tabla-clasica'], [], 'L1').items.length === 0);
 t('null no rompe', API.items(null, null, null).items.length === 0);
-/* Un producto por peso sin la marca KG: no se adivina si son kilos o gramos. */
+/* EL RENGLON DEL BUG: el "X 5 KG" es el nombre del producto y el 2 son bolsas.
+   Entraba como 2.000 g a $4.900 el kilo, con el tilde de verificado. */
+const bolsas = API.items(['000010 Anillo Sabor Frutilla X 5 KG 2 4.900,00 9.800,00'], CAT, 'L1');
+t('el renglon en bolsas NO carga cantidad', bolsas.items[0].cantidad === 0);
+t('  ni se lleva el costo del papel', bolsas.items[0].costoUnitario === 9000);
+t('  ni queda verificado: el tilde era lo que invitaba a no revisar', bolsas.items[0].verificado === false);
+t('  pero el producto queda en la compra, para completarlo a mano',
+  bolsas.items.length === 1 && bolsas.items[0].id === 'k1');
 const sinKg = API.items(['000010 Anillo Sabor Frutilla 3 5.000,00 15.000,00'], CAT, 'L1');
-t('un producto por peso sin decir KG no carga cantidad', sinKg.items[0].cantidad === 0);
-t('y lo explica', /no dice KG/.test(sinKg.dudosos[0].motivo));
+t('un renglon que parece en kilos tampoco carga cantidad', sinKg.items[0].cantidad === 0);
+t('y lo explica', /a mano/.test(sinKg.dudosos[0].motivo));
 /* El mismo producto dos veces en el remito no puede generar dos filas. */
 const dup = API.items(['000272 Lenteja Turca 8 550,00 4.400,00',
                        '000272 Lenteja Turca 2 550,00 1.100,00'], CAT, 'L1');
@@ -205,9 +226,10 @@ const todos = [
 const rec = todos.reduce((n, r) => n + r.resumen.reconocidos, 0);
 const ver = todos.reduce((n, r) => n + r.resumen.conCantidad, 0);
 console.log('\n  Sobre los 5 remitos: ' + rec + ' productos reconocidos, ' + ver + ' con cantidad verificada');
-/* 7 + 0 + 3 + 3 + 4 = 17 reconocidos; verificados todos menos el de la cuenta mal. */
+/* 7 + 0 + 3 + 3 + 4 = 17 reconocidos. Con cantidad, 13: los 4 del remito 5 son por
+   peso y van a mano. Si alguien vuelve a cargarlos solos, este numero lo delata. */
 t('el total reconocido sobre los 5 es 17', rec === 17);
-t('y 16 con cantidad verificada (el que falta es el de la cuenta mal)', ver === 16);
+t('y 13 con cantidad: los 4 por peso del remito 5 quedan para completar a mano', ver === 13);
 
 /* ==================================================================
    QUE EL LECTOR ESTE ENCHUFADO
@@ -242,7 +264,9 @@ t('solo agrega lo que falta', /r\.items\.filter\(i => !yaEsta\.has\(i\.id\)\)/.t
 /* El resumen tiene que decir lo que NO pudo, no solo lo que pudo. */
 t('avisa cuando el PDF no tiene texto', compras.indexOf('Este PDF no tiene texto') > 0);
 t('avisa cuando no reconocio ningun producto', compras.indexOf('no reconoc') > 0);
-t('muestra los motivos de los dudosos', /r\.dudosos\.map\(d =>/.test(compras));
+t('muestra los motivos de los dudosos', /dudOtros\.map\(d =>/.test(compras));
+t('y agrupa los de peso en una sola linea', /productos por peso/.test(compras) &&
+  /const dudPeso = r\.dudosos\.filter\(d => d\.porPeso\)/.test(compras));
 t('cuenta los renglones que no uso', /r\.ignoradas\.length/.test(compras));
 t('pide que revisen contra el papel', /Revis&aacute; las cantidades contra el papel/.test(compras));
 
