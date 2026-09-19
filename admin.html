@@ -6033,16 +6033,13 @@ prods.push({nombre:_nom,codigo:_cod,tipoVenta:_tv,costo,porcentaje:pMin,precio,p
                 const snap=await db.collection('listas').orderBy('nombre').get();
                 listasData=snap.docs.map(d=>({id:d.id,...d.data()}));
                 renderListaFilterSelect();
-                /* Siempre queda una lista activa. Antes se entraba a Productos sin ninguna
-                   seleccionada, que es un estado que no le sirve a nadie: el catalogo de
-                   una dietetica se trabaja proveedor por proveedor. Se recuerda la ultima
-                   usada, y si ya no existe (la borraron) se cae en la primera. */
-                const sel=document.getElementById('filterLista');
-                if(sel&&listasData.length&&!sel.value){
-                    const guardada=localStorage.getItem(LISTA_ACTIVA_KEY);
-                    const vale=guardada&&listasData.some(l=>l.id===guardada);
-                    sel.value=vale?guardada:listasData[0].id;
-                }
+                /* NO se elige ninguna lista sola (pedido del comercio, 19/09/2026). Antes
+                   quedaba activa la ultima usada y, si no habia ninguna, la PRIMERA por
+                   nombre: se entraba a Productos viendo un solo proveedor sin que nadie
+                   hubiera filtrado, y lo que no era de esa lista no estaba a la vista.
+                   Ademas el boton del PDF Semanal aparece segun la lista elegida, asi que
+                   esa eleccion automatica decidia sola sobre que proveedor se comparaba el
+                   PDF. Se entra con todas, y filtra el que quiere filtrar. */
                 renderListasPanel();
                 updateListaSelect('');
                 filterTable();
@@ -6127,11 +6124,11 @@ prods.push({nombre:_nom,codigo:_cod,tipoVenta:_tv,costo,porcentaje:pMin,precio,p
                                               :'<i class="bi bi-chevron-down"></i> Ver todas ('+n+')';
             }else tog.style.display='none';
         }
-        const LISTA_ACTIVA_KEY='brotesListaActiva';
+        /* El filtro no se recuerda entre visitas: si se guardara y nadie lo volviera a
+           prender, seria un dato muerto; y volver a prenderlo es justo lo que se saco. */
         function filtrarPorLista(id){
             const sel=document.getElementById('filterLista');
             if(sel)sel.value=id;
-            try{ if(id)localStorage.setItem(LISTA_ACTIVA_KEY,id); else localStorage.removeItem(LISTA_ACTIVA_KEY); }catch(e){}
             filterTable();
             renderListasPanel();
         }

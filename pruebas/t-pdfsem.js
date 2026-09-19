@@ -110,5 +110,18 @@ t('escribe en un solo batch', (g.match(/db\.batch\(\)/g)||[]).length===1);
 t('redibuja la barra despues de guardar', /filterTable\(\);/.test(g));
 t('deja rastro en el historial', /logAction\('editar','PDF Semanal: lista predeterminada/.test(g));
 
+console.log('\nAl entrar no queda ninguna lista elegida (pedido del comercio, 19/09)');
+/* Antes loadListas dejaba activa la ultima usada y, si no habia, la PRIMERA por nombre.
+   Productos abria mostrando un solo proveedor sin que nadie hubiera filtrado, y de yapa
+   esa eleccion automatica decidia sobre que lista trabajaba el PDF Semanal: con el
+   sandbox recien sembrado, el PDF se comparaba contra ANDNUTS mientras la pantalla
+   mostraba FRUTICOR. */
+const cargar=cuerpo('loadListas');
+t('loadListas no toca el filtro de listas', cargar.indexOf('filterLista')<0);
+t('  ni cae en la primera lista', cargar.indexOf('listasData[0]')<0);
+t('el filtro tampoco se recuerda entre visitas', !src.includes('brotesListaActiva'));
+t('pero filtrar a mano sigue andando', /function filtrarPorLista\(id\)\{[\s\S]{0,220}sel\.value=id/.test(src));
+t('  y se puede volver a ver todo', /data-id=""[\s\S]{0,120}Quitar el filtro/.test(src));
+
 console.log('\n'+ok+' pasaron, '+fail+' fallaron');
 process.exit(fail?1:0);
