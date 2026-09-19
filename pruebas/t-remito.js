@@ -293,6 +293,10 @@ t('guardar descarta lo que quedo en cero',
   /_compraItems\.filter\(i => Number\(i\.cantidad \|\| 0\) > 0\)/.test(compras));
 t('pero antes lo avisa', /const enCero = _compraItems\.filter/.test(compras) &&
   /NO se van a cargar/.test(compras));
+/* Con el dialogo del panel: el del navegador dice "localhost:5173 dice", no deja
+   renombrar los botones y desentona con todo lo demas (ver admin-dialogo.js). */
+t('  y lo pregunta con el dialogo del panel', /titulo: 'Quedaron productos sin cantidad'/.test(compras));
+t('  en compras ya no queda ningun cuadrito del navegador', !/[^a-zA-Z_.]confirm\(/.test(compras));
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

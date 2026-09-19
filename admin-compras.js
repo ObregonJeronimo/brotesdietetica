@@ -540,10 +540,22 @@ async function guardarCompra() {
   /* Los renglones en cero se descartan. Si eso pasa callado, el que leyo un
      remito cree que cargo todo y no cargo todo: hay que avisarlo. */
   const enCero = _compraItems.filter(i => Number(i.cantidad || 0) <= 0);
-  if (enCero.length && !confirm(
-      'Estos productos quedaron sin cantidad y NO se van a cargar:' + String.fromCharCode(10) +
-      enCero.map(i => '- ' + i.nombre).join(String.fromCharCode(10)) + String.fromCharCode(10, 10) +
-      'Guardar igual?')) return;
+  if (enCero.length) {
+    /* Con el dialogo del panel y no con el cuadrito gris del navegador: ver
+       admin-dialogo.js. Leyendo un remito esta lista son casi siempre los productos
+       por peso, que van a mano, asi que el boton de cancelar ofrece volver. */
+    const nombres = enCero.slice(0, 8).map(i => '• ' + i.nombre).join(String.fromCharCode(10)) +
+      (enCero.length > 8 ? String.fromCharCode(10) + '• y ' + (enCero.length - 8) + ' más' : '');
+    const seguir = await pedirConfirmacion(
+      (enCero.length === 1
+        ? 'Este producto quedó sin cantidad, así que NO se va a cargar:'
+        : 'Estos ' + enCero.length + ' productos quedaron sin cantidad, así que NO se van a cargar:') +
+      String.fromCharCode(10, 10) + nombres + String.fromCharCode(10, 10) +
+      'Podés volver, ponerles la cantidad y guardar de nuevo.',
+      { titulo: 'Quedaron productos sin cantidad', aceptar: 'Guardar igual',
+        cancelar: 'Volver y completar', icono: 'bi-exclamation-triangle' });
+    if (!seguir) return;
+  }
   const sinCosto = conCantidad.filter(i => Number(i.costoUnitario || 0) <= 0);
   if (sinCosto.length) {
     return showAdminToast('Falta el costo de: ' + sinCosto.map(i => i.nombre).join(', '), 'error');
