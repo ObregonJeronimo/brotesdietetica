@@ -127,13 +127,54 @@ t('el motivo va tambien en el contenedor, que es quien muestra el globo con el b
     /wrapSemanal\.title=globoSem/.test(src) && /#tbSemanalWrap button:disabled\{pointer-events:none\}/.test(src));
 
 console.log('\nEl modal arranca en la lista que se esta viendo, y el desplegable manda');
-const pintar=cuerpo('wpPintarLista');
-t('el destino sale del filtro de Productos si hay uno', /getElementById\('filterLista'\)/.test(pintar));
-t('  y si no, de la marcada', /\|\|listaPdfSemanal\(\)/.test(pintar));
+const destinoSrc=cuerpo('wpFijarDestino');
+t('el destino sale del filtro de Productos si hay uno', /getElementById\('filterLista'\)/.test(destinoSrc));
+t('  y si no, de la marcada', /\|\|listaPdfSemanal\(\)/.test(destinoSrc));
+t('  y el modal no lo calcula aparte: llama a la misma funcion', /const l=wpFijarDestino\(\);/.test(cuerpo('wpPintarLista')));
 t('el selector se abre con el destino actual', /const actual=\(document\.getElementById\('wpListaFiltro'\)\|\|\{\}\)\.value\|\|''/.test(cuerpo('wpMostrarSelector')));
 t('elegir en el desplegable cambia el destino de esta pasada',
     /onchange="wpListaSeleccionCambio\(\)"/.test(src) && /hid\.value=l\?l\.id:''/.test(cuerpo('wpListaSeleccionCambio')));
 t('  y la ayuda del modal lo dice', /Lo que elijas ac&aacute; vale para este PDF/.test(src));
+
+console.log('\nQuien decide el destino del PDF: una sola funcion, con un DOM de mentira');
+/* Se corre wpFijarDestino de verdad. Los dos bugs que cubre: guardar una lista nueva
+   mientras Productos filtraba otra devolvia el destino al del filtro (con el cartel
+   diciendo lo contrario), y Cancelar dejaba puesta la lista que se habia mirado. */
+function armarDestino(filtro, listas){
+    const campos={wpListaFiltro:{value:''},wpListaNombre:{textContent:''},filterLista:{value:filtro}};
+    const fn=new Function('document','listasData',
+        cuerpo('listaPdfSemanal')+cuerpo('wpFijarDestino')+';return wpFijarDestino;')(
+        {getElementById:id=>campos[id]||null}, listas);
+    return {fn:fn, campos:campos};
+}
+const FRU2={id:'l1',nombre:'FRUTICOR',pdfSemanal:true};
+const HERB={id:'l2',nombre:'LA HERBOLERIA',pdfSemanal:false};
+{
+    const d=armarDestino('l2',[FRU2,HERB]); d.fn();
+    t('con una lista filtrada, el destino es esa', d.campos.wpListaFiltro.value==='l2' &&
+        d.campos.wpListaNombre.textContent==='LA HERBOLERIA');
+}
+{
+    const d=armarDestino('',[FRU2,HERB]); d.fn();
+    t('sin filtro, el destino es la marcada', d.campos.wpListaFiltro.value==='l1');
+}
+{
+    /* Guardar acaba de marcar l2 y el filtro sigue en l1: tiene que ganar la guardada. */
+    const d=armarDestino('l1',[FRU2,HERB]); d.fn(HERB);
+    t('la lista recien guardada le gana al filtro', d.campos.wpListaFiltro.value==='l2' &&
+        d.campos.wpListaNombre.textContent==='LA HERBOLERIA');
+}
+{
+    const d=armarDestino('',[{id:'l3',nombre:'X',pdfSemanal:false}]); d.fn();
+    t('sin filtro y sin ninguna marcada, no hay destino', d.campos.wpListaFiltro.value==='' &&
+        d.campos.wpListaNombre.textContent==='ninguna elegida todavia');
+}
+t('guardar fija la recien guardada y no recalcula', /wpFijarDestino\(elegida\)/.test(cuerpo('wpGuardarListaPredeterminada')) &&
+    cuerpo('wpGuardarListaPredeterminada').indexOf('wpPintarLista();')<0);
+t('cancelar deshace lo que toco el desplegable',
+    /function wpCancelarSelector\(\)\{[\s\S]{0,260}wpFijarDestino\(\);[\s\S]{0,60}wpOcultarSelector\(\);/.test(src));
+t('  y el boton Cancelar llama a esa, no a la que solo esconde',
+    /id="wpCancelarBtn"[^>]*onclick="wpCancelarSelector\(\)"/.test(src));
 
 console.log('\nAl entrar no queda ninguna lista elegida (pedido del comercio, 19/09)');
 /* Antes loadListas dejaba activa la ultima usada y, si no habia, la PRIMERA por nombre.
