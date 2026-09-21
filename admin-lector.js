@@ -300,18 +300,43 @@ function procesarCodigoLeido(cod) {
     return;
   }
 
-  /* Fuera de una venta, escanear es consultar: abre la ficha del producto. */
-  if (prod) {
-    switchSection('products');
-    openModal(prod.id);
-    /* Un depurado no sale en Productos: sin este aviso se editaba y se guardaba sin
-       saber que seguia escondido. */
-    if (prod.depurado === true) {
-      showAdminToast('"' + (prod.nombreMostrado || prod.nombre) + '" está depurado: no aparece en la tienda ni en las listas. ' +
-        'Se restaura desde Depuración de productos.', 'info');
-    }
+  if (!prod) { openAsignarCodigo(cod, 'ficha'); return; }
+
+  /* Sin ningun modal abierto, el escaneo hace lo que corresponde a DONDE esta
+     parado el cajero, que es lo que evita el paso de mas:
+       en Ventas    -> abre una venta nueva con el producto ya cargado
+       en Productos -> abre su ficha
+       en cualquier otra seccion no se adivina: se pregunta. */
+  const _sec = (document.querySelector('.section-content.active') || {}).id || '';
+  if (_sec === 'sec-ventas') { _venderEscaneado(prod); return; }
+  if (_sec === 'sec-products') { _fichaEscaneada(prod); return; }
+  if (typeof pedirConfirmacion === 'function') {
+    pedirConfirmacion('"' + (prod.nombreMostrado || prod.nombre) + '"', {
+      titulo: 'Producto escaneado',
+      aceptar: 'Cargarlo en una venta',
+      cancelar: 'Ver su ficha',
+      icono: 'bi-upc-scan'
+    }).then(function (vender) { if (vender) _venderEscaneado(prod); else _fichaEscaneada(prod); });
   } else {
-    openAsignarCodigo(cod, 'ficha');
+    _fichaEscaneada(prod);
+  }
+}
+
+/* Escanear parado en Ventas: si no hay una venta abierta, se abre. Antes habia que
+   tocar V primero, y con la pistola en la mano ese paso es el que se olvida. */
+function _venderEscaneado(prod) {
+  if (!_modalAbierto('ventaModal') && typeof openVentaModal === 'function') openVentaModal();
+  _agregarYAvisar(prod, addVentaItem, () => _cantEnVenta('min', prod.id));
+}
+
+function _fichaEscaneada(prod) {
+  switchSection('products');
+  openModal(prod.id);
+  /* Un depurado no sale en Productos: sin este aviso se editaba y se guardaba sin
+     saber que seguia escondido. */
+  if (prod.depurado === true) {
+    showAdminToast('"' + (prod.nombreMostrado || prod.nombre) + '" está depurado: no aparece en la tienda ni en las listas. ' +
+      'Se restaura desde Depuración de productos.', 'info');
   }
 }
 
