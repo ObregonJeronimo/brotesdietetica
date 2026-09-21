@@ -2146,6 +2146,16 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             if (typeof refrescarBarrasProducto === 'function') refrescarBarrasProducto();
         }
 
+        /* Los dos codigos se comparan con el MISMO criterio con el que los busca el
+           lector en _normCod(), que ignora mayusculas y ceros a la
+           izquierda. Si no fuera el mismo, la validacion dejaria pasar un par que
+           despues, al escanear, el lector ve como repetido: fue exactamente lo que
+           paso con "57" y "000057", dos arvejas que trababan la venta por escaneo. */
+        function _mismoCodigo(a, b){
+            const n = x => String(x == null ? '' : x).trim().toUpperCase().replace(/^0+/, '');
+            const na = n(a);
+            return !!na && na === n(b);
+        }
         /* Devuelve el mensaje de error, o '' si está bien. */
         async function validarCodigoProducto(codigo, idActual){
             if (!codigo) return 'El código no puede quedar vacío.';
@@ -2154,6 +2164,10 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             /* En memoria primero: es instantáneo y resuelve el 99% de los casos. */
             const choqueLocal = (allProducts || []).find(p => p.id !== idActual && normCodigo(p.codigo) === codigo);
             if (choqueLocal) return 'Ese código ya lo usa "' + (choqueLocal.nombreMostrado || choqueLocal.nombre) + '".';
+            /* Y CRUZADO: que no sea el codigo de BARRAS de otro. El lector busca en los
+               dos campos, asi que un cruce deja los dos productos sin poder escanearse. */
+            const cruceBarras = (allProducts || []).find(p => p.id !== idActual && _mismoCodigo(codigo, p.codigoBarras));
+            if (cruceBarras) return 'Ese código es el código de barras de "' + (cruceBarras.nombreMostrado || cruceBarras.nombre) + '". Al escanear no se sabría cuál es.';
             /* Y contra la base, que es la que manda: allProducts puede estar vieja si
                otro admin cargó un producto hace un minuto. */
             try {
@@ -2179,6 +2193,9 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const local = (allProducts || []).find(p => p.id !== idActual &&
                 String(p.codigoBarras || '').trim().toUpperCase() === cod.toUpperCase());
             if (local) return 'Ese código de barras ya lo usa "' + (local.nombreMostrado || local.nombre) + '".';
+            /* Y CRUZADO: que no sea el codigo INTERNO de otro, por el mismo motivo. */
+            const cruceInterno = (allProducts || []).find(p => p.id !== idActual && _mismoCodigo(cod, p.codigo));
+            if (cruceInterno) return 'Ese código de barras es el código interno de "' + (cruceInterno.nombreMostrado || cruceInterno.nombre) + '". Al escanear no se sabría cuál es.';
             /* Y contra la base, que es la que manda: allProducts puede estar vieja si
                otro admin cargo un producto hace un minuto. */
             try {

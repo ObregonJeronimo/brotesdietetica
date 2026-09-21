@@ -23,29 +23,54 @@ logos). De acá salieron el rediseño de la barra de listas de proveedores y el 
 sus contadores (§3, tanda 7).
 
 
-## 0. LO QUE SIGUE, EN ORDEN (al 18/09/2026)
+## 0. LO QUE SIGUE, EN ORDEN (al 21/09/2026)
 
-Sistema **entregado y en uso diario**. Esta lista es por dónde seguir.
+Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 
-1. **La pistola no agrega el producto al escanear con la venta abierta** (§1-bis H sigue
-   abierto). **Bloqueado esperando al dueño**: tiene que abrir
-   `pruebas/lector-diagnostico.html`, escanear una vez y mandar la captura. Sin esos
-   milisegundos reales no se puede elegir el umbral; la sospecha es que la regla de 40 ms
-   entre teclas se rompe cuando el buscador filtra 1.350 productos con cada dígito.
-2. **Ticket térmico después de la venta** y **roles por empleado**: especificados en
-   `SPEC-ROLES-TICKET.md`. **El ticket primero** (es autocontenido y reusa
-   `admin-etiquetas.js`); los roles después (tocan reglas, una Cloud Function y las 17
-   secciones). Los dos están prometidos en el dossier del cliente nuevo.
-3. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I). No se pueden crear
-   solos: categoría y lista son obligatorias y el reporte no las trae.
-4. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
+1. **La pistola no agrega el producto al escanear con la venta abierta** (§1-bis H).
+   **Bloqueado esperando al dueño**: tiene que abrir `pruebas/lector-diagnostico.html`,
+   escanear una vez y mandar la captura. Sin esos milisegundos reales no se puede elegir
+   el umbral.
+2. **Cargar los códigos de barras.** Hoy `codigoBarras` está cargado en **1 solo producto
+   de 1.312**: el único escaneo que funciona es el de las etiquetas que imprime el local,
+   que llevan el código interno. El lector ya busca en los dos campos y la validación
+   cruzada ya está puesta (21/09), así que se pueden cargar sin miedo a choques.
+3. **Ticket térmico después de la venta** y **roles por empleado**: especificados en
+   `SPEC-ROLES-TICKET.md`. **El ticket primero**; los roles después.
+4. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I).
+5. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
    está en Blaze, **sin tope y sin ninguna alerta**.
-5. **Revisar en qué plan está Vercel.** El plan Hobby es *non-commercial only* y Brotes
-   vende: si está en Hobby, el riesgo es que **pausen el sitio**, no una factura. Pro son
-   USD 20/mes.
-6. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
-7. **Portar a YERCO** lo de §6 (reporte de duplicados, elección de lista del PDF Semanal,
-   filtro "Volvieron al PDF"). **YERCO se toca desde su propia sesión, no desde acá.**
+6. **Revisar en qué plan está Vercel.** Hobby es *non-commercial only* y Brotes vende.
+7. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
+8. **Portar a YERCO** lo de §6. **YERCO se toca desde su propia sesión, no desde acá.**
+
+### Para el chat DEFT (repo base y alta de clientes con banderas)
+
+- **El panel no guarda quién carga cada producto.** No existe `creadoPor` ni `usuario` en
+  los 1.312 documentos de `productos`; se buscó uno por uno. Por eso, para separar lo que
+  cargó el comercio de lo que cargamos nosotros, hubo que deducirlo por el rango de
+  código. El `historial` sí registra el mail de cada acción, pero eso obliga a un cruce.
+  En el repo base, `creadoPor` en el producto tiene que venir de fábrica.
+- **Ningún archivo compartido con YERCO es idéntico**, ni siquiera los de mismo tamaño.
+  El análisis completo (qué módulo va a bandera, qué es dato del cliente, y por qué
+  conviene que la base sea Brotes) está en la conversación del 18/09.
+- **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
+  defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
+
+### Hecho el 21/09
+
+- **Datos, en producción** (solo lista `FRUTICOR-TODOS`, 720 documentos, con respaldo):
+  656 productos al **65% de ganancia** mínima -578 con precio recalculado, y **78 con
+  costo $0 a los que NO se les tocó el precio**, porque el reporte viejo traía precio de
+  venta y no costo-, y **468 ocultados** por tener código mayor a `000684`, que es donde
+  termina el reporte de Zoo Logic. Los **168 códigos propios** que viven en esa lista y
+  los **35 que cargó el comercio** quedaron intactos.
+- **La Arveja duplicada**: `57` y `000057` eran el mismo producto; el stock pasó al
+  `000057` y el otro se borró.
+- **Merge con origin**: las dos ramas venían de `de24553` (07/09). Se tomó origin como
+  base y se re-aplicaron encima los cambios locales.
+
+---
 
 **Costos, medido el 14/09:** hoy **$0**. El gasto escala con las visitas a la tienda, porque
 cada visita baja el catálogo entero (~1.500 lecturas, con caché de 3 minutos). Límite gratis:
