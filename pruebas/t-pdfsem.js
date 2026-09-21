@@ -110,5 +110,84 @@ t('escribe en un solo batch', (g.match(/db\.batch\(\)/g)||[]).length===1);
 t('redibuja la barra despues de guardar', /filterTable\(\);/.test(g));
 t('deja rastro en el historial', /logAction\('editar','PDF Semanal: lista predeterminada/.test(g));
 
+console.log('\nEl boton se ve siempre; apagado si el filtro muestra otra lista (19/09)');
+/* Esconderlo dejaba a la gente buscandolo, sobre todo desde que no se elige ninguna
+   lista sola. Pero usarlo desde otra lista sigue prohibido: comparar el PDF de un
+   proveedor contra el catalogo de otro manda a ocultar todo lo del otro. */
+const motivo=new Function(cuerpo('listaUsaPdfSemanal')+cuerpo('motivoPdfSemanalApagado')+';return motivoPdfSemanalApagado;')();
+const FRU={id:'l1',nombre:'FRUTICOR',pdfSemanal:true},OTRA={id:'l2',nombre:'REAL ESSENZE',pdfSemanal:false};
+t('sin filtro se puede usar: trabaja sobre la marcada', motivo(null,FRU)==='');
+t('con la marcada elegida en el filtro, tambien', motivo(FRU,FRU)==='');
+t('con otra lista elegida queda apagado', motivo(OTRA,FRU)!=='');
+t('  y el motivo nombra las dos listas', motivo(OTRA,FRU).indexOf('FRUTICOR')>0 && motivo(OTRA,FRU).indexOf('REAL ESSENZE')>0);
+t('si todavia no hay ninguna marcada se puede entrar igual: la lista se elige adentro',
+    motivo(OTRA,null)==='');
+t('el boton ya no se esconde', /wrapSemanal\.style\.display=''/.test(src));
+t('el motivo va tambien en el contenedor, que es quien muestra el globo con el boton apagado',
+    /wrapSemanal\.title=globoSem/.test(src) && /#tbSemanalWrap button:disabled\{pointer-events:none\}/.test(src));
+
+console.log('\nEl modal arranca en la lista que se esta viendo, y el desplegable manda');
+const destinoSrc=cuerpo('wpFijarDestino');
+t('el destino sale del filtro de Productos si hay uno', /getElementById\('filterLista'\)/.test(destinoSrc));
+t('  y si no, de la marcada', /\|\|listaPdfSemanal\(\)/.test(destinoSrc));
+t('  y el modal no lo calcula aparte: llama a la misma funcion', /const l=wpFijarDestino\(\);/.test(cuerpo('wpPintarLista')));
+t('el selector se abre con el destino actual', /const actual=\(document\.getElementById\('wpListaFiltro'\)\|\|\{\}\)\.value\|\|''/.test(cuerpo('wpMostrarSelector')));
+t('elegir en el desplegable cambia el destino de esta pasada',
+    /onchange="wpListaSeleccionCambio\(\)"/.test(src) && /hid\.value=l\?l\.id:''/.test(cuerpo('wpListaSeleccionCambio')));
+t('  y la ayuda del modal lo dice', /Lo que elijas ac&aacute; vale para este PDF/.test(src));
+
+console.log('\nQuien decide el destino del PDF: una sola funcion, con un DOM de mentira');
+/* Se corre wpFijarDestino de verdad. Los dos bugs que cubre: guardar una lista nueva
+   mientras Productos filtraba otra devolvia el destino al del filtro (con el cartel
+   diciendo lo contrario), y Cancelar dejaba puesta la lista que se habia mirado. */
+function armarDestino(filtro, listas){
+    const campos={wpListaFiltro:{value:''},wpListaNombre:{textContent:''},filterLista:{value:filtro}};
+    const fn=new Function('document','listasData',
+        cuerpo('listaPdfSemanal')+cuerpo('wpFijarDestino')+';return wpFijarDestino;')(
+        {getElementById:id=>campos[id]||null}, listas);
+    return {fn:fn, campos:campos};
+}
+const FRU2={id:'l1',nombre:'FRUTICOR',pdfSemanal:true};
+const HERB={id:'l2',nombre:'LA HERBOLERIA',pdfSemanal:false};
+{
+    const d=armarDestino('l2',[FRU2,HERB]); d.fn();
+    t('con una lista filtrada, el destino es esa', d.campos.wpListaFiltro.value==='l2' &&
+        d.campos.wpListaNombre.textContent==='LA HERBOLERIA');
+}
+{
+    const d=armarDestino('',[FRU2,HERB]); d.fn();
+    t('sin filtro, el destino es la marcada', d.campos.wpListaFiltro.value==='l1');
+}
+{
+    /* Guardar acaba de marcar l2 y el filtro sigue en l1: tiene que ganar la guardada. */
+    const d=armarDestino('l1',[FRU2,HERB]); d.fn(HERB);
+    t('la lista recien guardada le gana al filtro', d.campos.wpListaFiltro.value==='l2' &&
+        d.campos.wpListaNombre.textContent==='LA HERBOLERIA');
+}
+{
+    const d=armarDestino('',[{id:'l3',nombre:'X',pdfSemanal:false}]); d.fn();
+    t('sin filtro y sin ninguna marcada, no hay destino', d.campos.wpListaFiltro.value==='' &&
+        d.campos.wpListaNombre.textContent==='ninguna elegida todavia');
+}
+t('guardar fija la recien guardada y no recalcula', /wpFijarDestino\(elegida\)/.test(cuerpo('wpGuardarListaPredeterminada')) &&
+    cuerpo('wpGuardarListaPredeterminada').indexOf('wpPintarLista();')<0);
+t('cancelar deshace lo que toco el desplegable',
+    /function wpCancelarSelector\(\)\{[\s\S]{0,260}wpFijarDestino\(\);[\s\S]{0,60}wpOcultarSelector\(\);/.test(src));
+t('  y el boton Cancelar llama a esa, no a la que solo esconde',
+    /id="wpCancelarBtn"[^>]*onclick="wpCancelarSelector\(\)"/.test(src));
+
+console.log('\nAl entrar no queda ninguna lista elegida (pedido del comercio, 19/09)');
+/* Antes loadListas dejaba activa la ultima usada y, si no habia, la PRIMERA por nombre.
+   Productos abria mostrando un solo proveedor sin que nadie hubiera filtrado, y de yapa
+   esa eleccion automatica decidia sobre que lista trabajaba el PDF Semanal: con el
+   sandbox recien sembrado, el PDF se comparaba contra ANDNUTS mientras la pantalla
+   mostraba FRUTICOR. */
+const cargar=cuerpo('loadListas');
+t('loadListas no toca el filtro de listas', cargar.indexOf('filterLista')<0);
+t('  ni cae en la primera lista', cargar.indexOf('listasData[0]')<0);
+t('el filtro tampoco se recuerda entre visitas', !src.includes('brotesListaActiva'));
+t('pero filtrar a mano sigue andando', /function filtrarPorLista\(id\)\{[\s\S]{0,220}sel\.value=id/.test(src));
+t('  y se puede volver a ver todo', /data-id=""[\s\S]{0,120}Quitar el filtro/.test(src));
+
 console.log('\n'+ok+' pasaron, '+fail+' fallaron');
 process.exit(fail?1:0);

@@ -93,11 +93,11 @@ t('un limite con texto tambien', conLimites('abc', 'xyz').uni() === 10);
 
 /* ------------------------------------ que los tres lugares usen lo mismo */
 t('la tarjeta cuenta con el criterio',
-  html.indexOf("statLowStock').textContent=allProducts.filter(esStockBajo).length") > 0);
+  /statLowStock'\)\.textContent=(allProducts|_act)\.filter\(esStockBajo\)\.length/.test(html));
 t('la tabla pinta la fila con el criterio',
   html.indexOf("else if(esStockBajo(p))sc='stock-low'") > 0);
 t('el tooltip lista con el criterio',
-  html.indexOf('prods=allProducts.filter(esStockBajo);') > 0);
+  /prods=(allProducts|_act)\.filter\(esStockBajo\);/.test(html));
 t('no quedo ninguna comparacion suelta contra el umbral',
   html.indexOf('(p.stock||0)<thr') < 0 && html.indexOf('sv<thr') < 0);
 

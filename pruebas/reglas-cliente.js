@@ -143,6 +143,8 @@ async function main() {
   await setear('pedidos/ped-ajeno', pedidoReal({ clienteAuthUid: 'uid-otro' }), SEMBRADOR);
   await setear('resenas/tok-libre', { usado: false, ventaNum: 7, nombre: '', comentario: '', estrellas: 0 }, SEMBRADOR);
   await setear('resenas/tok-ajeno', { usado: false, ventaNum: 8, clienteAuthUid: 'uid-otro', nombre: '', comentario: '', estrellas: 0 }, SEMBRADOR);
+  await setear('resenaPremios/premio-mio', { codigo: 'ABC2345', monto: 1500, limite: 8000, uid: 'uid-cliente' }, SEMBRADOR);
+  await setear('resenaPremios/premio-ajeno', { codigo: 'XYZ7788', monto: 1500, limite: 8000, uid: 'uid-otro' }, SEMBRADOR);
 
   console.log('\nEl arnes se prueba a si mismo (si esto falla, lo demas no significa nada)');
   await permitido('un admin de /admins puede escribir productos', () => setear('productos/px', { nombre: 'x' }, ADMIN));
@@ -238,6 +240,22 @@ async function main() {
   await denegado('no puede volver a usar un token ya completado', () => actualizar('resenas/tok-libre', { nombre: 'Ana', estrellas: 1, comentario: 'otra vez', fecha: new Date(), visible: true, usado: true, clienteAuthUid: 'uid-cliente' }, CLIENTE));
   await denegado('no puede fabricarse tokens de resena', () => setear('resenas/inventado', { usado: false, ventaNum: 99 }, CLIENTE));
   await denegado('no puede borrar una resena', () => borrar('resenas/tok-libre', CLIENTE));
+
+  /* El cupon que se gana al opinar NO vive adentro de la resena: las resenas
+     completadas las lista cualquiera -asi las muestra la tienda- y ahi el codigo
+     seria publico. Vive en /resenaPremios, que solo lee su dueno. */
+  console.log('\nEl premio por dejar la resena');
+  await permitido('lee su propio premio', () => leer('resenaPremios/premio-mio', CLIENTE));
+  await denegado('NO puede leer el premio de otro', () => leer('resenaPremios/premio-ajeno', CLIENTE));
+  await denegado('sin sesion no lee ninguno', () => leer('resenaPremios/premio-mio', ANONIMO));
+  await denegado('no puede listar los premios de todos',
+    () => consultar({ from: [{ collectionId: 'resenaPremios' }] }, CLIENTE));
+  /* Solo lo escribe el servidor: la Cloud Function usa el Admin SDK y no pasa
+     por estas reglas. Si un cliente pudiera, se pondria el monto que quisiera. */
+  await denegado('no puede fabricarse un premio',
+    () => setear('resenaPremios/inventado', { codigo: 'AAA2222', monto: 999999, uid: 'uid-cliente' }, CLIENTE));
+  await denegado('ni subirle el monto al suyo',
+    () => actualizar('resenaPremios/premio-mio', { monto: 999999 }, CLIENTE));
 
   console.log('\nLo que el cliente NO tiene que poder ver');
   await denegado('el token del bot de Telegram', () => leer('config/telegram', CLIENTE));

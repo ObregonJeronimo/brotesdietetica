@@ -299,6 +299,12 @@ function procesarCodigoLeido(cod) {
   if (prod) {
     switchSection('products');
     openModal(prod.id);
+    /* Un depurado no sale en Productos: sin este aviso se editaba y se guardaba sin
+       saber que seguia escondido. */
+    if (prod.depurado === true) {
+      showAdminToast('"' + (prod.nombreMostrado || prod.nombre) + '" está depurado: no aparece en la tienda ni en las listas. ' +
+        'Se restaura desde Depuración de productos.', 'info');
+    }
   } else {
     openAsignarCodigo(cod, 'ficha');
   }
@@ -403,7 +409,7 @@ function renderAsignarCodigoLista() {
   const cont = document.getElementById('asignarCodigoLista');
   if (!cont) return;
   const q = ((document.getElementById('asignarCodigoBuscar') || {}).value || '').toLowerCase().trim();
-  let arr = (typeof allProducts !== 'undefined' && Array.isArray(allProducts)) ? allProducts : [];
+  let arr = (typeof allProducts !== 'undefined' && Array.isArray(allProducts)) ? allProducts.filter(p => p.depurado !== true) : [];
   if (q) arr = arr.filter(p => ((p.nombreMostrado || '') + ' ' + (p.nombre || '')).toLowerCase().includes(q));
   else arr = arr.filter(p => !p.codigoBarras);   /* sin buscar, los que faltan asignar */
   arr = arr.slice(0, 40);

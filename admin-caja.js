@@ -83,6 +83,22 @@ const _hora = ts => (ts && ts.seconds)
   ? new Date(ts.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
   : '';
 
+/* La fecha de una caja se GUARDA como 'AAAA-MM-DD' (hoyAR): es la fecha argentina del
+   dia en que se abrio, y se sigue guardando igual. Esto es solo para mostrarla dada
+   vuelta. Se da vuelta a mano y NO con new Date('2026-09-19'): eso la lee como UTC y
+   en Argentina la muestra un dia antes. */
+function _cajaFecha(f) {
+  if (!f) return '';
+  if (typeof f === 'string') {
+    const m = f.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? m[3] + '/' + m[2] + '/' + m[1] : f;
+  }
+  const d = (typeof f.toDate === 'function') ? f.toDate() : (f instanceof Date ? f : null);
+  if (!d || isNaN(d)) return '';
+  const dos = n => String(n).padStart(2, '0');
+  return dos(d.getDate()) + '/' + dos(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
 /* ============================ CARGA ============================
 
    ENTRAR A LA CAJA TARDABA MEDIO SEGUNDO Y ERA CULPA DEL ORDEN.
@@ -318,7 +334,7 @@ function renderCaja() {
         '</div>' +
         '<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:0.6rem">' +
           'Abierta por ' + esc(cajaActual.abiertoPor || '-') +
-          (cajaActual.fecha ? ' - abierta el ' + esc(cajaActual.fecha) : '') + '</p>' +
+          (cajaActual.fecha ? ' - abierta el ' + esc(_cajaFecha(cajaActual.fecha)) : '') + '</p>' +
         /* Aviso de caja vieja. Cuando se olvidan de cerrarla, getCajaAbiertaIdLive solo mira
            estado==='abierta' y le estampa a las ventas de HOY el cajaId de la caja de AYER:
            entran a su arqueo (por eso el efectivo cierra) pero el dia de hoy aparece en
@@ -328,7 +344,7 @@ function renderCaja() {
         ((typeof hoyAR === 'function' && cajaActual.fecha && cajaActual.fecha !== hoyAR())
           ? '<p style="font-size:0.78rem;color:#EDB833;font-weight:600;margin-bottom:0.6rem">' +
               '<i class="bi bi-exclamation-triangle"></i> Esta caja quedó abierta del ' +
-              esc(cajaActual.fecha) + ': todo lo que se venda hoy entra a SU arqueo.</p>'
+              esc(_cajaFecha(cajaActual.fecha)) + ': todo lo que se venda hoy entra a SU arqueo.</p>'
           : '') +
         fila('Fondo inicial', _pesos(cajaActual.montoInicial)) +
         fila('Ventas (' + t.count + ')', _pesos(t.bruto)) +
@@ -516,7 +532,7 @@ function renderHistorialCajas() {
     const etq = dif === 0 ? 'exacta' : (dif > 0 ? 'sobrante' : 'faltante');
     return '<tr>' +
       '<td style="white-space:nowrap">#' + String(c.numero || 0).padStart(4, '0') + '</td>' +
-      '<td style="white-space:nowrap">' + esc(c.fecha || '') + '</td>' +
+      '<td style="white-space:nowrap">' + esc(_cajaFecha(c.fecha)) + '</td>' +
       '<td style="text-align:right;white-space:nowrap">' + _pesos(c.ventasBruto) + '</td>' +
       '<td style="text-align:right;white-space:nowrap">' + _pesos(c.esperadoEfectivo) + '</td>' +
       '<td style="text-align:right;white-space:nowrap">' + _pesos(c.contadoEfectivo) + '</td>' +
@@ -660,7 +676,7 @@ async function openCajaDetalle(cajaId) {
     _cajaDetalle = await cargarDetalleCaja(cajaId);
     document.getElementById('cajaDetalleTitulo').innerHTML =
       '<i class="bi bi-receipt-cutoff"></i> Caja #' + String(_cajaDetalle.caja.numero || 0).padStart(4, '0') +
-      ' <span style="font-weight:400;color:var(--text-dim);font-size:0.9rem">· ' + esc(_cajaDetalle.caja.fecha || '') + '</span>';
+      ' <span style="font-weight:400;color:var(--text-dim);font-size:0.9rem">· ' + esc(_cajaFecha(_cajaDetalle.caja.fecha)) + '</span>';
     body.innerHTML = renderCajaDetalle(_cajaDetalle);
   } catch (e) {
     body.innerHTML = '<p style="font-size:0.88rem;color:var(--danger)">No se pudo cargar: ' + esc(e.message) + '</p>';
@@ -1438,7 +1454,7 @@ function buildArqueoHTML(d) {
       '<div style="font-size:11px;color:#555">' + (parcial ? 'Corte parcial de caja' : 'Arqueo de caja') + '</div></div>' +
       '<div style="text-align:right">' +
         '<div style="font-size:15px;font-weight:700">Caja #' + String(c.numero || 0).padStart(4, '0') + '</div>' +
-        '<div style="font-size:11px;color:#555">' + esc(c.fecha || '') + '</div>' +
+        '<div style="font-size:11px;color:#555">' + esc(_cajaFecha(c.fecha)) + '</div>' +
       '</div>' +
     '</div>' +
 
@@ -1572,7 +1588,7 @@ function _exportarArqueoCSV() {
   const d = _cajaDetalle, c = d.caja, medios = c.ventasPorMedio || {};
   const filas = [];
   const push = (a, b, cc, dd, ee) => filas.push([a, b, cc, dd, ee].map(x => x == null ? '' : String(x)));
-  push('ARQUEO DE CAJA'); push('Caja', String(c.numero || 0).padStart(4, '0')); push('Fecha', c.fecha || '');
+  push('ARQUEO DE CAJA'); push('Caja', String(c.numero || 0).padStart(4, '0')); push('Fecha', _cajaFecha(c.fecha));
   push('Abrió', c.abiertoPor || ''); push('Cerró', c.cerradoPor || ''); push('');
   push('Fondo inicial', c.montoInicial || 0);
   push('Ventas en efectivo', medios.efectivo || 0);
@@ -1635,7 +1651,7 @@ function _exportarArqueoPDF() {
   doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
   doc.text((typeof NEGOCIO !== 'undefined' && NEGOCIO.nombre) ? NEGOCIO.nombre : 'Brotes Dietética', M, 8.5);
   doc.setFontSize(10);
-  doc.text('Arqueo caja #' + String(c.numero || 0).padStart(4, '0') + '  ·  ' + (c.fecha || ''), W - M, 8.5, { align: 'right' });
+  doc.text('Arqueo caja #' + String(c.numero || 0).padStart(4, '0') + '  ·  ' + _cajaFecha(c.fecha), W - M, 8.5, { align: 'right' });
   y = 20; doc.setTextColor(17);
 
   const titulo = (t) => {

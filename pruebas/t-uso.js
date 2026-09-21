@@ -48,6 +48,11 @@ Module._load = function (req) {
       storage: () => crearStorage()
     };
   }
+  /* FieldValue se importa por su camino propio y no como admin.firestore.FieldValue:
+     ese atajo queda en undefined dentro del emulador de funciones. El mock tiene que
+     seguir el mismo camino que el codigo, o esta prueba estaria comprobando algo que
+     ya no existe. */
+  if (req === 'firebase-admin/firestore') return { FieldValue };
   if (req === 'firebase-functions') return { logger: { info(){}, warn(){}, error(){} } };
   if (req === 'firebase-functions/v1') {
     const v1 = { auth: { user: () => ({ onCreate: (f) => f }) } };

@@ -845,6 +845,150 @@ interno agrega x1, el de barras también, repetirlo suma x2, y `320` no agarra `
 
 ---
 
+### I) Depuración de productos · **PUBLICADO, CON LA PARTE DE FIREBASE** (14/09/2026)
+
+**Lo pedido:** una sección nueva, **Depuración de productos**, que junte los productos que ya no
+se mueven para esconderlos sin borrarlos: 30/60/90 días a elección, una tabla con qué criterio
+cumple cada uno, **Depurar**, la lista de **Productos depurados** con **Restaurar**, y
+**Productos excluidos** para los que no se tienen que sugerir nunca (lo estacional).
+
+**Cómo decide.** Es candidato si cumple 2 de 3 en los últimos X días, y uno de los 2 es **Sin ventas**
+(obligatorio desde el segundo chequeo del 14/09: algo vendido ayer y sin stock salía para depurar):
+
+| criterio | de dónde sale |
+|---|---|
+| Sin ventas | ventas y ventas mayoristas. Los pedidos web entran: no pasan a confirmado ni a entregado sin generar la venta |
+| Sin stock | stock en 0 o negativo |
+| Sin reposición | `stockSubioEn`, que escribe la función `registrarReposicion` cuando sube el stock. Mientras `config/depuracion.registroStockDesde` no cubra los días elegidos, dice "sin datos" y no cuenta |
+
+No se ofrece aunque cumpla si se dio de alta hace menos de X días (`creadoEn`), si tiene un pedido
+abierto (cualquier estado que no sea entregado o cancelado), o si sus presentaciones
+(`gramajePadreId`) o sus envasados propios (`padreId`) se siguen vendiendo. La pantalla dice
+cuántos quedaron afuera por cada motivo.
+
+**La regla que no se puede romper: el depurado sigue en `allProducts`.** Se saca solo de las
+pantallas donde se elige un producto —tablas, buscadores, exportaciones, alertas— y de la tienda.
+Hay 22 funciones que usan esa lista para buscar datos, y si faltara: Importar Nuevos lo crearía
+duplicado y le repetiría el código, el lector del mostrador no lo encontraría, y
+`borrarImagenesQueSobran` le **borraría las fotos**. `t-depuracion.js` falla si alguna lo filtra.
+
+**Chequeo profundo del 14/09: cinco errores, arreglados y probados en el sandbox.**
+
+1. Depurar releía el stock pero no las ventas: algo vendido con la lista abierta se depuraba igual.
+2. Un granel cuyos envasados se venden —o un principal cuyas presentaciones se venden— se
+   ofrecía para depurar.
+3. Vender un depurado por peso pedía los gramos dos veces: el control estaba en `addVentaItem`,
+   que se reemplaza por `_agregarItemVenta`.
+4. Convertir un pedido web en venta no avisaba si traía un depurado.
+5. Con el panel abierto desde temprano, la lista usaba ventas viejas.
+
+Y dos menores: la ficha de proveedor contaba los depurados, y la barrida de clics podía apretar
+Restaurar.
+
+**Lo de Firebase, hecho el 14/09/2026 (con la clienta sin usar el sistema):**
+
+- **`registrarReposicion`** (functions/index.js), Gen 2 en `southamerica-east1`, escucha
+  `productos/{productoId}` y escribe `stockSubioEn` cuando el stock **sube**, también en un alta
+  con stock y aunque siga en 0 o negativo: una compra de -3 a -1 es mercadería que entró, y hay
+  36 productos con stock negativo. (La primera versión pedía que quedara positivo; se corrigió y
+  se redesplegó el mismo 14/09.) Sin reintento automático: activarlo exige `--force` al
+  desplegar porque los reintentos se cobran, así que queda para decidir. Se
+  desplegó sola (`firebase deploy --only functions:registrarReposicion`): las otras funciones no
+  se tocaron.
+- **`config/depuracion.registroStockDesde` = 14/09/2026 21:57 (Córdoba)**, escrito una sola vez,
+  con la función ya activa y con la condición de que el documento no existiera.
+- **`creadoEn` completado en los 1346 productos** con el `createTime` de cada documento. Se hizo
+  antes de desplegar la función, para no dispararla 1346 veces; solo en los que no lo tenían, y
+  exigiendo que el producto no hubiera cambiado desde que se leyó. No falló ninguno.
+
+Las escrituras en producción se hicieron con la sesión del CLI de Firebase (su cliente
+autenticado), sin claves en archivos.
+
+**Qué va a ver la clienta, y desde cuándo.** El catálogo se cargó en dos tandas (442 productos el
+28/08 y 874 el 07/09) y la primera venta es del 31/08. Con `creadoEn` completado, un producto no se
+ofrece hasta que cumple en el sistema los días elegidos: con 30 días, los primeros candidatos
+aparecen desde el **27/09**, y los productos del 07/09 desde el 07/10. Es a propósito: antes no hay
+historial para decir "no se vendió en 30 días". "Sin reposición" dice "sin datos" hasta que el
+registro cubra el período: desde el **14/10** con 30 días, el 13/11 con 60 y el 13/12 con 90.
+
+**Chequeado el 14/09:**
+
+- Todos los caminos que suben stock escriben el campo `stock` del producto (compra y remito, Stock,
+  carga en tanda, edición, Excel e Importar Nuevos, devolución de un pedido y de una venta
+  borrada), así que la función los ve a todos. Probado en el sandbox con las funciones reales del
+  panel: la sección Stock anota, una venta no, la devolución vuelve a anotar y un alta con stock
+  anota.
+- Sin bucle: `npm run test:reposicion` corre la función de verdad en el emulador (9 asertos, con el caso de -3 a -1). Cada
+  reposición la dispara dos veces: la que anota y la de su propia escritura, que sale sin escribir.
+- "Sin reposición" según el período: `t-depuracion.js` (119 asertos).
+- `t-reposicion.js` (20 asertos, con simulaciones), la suite entera y la barrida sobre la sección:
+  38 elementos, 31 apretados, sin errores. Los "sin efecto" eran el menú lateral y los botones de
+  período, que sí cambian: se comprobó a mano.
+
+Verificado en el sandbox: depurar con el aviso de stock y de presentaciones, restaurar, sacar de la
+lista y volver, vender un depurado (también por peso), escanearlo en una compra, Importar Nuevos con
+un depurado adentro, la tienda sin depurados, 30/60/90 días, paginado y celular.
+`t-depuracion.js`: **119 asertos**. Suite: **2237 / 0**.
+
+**Segundo chequeo profundo del 14/09 (después de publicar):** arreglado, probado y verificado en el sandbox.
+
+- **Depuración:** sin ventas es obligatorio; las ventas se leen sin tope arriba (una venta mayorista
+  de hoy se guarda a las 12:00 y, cargada a la mañana, no contaba); la familia mira `gramajePadreId` y
+  `padreId` en todos los niveles; Recalcular relee también los productos; dice "sin ventas en 90 días"
+  en vez de "hace más de 90 días", y sin candidatos dice desde cuándo puede haber.
+- **Con el producto en la mano:** en la venta, con uno oculto y depurado pregunta primero lo de oculto
+  (si no, quedaba restaurado sin venderse); en la compra mira el proveedor antes de ofrecer restaurar;
+  el lector avisa que está depurado al abrir la ficha; el PDF semanal marca y restaura los depurados
+  que vuelven; Importar Nuevos avisa cuando lo que "ya existe" está depurado; la etiqueta de un
+  depurado lo trae en el buscador de la venta, marcado.
+- **Ventas y formulario:** "Ver" ocultos vale solo para el texto exacto (con "empieza con", un Ver
+  tocado con "a" dejaba agregar ocultos de "avena" sin preguntar); el aviso cuenta todos los ocultos
+  y la lista dibuja 25; abrir o editar una venta limpia el buscador; sin categoría no se ofrecen
+  subcategorías; un panel escondido ya no frena el Escape.
+- **Tienda:** al confirmar, lo ocultado o depurado con la página abierta sale del carrito.
+- **Queda para decidir:** si el buscador de *pedidos* tiene que esconder los ocultos como el de la
+  venta, y si `registrarReposicion` reintenta sola ante un error (se cobra).
+
+---
+
+### J) El lector de remitos cargaba bolsas como kilos · **ARREGLADO** (19/09/2026)
+
+Lo encontró el dueño revisando un mensaje viejo. Un renglón en bolsas:
+
+```
+000123 MANI TOSTADO X 5 KG   2   4900   9800
+```
+
+son **2 bolsas de 5 kg**: 10.000 g a $980 el kilo. El lector cargaba **2.000 g a $4.900 el
+kilo** —cinco veces menos stock, el costo al quíntuple— y **con el tilde de verificado**, que
+es lo peor, porque invita a no revisarlo.
+
+La causa: el control de "KG" miraba el renglón entero, así que el "X 5 KG" del **nombre**
+contaba como si la cantidad viniera en kilos, y la cuenta de control cerraba igual
+(2 × 4.900 = 9.800). Falló en las cuatro variantes probadas: `X5KG` pegado, `$4.900,00` y con
+una sola bolsa. Los renglones en kilos de verdad los leía bien.
+
+Las pruebas no lo agarraban porque los 5 remitos reales de `pruebas/remitos/` tienen 48
+renglones y **ninguno viene en bolsas**.
+
+**La decisión, del comercio (19/09):** desde el papel no se puede saber si el número son kilos
+o bultos —cada proveedor escribe distinto—, así que **los productos por peso no cargan cantidad
+ni costo**. El renglón carga el producto y queda en "revisar", igual que cuando la cuenta no
+cierra; la cantidad y el costo los pone la persona mirando el remito. Es menos cómodo y no se
+equivoca. Los productos por unidad no cambian: ahí el número no es ambiguo.
+
+De paso se sacó `enKilos` de la lectura del renglón: era una bandera que decía una verdad a
+medias, y es la que provocó el error. Si alguien la vuelve a necesitar, que la saque de la zona
+de los números y no del renglón entero.
+
+`t-remito.js`: **87 asertos** (antes 80). Verificado en el sandbox con un PDF armado para eso:
+los dos renglones por peso quedan sin cantidad y con el costo que ya tenían, los dos por unidad
+cargan normal, y el cartel los agrupa: *"2 productos por peso: el remito no dice si el número
+son kilos o bultos, así que la cantidad y el costo van a mano"*.
+
+**Queda por mirar:** si en producción ya entró alguna compra así. Se revisa comparando las
+compras de productos a granel cargadas desde un remito contra el papel.
+
 ### I) Los 373 productos que quedaron en $0 ya tienen precio · **HECHO** (08/09/2026)
 
 El arreglo de §G tapó el agujero —un producto sin precio no se puede llevar— pero dejaba

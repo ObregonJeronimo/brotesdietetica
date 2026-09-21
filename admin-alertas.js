@@ -71,7 +71,7 @@ async function calcularAlertas(forzar) {
      problema que haya que resolver hoy. */
   try {
     const prods = (typeof allProducts !== 'undefined' && allProducts) ? allProducts : [];
-    const aLaVenta = prods.filter(p => p && p.oculto !== true);
+    const aLaVenta = prods.filter(p => p && p.oculto !== true && p.depurado !== true);
 
     const sinStock = aLaVenta.filter(p => Number(p.stock || 0) <= 0);
     if (sinStock.length) {

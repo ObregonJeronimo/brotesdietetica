@@ -2,6 +2,8 @@
  * BROTES Cloud Functions
  * - notifyTelegramOnNewOrder: dispara mensaje a Telegram cada vez que se crea un pedido web
  * - procesarUsoCupon:         incrementa usos del cupon y lo desactiva al llegar a maxUsos
+ * - premiarResena:            al completarse una resena, genera el cupon de descuento
+ *                             (el cliente no puede escribir en /cupones, y con razon)
  * - rateLimitPedidos:         borra el pedido si el mismo uid hizo mas de 5 en una hora
  * - sanitizarPedido:          limpia los campos de texto del pedido del lado del servidor
  * - sincronizarClaimAdmin:    pone/saca el custom claim `admin` segun la coleccion /admins
@@ -10,6 +12,8 @@
  *                             antes de que tuviera cuenta de Google
  * - descontarStockPedido:     descuenta el stock del pedido web (el cliente no tiene
  *                             permiso de escritura sobre /productos, y no deberia)
+ * - registrarReposicion:      anota stockSubioEn cuando sube el stock de un producto
+ *                             (lo usa la seccion Depuracion del panel)
  *
  * Requiere documento Firestore: config/telegram con campos `token` y `chatId`
  * (ese doc solo lo pueden leer los admins, ver firestore.rules).
@@ -25,6 +29,17 @@ const {onObjectFinalized, onObjectDeleted} = require('firebase-functions/v2/stor
 const functionsV1 = require('firebase-functions/v1');
 const {logger} = require('firebase-functions');
 const admin = require('firebase-admin');
+/* FieldValue se importa por su camino propio y NO como admin.firestore.FieldValue.
+   Ese atajo existe en firebase-admin normal, pero dentro del emulador de funciones
+   -que parchea la libreria para redirigirla a los emuladores- queda en undefined, y
+   entonces increment() y serverTimestamp() explotan. Medido: en ese entorno
+   admin.firestore es una funcion, admin.firestore.FieldValue es undefined, y
+   require('firebase-admin/firestore').FieldValue es una funcion.
+
+   Con el atajo, cualquier funcion que use FieldValue no se puede probar en el
+   emulador -y una que falla queda reintentandose y satura la cola-. Este camino
+   anda en los dos lados y saca el problema de raiz. */
+const {FieldValue} = require('firebase-admin/firestore');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -197,6 +212,125 @@ exports.procesarUsoCupon = onDocumentCreated(
  * OJO con la region: si se pasa solo el path (sin objeto de opciones) la
  * funcion se despliega en us-central1 y queda en otra region que Firestore.
  */
+/* =============================================================================
+   PREMIAR LA RESEÑA CON UN CUPÓN
+   =============================================================================
+   Cuando alguien completa una reseña, se le genera un cupón de descuento.
+
+   POR QUÉ TIENE QUE SER UNA FUNCIÓN Y NO EL NAVEGADOR
+
+   Crear un cupón es escribir en /cupones, que las reglas reservan a los admins,
+   y con razón: si el cliente pudiera crearlos se pondría el monto que quisiera.
+   Aflojar esa regla para este caso significaba pedirle a firestore.rules que
+   validara el monto contra la promo, que sea uno solo por reseña y que la reseña
+   sea suya. Se puede escribir, pero queda una regla que nadie entiende y que se
+   rompe sin avisar. Acá el servidor lo hace y listo.
+
+   POR QUÉ EL CÓDIGO NO VA EN LA RESEÑA
+
+   Las reseñas completadas son LISTABLES por cualquiera -así las muestra la
+   tienda-, así que un código guardado ahí sería público. Va en /resenaPremios,
+   que solo puede leer su dueño.
+
+   QUÉ PROMO SE ENTREGA
+
+   La que esté marcada con `paraResenas: true` en /cupones. Si no hay ninguna, no
+   se entrega nada: es la forma de tener la promoción apagada sin tocar código.
+   ============================================================================= */
+exports.premiarResena = onDocumentWritten(
+  {
+    document: 'resenas/{resenaId}',
+    region: 'southamerica-east1',
+    memory: '256MiB',
+    timeoutSeconds: 30
+  },
+  async (event) => {
+    const antes = event.data?.before?.data();
+    const despues = event.data?.after?.data();
+    /* Solo en el momento exacto en que se completa. Si se dispara por cualquier
+       otra edición no se entrega nada de nuevo. */
+    if (!despues || despues.usado !== true) return;
+    if (antes && antes.usado === true) return;
+
+    const resenaId = event.params.resenaId;
+    const uid = despues.clienteAuthUid;
+    if (!uid) return;   /* sin cuenta no hay a quién entregárselo */
+
+    try {
+      /* Si ya tiene premio, no se genera otro: la función puede correr dos veces
+         para el mismo evento y eso no puede significar dos cupones. */
+      const premioRef = db.collection('resenaPremios').doc(resenaId);
+      if ((await premioRef.get()).exists) return;
+
+      const promoSnap = await db.collection('cupones')
+        .where('paraResenas', '==', true).where('activo', '==', true).limit(1).get();
+      if (promoSnap.empty) return;   /* la promoción está apagada */
+      const promo = promoSnap.docs[0];
+      const p = promo.data();
+
+      /* Mismo alfabeto que admin-cupones-ticket.js: sin 0/O ni 1/I/L, más un
+         carácter de control. Se repite acá a propósito -son dos mundos, servidor
+         y navegador- pero t-cupones-ticket.js verifica que sean idénticos. */
+      const ALF = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+      const codigoNuevo = () => {
+        let c = '';
+        for (let i = 0; i < 6; i++) c += ALF[Math.floor(Math.random() * ALF.length)];
+        let suma = 0;
+        for (let i = 0; i < c.length; i++) suma += ALF.indexOf(c[i]) * (i + 2);
+        return c + ALF[suma % ALF.length];
+      };
+
+      let codigo = null;
+      for (let i = 0; i < 6 && !codigo; i++) {
+        const c = codigoNuevo();
+        if (!(await db.collection('cupones').doc(c).get()).exists) codigo = c;
+      }
+      if (!codigo) { logger.error('premiarResena: no pude generar un código libre'); return; }
+
+      const dias = parseInt(p.diasVigencia) > 0 ? parseInt(p.diasVigencia) : 30;
+      const vence = new Date(Date.now() + dias * 86400000);
+
+      await db.collection('cupones').doc(codigo).set({
+        codigo: codigo,
+        monto: Number(p.monto || 0),
+        limiteCompra: Number(p.limiteCompra != null ? p.limiteCompra : (p.limite || 0)),
+        maxUsos: 1, usos: 0, activo: true,
+        vence: vence,
+        creadoEn: new Date(),
+        origen: 'resena',
+        promoId: promo.id,
+        promoNombre: p.nombre || promo.id,
+        resenaId: resenaId,
+      });
+
+      /* Lo que el cliente puede leer. Va aparte de la reseña justamente para que
+         no sea público. */
+      await premioRef.set({
+        codigo: codigo,
+        monto: Number(p.monto || 0),
+        limiteCompra: Number(p.limiteCompra != null ? p.limiteCompra : (p.limite || 0)),
+        vence: vence,
+        uid: uid,
+        creadoEn: new Date(),
+      });
+
+      /* Contar la entrega es lo MENOS importante de todo esto: el cupón ya está
+         creado y el cliente ya lo tiene. Va en su propio try para que un fallo
+         acá no tire abajo lo que sí importa: si eso pasara, la función termina
+         en error, el emulador la reintenta y la cola se satura -que es
+         exactamente lo que pasaba antes de arreglar el import de FieldValue-. */
+      try {
+        await promo.ref.update({ entregados: FieldValue.increment(1) });
+      } catch (e2) {
+        logger.warn('No se pudo contar la entrega de la promo:', e2);
+      }
+      logger.info(`Cupón ${codigo} entregado por la reseña ${resenaId}`);
+    } catch (e) {
+      logger.error('Error premiando reseña:', e);
+    }
+  }
+);
+
 exports.rateLimitPedidos = onDocumentCreated(
   {
     document: 'pedidos/{pedidoId}',
@@ -418,7 +552,7 @@ exports.descontarStockPedido = onDocumentCreated(
       snaps.forEach((sn, k) => {
         if (!sn.exists) return;
         t.update(refs[k], {
-          stock: admin.firestore.FieldValue.increment(-porProd[ids[k]])
+          stock: FieldValue.increment(-porProd[ids[k]])
         });
       });
 
@@ -603,9 +737,9 @@ exports.sumarUsoStorage = onObjectFinalized(
     if (!size) return;
     try {
       await REF_USO().set({
-        bytes: admin.firestore.FieldValue.increment(size),
-        archivos: admin.firestore.FieldValue.increment(1),
-        actualizado: admin.firestore.FieldValue.serverTimestamp(),
+        bytes: FieldValue.increment(size),
+        archivos: FieldValue.increment(1),
+        actualizado: FieldValue.serverTimestamp(),
         exacto: false
       }, {merge: true});
     } catch (e) {
@@ -624,9 +758,9 @@ exports.restarUsoStorage = onObjectDeleted(
     if (!size) return;
     try {
       await REF_USO().set({
-        bytes: admin.firestore.FieldValue.increment(-size),
-        archivos: admin.firestore.FieldValue.increment(-1),
-        actualizado: admin.firestore.FieldValue.serverTimestamp(),
+        bytes: FieldValue.increment(-size),
+        archivos: FieldValue.increment(-1),
+        actualizado: FieldValue.serverTimestamp(),
         exacto: false
       }, {merge: true});
     } catch (e) {
@@ -667,7 +801,7 @@ exports.recalcularUsoStorage = onDocumentWritten(
       await REF_USO().set({
         bytes: bytes,
         archivos: archivos,
-        actualizado: admin.firestore.FieldValue.serverTimestamp(),
+        actualizado: FieldValue.serverTimestamp(),
         exacto: true,
         recalcular: false
       }, {merge: true});
@@ -676,6 +810,53 @@ exports.recalcularUsoStorage = onDocumentWritten(
       logger.error('No se pudo recalcular el uso de storage:', e);
       await REF_USO().set({recalcular: false, error: String(e && e.message || e)}, {merge: true})
         .catch(() => {});
+    }
+  }
+);
+
+/**
+ * Trigger: cada escritura en productos/{id}.
+ * Anota stockSubioEn cuando el stock SUBE: una compra, un ajuste en Stock, la edicion
+ * del producto, Importar Nuevos, la devolucion de un pedido cancelado o de una venta
+ * borrada, y tambien un alta que ya trae stock. La usa la seccion Depuracion para el
+ * criterio "Sin reposicion".
+ *
+ * Cuenta aunque el stock siga en 0 o negativo. Hay productos con stock negativo -un
+ * pedido web descuenta aunque no alcance- y una compra de -3 a -1 es mercaderia que
+ * entro. Pedir que quedara positivo la dejaba sin anotar, y el producto salia
+ * candidato a depurar recien comprado. Anotar de mas un ajuste es el lado seguro: a lo
+ * sumo no se sugiere algo que se podria depurar.
+ *
+ * Escucha la base y no las pantallas: cualquier camino que suba el stock termina en
+ * una escritura del producto, asi que ninguno se puede olvidar de anotarlo.
+ *
+ * No se dispara en bucle: su propia escritura solo cambia stockSubioEn, el stock
+ * queda igual y la comparacion corta ahi.
+ *
+ * Un error inesperado se relanza: queda como ejecucion fallida en los logs de Functions,
+ * en vez de un logger.error que no frena nada. SIN reintento automatico por ahora:
+ * activarlo (retry: true) obliga a desplegar con --force, porque los reintentos se
+ * cobran y pueden seguir hasta 7 dias. Es una decision del comercio, no un arreglo.
+ */
+exports.registrarReposicion = onDocumentWritten(
+  {
+    document: 'productos/{productoId}',
+    region: 'southamerica-east1'
+  },
+  async (event) => {
+    const antes = event.data && event.data.before;
+    const despues = event.data && event.data.after;
+    if (!despues || !despues.exists) return;   /* se borro el producto */
+    const stockAntes = (antes && antes.exists) ? (Number(antes.data().stock) || 0) : 0;
+    const stockDespues = Number(despues.data().stock) || 0;
+    if (!(stockDespues > stockAntes)) return;
+    try {
+      await despues.ref.update({stockSubioEn: FieldValue.serverTimestamp()});
+    } catch (e) {
+      /* Si el producto se borro entre la escritura y esta funcion, no hay nada que anotar. */
+      if (e && (e.code === 5 || e.code === 'not-found')) return;
+      logger.error(`No se pudo anotar stockSubioEn en ${event.params.productoId}:`, e);
+      throw e;
     }
   }
 );

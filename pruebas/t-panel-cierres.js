@@ -73,7 +73,7 @@ function entrarAlPanel(email, adminsEnLaBase) {
   const nombres = Object.keys(ent);
   const api = new Function(...nombres,
     'let auth=null,storage=null;\n' +
-    ['isAllowedEmail', '_initAuth'].map(cuerpo).join('\n') +
+    ['isAllowedEmail', '_cuandoCarguenLosModulos', '_initAuth'].map(cuerpo).join('\n') +
     '\nreturn {init:_initAuth};'
   )(...nombres.map(n => ent[n]));
 

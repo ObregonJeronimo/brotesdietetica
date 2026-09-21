@@ -468,7 +468,7 @@ function closeEtiquetasModal() {
    tener etiqueta, así que no se lista: aparece en el aviso de abajo. */
 function _etqCandidatos() {
   return (typeof allProducts !== 'undefined' ? allProducts : [])
-    .filter(p => etiquetaCodigoDe(p))
+    .filter(p => p.depurado !== true && etiquetaCodigoDe(p))
     .filter(p => !_etqSoloPeso || p.tipoVenta === 'peso')
     .filter(p => !_etqLista || p.lista === _etqLista)
     .filter(p => !_etqBusqueda || (typeof coincideProducto === 'function'

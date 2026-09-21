@@ -101,21 +101,36 @@ function _remLeerLinea(linea) {
   const hasta = nums.length ? nums[0].i : toks.length;
   const desc = toks.slice(desde, hasta).join(' ').trim();
 
-  /* Se busca la unidad -KG- en el texto crudo, no en los tokens numericos. */
-  const enKilos = /\d[\d.,]*\s*(kg|kgs|kilos?)\b/i.test(txt);
+  /* No se lee la unidad del renglon. El "KG" puede venir del NOMBRE del producto
+     ("MANI TOSTADO X 5 KG") y ahi no dice nada de la cantidad: esa lectura es la que
+     hacia entrar bolsas como kilos. Ver _remCantidades. */
 
-  return { linea: txt, codigo: codigo, descripcion: desc, numeros: nums.map(n => n.valor), enKilos: enKilos };
+  return { linea: txt, codigo: codigo, descripcion: desc, numeros: nums.map(n => n.valor) };
 }
 
 /* ------------------------------------------- CANTIDAD, UNITARIO E IMPORTE
    La forma tipica es [cantidad] [unitario] [importe]. Con dos numeros no se
    puede saber cual falta, asi que no se adivina: se deja sin cantidad.
 
-   `esPeso` cambia la cuenta: el sistema guarda GRAMOS y el costo es POR KILO,
-   asi que el importe es cantidad/1000 x unitario. */
+   Los productos por peso no cargan cantidad ni costo, aunque la cuenta cierre: el
+   porque esta adentro. */
 function _remCantidades(lectura, esPeso) {
   const n = lectura.numeros || [];
   const fuera = { cantidad: 0, costoUnitario: null, verificado: false, motivo: '' };
+
+  /* LOS PRODUCTOS POR PESO NO SE CARGAN SOLOS. Lo decidio el comercio (19/09/2026)
+     despues de encontrar esto: en "000123 MANI TOSTADO X 5 KG  2  4900  9800" el KG
+     es del NOMBRE y el 2 son BOLSAS de 5 kg, o sea 10.000 g a $980 el kilo. Se leia
+     2.000 g a $4.900 el kilo -cinco veces menos stock- y con el tilde de verificado
+     puesto, porque la cuenta de control cerraba igual (2 x 4.900 = 9.800).
+     Desde el papel no se puede saber si el numero son kilos o bultos, y cada
+     proveedor escribe distinto. Asi que el renglon carga el PRODUCTO y nada mas: la
+     cantidad y el costo los pone la persona mirando el remito. Es menos comodo y no
+     se equivoca. Los de unidad siguen igual: ahi el numero no es ambiguo. */
+  if (esPeso) {
+    fuera.motivo = 'es por peso: la cantidad y el costo se cargan a mano';
+    return fuera;
+  }
 
   if (n.length < 3) {
     fuera.motivo = n.length ? 'no se pudieron separar cantidad, precio e importe' : 'sin numeros en el renglon';
@@ -124,20 +139,6 @@ function _remCantidades(lectura, esPeso) {
   /* Los tres ultimos: si hay mas, los de la izquierda son de la descripcion. */
   const [cant, unit, imp] = n.slice(-3);
   if (!(cant > 0) || !(unit > 0)) { fuera.motivo = 'cantidad o precio en cero'; return fuera; }
-
-  if (esPeso) {
-    /* Sin la marca KG no se sabe si "3" son 3 kilos o 3 gramos. No se adivina. */
-    if (!lectura.enKilos) { fuera.motivo = 'es un producto por peso y el renglon no dice KG'; return fuera; }
-    const gramos = Math.round(cant * 1000);
-    const esperado = gramos / 1000 * unit;
-    if (!_remCierra(esperado, imp)) {
-      fuera.costoUnitario = unit;
-      fuera.motivo = 'la cuenta del renglon no cierra (' + cant + ' kg x ' + unit + ' deberia dar ' +
-                     Math.round(esperado) + ' y dice ' + Math.round(imp) + ')';
-      return fuera;
-    }
-    return { cantidad: gramos, costoUnitario: unit, verificado: true, motivo: '' };
-  }
 
   const esperado = cant * unit;
   if (!_remCierra(esperado, imp)) {
@@ -198,7 +199,9 @@ function remitoAItems(lineas, productos, proveedorId) {
       verificado: c.verificado,
     };
     items.push(item);
-    if (!c.verificado) dudosos.push({ nombre: item.nombre, codigo: l.codigo, motivo: c.motivo });
+    /* porPeso: los agrupa el cartel de la compra, que si no queda tapado de renglones
+       con el mismo motivo y no se ven los que de verdad hay que mirar. */
+    if (!c.verificado) dudosos.push({ nombre: item.nombre, codigo: l.codigo, motivo: c.motivo, porPeso: esPeso });
   });
 
   return {

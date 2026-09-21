@@ -191,6 +191,33 @@ problemas.push(...revisarHtml('admin.html', html));
     problemas.push(...revisarHtml(f, fs.readFileSync(p, 'utf8')));
   });
 
+/* ------------------------------ 5-bis) caracteres de control sueltos
+   La vineta de los dialogos estuvo rota sin que nadie lo viera: el CSS decia
+   content:'<U+0082>2' en vez de la vineta, asi que toda lista adentro de un dialogo
+   mostraba un cuadradito con un 2 al lado. Sale de editar con algo que se come un
+   escape (\2022 se convierte en 2) y no lo avisa nadie: el navegador no tira error,
+   dibuja mal y listo. Estos caracteres no tienen ningun uso legitimo en el fuente. */
+function revisarCaracteres(archivo, texto) {
+  const fallas = [];
+  texto.split('\n').forEach((l, i) => {
+    [...l].forEach((c) => {
+      const n = c.codePointAt(0);
+      if ((n >= 0x80 && n <= 0x9f) || n === 0xfffd) {
+        fallas.push('CARACTER RARO U+' + n.toString(16).toUpperCase().padStart(4, '0') +
+          ' en ' + archivo + ':' + (i + 1) + '  ->  ' + JSON.stringify(l.trim().slice(0, 80)));
+      }
+    });
+  });
+  return fallas.slice(0, 5);
+}
+['admin.html', 'index.html', 'mayoristas.html', 'politicas.html', 'resena.html', 'setup-inicial.html']
+  .concat(fs.readdirSync(__dirname).filter((f) => /^(admin-|app)[\w-]*\.js$/.test(f)))
+  .forEach((f) => {
+    const p = path.join(__dirname, f);
+    if (!fs.existsSync(p)) return;
+    problemas.push(...revisarCaracteres(f, fs.readFileSync(p, 'utf8')));
+  });
+
 
 /* ------------------------------------- 6) CSS fantasma: usado y nunca definido
 
@@ -319,6 +346,67 @@ function usadas(texto) {
   return { clases, vars };
 }
 
+/* ============================ ESTILO EN LINEA QUE TAPA A LA CLASE ============
+   Un bloque que se abre y se cierra alternando una clase:
+
+     <div class="v-items" style="display:none">...</div>
+     .v-items{display:none}  .v-items.show{display:block}
+     onclick="...querySelector('.v-items').classList.toggle('show')"
+
+   El estilo EN LINEA le gana siempre a una regla de clase. O sea que se agrega
+   la clase, se saca, se vuelve a agregar, y el bloque nunca se ve. No da error,
+   no se rompe nada: el clic simplemente no hace nada, y eso solo se descubre
+   usando la pantalla.
+
+   Paso de verdad con el detalle de items de una venta, y estuvo asi mucho
+   tiempo. En el mismo archivo habia otro caso identico -ch-items- que alguien ya
+   habia arreglado poniendole !important, sin que el arreglo llegara al otro.
+
+   Se revisa: si un elemento trae display:none en el atributo style, y su clase
+   tiene una regla .clase.show -o .clase.abierto, .clase.visible- que cambia el
+   display SIN !important, entonces ese bloque no se puede abrir nunca. */
+function revisarEstiloEnLinea(html, problemas) {
+  const MODIFICADORES = ['show', 'abierto', 'abierta', 'visible', 'open', 'activo'];
+
+  /* Reglas del tipo `.algo.show{...display:...}`, con o sin !important. */
+  const reglas = {};
+  const reRegla = new RegExp(
+    '\\.([A-Za-z][\\w-]*)\\.(' + MODIFICADORES.join('|') + ')\\s*\\{([^}]*)\\}', 'g');
+  let m;
+  while ((m = reRegla.exec(html))) {
+    const decl = m[3];
+    if (!/display\s*:/.test(decl)) continue;
+    reglas[m[1]] = reglas[m[1]] || { conImportant: false, mod: m[2] };
+    if (/display\s*:[^;]*!important/.test(decl)) reglas[m[1]].conImportant = true;
+  }
+
+  /* Elementos con display:none escrito en el atributo style. */
+  const reElem = /class="([^"]+)"\s+style="([^"]*)"/g;
+  const vistos = new Set();
+  while ((m = reElem.exec(html))) {
+    if (!/display\s*:\s*none/.test(m[2])) continue;
+    for (const clase of m[1].split(/\s+/)) {
+      const r = reglas[clase];
+      if (!r || r.conImportant || vistos.has(clase)) continue;
+      /* Que ademas alguien la alterne: si nadie la toca, el display:none en
+         linea es simplemente redundante y no molesta a nadie. */
+      const seAlterna = new RegExp(
+        'toggle\\((\\\\?[\'"])' + r.mod + '\\1\\)').test(html) ||
+        new RegExp('classList\\.add\\((\\\\?[\'"])' + r.mod + '\\1\\)').test(html);
+      if (!seAlterna) continue;
+      vistos.add(clase);
+      const linea = html.slice(0, m.index).split('\n').length;
+      problemas.push(
+        'ESTILO EN LINEA que tapa a la clase: <div class="' + clase + '" style="display:none">' +
+        ' (admin.html:' + linea + ')\n' +
+        '    Se alterna con la clase .' + r.mod + ', pero el style en linea le gana' +
+        ' y el bloque no se abre nunca.\n' +
+        '    Saca el display:none del atributo style: la regla .' + clase +
+        ' ya lo oculta.');
+    }
+  }
+}
+
 function revisarCss(archivo, textoQueUsa, cssDisponible, textoConGanchos) {
   const fallas = [];
   const def = definidas(cssDisponible);
@@ -364,12 +452,13 @@ const JS_PANEL = MODULOS
   }).join('\n') + '\n' + html;
 
 problemas.push(...revisarCss('admin.html', html, CSS_ADMIN, JS_PANEL));
+revisarEstiloEnLinea(html, problemas);
 
 /* Los modulos sueltos dibujan HTML con las clases del panel, asi que se comparan
    contra el CSS de admin.html. Se pasa SOLO el modulo como texto que usa, para no
    volver a reportar lo que ya se reporto arriba. */
 ['admin-caja.js', 'admin-alertas.js', 'admin-dialogo.js', 'admin-stats.js',
- 'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js']
+ 'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js', 'admin-depuracion.js', 'admin-selector.js']
   .forEach((f) => {
     const ruta = path.join(__dirname, f);
     if (!fs.existsSync(ruta)) return;
@@ -752,7 +841,7 @@ const GLOBALES = new Set([...NO_ES_FUNCION,
   'firebase', 'db', 'auth', 'storage', 'Promise', 'Set', 'Map', 'WeakMap',
   'Error', 'RegExp', 'Symbol', 'Intl', 'Blob', 'File', 'FileReader', 'FormData',
   'URL', 'URLSearchParams', 'Image', 'fetch', 'atob', 'btoa', 'isFinite',
-  'setInterval', 'clearInterval', 'requestAnimationFrame', 'structuredClone',
+  'setInterval', 'clearInterval', 'requestAnimationFrame', 'structuredClone', 'MutationObserver',
   'localStorage', 'sessionStorage', 'AbortController', 'TextEncoder', 'encodeURI',
   'decodeURI', 'throw', 'try', 'finally', 'class', 'yield']);
 

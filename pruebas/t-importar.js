@@ -36,7 +36,7 @@ function cuerpo(nombre) {
 const montoExcel = new Function(cuerpo('montoExcel') + '\nreturn montoExcel;')();
 const porcentajeExcel = new Function(cuerpo('porcentajeExcel') + '\nreturn porcentajeExcel;')();
 const claveProducto = new Function(cuerpo('claveProducto') + '\nreturn claveProducto;')();
-const avisosDeImportacion = new Function(cuerpo('avisosDeImportacion') + '\nreturn avisosDeImportacion;')();
+const avisosDeImportacion = new Function(cuerpo('importadosDepurados') + cuerpo('avisosDeImportacion') + '\nreturn avisosDeImportacion;')();
 const normCodigo = new Function(cuerpo('normCodigo') + '\nreturn normCodigo;')();
 /* armarProductosDesdeFilas mira listasData y allProducts, que en el panel son
    globales. Se las inyectamos. */
@@ -169,6 +169,22 @@ t('avisa por los repetidos del archivo', avisos.some(a => /repetidas dentro del 
 t('avisa por los que no tienen categoria', avisos.some(a => /sin CATEGORIA/.test(a)));
 t('avisa que los de $0 no se pueden comprar', avisos.some(a => /\$0 y NO se pueden comprar/.test(a)));
 t('un archivo sano no interrumpe', avisosDeImportacion(armarCon([], [])([{ NOMBRE: 'Sal', CATEGORIA: 'Almacen', PRECIO: '1.000' }], '')).length === 0);
+
+/* Un depurado sigue en la base -si no, se crearia de nuevo con otro codigo- pero no sale
+   en Productos: sin aviso, la fila se omitia "porque ya existe" y no habia donde encontrarla. */
+console.log('\nLo que ya existe, pero depurado');
+const baseDep = [{ nombre: 'Te verde', depurado: true }, { nombre: 'Yerba', depurado: true }, { nombre: 'Yerba' }, { nombre: 'Cafe' }];
+const rd = armarCon(baseDep, [])([
+  { NOMBRE: 'Te verde', CATEGORIA: 'A', PRECIO: 100 },
+  { NOMBRE: 'Yerba', CATEGORIA: 'A', PRECIO: 100 },
+  { NOMBRE: 'Cafe', CATEGORIA: 'A', PRECIO: 100 },
+  { NOMBRE: 'Mate', CATEGORIA: 'A', PRECIO: 100 },
+], '');
+t('un depurado cuenta como que ya existe: no se crea de nuevo', rd.prods.length === 1 && rd.duplicados === 3, rd.duplicados);
+const avd = avisosDeImportacion(rd);
+t('y se avisa, porque en Productos no se encuentra', avd.some(a => a.indexOf('1 ya existe pero está depurado') >= 0 && a.indexOf('Te verde') > 0), avd.join(' | '));
+t('  no si hay otro con ese nombre a la vista', !avd.some(a => a.indexOf('Yerba') >= 0));
+t('  ni por los que no están depurados', !avd.some(a => a.indexOf('Cafe') >= 0));
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

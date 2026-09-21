@@ -114,7 +114,11 @@ function armarProductos() {
     const cat = cats[i % cats.length];
     const subs = CATEGORIAS[cat];
     const porPeso = i % 3 === 0;
-    const costo = 1500 + (i * 137) % 18000;
+    /* Mezclado a proposito. Antes era 1500 + i*137, o sea que el costo crecia
+       junto con el codigo: ordenar la tabla por costo, por precio o por codigo
+       daba SIEMPRE la misma lista, y el sandbox no servia para darse cuenta si
+       ordenar dejaba de funcionar. */
+    const costo = 1500 + ((i * 7919) % 173) * 100;
     const pct = 60 + (i % 5) * 10;
     const precio = Math.round(costo * (1 + pct / 100) / 10) * 10;
     /* Un poco de todo, para que las pantallas tengan casos de verdad:
@@ -175,8 +179,14 @@ function armarVentas(productos) {
       id: 'venta' + String(i + 1).padStart(3, '0'),
       datos: {
         numero: i + 1, fecha: diasAtras(i * 2), items: items, total: total,
-        metodoPago: ['Efectivo', 'Transferencia', 'Debito'][i % 3],
-        tipoEntrega: 'mostrador', canal: 'caja',
+        /* El panel lee `medioPago` y `cliente`. Escribirlos con otro nombre no da
+           error: la pantalla muestra "undefined" y parece un bug del panel cuando
+           en realidad es la siembra la que esta mal. */
+        medioPago: ['Efectivo', 'Transferencia', 'Débito'][i % 3],
+        cliente: i % 4 === 0 ? 'Consumidor Final' : 'Cliente Prueba ' + (i % 7 + 1),
+        subtotalProductos: total, descuentoPct: 0, descuentoMonto: 0, envio: 0,
+        tipoEntrega: 'retiro', origen: 'mostrador', stockDescontado: true,
+        creadoEn: diasAtras(i * 2),
         usuario: 'sandbox@local',
       },
     });
@@ -229,24 +239,66 @@ function armarCompras(productos) {
 }
 
 function armarPedidos(productos) {
-  const estados = ['nuevo', 'preparando', 'listo', 'entregado', 'cancelado'];
+  /* Con los estados y los campos que usa la tienda de verdad (app.js). Antes eran
+     "nuevo", "preparando" y "listo" -que el tablero no tiene- y no llevaban creadoEn:
+     el tablero ordena por ese campo, y Firestore deja AFUERA los documentos que no lo
+     tienen. El tablero de Pedidos del sandbox se veia siempre vacio. */
+  const estados = ['pendiente', 'pendiente', 'confirmado', 'entregado', 'cancelado'];
   return estados.map((e, i) => {
     const p = productos[i * 11];
-    const cant = 2;
-    const sub = p.datos.precio * cant;
+    const esPeso = p.datos.tipoVenta === 'peso';
+    const cant = esPeso ? 500 : 2;
+    const sub = esPeso ? Math.round(p.datos.precio * cant / 1000) : p.datos.precio * cant;
+    const envio = i % 2 ? 2500 : 0;
     return {
       id: 'pedido' + String(i + 1).padStart(3, '0'),
       datos: {
-        numero: i + 1, estado: e, fecha: diasAtras(i + 1),
-        cliente: { nombre: 'Cliente Prueba ' + (i + 1), telefono: '351400000' + i,
-                   email: 'cliente' + i + '@local', direccion: 'Calle Falsa ' + (100 + i) },
-        items: [{ id: p.id, nombre: p.datos.nombre, cantidad: cant,
-                  precio: p.datos.precio, subtotal: sub }],
-        total: sub, tipoEntrega: i % 2 ? 'envio' : 'retiro', costoEnvio: i % 2 ? 2500 : 0,
-        metodoPago: 'Efectivo',
+        numero: i + 1, estado: e, origen: 'web',
+        creadoEn: diasAtras(i + 1), fecha: diasAtras(i + 1),
+        cliente: 'Cliente Prueba ' + (i + 1), telefono: '351400000' + i,
+        clienteEmail: 'cliente' + i + '@local', clienteAuthUid: null, clienteId: null,
+        direccion: i % 2 ? 'Calle Falsa ' + (100 + i) : null, notas: null,
+        tipoEntrega: i % 2 ? 'envio' : 'retiro', stockDescontado: false,
+        items: [{ id: p.id, nombre: p.datos.nombre, tipoVenta: p.datos.tipoVenta,
+                  precio: p.datos.precio, precioOriginal: p.datos.precio, descuento: 0,
+                  cantidad: cant, subtotal: sub }],
+        subtotalProductos: sub, envio: envio, envioGratis: false, total: sub + envio,
+        cupon: null, medioPago: 'Efectivo',
       },
     };
   });
+}
+
+/* ============================ DEPURACION DE PRODUCTOS ============================
+   `stockSubioEn` lo escribe la funcion registrarReposicion (functions/index.js) cada
+   vez que sube el stock, y config/depuracion.registroStockDesde se escribio una sola
+   vez en produccion, al desplegarla. Aca se siembran a mano para que la columna "Sin
+   reposicion" se vea andando desde el primer dia, en vez de "sin datos" en todos.
+   Ojo: el sandbox tambien corre la funcion, asi que los productos que se siembran CON
+   stock quedan con stockSubioEn de hoy -un alta con stock cuenta como reposicion-. La
+   fecha simulada sobrevive en los que se siembran sin stock.
+   Y casos armados a proposito: uno depurado, uno sacado de la lista, uno nuevo, y
+   un producto principal con una presentacion. */
+function prepararDepuracion(productos, compras) {
+  const porId = {};
+  productos.forEach(p => { porId[p.id] = p.datos; });
+  /* Lo que entro en compras de los ultimos 90 dias: su stock subio. */
+  compras.forEach(c => {
+    if (!c.datos.sumoStock || (HOY - c.datos.fecha) / 86400000 > 90) return;
+    c.datos.items.forEach(i => { if (porId[i.id]) porId[i.id].stockSubioEn = c.datos.fecha; });
+  });
+  /* Y ajustes a mano repartidos: unos recientes, otros de hace mucho. */
+  productos.forEach((p, i) => {
+    if (i % 5 === 0 && !p.datos.stockSubioEn) p.datos.stockSubioEn = diasAtras(i % 2 ? 110 : 8 + (i % 40));
+  });
+  Object.assign(porId.prod090, { depurado: true, depuradoEn: diasAtras(10), depuradoPor: 'sandbox@local',
+    depuradoMotivo: { dias: 90, criterios: ['sinVentas', 'sinReposicion'], stock: porId.prod090.stock, ultimaVenta: null } });
+  Object.assign(porId.prod095, { excluidoDepuracion: true, excluidoDepuracionEn: diasAtras(4), excluidoDepuracionPor: 'sandbox@local' });
+  /* Sin stock y sin ventas, pero dado de alta hace 3 dias: no se ofrece. */
+  porId.prod100.creadoEn = diasAtras(3);
+  /* El principal no se vende ni tiene stock; su presentacion si se vende. */
+  Object.assign(porId.prod056, { gramaje: '500 Gr' });
+  Object.assign(porId.prod057, { gramaje: '1 Kg', gramajePadreId: 'prod056' });
 }
 
 /* ================================ SEMBRAR ================================ */
@@ -255,8 +307,12 @@ async function main() {
   console.log('  Sembrando ' + BASE);
 
   /* Se limpia primero: sembrar dos veces no puede dejar el doble de todo. */
+  /* `resenas` y `resenaPremios` tambien: un token que se completo en una corrida
+     anterior queda usado para siempre, y el banco de pruebas deja de servir
+     para probar justamente lo que vino a probar. */
   for (const c of ['productos', 'listas', '_categorias', 'admins', 'ventas',
-                   'compras', 'pedidos', 'config', 'cajas', 'cupones']) {
+                   'compras', 'pedidos', 'config', 'cajas', 'cupones',
+                   'resenas', 'resenaPremios', 'cuponesUsos']) {
     await borrarTodo(c);
   }
 
@@ -274,6 +330,8 @@ async function main() {
   }
 
   const productos = armarProductos();
+  /* armarCompras es pura: llamarla de nuevo da exactamente las mismas compras. */
+  prepararDepuracion(productos, armarCompras(productos));
   for (const p of productos) await escribir('productos', p.id, p.datos);
 
   const ventas = armarVentas(productos);
@@ -285,6 +343,40 @@ async function main() {
   const pedidos = armarPedidos(productos);
   for (const p of pedidos) await escribir('pedidos', p.id, p.datos);
 
+  /* Promos para probar la entrega de cupones desde la caja. */
+  const PROMOS = [
+    { id: 'VOLVE2000', nombre: 'Volvé y llevate $2.000', monto: 2000, limiteCompra: 12000,
+      maxUsos: 100, entregados: 0, activo: true, diasVigencia: 30 },
+    /* La que se entrega por dejar una reseña: la elige la Cloud Function
+       premiarResena buscando paraResenas == true. */
+    { id: 'RESENA1500', nombre: 'Gracias por tu opinión', monto: 1500, limiteCompra: 8000,
+      maxUsos: 500, entregados: 0, activo: true, diasVigencia: 45, paraResenas: true },
+    { id: 'PRIMERA5000', nombre: 'Primera compra $5.000', monto: 5000, limiteCompra: 25000,
+      maxUsos: 50, entregados: 0, activo: true, diasVigencia: 60 },
+    { id: 'AGOTADA', nombre: 'Promo agotada', monto: 1000, limiteCompra: 0,
+      maxUsos: 10, entregados: 10, activo: true },
+    { id: 'APAGADA', nombre: 'Promo apagada', monto: 1500, limiteCompra: 0, activo: false },
+  ];
+  /* creadoEn es obligatorio de hecho: la lista del panel ordena por ese campo
+     y Firestore excluye los documentos que no lo tienen. */
+  for (let i = 0; i < PROMOS.length; i++) {
+    await escribir('cupones', PROMOS[i].id,
+      Object.assign({ creadoEn: diasAtras(10 + i) }, PROMOS[i]));
+  }
+
+  /* Un token de resena pendiente, para poder probar el premio sin tener que armar
+     un pedido web entero. En el sistema real estos tokens SOLO nacen de ventas que
+     vienen de la tienda: las de mostrador no generan resena a proposito, porque
+     /resenas es publica y cada venta del local dejaba ahi el nombre del cliente.
+     Sin clienteAuthUid, lo puede completar cualquier cuenta del sandbox. */
+  for (let i = 1; i <= 5; i++) {
+    await escribir('resenas', 'PRUEBA0' + i, {
+      usado: false, ventaNum: 9000 + i, creadoEn: diasAtras(i),
+      nombre: '', comentario: '', estrellas: 0,
+    });
+  }
+
+  await escribir('config', 'depuracion', { registroStockDesde: diasAtras(120) });
   await escribir('config', 'comprasCount', { count: compras.length });
   await escribir('config', 'ventasCount', { count: ventas.length });
   await escribir('config', 'pedidosCount', { count: pedidos.length });
@@ -301,6 +393,10 @@ async function main() {
   console.log('  ' + ventas.length + ' ventas, ' + pedidos.length + ' pedidos');
   console.log('  ' + compras.length + ' compras, ' + deudas.length + ' a deber por $' +
     debe.toLocaleString('es-AR'));
+  console.log('  5 promos de cupon (2 usables, 1 para resenas, 1 agotada, 1 apagada)');
+  console.log('  5 tokens de resena: /sandbox/resena?id=PRUEBA01 .. PRUEBA05');
+  console.log('     (cada uno vale una sola vez; se reinician al resembrar)');
+  console.log('  depuracion: 1 depurado, 1 sacado de la lista, 1 nuevo; registro de stock simulado desde hace 120 dias');
   console.log('  admins: ' + ADMINS.join(', '));
 }
 

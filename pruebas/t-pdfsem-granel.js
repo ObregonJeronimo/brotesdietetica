@@ -148,9 +148,12 @@ t('y adentro del bucle de paginas, no una sola vez',
 console.log('\nNo puede quedar un callejon sin salida para elegir la lista');
 /* La lista se elige adentro del modal, y al modal se entra por el boton. Si el boton
    solo saliera con una lista ya elegida, sin ninguna no habria forma de entrar. Paso:
-   la migracion creo FRUTICOR-TODOS con pdfSemanal:false y el boton no aparecia. */
-t('el boton tambien sale si todavia no hay ninguna lista elegida',
-    /listaUsaPdfSemanal\(listaSel\)\|\|\(!!listaSel&&!listaPdfSemanal\(\)\)/.test(src));
+   la migracion creo FRUTICOR-TODOS con pdfSemanal:false y el boton no aparecia.
+   Desde el 19/09/2026 el boton se ve SIEMPRE y queda apagado -con el motivo en el
+   globo- cuando el filtro muestra otro proveedor. El detalle esta en t-pdfsem.js. */
+t('el boton no se esconde nunca', /wrapSemanal\.style\.display=''/.test(src));
+t('  y sin ninguna lista marcada se puede entrar igual, para poder elegirla',
+    /if \(!marcada \|\| !listaSel \|\| listaUsaPdfSemanal\(listaSel\)\) return '';/.test(src));
 
 console.log('\n"Volvieron al PDF" no puede tocar otras listas');
 t('filtra por la lista del PDF, como las otras tres secciones',

@@ -225,7 +225,7 @@ function compraBuscarProd(q) {
   const prov = (document.getElementById('compraProveedor') || {}).value || _compraProveedor;
   const t = String(q || '').trim().toLowerCase();
   const yaEsta = new Set(_compraItems.map(i => i.id));
-  let prods = (typeof allProducts !== 'undefined' ? allProducts : []).filter(p => p.lista === prov);
+  let prods = (typeof allProducts !== 'undefined' ? allProducts : []).filter(p => p.lista === prov && p.depurado !== true);
   if (t) prods = prods.filter(p => String(p.nombreMostrado || p.nombre || '').toLowerCase().includes(t) ||
                                    String(p.codigo || '').toLowerCase().includes(t));
   prods = prods.filter(p => !yaEsta.has(p.id)).slice(0, 40);
@@ -288,6 +288,16 @@ function compraEscanear(prod) {
     showAdminToast('"' + nombre + '" no es de este proveedor: no se agrega.', 'error');
     return;
   }
+  /* Un depurado que llega en una compra vuelve a estar en uso: se ofrece
+     restaurarlo antes de agregarlo, para que su stock no quede escondido. Va DESPUES
+     de mirar el proveedor: antes se restauraba y recien ahi salia "no es de este
+     proveedor", y quedaba restaurado sin haberse comprado. */
+  if (prod.depurado === true) {
+    if (typeof depuracionOfrecerRestaurar === 'function') {
+      depuracionOfrecerRestaurar(prod, 'volver a comprarlo').then(ok => { if (ok) compraEscanear(prod); });
+    }
+    return;
+  }
 
   const i = _compraItems.findIndex(x => x.id === prod.id);
   if (i >= 0) {
@@ -303,6 +313,37 @@ function compraEscanear(prod) {
   showAdminToast('Agregado: ' + nombre, 'success');
 }
 
+/* AVISO TEMPORAL SOBRE LA LECTURA DEL PDF.
+
+   Esta aca mientras el lector no entienda los remitos que cuentan BOLSAS. Un
+   renglon como "MANI TOSTADO X 5 KG   2   4900   9800" -dos bolsas de 5 kg a
+   $4.900 cada una- se lee como 2.000 g a $4.900 el kilo, cuando entraron
+   10.000 g a $980. Y sale marcado como verificado: el KG de la descripcion
+   pasa por la marca de kilos, y 2 x 4.900 = 9.800 cierra la cuenta igual.
+
+   Los renglones que traen la cantidad en kilos se leen bien, pero no hay forma
+   de saber de antemano como escribe sus remitos cada proveedor. Hasta que eso
+   se arregle, el cartel pide revisar todo antes de guardar.
+
+   Va adentro de compraLectura y no suelto en el modal, a proposito: esa caja
+   se vacia sola al cerrar, al reabrir y al cambiar de archivo, asi que el
+   cartel no puede quedar colgado de una compra anterior. Y como esa caja esta
+   debajo de la fila Factura/Notas -el porque, en admin.html-, el cartel va de
+   punta a punta. Lleva display:flex porque .cp-aviso arranca oculto -el de
+   stock lo prende desde el codigo-.
+
+   Cuando el lector entienda las bolsas: borrar esta constante y su uso en
+   _aviso, adentro de _cpLeerRemito. */
+const _CP_AVISO_LECTURA_PDF =
+  '<div class="cp-aviso" style="display:flex;margin:0 0 0.45rem;color:var(--text)">' +
+    '<i class="bi bi-exclamation-triangle" style="color:#EDB833;flex:0 0 auto;margin-top:1px"></i>' +
+    '<div><b>AVISO:</b> La lectura automática de archivos PDF puede presentar <b>errores o inconsistencias</b> ' +
+    'al interpretar la información. Esto se debe a que <b>cada proveedor utiliza diferentes formatos</b> y ' +
+    'criterios para cargar y declarar sus productos y la información asociada.' +
+    '<div style="margin-top:0.3rem">Por favor, <b>revise cuidadosamente</b> toda la información cargada ' +
+    '<b>antes de confirmar</b> y aceptar la compra.</div></div>' +
+  '</div>';
+
 /* Lee el remito y precarga los items. No pisa lo que ya haya cargado a mano:
    agrega lo que falta y avisa lo que salteo. */
 async function _cpLeerRemito(file) {
@@ -316,7 +357,7 @@ async function _cpLeerRemito(file) {
     if (!caja) return;
     caja.style.display = 'block';
     caja.style.color = color || 'var(--text-dim)';
-    caja.innerHTML = html;
+    caja.innerHTML = _CP_AVISO_LECTURA_PDF + html;
   };
   _aviso('<i class="bi bi-arrow-repeat spin"></i> Leyendo el remito...');
 
@@ -364,15 +405,35 @@ async function _cpLeerRemito(file) {
                 ' sin cantidad, revisalos</span>');
   }
   let html = partes.join(' &middot; ');
-  if (r.dudosos.length) {
+  /* Los de peso van juntos: son muchos y el motivo es siempre el mismo. Uno por
+     renglon tapaba a los que de verdad hay que mirar. */
+  const dudPeso = r.dudosos.filter(d => d.porPeso);
+  const dudOtros = r.dudosos.filter(d => !d.porPeso);
+  if (dudPeso.length) {
+    html += '<div style="color:#EDB833;margin-top:0.25rem">&middot; <b>' + dudPeso.length +
+      (dudPeso.length === 1 ? ' producto por peso</b>' : ' productos por peso</b>') +
+      ': el remito no dice si el n&uacute;mero son kilos o bultos, as&iacute; que la cantidad y el ' +
+      'costo van a mano (' + esc(dudPeso.slice(0, 4).map(d => d.nombre).join(', ')) +
+      (dudPeso.length > 4 ? ' y ' + (dudPeso.length - 4) + ' m&aacute;s' : '') + ').</div>';
+  }
+  if (dudOtros.length) {
     html += '<div style="color:#EDB833;margin-top:0.25rem">' +
-      r.dudosos.map(d => '&middot; ' + esc(d.nombre) + ': ' + esc(d.motivo)).join('<br>') + '</div>';
+      dudOtros.map(d => '&middot; ' + esc(d.nombre) + ': ' + esc(d.motivo)).join('<br>') + '</div>';
   }
   if (r.ignoradas.length) {
     html += '<div style="color:var(--text-dim);margin-top:0.25rem">' +
       r.ignoradas.length + ' rengl' + (r.ignoradas.length === 1 ? '&oacute;n' : 'ones') +
       ' sin usar: ' + esc(r.ignoradas.slice(0, 3).map(x => x.motivo).join('; ')) +
       (r.ignoradas.length > 3 ? '...' : '') + '</div>';
+  }
+  const depEnRemito = nuevos.filter(i => {
+    const p = (allProducts || []).find(x => x.id === i.id);
+    return p && p.depurado === true;
+  });
+  if (depEnRemito.length) {
+    html += '<div style="color:#EDB833;margin-top:0.25rem">&middot; ' + depEnRemito.length +
+      (depEnRemito.length === 1 ? ' est&aacute; depurado' : ' est&aacute;n depurados') + ' (' + esc(depEnRemito.map(i => i.nombre).join(', ')) +
+      '): al guardar la compra se ofrece restaurarlos.</div>';
   }
   html += '<div style="color:var(--text-dim);margin-top:0.35rem">' +
     'Revis&aacute; las cantidades contra el papel antes de guardar.</div>';
@@ -479,10 +540,22 @@ async function guardarCompra() {
   /* Los renglones en cero se descartan. Si eso pasa callado, el que leyo un
      remito cree que cargo todo y no cargo todo: hay que avisarlo. */
   const enCero = _compraItems.filter(i => Number(i.cantidad || 0) <= 0);
-  if (enCero.length && !confirm(
-      'Estos productos quedaron sin cantidad y NO se van a cargar:' + String.fromCharCode(10) +
-      enCero.map(i => '- ' + i.nombre).join(String.fromCharCode(10)) + String.fromCharCode(10, 10) +
-      'Guardar igual?')) return;
+  if (enCero.length) {
+    /* Con el dialogo del panel y no con el cuadrito gris del navegador: ver
+       admin-dialogo.js. Leyendo un remito esta lista son casi siempre los productos
+       por peso, que van a mano, asi que el boton de cancelar ofrece volver. */
+    const nombres = enCero.slice(0, 8).map(i => '• ' + i.nombre).join(String.fromCharCode(10)) +
+      (enCero.length > 8 ? String.fromCharCode(10) + '• y ' + (enCero.length - 8) + ' más' : '');
+    const seguir = await pedirConfirmacion(
+      (enCero.length === 1
+        ? 'Este producto quedó sin cantidad, así que NO se va a cargar:'
+        : 'Estos ' + enCero.length + ' productos quedaron sin cantidad, así que NO se van a cargar:') +
+      String.fromCharCode(10, 10) + nombres + String.fromCharCode(10, 10) +
+      'Podés volver, ponerles la cantidad y guardar de nuevo.',
+      { titulo: 'Quedaron productos sin cantidad', aceptar: 'Guardar igual',
+        cancelar: 'Volver y completar', icono: 'bi-exclamation-triangle' });
+    if (!seguir) return;
+  }
   const sinCosto = conCantidad.filter(i => Number(i.costoUnitario || 0) <= 0);
   if (sinCosto.length) {
     return showAdminToast('Falta el costo de: ' + sinCosto.map(i => i.nombre).join(', '), 'error');
@@ -584,6 +657,18 @@ async function guardarCompra() {
     /* Recién ahora se ofrece mover los costos: la compra ya está guardada, así
        que decir que no acá no pierde nada. */
     await ofrecerActualizarCostos(conCantidad);
+
+    /* Si trajo productos depurados, entraron de nuevo al local. Sin restaurarlos
+       su stock queda sumado pero escondido de todas las listas. */
+    const depEnCompra = conCantidad.map(i => (allProducts || []).find(x => x.id === i.id))
+      .filter(p => p && p.depurado === true);
+    if (depEnCompra.length && typeof depuracionRestaurar === 'function' && await pedirConfirmacion(
+        'Esta compra incluye ' + depEnCompra.length + ' producto' + (depEnCompra.length === 1 ? '' : 's') + ' depurado' +
+        (depEnCompra.length === 1 ? '' : 's') + ': ' + depEnCompra.slice(0, 5).map(p => p.nombreMostrado || p.nombre).join(', ') +
+        (depEnCompra.length > 5 ? '...' : '') + '.\n\nSin restaurarlos, su stock queda sumado pero no aparecen en ninguna lista.',
+        { titulo: 'Productos depurados', aceptar: 'Restaurar' })) {
+      await depuracionRestaurar(depEnCompra.map(p => p.id), 'volvieron a comprarse');
+    }
 
     if (typeof _refrescarAlertas === 'function') _refrescarAlertas(true);
     if (typeof loadProveedores === 'function') loadProveedores();
