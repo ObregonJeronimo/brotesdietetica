@@ -35,14 +35,26 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
    de 1.312**: el único escaneo que funciona es el de las etiquetas que imprime el local,
    que llevan el código interno. El lector ya busca en los dos campos y la validación
    cruzada ya está puesta (21/09), así que se pueden cargar sin miedo a choques.
-3. **Ticket térmico después de la venta** y **roles por empleado**: especificados en
-   `SPEC-ROLES-TICKET.md`. **El ticket primero**; los roles después.
-4. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I).
-5. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
+3. **Ticket térmico después de la venta** (`SPEC-ROLES-TICKET.md` §B) — **EMPEZADO**.
+   - ✅ **El papel** (`admin-ticket.js`, 21/09): `ticketDocumento(venta, cfg)` arma el
+     comprobante con lo que quedó **guardado** en la venta -reimprimir una de marzo da el
+     mismo papel que salió en marzo-, a granel muestra kg y `/kg`, el vuelto sale solo en
+     efectivo, y el ancho 58/80 mm cambia el cuerpo de la letra.
+     `pruebas/t-ticket.js`, 27 asertos.
+   - ⏳ **El diálogo** "¿Imprimir ticket?" con `Imprimir` enfocado, ←→, Esc, y que el
+     **Enter de ráfaga de la pistola NO lo confirme** (reusar la distinción que ya hace
+     `admin-lector.js`).
+   - ⏳ **Configuración → Impresión**: ancho, tipo de rollo, pie, y qué hacer después de
+     cada venta. Con el aviso de frente: el navegador **no elige la impresora**.
+   - ⏳ **Reimprimir** desde la lista de ventas, con `logAction('imprimir', ...)`.
+4. **Roles por empleado** (`SPEC-ROLES-TICKET.md` §A): tocan reglas, una Cloud Function y
+   las 17 secciones. Después del ticket.
+5. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I).
+6. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
    está en Blaze, **sin tope y sin ninguna alerta**.
-6. **Revisar en qué plan está Vercel.** Hobby es *non-commercial only* y Brotes vende.
-7. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
-8. **Portar a YERCO** lo de §6. **YERCO se toca desde su propia sesión, no desde acá.**
+7. **Revisar en qué plan está Vercel.** Hobby es *non-commercial only* y Brotes vende.
+8. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
+9. **Portar a YERCO** lo de §6. **YERCO se toca desde su propia sesión, no desde acá.**
 
 ### Para el chat DEFT (repo base y alta de clientes con banderas)
 
