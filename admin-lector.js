@@ -186,7 +186,12 @@ function coincidenciasCodigo(cod) {
   if (typeof allProducts === 'undefined' || !Array.isArray(allProducts)) return [];
   const c = _normCod(cod);
   if (!c) return [];
-  return allProducts.filter(p => _normCod(p.codigoBarras) === c || _normCod(p.codigo) === c);
+  /* SOLO el codigo de barras. El codigo interno es un identificador para BUSCAR
+     -se escribe, se ordena la tabla por el- y no una etiqueta escaneable: lo que el
+     local envasa se arma y se entrega en el momento, asi que no lleva etiqueta.
+     Mientras el lector miraba los dos campos, dos productos con el mismo numero en
+     campos distintos se tapaban entre si: paso con "57" y "000057". */
+  return allProducts.filter(p => _normCod(p.codigoBarras) === c);
 }
 
 /* Solo devuelve producto si hay UNO. Con dos o mas no se elige por el operador:
