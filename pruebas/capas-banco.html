@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Banco de capas: la ficha sobre la venta</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  body{margin:0;padding:1rem;background:#0d1117;color:#e6edf3;font:14px/1.55 system-ui,sans-serif}
+  h1{font-size:1rem;margin:0 0 .3rem}
+  .sub{color:#8b949e;font-size:.8rem;max-width:760px;margin-bottom:.8rem}
+  button.b{background:#238636;border:1px solid #2ea043;color:#fff;border-radius:6px;padding:.45rem .8rem;cursor:pointer;font-size:.83rem;margin:0 .3rem .4rem 0;position:relative;z-index:9999}
+  button.b.gris{background:#21262d;border-color:#30363d;color:#e6edf3}
+  #log{font-family:ui-monospace,Consolas,monospace;font-size:.78rem;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:.6rem;max-width:760px;white-space:pre-wrap;position:relative;z-index:9999}
+  .ok{color:#3fb950}.mal{color:#f85149}
+</style>
+</head>
+<body>
+<h1>Banco de capas: la ficha del producto sobre la venta</h1>
+<p class="sub">
+  Monta los modales <b>reales</b> de <code>/admin</code> —<code>#ventaModal</code> y
+  <code>#productModal</code>— con los estilos reales, los abre los dos y pregunta al
+  navegador <b>cuál de los dos está adelante</b> en el centro de la pantalla
+  (<code>elementFromPoint</code>). Es la única forma de comprobarlo: los dos tienen
+  <code>z-index: 200</code> y desempata el orden del HTML.
+</p>
+<div>
+  <button class="b gris" onclick="medir(false)">Como estaba (sin levantar la ficha)</button>
+  <button class="b" onclick="medir(true)">Como queda (ficha levantada)</button>
+</div>
+<div id="log">montando…</div>
+
+<script>
+function log(t,c){ const d=document.getElementById('log'); d.innerHTML+='<span class="'+(c||'')+'">'+t+'</span>\n'; }
+
+function medir(levantar){
+  document.getElementById('log').innerHTML='';
+  const venta=document.getElementById('ventaModal');
+  const ficha=document.getElementById('productModal');
+  venta.classList.add('show');
+  ficha.classList.add('show');
+  ficha.style.zIndex = levantar ? '260' : '';
+
+  const x=Math.round(innerWidth/2), y=Math.round(innerHeight/2);
+  const el=document.elementFromPoint(x,y);
+  const arriba = el && el.closest('#productModal') ? 'FICHA'
+               : (el && el.closest('#ventaModal') ? 'VENTA' : '(ninguno)');
+  log('z-index de la ficha: '+(getComputedStyle(ficha).zIndex));
+  log('z-index de la venta: '+(getComputedStyle(venta).zIndex));
+  log('el orden del HTML pone la ficha en la posicion '+[...document.querySelectorAll('.modal-overlay')].indexOf(ficha)+
+      ' y la venta en la '+[...document.querySelectorAll('.modal-overlay')].indexOf(venta));
+  log('en el centro de la pantalla esta adelante: '+arriba, arriba==='FICHA'?'ok':'mal');
+  log(levantar
+    ? (arriba==='FICHA' ? 'BIEN: se puede cargar el producto sin cerrar la venta.' : 'MAL: la ficha sigue tapada.')
+    : (arriba==='VENTA' ? 'Este era el bug: la ficha queda detras de la venta.' : 'La ficha ya estaba adelante.'),
+    arriba==='FICHA'?'ok':'mal');
+}
+
+fetch('/admin').then(r=>r.text()).then(t=>{
+  const doc=new DOMParser().parseFromString(t,'text/html');
+  doc.querySelectorAll('style').forEach(s=>document.head.appendChild(s.cloneNode(true)));
+  /* EN EL ORDEN REAL DEL HTML, que es todo el punto: montarlos en otro orden
+     hace que el banco no reproduzca el bug. */
+  const quiero=['productModal','ventaModal'];
+  const enOrden=[...doc.querySelectorAll('.modal-overlay')].filter(m=>quiero.includes(m.id));
+  log('orden en admin.html: '+enOrden.map(m=>m.id).join(' -> '));
+  enOrden.forEach(m=>document.body.appendChild(m.cloneNode(true)));
+  if(enOrden.length!==2) log('faltan modales: '+enOrden.length,'mal');
+  log('modales reales montados','ok');
+  medir(false);
+}).catch(e=>log('no se pudo montar: '+e.message,'mal'));
+</script>
+</body>
+</html>

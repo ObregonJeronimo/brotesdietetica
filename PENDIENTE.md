@@ -94,6 +94,18 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 
 ### Hecho el 21/09
 
+- **Crear un producto en el medio de una venta abre la ficha DETRÁS de la venta**
+  (lo probó el dueño escaneando de verdad). Todos los `.modal-overlay` comparten
+  `z-index: 200`, así que desempata el orden del HTML, y ahí `productModal` está
+  **antes** que `ventaModal`: la venta pinta encima y parecía que el botón no hacía
+  nada. Ahora la ficha se **levanta** cuando se abre sobre una venta, una venta
+  mayorista o una compra; **no se cambia de sección** -al cerrarla se vuelve a la venta,
+  que sigue ahí-; y al guardar, **el producto entra solo** a lo que estaba abierto, sin
+  el paso de volver a escanear. `closeModal()` devuelve la ficha a su nivel y olvida el
+  destino, por si se canceló.
+  `pruebas/t-crear-desde-venta.js`, 27 asertos (18 fallan contra el commit anterior).
+  Banco: `pruebas/capas-banco.html`, que le pregunta al navegador cuál de los dos
+  modales está adelante -antes: la venta; ahora: la ficha-.
 - **El preview de la ficha mostraba el código interno como si fuera el código de
   barras.** Un producto con código `002022` y el campo de barras vacío dibujaba el
   símbolo `2000000020228` -el EAN que el sistema deriva del interno-, así que los 1.311

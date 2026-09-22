@@ -447,27 +447,82 @@ function closeAsignarCodigo() {
    Ahora se abre la ficha de producto nuevo con el codigo de barras ya puesto y un
    codigo interno sugerido. Al guardarlo, se escanea otra vez y entra a la venta:
    una lectura mas, y ningun camino raro que mantener. */
+/* A donde vuelve el producto recien creado. Lo guarda crearProductoConCodigo() y
+   lo consume saveProduct() cuando la ficha se guarda bien. */
+let _lecDestinoNuevo = null;
+function lectorDestinoNuevo() { return _lecDestinoNuevo; }
+function lectorLimpiarDestinoNuevo() { _lecDestinoNuevo = null; }
+
+/* Los modales que pueden quedar ABAJO de la ficha: son los tres desde los que se
+   escanea con algo a medio cargar. */
+const LECTOR_MODALES_BASE = ['ventaModal', 'ventaMayModal', 'compraModal'];
+
 function crearProductoConCodigo() {
   const pend = _lecCodigoPendiente;
   const cod = pend ? pend.cod : '';
+  const destino = pend ? pend.destino : '';
   closeAsignarCodigo();
-  if (typeof switchSection === 'function') switchSection('products');
+
+  /* QUE HAY ABIERTO DEBAJO. Escanear un codigo desconocido en el medio de una
+     venta y elegir "crearlo" abria la ficha DETRAS de la venta: todos los
+     .modal-overlay comparten z-index 200 y desempata el orden del HTML, donde
+     productModal esta ANTES que ventaModal. La ficha quedaba tapada y no se
+     podia usar; parecia que el boton no hacia nada. */
+  const debajo = LECTOR_MODALES_BASE.filter(_modalAbierto);
+
+  /* Y con una venta abierta NO se cambia de seccion: al cerrar la ficha hay que
+     volver a la venta que sigue ahi, no quedar parado en Productos con la venta
+     flotando encima. */
+  if (!debajo.length && typeof switchSection === 'function') switchSection('products');
+
   if (typeof openModal !== 'function') {
     if (typeof showAdminToast === 'function') showAdminToast('No se pudo abrir la ficha del producto', 'error');
     return;
   }
   openModal();
+
+  const ficha = document.getElementById('productModal');
+  if (ficha) ficha.style.zIndex = debajo.length ? '260' : '';
+
   const campo = document.getElementById('pCodigoBarras');
-  if (campo && cod) campo.value = cod;
+  if (campo && cod) {
+    campo.value = cod;
+    if (typeof refrescarBarrasProducto === 'function') refrescarBarrasProducto();
+  }
   const cInterno = document.getElementById('pCodigo');
   if (cInterno && !cInterno.value && typeof sugerirCodigoProducto === 'function') {
     cInterno.value = sugerirCodigoProducto();
     if (typeof _pintarEstadoCodigo === 'function') _pintarEstadoCodigo();
   }
+
+  /* Si habia una venta abierta, el producto nuevo entra solo cuando se guarde:
+     era el paso de mas -guardar, cerrar, volver a escanear- justo con la pistola
+     en la mano y un cliente esperando. */
+  _lecDestinoNuevo = debajo.length ? destino : null;
+
   const nom = document.getElementById('pNombre');
   if (nom) setTimeout(function () { nom.focus(); }, 80);
   if (typeof showAdminToast === 'function') {
-    showAdminToast('Cargá el producto y guardalo. Después escanealo otra vez y entra a la venta.', 'info');
+    showAdminToast(_lecDestinoNuevo
+      ? 'Cargá el producto y guardalo: entra solo a la ' + (destino === 'compra' ? 'compra' : 'venta') + '.'
+      : 'Cargá el producto y guardalo. Después escanealo otra vez y entra a la venta.', 'info');
+  }
+}
+
+/* Lo llama saveProduct() con el id del producto recien creado. Se le pasa el
+   destino que se capturo ANTES de cerrar la ficha, porque cerrarla lo limpia. */
+function lectorAgregarProductoNuevo(id, destino) {
+  _lecDestinoNuevo = null;
+  if (!id || !destino) return;
+  const p = (typeof allProducts !== 'undefined' && Array.isArray(allProducts))
+    ? allProducts.find(x => x.id === id) : null;
+  if (!p) return;
+  if (destino === 'venta' && _modalAbierto('ventaModal')) {
+    _agregarYAvisar(p, addVentaItem, () => _cantEnVenta('min', id));
+  } else if (destino === 'ventaMay' && _modalAbierto('ventaMayModal')) {
+    _agregarYAvisar(p, addVentaMayItem, () => _cantEnVenta('may', id));
+  } else if (destino === 'compra' && _modalAbierto('compraModal')) {
+    if (typeof compraEscanear === 'function') compraEscanear(p);
   }
 }
 
