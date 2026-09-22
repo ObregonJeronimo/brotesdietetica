@@ -72,14 +72,43 @@ function pedirConfirmacion(mensaje, opts) {
       resolve(valor);
     };
 
+    /* Los dos botones, en el orden en que se ven. */
+    const botones = () => [].slice.call(ov.querySelectorAll('.dlg-no, .dlg-si'));
+
+    function mover(paso) {
+      const bs = botones();
+      if (!bs.length) return;
+      const i = bs.indexOf(document.activeElement);
+      const sig = bs[((i < 0 ? 0 : i + paso) + bs.length) % bs.length];
+      if (sig && sig.focus) sig.focus();
+    }
+
     function onTecla(e) {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cerrar(false); }
       else if (e.key === 'Enter') {
+        /* EL ENTER DE LA PISTOLA NO CONTESTA PREGUNTAS.
+
+           Un lector USB es un teclado y su Enter llega hasta acá igual que el de
+           una persona: admin-lector.js corre en fase de captura sobre document y
+           hace stopPropagation(), pero eso no frena a los otros handlers del
+           MISMO document, y éste es uno. O sea que un lector apoyado sobre el
+           gatillo contestaba que sí a lo que hubiera en pantalla —imprimir un
+           ticket, y también eliminar—. Lo único que sabe de quién fue ese Enter
+           es el lector, que ya lo clasificó y dejó la marca sobre el evento. */
+        if (typeof enterDeRafaga === 'function' && enterDeRafaga(e)) { e.preventDefault(); return; }
         /* Si el foco está en un botón, que decida el botón. */
         if (document.activeElement && document.activeElement.classList &&
             (document.activeElement.classList.contains('dlg-si') || document.activeElement.classList.contains('dlg-no'))) return;
         e.preventDefault(); cerrar(true);
       }
+      /* Son dos botones y una sola fila: las flechas son la forma natural de
+         elegir sin soltar el teclado, que es como se atiende el mostrador. */
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); mover(-1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); mover(1); }
+      /* El foco no se va del diálogo mientras está abierto: con Tab se llegaba a
+         los campos de la venta que quedó atrás y se los podía editar con una
+         pregunta sin responder encima. */
+      else if (e.key === 'Tab') { e.preventDefault(); mover(e.shiftKey ? -1 : 1); }
     }
 
     ov.querySelector('.dlg-si').addEventListener('click', () => cerrar(true));

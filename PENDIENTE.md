@@ -35,18 +35,32 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
    de 1.312**: el único escaneo que funciona es el de las etiquetas que imprime el local,
    que llevan el código interno. El lector ya busca en los dos campos y la validación
    cruzada ya está puesta (21/09), así que se pueden cargar sin miedo a choques.
-3. **Ticket térmico después de la venta** (`SPEC-ROLES-TICKET.md` §B) — **EMPEZADO**.
-   - ✅ **El papel** (`admin-ticket.js`, 21/09): `ticketDocumento(venta, cfg)` arma el
+3. **Ticket térmico después de la venta** (`SPEC-ROLES-TICKET.md` §B) — ✅ **HECHO** (21/09).
+   - ✅ **El papel** (`admin-ticket.js`): `ticketDocumento(venta, cfg)` arma el
      comprobante con lo que quedó **guardado** en la venta -reimprimir una de marzo da el
      mismo papel que salió en marzo-, a granel muestra kg y `/kg`, el vuelto sale solo en
      efectivo, y el ancho 58/80 mm cambia el cuerpo de la letra.
      `pruebas/t-ticket.js`, 27 asertos.
-   - ⏳ **El diálogo** "¿Imprimir ticket?" con `Imprimir` enfocado, ←→, Esc, y que el
-     **Enter de ráfaga de la pistola NO lo confirme** (reusar la distinción que ya hace
-     `admin-lector.js`).
-   - ⏳ **Configuración → Impresión**: ancho, tipo de rollo, pie, y qué hacer después de
-     cada venta. Con el aviso de frente: el navegador **no elige la impresora**.
-   - ⏳ **Reimprimir** desde la lista de ventas, con `logAction('imprimir', ...)`.
+   - ✅ **El diálogo** "¿Imprimir ticket?": sale al cerrar el modal de venta, con
+     `Imprimir` enfocado -la venta se cierra con un Enter y el ticket sale con otro-,
+     ←→ para elegir, `Esc` = no imprimir, y el foco no se escapa con Tab.
+     **El Enter de la pistola NO lo contesta**: `admin-lector.js` ahora marca el evento
+     cuando el Enter lo mandó una ráfaga (`enterDeRafaga()`) y `admin-dialogo.js` se
+     niega a resolver con ése. Vale para **todos** los diálogos del panel, no solo el
+     ticket: un lector apoyado sobre el gatillo tampoco puede contestar "¿Eliminar?".
+     Y con un diálogo abierto, escanear ya no sigue de largo por debajo.
+   - ✅ **Configuración → Impresión**: ancho (58/80), tipo de rollo, pie y qué hacer
+     después de cada venta (preguntar / directo / no). Con el aviso de frente y con esas
+     palabras: el navegador **no elige la impresora**, eso lo hace el cuadro de Windows;
+     para que no aparezca en cada venta hay que dejar la térmica como predeterminada y
+     abrir Chrome con `--kiosk-printing`, que es un paso de instalación en el local.
+   - ✅ **Reimprimir** desde la lista de ventas (botón *Ticket* en cada venta), con los
+     precios de **esa** venta y `logAction('imprimir', ...)`.
+   - Pruebas: `pruebas/t-ticket-dialogo.js`, 39 asertos (17 de ellos fallan contra el
+     commit anterior). Banco para verlo a mano: `pruebas/ticket-banco.html`.
+   - **Pendiente chico**: el ticket no muestra vuelto en las ventas nuevas porque la
+     venta no guarda **con cuánto paga** el cliente; el papel ya lo sabe imprimir si el
+     campo aparece. Y el ticket sale en la venta minorista, no en la mayorista.
 4. **Roles por empleado** (`SPEC-ROLES-TICKET.md` §A): tocan reglas, una Cloud Function y
    las 17 secciones. Después del ticket.
 5. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I).
@@ -71,6 +85,12 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 
 ### Hecho el 21/09
 
+- **Ticket térmico, completo** (`admin-ticket.js`): el papel, la pregunta después de
+  cobrar, Configuración → Impresión y el reimprimir desde la lista de ventas. Ver el
+  punto 3 de arriba. De paso quedó arreglado algo que era del panel entero y no del
+  ticket: **la pistola podía contestar cualquier diálogo**. El Enter de una ráfaga llega
+  a la página igual que el de una persona, y `stopPropagation()` no frena a los otros
+  handlers del mismo `document`; ahora el lector marca el evento y el diálogo se niega.
 - **Datos, en producción** (solo lista `FRUTICOR-TODOS`, 720 documentos, con respaldo):
   656 productos al **65% de ganancia** mínima -578 con precio recalculado, y **78 con
   costo $0 a los que NO se les tocó el precio**, porque el reporte viejo traía precio de

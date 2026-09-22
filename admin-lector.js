@@ -48,6 +48,13 @@ document.addEventListener('keydown', function (e) {
     const eraRafaga = _lecRafaga;
     _lecRafaga = false;
     if (eraRafaga && cod.length >= LECTOR_LARGO_MIN && gap <= LECTOR_GAP_MAX) {
+      /* Queda MARCADO EL EVENTO, no una variable con la hora. Abajo se hace
+         stopPropagation(), que corta la propagacion al nodo siguiente pero NO a
+         los otros handlers de document: un dialogo abierto recibe este mismo
+         Enter y hasta ahora no tenia forma de saber que lo mando una maquina.
+         Con la marca encima del evento la respuesta es exacta y no depende de
+         medir tiempos dos veces. Ver enterDeRafaga(). */
+      e._lecRafaga = true;
       e.preventDefault();
       e.stopPropagation();
       _enterUno = 0;            /* el Enter de la pistola no cuenta para cerrar */
@@ -64,6 +71,17 @@ document.addEventListener('keydown', function (e) {
   if (gap > LECTOR_GAP_MAX) { _lecBuf = e.key; _lecRafaga = false; }
   else { _lecBuf += e.key; _lecRafaga = _lecBuf.length >= 2; }
 }, true);
+
+/* LA UNICA PARTE DEL PANEL QUE SABE QUIEN APRETO ENTER.
+
+   Un lector USB es un teclado: su Enter llega igual que el de una persona. La
+   diferencia se calculo arriba -la rafaga- y queda marcada sobre el evento. Lo
+   exporta para que un dialogo pueda negarse a que lo conteste la pistola: si el
+   lector queda apoyado sobre el gatillo, "¿Imprimir ticket?" no puede
+   responderse solo, y "¿Eliminar la venta?" mucho menos. */
+function enterDeRafaga(e) {
+  return !!(e && e._lecRafaga);
+}
 
 /* Si el foco estaba en un campo, el código ya se escribió ahí. Se borra para que
    no quede pegado adelante de lo que la persona escriba después. */
@@ -223,6 +241,20 @@ function productoConCodigoBarras(cod, exceptoId) {
 }
 
 function procesarCodigoLeido(cod) {
+  /* CON UN DIALOGO ENCIMA NO SE ESCANEA. Los dialogos de admin-dialogo.js
+     -cuantos gramos lleva, ¿imprimir el ticket?, cualquier confirmacion- no son
+     .modal-overlay, asi que ninguno de los chequeos de abajo los ve. Sin esto una
+     pistola apoyada sobre el gatillo seguia de largo por debajo de la pregunta:
+     abria una venta nueva DETRAS del dialogo, o le cargaba productos a una venta
+     que la persona todavia no habia terminado de confirmar. Se responde lo que
+     esta en pantalla y se sigue. */
+  if (document.querySelector('.dlg-overlay')) {
+    if (typeof showAdminToast === 'function') {
+      showAdminToast('Respondé lo que está en pantalla antes de escanear.', 'error');
+    }
+    return;
+  }
+
   /* Editando un producto, escanear ES cargarle el código. Es la forma natural de
      darle de alta a uno nuevo sin tener que tipear trece dígitos. */
   const campo = document.getElementById('pCodigoBarras');

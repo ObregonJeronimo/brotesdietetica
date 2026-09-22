@@ -173,5 +173,210 @@ function ticketDocumento(venta, cfg) {
     '</body></html>';
 }
 
+/* =============================================================================
+   EL FORMATO GUARDADO  —  config/ticket
+   =============================================================================
+   LO QUE HAY QUE DECIR DE FRENTE: el navegador NO PUEDE ELEGIR LA IMPRESORA. No
+   existe una API que las liste; la elección la hace el diálogo de impresión del
+   sistema. Así que "configurado" acá significa EL FORMATO DEL PAPEL, no el
+   dispositivo. Para que no salte el diálogo de Windows en cada venta, la térmica
+   tiene que quedar como impresora predeterminada de Windows y Chrome arrancar
+   con --kiosk-printing: eso es un paso de instalación en la máquina del local y
+   va en el manual de puesta en marcha, no es algo que el panel pueda resolver
+   solo. La pantalla de Configuración dice esto mismo, con estas palabras.
+   ============================================================================= */
+
+let _tkCfg = null;        /* lo que esta guardado; null = todavia no se leyo */
+let _tkCfgLeyendo = null;
+
+function ticketCfgActual() {
+  return Object.assign({}, TICKET_CFG_DEFAULTS, _tkCfg || {});
+}
+
+/* Configurado = alguien entro a Configuracion -> Impresion y guardo. Mientras no
+   pase, el dialogo ofrece configurar en vez de mandar a imprimir un papel con un
+   ancho que a lo mejor no es el del rollo que hay puesto. */
+function ticketConfigurado() {
+  return !!(_tkCfg && _tkCfg.configurado);
+}
+
+function loadTicketCfg(forzar) {
+  if (!forzar && _tkCfg) return Promise.resolve(_tkCfg);
+  if (!forzar && _tkCfgLeyendo) return _tkCfgLeyendo;
+  if (typeof db === 'undefined') return Promise.resolve(null);
+  _tkCfgLeyendo = db.collection('config').doc('ticket').get()
+    .then(function (snap) { _tkCfg = snap.exists ? snap.data() : null; return _tkCfg; })
+    .catch(function (e) { console.warn('config del ticket:', e); return null; })
+    .then(function (r) { _tkCfgLeyendo = null; return r; });
+  return _tkCfgLeyendo;
+}
+
+/* =============================================================================
+   IMPRIMIR
+   =============================================================================
+   Misma maquinaria que admin-etiquetas.js: una ventana aparte, el documento
+   escrito adentro y print() con un respiro para que termine de maquetar. No se
+   reescribe el mecanismo, se reusa el criterio.
+   ============================================================================= */
+function imprimirTicket(venta, cfg) {
+  const c = Object.assign({}, ticketCfgActual(), cfg || {});
+  const html = ticketDocumento(venta, c);
+  const win = window.open('', '_blank', 'width=420,height=640');
+  if (!win) {
+    if (typeof showAdminToast === 'function') showAdminToast('El navegador bloqueó la ventana de impresión', 'error');
+    return false;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(function () { win.print(); }, 350);
+  return true;
+}
+
+/* =============================================================================
+   LA PREGUNTA DESPUES DE COBRAR
+   =============================================================================
+   Una sola pregunta, con `Imprimir` enfocado: el mostrador cierra la venta con
+   un Enter y, si el cliente quiere el comprobante, con otro Enter ya sale.
+
+   EL ENTER DE LA PISTOLA NO LA CONTESTA. Eso no se resuelve aca sino en
+   admin-dialogo.js, que le pregunta al lector si ese Enter lo mando una maquina.
+   Es la misma distincion que ya existia, no una nueva.
+
+   LA VENTA YA ESTA GUARDADA CUANDO ESTO CORRE. Nada de lo de aca puede hacerla
+   fallar: por eso no rechaza nunca y quien la llama no la espera.
+   ============================================================================= */
+async function preguntarImprimirTicket(venta) {
+  try {
+    if (!venta) return false;
+    await loadTicketCfg();
+    const c = ticketCfgActual();
+    if (c.despuesDeVender === 'no') return false;
+
+    if (!ticketConfigurado()) {
+      /* Sin formato guardado NO se llama a print(). Se ofrece configurarlo, que
+         es un camino de ida y vuelta de diez segundos, y la venta queda intacta. */
+      const ir = await pedirConfirmacion(
+        'Todavía no configuraste la impresora de tickets.\nSe configura una sola vez: el ancho del papel y qué dice el pie.',
+        { titulo: 'Imprimir ticket', aceptar: 'Configurar', cancelar: 'Ahora no', icono: 'bi-printer' });
+      if (ir) irAConfigImpresion();
+      return false;
+    }
+
+    if (c.despuesDeVender !== 'directo') {
+      const si = await pedirConfirmacion(
+        _tkNroVenta(venta) + ' · ' + _tkPesos(_tkTotal(venta)),
+        { titulo: '¿Imprimir ticket?', aceptar: 'Imprimir', cancelar: 'No imprimir', icono: 'bi-printer' });
+      if (!si) return false;
+    }
+    return imprimirTicket(venta, c);
+  } catch (e) {
+    console.warn('ticket:', e);
+    return false;
+  }
+}
+
+function irAConfigImpresion() {
+  if (typeof switchSection === 'function') switchSection('config');
+  setTimeout(function () {
+    const el = document.getElementById('cardImpresion');
+    if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 120);
+}
+
+/* =============================================================================
+   REIMPRIMIR
+   =============================================================================
+   Con los datos GUARDADOS de esa venta, no con los precios de hoy. Es el mismo
+   papel que salio ese dia, que es lo unico que sirve cuando el cliente vuelve
+   con el ticket en la mano.
+   ============================================================================= */
+async function reimprimirTicket(docId) {
+  const v = (typeof ventasData !== 'undefined' && Array.isArray(ventasData))
+    ? ventasData.find(x => x.docId === docId) : null;
+  if (!v) {
+    if (typeof showAdminToast === 'function') showAdminToast('No se encontró esa venta', 'error');
+    return false;
+  }
+  await loadTicketCfg();
+  if (!ticketConfigurado()) {
+    const ir = await pedirConfirmacion('Todavía no configuraste la impresora de tickets.',
+      { titulo: 'Reimprimir ticket', aceptar: 'Configurar', cancelar: 'Ahora no', icono: 'bi-printer' });
+    if (ir) irAConfigImpresion();
+    return false;
+  }
+  const hecho = imprimirTicket(v, ticketCfgActual());
+  if (hecho && typeof logAction === 'function') {
+    logAction('imprimir', 'Ticket de la venta ' + _tkNroVenta(v),
+      'Reimpresión · ' + _tkPesos(_tkTotal(v)) + ' · ' + ((v.items || []).length) + ' items');
+  }
+  return hecho;
+}
+
+/* =============================================================================
+   CONFIGURACION -> IMPRESION
+   ============================================================================= */
+function renderTicketCfg() {
+  return loadTicketCfg(true).then(function () {
+    const c = ticketCfgActual();
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    set('tk_ancho', String(c.ancho));
+    set('tk_rollo', c.rollo);
+    set('tk_pie', c.pie || '');
+    set('tk_despues', c.despuesDeVender);
+  });
+}
+
+async function saveTicketCfg() {
+  const btn = document.getElementById('btnGuardarTicketCfg');
+  const val = (id, def) => { const el = document.getElementById(id); return el ? el.value : def; };
+  const cfg = {
+    ancho: String(val('tk_ancho', '80')),
+    rollo: val('tk_rollo', 'continuo'),
+    pie: String(val('tk_pie', '')).slice(0, 200),
+    despuesDeVender: val('tk_despues', 'preguntar'),
+    configurado: true
+  };
+  if (btn) btn.disabled = true;
+  try {
+    await db.collection('config').doc('ticket').set(cfg, { merge: true });
+    _tkCfg = cfg;
+    if (typeof logAction === 'function') {
+      logAction('editar', 'Impresión de tickets', cfg.ancho + ' mm · ' + cfg.rollo + ' · después de vender: ' + cfg.despuesDeVender);
+    }
+    if (typeof showAdminToast === 'function') showAdminToast('Formato de ticket guardado', 'success');
+  } catch (e) {
+    if (typeof showAdminToast === 'function') showAdminToast('Error: ' + e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/* Para verlo antes de gastar papel: el mismo documento, con una venta de ejemplo
+   que lleva justo el caso que se rompe -250 g a $32.830 el kilo-. */
+function probarTicket() {
+  const cfg = {
+    ancho: String((document.getElementById('tk_ancho') || {}).value || '80'),
+    rollo: (document.getElementById('tk_rollo') || {}).value || 'continuo',
+    pie: (document.getElementById('tk_pie') || {}).value || ''
+  };
+  imprimirTicket({
+    numero: 0, fecha: new Date(), medioPago: 'Efectivo', medioPagoKey: 'efectivo', total: 12208,
+    items: [
+      { nombre: 'Almendras', precio: 32830, cantidad: 250, tipoVenta: 'peso', subtotal: 8208 },
+      { nombre: 'Yerba 500g', precio: 4000, cantidad: 1, tipoVenta: 'unidad', subtotal: 4000 }
+    ]
+  }, cfg);
+}
+
+window.preguntarImprimirTicket = preguntarImprimirTicket;
+window.reimprimirTicket = reimprimirTicket;
+window.imprimirTicket = imprimirTicket;
+window.loadTicketCfg = loadTicketCfg;
+window.renderTicketCfg = renderTicketCfg;
+window.saveTicketCfg = saveTicketCfg;
+window.probarTicket = probarTicket;
+window.ticketCfgActual = ticketCfgActual;
+window.ticketConfigurado = ticketConfigurado;
 window.ticketDocumento = ticketDocumento;
 window.TICKET_CFG_DEFAULTS = TICKET_CFG_DEFAULTS;
