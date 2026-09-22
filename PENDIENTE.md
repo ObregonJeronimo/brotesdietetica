@@ -72,12 +72,20 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
    - los **1.311 productos sin código de barras** se quedan sin etiqueta imprimible;
    - las etiquetas **ya pegadas en las bolsas** dejan de escanear, porque el lector las
      decodifica con `etiquetaProductoDe()`.
-6. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I).
-7. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
+6. **Limpiar los 4 nombres repetidos que quedan en producción** (medido el 21/09).
+   Dentro de la MISMA lista, o sea que casi seguro sobra uno: `PRODUCTO PRUEBA`
+   (002022 y 002023, los de la prueba del dueño), y en FRUTICOR-TODOS
+   `CACAO AMARGO CALIDAD EXTRA X 1 KG` (000093 y 001224),
+   `CHIPS DE CHOCOLATE SEMIAMARGO X 500 GR` (001168 y 000112) y
+   `AVENA INSTANTANEA X 5 KG` (000764 y 000059). Hay que mirar cuál tiene stock y
+   ventas antes de borrar. El de dos listas distintas -`CANELONES`- se deja: es
+   legítimo. El informe de repetidos del panel los muestra.
+7. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I).
+8. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
    está en Blaze, **sin tope y sin ninguna alerta**.
-8. **Revisar en qué plan está Vercel.** Hobby es *non-commercial only* y Brotes vende.
-9. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
-10. **Portar a YERCO** lo de §6. **YERCO se toca desde su propia sesión, no desde acá.**
+9. **Revisar en qué plan está Vercel.** Hobby es *non-commercial only* y Brotes vende.
+10. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
+11. **Portar a YERCO** lo de §6. **YERCO se toca desde su propia sesión, no desde acá.**
 
 ### Para el chat DEFT (repo base y alta de clientes con banderas)
 
@@ -94,6 +102,23 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 
 ### Hecho el 21/09
 
+- **Dos productos podían tener el mismo nombre interno** y el panel no decía nada
+  (lo encontró el dueño cargando uno desde una venta). Quedaban dos fichas para lo
+  mismo -dos precios, dos stocks, dos lugares donde tocar cuando cambia el costo- y el
+  buscador del modal de venta busca **por nombre**, así que en el mostrador salen dos
+  renglones idénticos y se elige a ciegas.
+  **No se bloquea a secas**, porque medido en producción (solo lectura, 1.313 productos)
+  hay 5 grupos repetidos: 4 en la misma lista y 1 entre listas distintas -CANELONES-,
+  que es legítimo, porque al mismo producto se le puede comprar a dos proveedores.
+  Entonces: **misma lista** no se guarda y se dice con cuál choca; **otra lista** se
+  pregunta y se puede seguir; y el que **ya venía repetido** se guarda avisando, porque
+  si no los tres que hoy están repetidos (CACAO AMARGO, CHIPS DE CHOCOLATE, AVENA
+  INSTANTANEA) no se podrían ni editar para corregirles el precio. Renombrar uno
+  *sobre* otro que ya existe sí se bloquea.
+  Además avisa **en vivo** debajo del campo, como ya hacía el código. Mismo criterio
+  que el informe de repetidos (`claveProducto`), así los dos dicen lo mismo.
+  `pruebas/t-nombre-repetido.js`, 39 asertos.
+  **Quedan 4 repetidos en producción para limpiar a mano** (ver punto 6).
 - **Crear un producto en el medio de una venta abre la ficha DETRÁS de la venta**
   (lo probó el dueño escaneando de verdad). Todos los `.modal-overlay` comparten
   `z-index: 200`, así que desempata el orden del HTML, y ahí `productModal` está

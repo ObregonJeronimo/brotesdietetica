@@ -156,7 +156,7 @@ t('el campo de codigo de barras redibuja al escribir',
 t('el codigo interno ya NO redibuja',
   !/id="pCodigo"[^>]*oninput="[^"]*refrescarBarrasProducto\(\)/.test(HTML));
 t('al abrir la ficha se redibuja',
-  /_pintarEstadoCodigo\(\);[\s\S]{0,300}refrescarBarrasProducto\(\)/.test(HTML));
+  /_pintarEstadoCodigo\(\);[\s\S]{0,900}refrescarBarrasProducto\(\)/.test(HTML));
 t('escanear con la ficha abierta tambien: poner .value no dispara input',
   /campo\.value = cod;[\s\S]{0,400}refrescarBarrasProducto\(\)/.test(LECTOR));
 
