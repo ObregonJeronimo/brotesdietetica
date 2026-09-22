@@ -75,12 +75,13 @@ t('con un aviso cuando el producto todavia no tiene codigo', form.indexOf('id="p
 t('el boton de imprimir usa un icono, no un emoji', /<i class="bi bi-printer"><\/i>/.test(form));
 t('y no hay ningun emoji en el bloque', !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(
   form.slice(form.indexOf('id="pBarrasWrap"'), form.indexOf('id="pBarrasVacio"')+400)));
-t('se redibuja al escribir el codigo', /refrescarBarrasProducto\(\)/.test(form));
+t('se redibuja al escribir el CODIGO DE BARRAS', /id="pCodigoBarras"[^>]*refrescarBarrasProducto\(\)/.test(form));
+t('y NO al escribir el codigo interno, del que ya no depende', !/id="pCodigo"[^>]*refrescarBarrasProducto\(\)/.test(form));
 
 console.log('\nEl preview usa el MISMO generador que la impresion');
 t('refrescarBarrasProducto existe', /function refrescarBarrasProducto\(\)/.test(etq));
 t('y dibuja con etiquetaBarrasSVG, no con un dibujo aparte', /etiquetaBarrasSVG\(ean, 12, 45\)/.test(etq));
-t('el codigo sale de etiquetaCodigoDe, el mismo que lee la pistola', /const ean = etiquetaCodigoDe\(p\)/.test(etq));
+t('el simbolo sale del CODIGO DE BARRAS del producto, no del codigo interno', /const ean = codigoBarrasDe\(p\)/.test(etq));
 t('no repite los digitos: el SVG ya los dibuja',
   !/etiquetaBarrasSVG\(ean[^;]*\+\s*'<div[^;]*ean/.test(etq));
 
@@ -89,7 +90,7 @@ const imp=etq.slice(etq.indexOf('function imprimirEtiquetaProducto'), etq.indexO
 t('arma el documento con etiquetaDocumento, como la impresion en tanda', /etiquetaDocumento\(\[\{ producto: p, copias: 1 \}\]/.test(imp));
 t('usa un formato termico', /etiquetaFormato\('ter-58x40'\)/.test(imp));
 t('en modo continuo, para no hacer cortar la guillotina de mas', /continuo: true/.test(imp));
-t('avisa si el producto no tiene codigo en vez de imprimir en blanco', /Ponele un codigo interno/.test(imp));
+t('avisa si el producto no tiene codigo de barras en vez de imprimir en blanco', /no tiene codigo de barras cargado/.test(imp));
 t('avisa si el navegador bloquea la ventana', /bloqueo la ventana de impresion/.test(imp));
 t('y deja rastro en el historial', /logAction\('imprimir'/.test(imp));
 t('las dos funciones quedan expuestas al panel',

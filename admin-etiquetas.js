@@ -83,6 +83,43 @@ function etiquetaProductoDe(escaneado, productos) {
     String(p.codigo == null ? '' : p.codigo).trim().padStart(6, '0') === cod) || null;
 }
 
+/* =============================================================================
+   EL CODIGO DE BARRAS DEL PRODUCTO  —  el que trae impreso el envase
+   =============================================================================
+   Ojo con no confundir esto con etiquetaCodigoDe(), que esta arriba y hace otra
+   cosa: deriva un EAN-13 del codigo INTERNO para las etiquetas que imprime el
+   propio local.
+
+   Son dos numeros distintos y no se pueden mezclar. El campo "Codigo de barras"
+   de la ficha es el del fabricante, y es el unico con el que escanea la pistola
+   (ver admin-lector.js). El preview que esta debajo de ese campo se dibujaba con
+   etiquetaCodigoDe(), o sea con el codigo interno: un producto con codigo 002022
+   y sin codigo de barras mostraba el simbolo 2000000020228 como si fuera SU
+   codigo de barras. No lo es, y peor: era el mismo dibujo antes y despues de
+   cargarle el de verdad.
+
+   Sin codigo de barras cargado no hay simbolo que dibujar. No se inventa uno.
+   ============================================================================= */
+
+/* El codigo de barras del producto, listo para dibujar, o null si no tiene.
+   NUNCA mira `codigo`. Un UPC-A de 12 digitos es un EAN-13 con un cero adelante,
+   que es como lo trata cualquier lector. */
+function codigoBarrasDe(p) {
+  const c = String((p && p.codigoBarras) == null ? '' : p.codigoBarras).replace(/[\s-]/g, '');
+  if (!/^\d+$/.test(c)) return null;
+  if (c.length === 13) return c;
+  if (c.length === 12) return '0' + c;
+  return null;
+}
+
+/* Un EAN-13 mal tipeado se dibuja igual y sale un simbolo plausible que ninguna
+   pistola acepta: el verificador no cierra y el lector lo descarta en silencio.
+   Se comprueba antes de ofrecer imprimirlo. */
+function codigoBarrasCierra(ean13) {
+  const c = String(ean13 || '');
+  return /^\d{13}$/.test(c) && etiquetaDigitoVerificador(c.slice(0, 12)) === c[12];
+}
+
 /* Los 95 módulos del símbolo, sin las zonas mudas. */
 function etiquetaModulos(codigo13) {
   const c = String(codigo13);
@@ -215,7 +252,10 @@ function etiquetaMedidas(f) {
 /* ------------------------------------------------------------------ la etiqueta */
 function etiquetaHTML(p, f, opciones) {
   const o = opciones || {};
-  const ean = etiquetaCodigoDe(p);
+  /* `barras` = imprimir el codigo de barras DEL PRODUCTO (el del envase). Sin la
+     bandera se usa el derivado del codigo interno, que es para que sirve la
+     seccion Etiquetas: hacerle una etiqueta a lo que no trae ninguna. */
+  const ean = o.barras ? codigoBarrasDe(p) : etiquetaCodigoDe(p);
   if (!ean) return '';
   const m = etiquetaMedidas(f);
   const esc = (s) => String(s == null ? '' : s)
@@ -374,6 +414,7 @@ function _prodDelFormulario() {
   const g = id => (document.getElementById(id) || {}).value;
   return {
     codigo: g('pCodigo'),
+    codigoBarras: g('pCodigoBarras'),
     nombre: g('pNombre'),
     nombreMostrado: g('pNombreMostrado'),
     gramaje: g('pGramaje'),
@@ -383,20 +424,47 @@ function _prodDelFormulario() {
   };
 }
 
-/* Se redibuja al escribir el codigo: es el unico campo del que depende. */
+/* CERO TRECE VECES: lo que se muestra mientras el producto no tiene codigo de
+   barras. Van los digitos como texto y NO un simbolo dibujado, aunque
+   0000000000000 sea un EAN-13 valido: un simbolo ahi invita a imprimirlo, y una
+   bolsa con esa etiqueta pegada no la encuentra nunca nadie. */
+const CB_SIN_CARGAR = '0000000000000';
+
+/* Se redibuja al escribir o escanear el CODIGO DE BARRAS, que es el unico campo
+   del que depende. Antes se redibujaba al escribir el codigo interno, porque era
+   de ahi de donde salia el simbolo: cargarle el codigo de barras de verdad no
+   cambiaba el dibujo, y el que estaba en pantalla no era de ese producto. */
 function refrescarBarrasProducto() {
   const wrap = document.getElementById('pBarrasWrap');
   const cont = document.getElementById('pBarrasSvg');
   const vacio = document.getElementById('pBarrasVacio');
+  const btn = document.getElementById('btnImprimirEtqProd');
+  const aviso = document.getElementById('pBarrasAviso');
   if (!wrap || !cont) return;
   const p = _prodDelFormulario();
-  const ean = etiquetaCodigoDe(p);
+  const ean = codigoBarrasDe(p);
+  const crudo = String(p.codigoBarras == null ? '' : p.codigoBarras).trim();
+
+  wrap.style.display = '';
+  if (aviso) { aviso.style.display = 'none'; aviso.textContent = ''; }
+
+  /* SIN CODIGO DE BARRAS: los ceros, y sin boton de imprimir. */
   if (!ean) {
-    wrap.style.display = 'none';
+    if (btn) btn.style.display = 'none';
     if (vacio) vacio.style.display = '';
+    cont.innerHTML =
+      '<div style="font:700 11px Helvetica,Arial,sans-serif;color:#000;margin-bottom:2px">' +
+        esc(p.nombreMostrado || p.nombre || '') + '</div>' +
+      '<div style="font:400 15px/1.2 ui-monospace,Consolas,monospace;letter-spacing:.18em;' +
+        'color:#bbb;padding:10px 0 2px">' + CB_SIN_CARGAR + '</div>';
+    if (crudo && aviso) {
+      aviso.style.display = '';
+      aviso.textContent = 'Ese codigo de barras no se puede dibujar: tiene que ser de 13 digitos ' +
+        '(o 12, si es un UPC). Escaneá el envase con el cursor en el campo y se completa solo.';
+    }
     return;
   }
-  wrap.style.display = '';
+
   if (vacio) vacio.style.display = 'none';
   cont.innerHTML =
     '<div style="font:700 11px Helvetica,Arial,sans-serif;color:#000;margin-bottom:2px">' +
@@ -404,6 +472,19 @@ function refrescarBarrasProducto() {
     /* etiquetaBarrasSVG ya dibuja los digitos debajo de las barras: agregarlos de
        nuevo los mostraba dos veces. */
     etiquetaBarrasSVG(ean, 12, 45);
+
+  /* El verificador no cierra: se ve el simbolo -para que se note que esta ahi-
+     pero no se ofrece imprimirlo, porque ninguna pistola lo va a aceptar. */
+  if (!codigoBarrasCierra(ean)) {
+    if (btn) btn.style.display = 'none';
+    if (aviso) {
+      aviso.style.display = '';
+      aviso.textContent = 'Este codigo no cierra: el ultimo digito no es el que le corresponde. ' +
+        'Reviselo contra el envase, porque asi ninguna pistola lo va a leer.';
+    }
+    return;
+  }
+  if (btn) btn.style.display = '';
 }
 
 /* Imprime UNA etiqueta, con el mismo motor que la impresion en tanda: si el
@@ -411,14 +492,18 @@ function refrescarBarrasProducto() {
    que tiene sentido para una sola. */
 function imprimirEtiquetaProducto() {
   const p = _prodDelFormulario();
-  const ean = etiquetaCodigoDe(p);
+  const ean = codigoBarrasDe(p);
   if (!ean) {
-    if (typeof showAdminToast === 'function') showAdminToast('Ponele un codigo interno al producto para poder imprimir su etiqueta', 'error');
+    if (typeof showAdminToast === 'function') showAdminToast('Este producto no tiene codigo de barras cargado. Escanea el envase con el cursor en ese campo.', 'error');
+    return;
+  }
+  if (!codigoBarrasCierra(ean)) {
+    if (typeof showAdminToast === 'function') showAdminToast('Ese codigo de barras no cierra: el ultimo digito no es el que le corresponde. Revisalo contra el envase.', 'error');
     return;
   }
   const f = Object.assign({}, etiquetaFormato('ter-58x40'), { continuo: true, separacion: 0 });
   const cuerpo = etiquetaDocumento([{ producto: p, copias: 1 }], f,
-    { precio: Number(p.precio) > 0, codigo: true });
+    { precio: Number(p.precio) > 0, codigo: true, barras: true });
   if (!cuerpo) { if (typeof showAdminToast === 'function') showAdminToast('No se pudo armar la etiqueta', 'error'); return; }
   const win = window.open('', '_blank', 'width=520,height=620');
   if (!win) { if (typeof showAdminToast === 'function') showAdminToast('El navegador bloqueo la ventana de impresion', 'error'); return; }
@@ -705,6 +790,8 @@ if (typeof window !== 'undefined') {
   window.refrescarBarrasProducto = refrescarBarrasProducto;
   window.imprimirEtiquetaProducto = imprimirEtiquetaProducto;
   window.etiquetaCodigoDe = etiquetaCodigoDe;
+  window.codigoBarrasDe = codigoBarrasDe;
+  window.codigoBarrasCierra = codigoBarrasCierra;
   window.etiquetaProductoDe = etiquetaProductoDe;
   window.etiquetaBarrasSVG = etiquetaBarrasSVG;
   window.etiquetaHTML = etiquetaHTML;

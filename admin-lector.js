@@ -270,6 +270,10 @@ function procesarCodigoLeido(cod) {
       return;
     }
     campo.value = cod;
+    /* Poner .value a mano NO dispara el evento input, asi que el preview del
+       codigo de barras se quedaba con el dibujo anterior: se escaneaba el envase,
+       el campo mostraba el codigo nuevo y el simbolo de abajo seguia siendo otro. */
+    if (typeof refrescarBarrasProducto === 'function') refrescarBarrasProducto();
     showAdminToast('Código cargado', 'success');
     return;
   }

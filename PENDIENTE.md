@@ -63,12 +63,21 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
      campo aparece. Y el ticket sale en la venta minorista, no en la mayorista.
 4. **Roles por empleado** (`SPEC-ROLES-TICKET.md` §A): tocan reglas, una Cloud Function y
    las 17 secciones. Después del ticket.
-5. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I).
-6. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
+5. **Decidir qué pasa con la sección Etiquetas** (queda abierto desde el 21/09). La
+   ficha del producto ya NO usa el código interno como código de barras, pero la
+   sección **Etiquetas** sigue imprimiendo la etiqueta del local, que es un EAN-13
+   derivado del código interno con prefijo `2`. No es lo mismo: es para ponerle una
+   etiqueta escaneable a lo que **no trae ninguna** -lo que el local envasa-. Si se
+   saca, hay dos consecuencias y conviene decidirlas a mano:
+   - los **1.311 productos sin código de barras** se quedan sin etiqueta imprimible;
+   - las etiquetas **ya pegadas en las bolsas** dejan de escanear, porque el lector las
+     decodifica con `etiquetaProductoDe()`.
+6. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I).
+7. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
    está en Blaze, **sin tope y sin ninguna alerta**.
-7. **Revisar en qué plan está Vercel.** Hobby es *non-commercial only* y Brotes vende.
-8. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
-9. **Portar a YERCO** lo de §6. **YERCO se toca desde su propia sesión, no desde acá.**
+8. **Revisar en qué plan está Vercel.** Hobby es *non-commercial only* y Brotes vende.
+9. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
+10. **Portar a YERCO** lo de §6. **YERCO se toca desde su propia sesión, no desde acá.**
 
 ### Para el chat DEFT (repo base y alta de clientes con banderas)
 
@@ -85,6 +94,19 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 
 ### Hecho el 21/09
 
+- **El preview de la ficha mostraba el código interno como si fuera el código de
+  barras.** Un producto con código `002022` y el campo de barras vacío dibujaba el
+  símbolo `2000000020228` -el EAN que el sistema deriva del interno-, así que los 1.311
+  productos sin código de barras aparentaban tener uno; y al cargar el de verdad el
+  dibujo **no cambiaba**, porque dependía del otro campo. Ahora el símbolo sale de
+  `codigoBarras` y de nada más (`codigoBarrasDe()`): sin él se ven **trece ceros** y no
+  se puede imprimir. Se redibuja al escribirlo, al escanear el envase con la ficha
+  abierta y al abrir la ficha. Un código cuyo verificador no cierra se ve pero tampoco
+  se deja imprimir, porque ninguna pistola lo lee.
+  **No hubo que tocar ningún dato**: el preview se calcula, no se guarda, así que el
+  arreglo vale para los 1.312 productos de una vez.
+  `pruebas/t-codigo-barras-ficha.js`, 38 asertos (30 fallan contra el commit anterior).
+  Banco: `pruebas/codigo-barras-banco.html`.
 - **Ticket térmico, completo** (`admin-ticket.js`): el papel, la pregunta después de
   cobrar, Configuración → Impresión y el reimprimir desde la lista de ventas. Ver el
   punto 3 de arriba. De paso quedó arreglado algo que era del panel entero y no del
