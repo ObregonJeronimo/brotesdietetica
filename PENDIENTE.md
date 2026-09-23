@@ -27,10 +27,14 @@ sus contadores (§3, tanda 7).
 
 Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 
-1. **La pistola no agrega el producto al escanear con la venta abierta** (§1-bis H).
-   **Bloqueado esperando al dueño**: tiene que abrir `pruebas/lector-diagnostico.html`,
-   escanear una vez y mandar la captura. Sin esos milisegundos reales no se puede elegir
-   el umbral.
+1. **Lectores de otras marcas** (§1-bis H) — ya no está bloqueado. Llegó la captura del
+   lector de otra PC (22/09) y **no era la velocidad**: 13 dígitos a 16 ms —el umbral son
+   40— y **ningún Enter**. Esa pistola no tiene sufijo configurado, y el panel solo
+   procesaba el código dentro del `if (e.key === 'Enter')`, así que en esa PC no andaba
+   nada, en silencio. Resuelto el 22/09: **cierre por silencio**, **Tab también como
+   terminador** y **`e.code` en vez de `e.key`** para los dígitos. Lo que sigue acá es
+   medir un lector más lento que 40 ms, si alguna vez aparece uno: hoy las dos pistolas
+   medidas dan 16 ms, así que bajar el umbral sería programar contra algo que no se vio.
 2. **Cargar los códigos de barras.** Hoy `codigoBarras` está cargado en **1 solo producto
    de 1.312**: el único escaneo que funciona es el de las etiquetas que imprime el local,
    que llevan el código interno. El lector ya busca en los dos campos y la validación
@@ -99,6 +103,40 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
   conviene que la base sea Brotes) está en la conversación del 18/09.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
+
+### Hecho el 22/09
+
+- **La pistola de otra PC no hacía funcionar nada** y el motivo no era el esperado: no
+  manda **Enter**. Medido con `pruebas/lector-diagnostico.html`. Tres cambios en
+  `admin-lector.js`, los tres aditivos —con una pistola que sí manda Enter no cambia
+  absolutamente nada—:
+  - **Cierre por silencio**: si venían teclas en ráfaga y después pasan 60 ms sin nada,
+    eso ya fue una máquina. Sin terminador se exige más —**6 dígitos y solo dígitos**—
+    porque no hay Enter que confirme.
+  - **Tab también cierra la lectura**, que es el otro sufijo común. Solo si hay ráfaga
+    en curso: un Tab suelto sigue navegando el formulario.
+  - **`e.code` en vez de `e.key`** para los dígitos: es la tecla **física**, no depende de
+    la distribución de teclado de Windows. Con Shift no se usa, porque ahí el símbolo es
+    a propósito.
+  Trampa cubierta: una **tecla mantenida** apretada se repite cada ~30 ms —una ráfaga
+  metronómica perfecta— y entraría como escaneo; se descarta con `e.repeat`.
+  `pruebas/t-lector-sin-enter.js`, 22 asertos, con la captura real tecla por tecla.
+  Verificado además con eventos de teclado **reales** en el navegador.
+- El **diagnóstico** ahora registra las teclas con Ctrl/Alt en vez de tirarlas (una
+  pistola en otra distribución era invisible para él, igual que para el panel), muestra
+  **con qué termina** la lectura y entiende el cierre por silencio.
+
+### Pendiente para Deft
+
+- **Calibración del lector en el panel** (Configuración → Lector): escanear una vez y que
+  el panel **mida y guarde** el perfil de esa pistola —velocidad, terminador, prefijo— en
+  `config/lector`. Es lo que ya hace `lector-diagnostico.html`, movido adentro y
+  guardado. Deja de ser heurística y pasa a ser un paso de instalación de 20 segundos
+  por cliente, con resultado visible. Conviene guardar **también el prefijo**: es el
+  mismo trabajo y abre el modo exacto para quien configure la pistola bien.
+- **Los códigos de sufijo Enter de los modelos comunes**, en el manual de puesta en
+  marcha. Aunque el panel tolere que no venga, configurar la pistola sigue siendo lo más
+  confiable y es gratis.
 
 ### Hecho el 21/09
 

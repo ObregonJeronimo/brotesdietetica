@@ -83,13 +83,14 @@
     <div class="r"><div class="v" id="rMax">—</div><div class="k">Pausa más larga</div></div>
     <div class="r"><div class="v" id="rProm">—</div><div class="k">Pausa promedio</div></div>
     <div class="r"><div class="v" id="rTotal">—</div><div class="k">Duración total</div></div>
+    <div class="r"><div class="v" id="rFin">—</div><div class="k">Termina con</div></div>
   </div>
 
   <div class="tabla-wrap">
     <table>
       <thead><tr>
         <th>#</th><th>e.key</th><th>e.code</th><th class="n">keyCode</th>
-        <th class="n">pausa</th><th>shift</th><th>dónde estaba el foco</th>
+        <th class="n">pausa</th><th>teclas con</th><th>dónde estaba el foco</th>
       </tr></thead>
       <tbody id="filas"><tr><td colspan="7" style="color:var(--dim)">—</td></tr></tbody>
     </table>
@@ -109,6 +110,22 @@
     </p>
   </div>
 
+  <div class="paso" style="border-color:var(--warn)">
+    <b>Si al escanear no aparece NINGUNA fila en la tabla</b>, el problema no es la
+    velocidad: la pistola no está llegando al navegador como teclado. Suele ser una de
+    estas tres, y se arreglan en la pistola, no en el panel:
+    <p style="margin-top:8px">
+      • está en modo <b>HID POS / IBM</b> en vez de <b>teclado (HID KBW)</b>;<br>
+      • está configurada en otra <b>distribución de teclado</b> y manda las teclas con
+        AltGr — si pasa eso, acá abajo la tabla lo marca en la columna <i>teclas con</i>;<br>
+      • está en modo <b>puerto serie (COM)</b>, que no escribe nada.
+    </p>
+    Se prueba en cualquier procesador de texto: si ahí tampoco escribe el código, no es
+    del panel.
+  </div>
+
+  <p style="font-size:.85rem" id="entorno">—</p>
+
   <p style="font-size:.85rem">
     La regla actual de <code>admin-lector.js</code>: se considera una máquina si
     <b>cada</b> pausa es de <b>40 ms o menos</b>, el código tiene <b>4 caracteres o más</b>
@@ -122,6 +139,7 @@
    disparado. Si se cambia alla, cambiar aca. */
 var GAP_MAX = 40;
 var LARGO_MIN = 4;
+var LARGO_SIN_FIN = 6;   /* sin terminador se pide mas: no hay Enter que confirme */
 
 var filas = [];
 var buf = '';
@@ -139,7 +157,12 @@ function cortito(el){
 }
 
 document.addEventListener('keydown', function (e) {
-  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  /* ACA NO SE DESCARTA NADA, a proposito, y es la diferencia con admin-lector.js.
+     El panel arranca con `if (e.ctrlKey || e.altKey || e.metaKey) return;`, asi que
+     una pistola configurada en otra distribucion de teclado -que manda los digitos
+     con AltGr, o sea ctrl+alt en Windows- queda completamente invisible para el.
+     Si esta pagina tambien las tirara, el sintoma seria "no aparece nada" y no se
+     podria distinguir de una pagina rota. Se registran y se marcan. */
   var t = e.timeStamp;
   var gap = ultima ? Math.round(t - ultima) : 0;
   ultima = t;
@@ -149,27 +172,47 @@ document.addEventListener('keydown', function (e) {
   /* Empieza una lectura nueva si paso mucho tiempo desde la anterior. */
   if (gap > 400 || !filas.length) { filas = []; buf = ''; arranque = t; gap = 0; }
 
+  var mods = [];
+  if (e.ctrlKey) mods.push('ctrl');
+  if (e.altKey) mods.push('alt');
+  if (e.metaKey) mods.push('win');
+  if (e.shiftKey) mods.push('shift');
   filas.push({ key: e.key, code: e.code || '', kc: e.keyCode || 0, gap: gap,
-               shift: e.shiftKey, foco: cortito(document.activeElement) });
+               mods: mods, invisible: !!(e.ctrlKey || e.altKey || e.metaKey),
+               foco: cortito(document.activeElement) });
 
-  if (e.key === 'Enter') {
+  /* Tab tambien termina la lectura: hay pistolas configuradas con Tab de sufijo en
+     vez de Enter, y el panel no las escucha. Es un caso que hay que poder VER. */
+  if (e.key === 'Enter' || e.key === 'Tab') {
     e.preventDefault();
     pintar(t);
     return;
   }
-  if (e.key.length === 1) buf += e.key;
+  if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) buf += e.key;
   pintar(t);
 }, true);
 
+/* La regla real, tecla por tecla, hasta la posicion pedida. */
+function rafagaHasta(hasta) {
+  var rafaga = false, acum = '';
+  for (var i = 0; i < hasta; i++) {
+    var f = filas[i];
+    if (f.key.length !== 1 || f.invisible) { acum = ''; rafaga = false; continue; }
+    if (i > 0 && f.gap > GAP_MAX) { acum = f.key; rafaga = false; }
+    else { acum += f.key; rafaga = acum.length >= 2; }
+  }
+  return { rafaga: rafaga, acum: acum };
+}
+
 function pintar(t) {
   tbody.innerHTML = filas.map(function (f, i) {
-    var cls = f.key === 'Enter' ? 'enter' : (f.gap > GAP_MAX && i > 0 ? 'lento' : '');
+    var cls = f.invisible ? 'lento' : (f.key === 'Enter' ? 'enter' : (f.gap > GAP_MAX && i > 0 ? 'lento' : ''));
     return '<tr class="' + cls + '"><td class="n">' + (i + 1) + '</td>' +
       '<td>' + (f.key === ' ' ? '(espacio)' : f.key) + '</td>' +
       '<td>' + f.code + '</td>' +
       '<td class="n">' + f.kc + '</td>' +
       '<td class="n">' + (i === 0 ? '—' : f.gap + ' ms') + '</td>' +
-      '<td>' + (f.shift ? 'sí' : '') + '</td>' +
+      '<td>' + (f.mods.join('+') || '') + '</td>' +
       '<td>' + f.foco + '</td></tr>';
   }).join('');
 
@@ -184,22 +227,30 @@ function pintar(t) {
   document.getElementById('rTotal').textContent = Math.round(t - arranque) + ' ms';
 
   var ultimo = filas[filas.length - 1];
-  if (!ultimo || ultimo.key !== 'Enter') {
-    veredicto.className = '';
-    veredicto.innerHTML = 'Leyendo…<small>Termina cuando llegue el Enter de la pistola. ' +
-      'Si nunca llega, la pistola no está configurada para mandar Enter al final — ' +
-      'y eso solo ya explicaría todo.</small>';
+  var terminador = (ultimo && (ultimo.key === 'Enter' || ultimo.key === 'Tab')) ? ultimo.key : null;
+  document.getElementById('rFin').textContent = terminador || 'nada';
+
+  /* SIN TERMINADOR EL PANEL IGUAL LO TOMA, desde el 22/09: si venian teclas en
+     rafaga y despues se hace silencio, eso ya fue una maquina. Se pide mas -6
+     digitos y solo digitos- porque no hay Enter que confirme. */
+  if (!terminador) {
+    var soloDigitos = /^[0-9]+$/.test(buf);
+    var pasaSilencio = rafagaHasta(filas.length).rafaga && buf.length >= LARGO_SIN_FIN && soloDigitos;
+    veredicto.className = pasaSilencio ? 'ok' : 'bad';
+    veredicto.innerHTML = pasaSilencio
+      ? 'La pistola NO manda Enter, pero el panel lo toma igual.<small>Código: ' + buf +
+        ' · pausa más larga ' + max + ' ms. Se cierra solo por silencio. ' +
+        'Conviene igual configurarle el sufijo Enter: es lo más confiable y es gratis.</small>'
+      : 'Todavía no llegó ningún terminador.<small>Si nunca llega ninguno, la pistola no ' +
+        'tiene sufijo configurado. El panel igual cierra la lectura por silencio, pero para eso ' +
+        'necesita <b>' + LARGO_SIN_FIN + ' dígitos o más, y solo dígitos</b>' +
+        (buf ? ' — acá llegó "' + buf + '"' : '') + '.</small>';
     return;
   }
 
   /* Se reproduce la regla real, tecla por tecla. */
-  var rafaga = false, acum = '', motivo = '';
-  for (var i = 0; i < filas.length - 1; i++) {
-    var f = filas[i];
-    if (f.key.length !== 1) { acum = ''; rafaga = false; continue; }
-    if (i > 0 && f.gap > GAP_MAX) { acum = f.key; rafaga = false; }
-    else { acum += f.key; rafaga = acum.length >= 2; }
-  }
+  var r = rafagaHasta(filas.length - 1);
+  var rafaga = r.rafaga, acum = r.acum, motivo = '';
   var gapEnter = ultimo.gap;
   var pasa = rafaga && acum.length >= LARGO_MIN && gapEnter <= GAP_MAX;
 
@@ -222,7 +273,7 @@ function pintar(t) {
 document.getElementById('limpiar').addEventListener('click', function () {
   filas = []; buf = ''; ultima = 0; arranque = 0;
   tbody.innerHTML = '<tr><td colspan="7" style="color:var(--dim)">—</td></tr>';
-  ['rCodigo','rTeclas','rMax','rProm','rTotal'].forEach(function (id) {
+  ['rCodigo','rTeclas','rMax','rProm','rTotal','rFin'].forEach(function (id) {
     document.getElementById(id).textContent = '—';
   });
   veredicto.className = '';

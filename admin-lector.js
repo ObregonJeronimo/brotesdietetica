@@ -22,10 +22,79 @@
 const LECTOR_GAP_MAX = 40;    /* ms entre teclas para considerarlo una máquina */
 const LECTOR_LARGO_MIN = 4;   /* menos que esto es un tipeo suelto, no un código */
 
+/* =============================================================================
+   NO TODAS LAS PISTOLAS MANDAN ENTER
+   =============================================================================
+   Medido el 21/09 con el lector de otra PC (pruebas/lector-diagnostico.html):
+   trece dígitos, 16 ms entre cada uno -o sea rafaga de sobra- y DESPUES NADA.
+   Esa pistola no tiene configurado el sufijo Enter, y como el codigo solo se
+   procesaba dentro del `if (e.key === 'Enter')`, no funcionaba absolutamente
+   nada: ni vender, ni la ficha, ni el cartel de codigo desconocido. En silencio,
+   ademas, que es lo peor: el cajero escanea y no pasa nada.
+
+   Cada local compra la pistola que consigue y vienen configuradas distinto de
+   fabrica, asi que esto se resuelve del lado del panel: si venian teclas en
+   rafaga y despues SE HACE SILENCIO, eso ya fue una maquina, haya Enter o no.
+
+   SIN TERMINADOR SE PIDE MAS: seis digitos o mas, y solo digitos. No hay Enter
+   que confirme, asi que no se arriesga con codigos que traigan letras -esos que
+   configuren el sufijo- ni con tipeos cortos.
+
+   Con una pistola que SI manda Enter no cambia nada: el Enter llega a los 16 ms,
+   mucho antes de los 60, y lo primero que hace es cancelar este temporizador. */
+const LECTOR_SILENCIO_MS = 60;
+const LECTOR_LARGO_SIN_FIN = 6;
+
 let _lecBuf = '';
+let _lecTeclas = '';   /* lo mismo, pero con lo que el navegador ESCRIBIO: ver _lecChar */
 let _lecUltima = 0;
 let _lecRafaga = false;
 let _lecCodigoPendiente = null;
+let _lecTimer = null;
+let _lecDonde = null;
+
+/* EL CARACTER, SACADO DE LA TECLA FISICA.
+
+   `e.code` es la tecla que se apreto en el teclado -Digit7-, y no depende de la
+   distribucion configurada en Windows; `e.key` es lo que esa tecla PRODUCE con
+   la distribucion actual. Una pistola configurada con otra distribucion manda
+   los digitos correctos como scancodes, pero el navegador los traduce a otra
+   cosa y el codigo leido sale mal. Para los digitos, que es de lo que esta hecho
+   un codigo de barras, `e.code` es la fuente correcta.
+
+   Con Shift apretado no se usa: ahi Digit7 puede ser "/" o "&" a proposito. */
+function _lecChar(e) {
+  const c = e.code || '';
+  if (!e.shiftKey) {
+    if (/^Digit[0-9]$/.test(c)) return c.slice(5);
+    if (/^Numpad[0-9]$/.test(c)) return c.slice(6);
+  }
+  return (typeof e.key === 'string' && e.key.length === 1) ? e.key : '';
+}
+
+function _lecCancelarSilencio() {
+  if (_lecTimer) { clearTimeout(_lecTimer); _lecTimer = null; }
+}
+function _lecReset() {
+  _lecBuf = ''; _lecTeclas = ''; _lecRafaga = false; _lecDonde = null;
+  _lecCancelarSilencio();
+}
+function _lecProgramarSilencio(target) {
+  _lecCancelarSilencio();
+  if (!_lecRafaga) return;
+  _lecDonde = target;
+  _lecTimer = setTimeout(_lecCerrarPorSilencio, LECTOR_SILENCIO_MS);
+}
+function _lecCerrarPorSilencio() {
+  _lecTimer = null;
+  const cod = _lecBuf, tecleado = _lecTeclas, donde = _lecDonde;
+  _lecBuf = ''; _lecTeclas = ''; _lecRafaga = false; _lecDonde = null;
+  if (cod.length < LECTOR_LARGO_SIN_FIN) return;
+  if (!/^[0-9]+$/.test(cod)) return;
+  _enterUno = 0;
+  _limpiarCampo(donde, tecleado);
+  procesarCodigoLeido(cod);
+}
 
 /* Capture phase: tiene que correr antes que cualquier otro handler para poder
    frenar el Enter, que si no dispara el submit del formulario que esté abierto. */
@@ -37,14 +106,20 @@ document.addEventListener('keydown', function (e) {
      cualquier otro handler de la pagina y en CADA tecla del panel, asi que una
      excepcion aca ensuciaba la consola de errores constantemente.
      Visto en produccion: "Cannot read properties of undefined (reading 'length')". */
-  if (typeof e.key !== 'string') { _lecBuf = ''; _lecRafaga = false; return; }
+  if (typeof e.key !== 'string') { _lecReset(); return; }
   const t = e.timeStamp;
   const gap = t - _lecUltima;
   _lecUltima = t;
 
-  if (e.key === 'Enter') {
+  /* EL TERMINADOR PUEDE SER ENTER O TAB. Hay pistolas configuradas con Tab de
+     sufijo; antes ese Tab cortaba la rafaga y el codigo se perdia. Tab SOLO
+     cierra si hay una rafaga en curso: si no, es la tecla de navegar el
+     formulario y tiene que seguir haciendo lo suyo. */
+  if (e.key === 'Enter' || (e.key === 'Tab' && _lecRafaga)) {
+    _lecCancelarSilencio();
     const cod = _lecBuf;
-    _lecBuf = '';
+    const tecleado = _lecTeclas;
+    _lecBuf = ''; _lecTeclas = ''; _lecDonde = null;
     const eraRafaga = _lecRafaga;
     _lecRafaga = false;
     if (eraRafaga && cod.length >= LECTOR_LARGO_MIN && gap <= LECTOR_GAP_MAX) {
@@ -58,18 +133,25 @@ document.addEventListener('keydown', function (e) {
       e.preventDefault();
       e.stopPropagation();
       _enterUno = 0;            /* el Enter de la pistola no cuenta para cerrar */
-      _limpiarCampo(e.target, cod);
+      _limpiarCampo(e.target, tecleado);
       procesarCodigoLeido(cod);
-    } else {
+    } else if (e.key === 'Enter') {
       /* Enter de una persona: puede ser el de cerrar la venta. */
       _enterHumano(e);
     }
     return;
   }
   _enterUno = 0;   /* cualquier otra tecla corta la seguidilla de Enters */
-  if (e.key.length !== 1) { _lecBuf = ''; _lecRafaga = false; return; }
-  if (gap > LECTOR_GAP_MAX) { _lecBuf = e.key; _lecRafaga = false; }
-  else { _lecBuf += e.key; _lecRafaga = _lecBuf.length >= 2; }
+
+  /* TECLA MANTENIDA APRETADA. Windows la repite cada ~30 ms, que es una rafaga
+     metronomica perfecta: dejar el 0 apretado en una cantidad entraba como si
+     fuera un escaneo. El navegador las marca con e.repeat. */
+  const ch = _lecChar(e);
+  if (!ch || e.repeat) { _lecReset(); return; }
+
+  if (gap > LECTOR_GAP_MAX) { _lecBuf = ch; _lecTeclas = e.key; _lecRafaga = false; }
+  else { _lecBuf += ch; _lecTeclas += e.key; _lecRafaga = _lecBuf.length >= 2; }
+  _lecProgramarSilencio(e.target);
 }, true);
 
 /* LA UNICA PARTE DEL PANEL QUE SABE QUIEN APRETO ENTER.
