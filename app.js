@@ -134,7 +134,7 @@ async function loadProductsFromFirebase(retries) {
             snap = await db.collection('productos').get();
             try { localStorage.setItem('brotes_cat_ts', String(Date.now())); } catch (e) {}
         }
-        productos = snap.docs.map(d => { const r=d.data(); return { id:d.id, nombre:r.nombre||'', nombreMostrado:r.nombreMostrado||null, gramaje:r.gramaje||null, precio:r.precio||0, descuento:Math.min(100,Math.max(0,r.descuento||0)), stock:r.stock||0, categoria:r.categoria||'', subcategoria:r.subcategoria||null, imagen:r.imagen||null, descripcion:r.descripcion||r.nombre||'', popular:r.popular||false, oculto:r.oculto===true, depurado:r.depurado===true, valoresNutricionales:r.valoresNutricionales||'', imagenesExtra:r.imagenesExtra||[],
+        productos = snap.docs.map(d => { const r=d.data(); return { id:d.id, nombre:r.nombre||'', nombreMostrado:r.nombreMostrado||null, gramaje:r.gramaje||null, precio:_precioBaseTienda(r), cajaCerrada:r.cajaCerrada===true&&r.tipoVenta!=='peso', descuento:Math.min(100,Math.max(0,r.descuento||0)), stock:r.stock||0, categoria:r.categoria||'', subcategoria:r.subcategoria||null, imagen:r.imagen||null, descripcion:r.descripcion||r.nombre||'', popular:r.popular||false, oculto:r.oculto===true, depurado:r.depurado===true, valoresNutricionales:r.valoresNutricionales||'', imagenesExtra:r.imagenesExtra||[],
             /* gramajePadreId lo escribe el panel al asociar un gramaje, pero aca no se copiaba:
                p.gramajePadreId quedaba undefined siempre, asi que el filtro de aplicarFiltros no
                excluia al hijo (dos tarjetas de almendras en la grilla, una de 250g y otra de 1kg)
@@ -296,6 +296,14 @@ function fmtGramos(gr){const g=Number(gr||0);
    Ademas la regla de /pedidos exige total > 0, asi que un carrito de puros $0 fallaba
    igual, pero recien al confirmar y sin explicar por que. */
 function sinPrecio(p){ return !(Number(p && p.precio) > 0); }
+/* Etapa 3 de las variantes: una presentacion marcada como caja cerrada -el alfajor x12-
+   se vende al precio MAYORISTA tambien en la tienda. Los sueltos, a precio normal. Se
+   decide al leer el catalogo: de ahi en adelante todo usa ese precio. El panel hace lo
+   mismo (precioMostradorDe) y descontarStockPedido lo compara igual. */
+function _precioBaseTienda(r){
+    const may=Number((r&&r.precioMayorista)||0);
+    return (r&&r.cajaCerrada===true&&r.tipoVenta!=='peso'&&may>0)?may:Number((r&&r.precio)||0);
+}
 
 function subtotalCarrito(i){const c=Number(i.cantidad||0),pr=Number(i.precio||0);
     return esPesoProd(i)?Math.round(pr*c/1000):pr*c;}
@@ -380,7 +388,7 @@ function _btnVariante(v,p,enModal){
     const extra=sin?'<span class="gramaje-precio">sin stock</span>'
         :sinPrecio(v)?'':'<span class="gramaje-precio">$'+formatPrice(precioFinal(v))+(esPesoProd(v)?'/kg':'')+'</span>';
     const accion=(enModal?'':'event.stopPropagation();')+'addVarianteToCart(\''+v.id+'\')';
-    return '<button class="gramaje-btn'+(v.id===p.id?' active':'')+'"'+(sin?' disabled title="Sin stock"':'')+' onclick="'+accion+'" data-id="'+v.id+'">'+esc(_etqVariante(v,v.id===p.id))+extra+'</button>';
+    return '<button class="gramaje-btn'+(v.id===p.id?' active':'')+'"'+(sin?' disabled title="Sin stock"':'')+' onclick="'+accion+'" data-id="'+v.id+'">'+esc(_etqVariante(v,v.id===p.id))+(v.cajaCerrada?'<span class="gramaje-caja">caja cerrada</span>':'')+extra+'</button>';
 }
 /* addToCart avisa al agregar uno nuevo, pero al sumar otro del mismo no dice nada, y
    la tarjeta muestra la cantidad del principal: tocar "160 g" por segunda vez parecia
@@ -1323,9 +1331,9 @@ async function confirmCheckout(){
                         break;
                     }
                     const _enCarrito=carrito.find(x=>x.id===ids[k]);
-                    const _pfFresco=precioFinal({precio:Number(prod.precio||0),descuento:Number(prod.descuento||0)});
+                    const _pfFresco=precioFinal({precio:_precioBaseTienda(prod),descuento:Number(prod.descuento||0)});
                     if(_enCarrito&&_pfFresco!==Number(_enCarrito.precio||0)){
-                        _cambios.push({id:ids[k],nombre:prod.nombreMostrado||prod.nombre||'un producto',precio:_pfFresco,precioOriginal:Number(prod.precio||0),descuento:Math.min(100,Math.max(0,Number(prod.descuento||0)))});
+                        _cambios.push({id:ids[k],nombre:prod.nombreMostrado||prod.nombre||'un producto',precio:_pfFresco,precioOriginal:_precioBaseTienda(prod),descuento:Math.min(100,Math.max(0,Number(prod.descuento||0)))});
                     }
                 }
                 if(!_faltante){

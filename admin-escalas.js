@@ -326,12 +326,20 @@ function vistaItemsVenta(items) {
     const esc = p ? escalasDe(p, prods) : [];
     if (esc.length) grupoDe.set(it.id, esc);
   });
-  if (!grupoDe.size) return lista;
+  /* Las cajas cerradas (etapa 3) llevan su aclaración en la venta de mostrador; en la
+     mayorista todo va al precio mayorista y no hace falta. */
+  const esMay = typeof ventaMayItems !== 'undefined' && items === ventaMayItems;
+  const cajas = new Set(esMay || typeof esCajaCerrada !== 'function' ? [] :
+    lista.filter(it => it && it.id && esCajaCerrada(prods.find(x => x.id === it.id))).map(it => it.id));
+  if (!grupoDe.size && !cajas.size) return lista;
   const out = [];
   const hechos = new Set();
   lista.forEach(it => {
     const esc = it && grupoDe.get(it.id);
-    if (!esc) { out.push(it); return; }
+    if (!esc) {
+      out.push(it && cajas.has(it.id) ? Object.assign({}, it, { __detalle: 'Caja cerrada: se cobra el precio mayorista' }) : it);
+      return;
+    }
     const clave = esc[0].id;
     if (hechos.has(clave)) return;
     hechos.add(clave);

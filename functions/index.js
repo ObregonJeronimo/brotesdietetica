@@ -516,7 +516,11 @@ exports.descontarStockPedido = onDocumentCreated(
            que se le cobro. No se corrige solo: que el precio haya cambiado entre que
            el cliente abrio la pagina y confirmo es normal y no es fraude, y encima el
            cliente acepto ESE precio. Cambiarselo despues seria peor. */
-        const base = Number(p.precio || 0);
+        /* Una caja cerrada se vende al precio mayorista tambien en la tienda (etapa 3
+           de las variantes): comparar contra el de lista la marcaria como cobrada de menos. */
+        const base = (p.cajaCerrada === true && p.tipoVenta !== 'peso' && Number(p.precioMayorista || 0) > 0)
+          ? Number(p.precioMayorista)
+          : Number(p.precio || 0);
         const desc = Number(p.descuento || 0);
         const unidad = Math.round(base * (1 - desc / 100));
         /* En un producto a granel el precio es POR KILO y la cantidad viene en GRAMOS,

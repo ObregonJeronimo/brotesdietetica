@@ -250,6 +250,23 @@ async function correr(pedido, vivo) {
   t('catalogo x10 = 100000', p.subtotalCatalogo === 100000);
   t('descuenta las 10', INCREMENTOS[0].patch.stock.__inc === -10);
 
+  /* Etapa 3 de las variantes: una caja cerrada se vende al precio mayorista tambien en
+     la tienda. Comparada contra el de lista, figuraba cobrada de menos. */
+  grupo('Caso 11 - una caja cerrada se compara con el precio mayorista');
+  PRODUCTOS = { caja: { nombre: 'Alfajor x12', precio: 11500, precioMayorista: 9600, cajaCerrada: true, costo: 7200, descuento: 0, stock: 3 } };
+  p = await correr({ origen: 'web', subtotalProductos: 9600, total: 9600,
+    items: [{ id: 'caja', nombre: 'Alfajor x12', precio: 9600, cantidad: 1 }] });
+  t('el catalogo de la caja es el mayorista: 9600', p.subtotalCatalogo === 9600);
+  t('sin diferencia ni aviso de precio', p.diferenciaCatalogo === 0 && !p.revisarPrecio);
+  PRODUCTOS = { caja: { nombre: 'Granel marcado', tipoVenta: 'peso', precio: 9000, precioMayorista: 7000, cajaCerrada: true, costo: 5000, descuento: 0, stock: 5000 } };
+  p = await correr({ origen: 'web', subtotalProductos: 9000, total: 9000,
+    items: [{ id: 'caja', nombre: 'Granel marcado', precio: 9000, cantidad: 1000, tipoVenta: 'peso' }] });
+  t('un producto por peso no es caja aunque lo diga: 1 kg a 9000', p.subtotalCatalogo === 9000);
+  PRODUCTOS = { caja: { nombre: 'Caja sin mayorista', precio: 5000, precioMayorista: 0, cajaCerrada: true, costo: 3000, descuento: 0, stock: 3 } };
+  p = await correr({ origen: 'web', subtotalProductos: 5000, total: 5000,
+    items: [{ id: 'caja', nombre: 'Caja sin mayorista', precio: 5000, cantidad: 1 }] });
+  t('una caja sin precio mayorista se compara con el de lista', p.subtotalCatalogo === 5000);
+
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('EXPLOTO:', e); process.exit(1); });

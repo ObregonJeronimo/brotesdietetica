@@ -100,7 +100,24 @@ function etiquetaVariante(v) {
 
 function precioDeVentaVariante(v, ctx) {
   if (!v) return 0;
-  return Number(ctx === 'may' ? (v.precioMayorista || v.precio || 0) : (v.precio || 0));
+  return Number(ctx === 'may' ? (v.precioMayorista || v.precio || 0) : precioMostradorDe(v));
+}
+
+/* ------------------------------------------------------ CAJAS CERRADAS
+   Etapa 3 (pedido del comercio, 24/09/2026): una presentación marcada como caja
+   cerrada -el alfajor x12- se cobra a precio MAYORISTA también en el mostrador y en la
+   tienda. Los sueltos siguen a precio normal: 12 alfajores sueltos a $10 son $120.
+   El precio de lista del producto se sigue calculando como siempre (costo + ganancia):
+   la regla se aplica al vender, con el precio mayorista, que ya mantienen al día todas
+   las herramientas que tocan costos y precios (el formulario, Costo %, las compras, el
+   aviso de costos viejos). Así ninguna de ellas tiene que saber de cajas. */
+function esCajaCerrada(p) { return !!(p && p.cajaCerrada === true && p.tipoVenta !== 'peso'); }
+/* Lo que se cobra en el mostrador (y en la tienda): el mayorista si es una caja
+   cerrada con precio mayorista, si no el de siempre. */
+function precioMostradorDe(p) {
+  if (!p) return 0;
+  const may = Number(p.precioMayorista || 0);
+  return (esCajaCerrada(p) && may > 0) ? may : Number(p.precio || 0);
 }
 
 function _varStockTxt(v) {
@@ -379,6 +396,7 @@ function iniciarVariantesForm(p) {
         pctMay: Number(v.porcentajeMayorista || 0),
         stock: Number(v.stock || 0),
         oculto: v.oculto === true,
+        caja: v.cajaCerrada === true,
         tocado: {},
       });
     });
@@ -397,10 +415,15 @@ function _calcFilaVar(f, peso) {
   return { costo: costo, c: c, precio: Math.round(costo * (1 + pct / 100)), may: _varMay(Math.round(costo * (1 + pctMay / 100))) };
 }
 
-function _resFilaVar(r, peso) {
+function _resFilaVar(r, peso, caja) {
   if (r.costo === null) {
     const sinTam = !r.c || (peso && r.c.unidad !== 'g');
     return '<span class="vfe-falta">' + (sinTam ? (peso ? 'Poné de cuánto es la bolsa.' : 'Poné el tamaño.') : 'Poné el costo.') + '</span>';
+  }
+  /* Una caja cerrada se cobra al mayorista: eso es lo que se dice primero. */
+  if (caja && !peso) {
+    return '<span>Se cobra <b>$' + r.may.toLocaleString('es-AR') + '</b> (caja cerrada, precio mayorista)</span>' +
+      '<span>Precio de lista $' + r.precio.toLocaleString('es-AR') + '</span>';
   }
   const kg = peso ? ' el kilo' : '';
   return (peso ? '<span>Costo $' + r.costo.toLocaleString('es-AR') + ' el kilo</span>' : '') +
@@ -424,12 +447,14 @@ function _filaVarHtml(f, i, peso) {
     '</div>' +
     '<div class="vfe-fila">' +
       /* Hasta 999%: ver limpiarPorcentaje en admin.html. */
-      '<label class="vfe-campo"><span>% ganancia</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pct) +
+      '<label class="vfe-campo vfe-pct"><span>% ganancia</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pct) +
         '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pct') + '"></label>' +
-      '<label class="vfe-campo"><span>% mayorista</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pctMay) +
+      '<label class="vfe-campo vfe-pctmay"><span>% mayorista</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pctMay) +
         '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pctMay') + '"></label>' +
-      '<div class="vfe-res">' + _resFilaVar(_calcFilaVar(f, peso), peso) + '</div>' +
+      '<div class="vfe-res">' + _resFilaVar(_calcFilaVar(f, peso), peso, f.caja) + '</div>' +
     '</div>' +
+    (peso ? '' : '<label class="vfe-caja"><input type="checkbox"' + (f.caja ? ' checked' : '') +
+      ' onchange="varFilaCambio(' + i + ',\'caja\',this.checked)"> <span>Caja cerrada: en el mostrador y en la tienda se cobra el precio mayorista</span></label>') +
     (f.oculto ? '<p class="vfe-nota">Oculta: no aparece en la venta ni en la tienda.</p>' : '') +
   '</div>';
 }
@@ -493,7 +518,7 @@ function varFilaCambio(i, campo, valor) {
   f.tocado = f.tocado || {};
   f.tocado[campo] = true;
   const res = document.querySelector('#pVariantes .vfe[data-i="' + i + '"] .vfe-res');
-  if (res) res.innerHTML = _resFilaVar(_calcFilaVar(f, _varEsPeso()), _varEsPeso());
+  if (res) res.innerHTML = _resFilaVar(_calcFilaVar(f, _varEsPeso()), _varEsPeso(), f.caja);
 }
 
 /* Una fila nueva, con la ganancia y el mayorista del producto de arriba. */
@@ -569,8 +594,12 @@ if (typeof openModal === 'function') {
     window._varFilas = [];
     window._varHijo = null;
     const r = _varOpenModal.apply(this, arguments);
-    iniciarVariantesForm(id ? (_varProds().find(x => x && x.id === id) || null) : null);
+    const p = id ? (_varProds().find(x => x && x.id === id) || null) : null;
+    iniciarVariantesForm(p);
     pintarVariantesForm();
+    const cb = document.getElementById('pCajaCerrada');
+    if (cb) cb.checked = !!(p && p.cajaCerrada === true);
+    pintarCajaCerrada();
     return r;
   };
 }
@@ -579,8 +608,51 @@ if (typeof setTipoVenta === 'function') {
   setTipoVenta = function () {
     const r = _varSetTipoVenta.apply(this, arguments);
     pintarVariantesForm();
+    pintarCajaCerrada();
     return r;
   };
+}
+/* El precio mayorista cambia con el costo y el %: la nota de la caja lo sigue. */
+if (typeof calcPrecioModal === 'function') {
+  const _varCalcPrecio = calcPrecioModal;
+  calcPrecioModal = function () {
+    const r = _varCalcPrecio.apply(this, arguments);
+    pintarCajaCerrada();
+    return r;
+  };
+}
+
+/* La casilla "caja cerrada" del producto (debajo del precio mayorista): solo en los
+   que se venden por unidad, con lo que se va a cobrar. */
+function pintarCajaCerrada() {
+  const wrap = document.getElementById('pCajaWrap');
+  if (!wrap) return;
+  const peso = _varEsPeso();
+  wrap.hidden = peso;
+  const cb = document.getElementById('pCajaCerrada'), nota = document.getElementById('pCajaNota');
+  if (!cb || !nota) return;
+  if (peso || !cb.checked) { nota.textContent = ''; nota.className = 'caja-nota'; return; }
+  const pctMay = Number((document.getElementById('pPorcentajeMay') || {}).value) || 0;
+  const may = Number((document.getElementById('pPrecioMay') || {}).value) || 0;
+  if (!(pctMay > 0)) {
+    nota.textContent = 'Poné el % mayorista: con 0 la caja se vendería al costo.';
+    nota.className = 'caja-nota falta';
+    return;
+  }
+  nota.textContent = 'En el mostrador y en la tienda se cobra $' + may.toLocaleString('es-AR') + ', el precio mayorista.';
+  nota.className = 'caja-nota';
+}
+
+/* La marca que guarda saveProduct. Se escribe si está puesta, o si se sacó (para
+   borrarla); un producto que nunca la tuvo no gana el campo. */
+function datosCajaCerrada(data, id) {
+  const cb = document.getElementById('pCajaCerrada');
+  if (!cb || !data) return data;
+  const marcada = cb.checked && data.tipoVenta !== 'peso';
+  const antes = id ? ((_varProds().find(x => x && x.id === id) || {}).cajaCerrada === true) : false;
+  if (marcada) data.cajaCerrada = true;
+  else if (antes) data.cajaCerrada = false;
+  return data;
 }
 (function () {
   /* Si se escribe en Gramaje / Presentación, el campo de la tabla lo sigue. */
@@ -606,6 +678,14 @@ if (typeof setTipoVenta === 'function') {
    guardando como siempre. */
 function faltaPresentacionDeVariante() {
   const aviso = m => { if (typeof showAdminToast === 'function') showAdminToast(m, 'error'); };
+  /* Una caja cerrada se cobra al precio mayorista: con 0% se vendería al costo. */
+  const cb = document.getElementById('pCajaCerrada');
+  if (cb && cb.checked && !_varEsPeso() && !((Number((document.getElementById('pPorcentajeMay') || {}).value) || 0) > 0)) {
+    aviso('Una caja cerrada se cobra al precio mayorista: poné el % mayorista (con 0 se vendería al costo).');
+    const m = document.getElementById('pPorcentajeMay');
+    if (m) m.focus();
+    return true;
+  }
   if (window._varianteDeNueva) {
     const g = document.getElementById('pGramaje');
     if (g && g.value.trim()) return false;
@@ -636,6 +716,11 @@ function faltaPresentacionDeVariante() {
     if (vistos.has(c.unidad + c.valor)) { aviso('Hay dos del mismo tamaño: ' + f.tam + '.'); foco(i, '.vfe-tam input'); return true; }
     vistos.add(c.unidad + c.valor);
     if (!f.id && !(_varMonto(f.costoIn) > 0)) { aviso('Poné el costo de la ' + que + ' de ' + f.tam + '.'); foco(i, '.vfe-costo input'); return true; }
+    if (!peso && f.caja && !((Number(f.pctMay) || 0) > 0)) {
+      aviso('La caja cerrada de ' + f.tam + ' se cobra al precio mayorista: poné su % mayorista (con 0 se vendería al costo).');
+      foco(i, '.vfe-pctmay input');
+      return true;
+    }
   }
   return false;
 }
@@ -682,6 +767,7 @@ async function guardarVariantesForm(principalId, data) {
           codigo: codigo, tipoVenta: peso ? 'peso' : 'unidad',
           gramajePadreId: principalId, creadoEn: new Date(),
         };
+        if (!peso && f.caja) nuevo.cajaCerrada = true;
         const ref = await db.collection('productos').add(nuevo);
         hechos.push(ref.id);
         if (typeof logAction === 'function') logAction('crear', 'Creado: ' + nuevo.nombre, 'Variante de ' + data.nombre + ' | $' + nuevo.precio + ' | stock:' + nuevo.stock);
@@ -701,6 +787,7 @@ async function guardarVariantesForm(principalId, data) {
         upd.precioMayorista = _varMay(Math.round(costo * (1 + pctMay / 100)));
       }
       if (t.stock) upd.stock = parseInt(f.stock, 10) || 0;
+      if (t.caja && !peso && (!!f.caja) !== (old.cajaCerrada === true)) upd.cajaCerrada = !!f.caja;
       if (t.tam && tam && tam !== (old.gramaje || '')) {
         upd.gramaje = tam;
         if (old.nombre && f.tamAntes && old.nombre === base + ' x ' + f.tamAntes) upd.nombre = base + ' x ' + tam;
