@@ -1238,6 +1238,154 @@ async function guardarVariantesForm(principalId, data) {
   }
 }
 
+/* ------------------------------------------------ EN LA TABLA DE PRODUCTOS
+   Pedido del comercio (25/09/2026): buscando "Mani RC" salían dos filas, la de 80 g y la
+   de 160 g, como dos productos. Ahora un producto con presentaciones (o bolsas) es UNA
+   fila, la de su principal, con "2 presentaciones" al lado del nombre. Ese botón, o el
+   de las capas en Acciones, despliega debajo cada tamaño con su código, su precio y su
+   stock, y "Editar presentaciones" abre el formulario en la tabla de tamaños.
+   La búsqueda y los filtros miran todos los tamaños: buscando "160" aparece el producto
+   con el panel abierto y la de 160 g marcada. El grupo va donde va su principal en el
+   orden elegido. Las herramientas en tanda (Costo %, Redondear, Etiquetas, exportar...)
+   no usan esta tabla: siguen viendo cada tamaño. */
+window._gruposAbiertos = window._gruposAbiertos || new Set();
+window._gruposCerrados = window._gruposCerrados || new Set();
+
+/* El principal del grupo de un producto, para la tabla: el suyo si es una variante (con
+   el principal a la vista: no depurado ni variante de otro), él mismo si tiene
+   variantes, o null si va solo. */
+function _principalTabla(p, porId, conHijos) {
+  if (!p || p.depurado === true) return null;
+  if (p.gramajePadreId) {
+    const pr = porId.get(p.gramajePadreId);
+    return (pr && pr.depurado !== true && !pr.gramajePadreId) ? pr : null;
+  }
+  return conHijos.has(p.id) ? p : null;
+}
+
+/* Lo que dibuja la tabla: los de un mismo grupo, juntos en su principal, que lleva
+   __grupo = { miembros, coinciden, soloOtros }. "coinciden" son los que pasaron la
+   búsqueda y los filtros; "soloOtros", que el principal no pasó: entonces el panel se
+   abre solo, porque si no, no se ve por qué está. */
+function agruparParaTabla(lista) {
+  const prods = _varProds();
+  const porId = new Map(prods.filter(Boolean).map(x => [x.id, x]));
+  const conHijos = new Set(prods.filter(x => x && x.gramajePadreId && x.depurado !== true).map(x => x.gramajePadreId));
+  const f = lista || [];
+  const enLista = new Set(f.map(p => p && p.id));
+  const out = [];
+  const hechos = new Set();
+  f.forEach(p => {
+    const pr = _principalTabla(p, porId, conHijos);
+    if (!pr) { out.push(p); return; }
+    if (hechos.has(pr.id)) return;
+    /* Si el principal también pasó, el grupo va en su lugar: se lo espera. */
+    if (p.id !== pr.id && enLista.has(pr.id)) return;
+    hechos.add(pr.id);
+    const miembros = variantesDeGrupo(pr, prods, { conOcultos: true });
+    if (miembros.length < 2) { out.push(p); return; }
+    const coinciden = miembros.filter(m => enLista.has(m.id)).map(m => m.id);
+    out.push(Object.assign({}, pr, { __grupo: { miembros: miembros, coinciden: coinciden, soloOtros: coinciden.indexOf(pr.id) < 0 } }));
+  });
+  return out;
+}
+
+function _grupoAbierto(p) {
+  if (!p || !p.__grupo) return false;
+  if (window._gruposCerrados.has(p.id)) return false;
+  return window._gruposAbiertos.has(p.id) || p.__grupo.soloOtros === true;
+}
+/* "3 bolsas" si todas son bolsas de granel; si no, "3 presentaciones". */
+function _queGrupo(g) { return g.miembros.every(m => m.tipoVenta === 'peso') ? 'bolsas' : 'presentaciones'; }
+
+/* Al lado del nombre: cuántas son, y abre o cierra el panel. */
+function chipPresentacionesHtml(p) {
+  const g = p && p.__grupo;
+  if (!g) return '';
+  const abierto = _grupoAbierto(p);
+  return ' <button type="button" class="var-chip' + (abierto ? ' abierto' : '') + '" onclick="togglePresentacionesTabla(\'' + _varAttr(p.id) + '\')"' +
+    ' title="Ver cada tamaño, con su precio y su stock">' + g.miembros.length + ' ' + _queGrupo(g) +
+    ' <i class="bi bi-chevron-' + (abierto ? 'up' : 'down') + '"></i></button>';
+}
+
+/* El panel, una fila debajo de la del producto (o nada, si está cerrado). */
+function panelPresentacionesHtml(p) {
+  const g = p && p.__grupo;
+  if (!g) return '';
+  const abierto = _grupoAbierto(p);
+  (window._gruposVistos = window._gruposVistos || new Map()).set(p.id, abierto);
+  if (!abierto) return '';
+  const que = _queGrupo(g);
+  /* Se marca lo que se buscó cuando el grupo está por eso y no por su principal. */
+  const marcar = new Set(g.soloOtros ? g.coinciden : []);
+  const fila = m => {
+    const peso = m.tipoVenta === 'peso';
+    const precio = Number(m.precio || 0);
+    const caja = esCajaCerrada(m) && Number(m.precioMayorista || 0) > 0;
+    const stock = Number(m.stock || 0);
+    const sc = stock <= 0 ? 'stock-out' : ((typeof esStockBajo === 'function' && esStockBajo(m)) ? 'stock-low' : 'stock-ok');
+    const chips = (m.id === p.id ? '<span class="var-tabla-chip">principal</span>' : '') +
+      (caja ? '<span class="var-tabla-chip caja">caja cerrada</span>' : '') +
+      (m.oculto === true ? '<span class="var-tabla-chip oculto">oculto</span>' : '');
+    return '<tr' + (marcar.has(m.id) ? ' class="coincide"' : '') + '>' +
+      '<td class="var-tabla-tam"><b>' + _varEsc(etiquetaVariante(m)) + '</b>' + chips + '</td>' +
+      '<td class="var-tabla-cod">' + _varEsc(m.codigo || '-') + '</td>' +
+      '<td class="var-tabla-precio">' + (caja
+        ? '<b>$' + Number(m.precioMayorista).toLocaleString('es-AR') + '</b> <small>caja cerrada · lista $' + precio.toLocaleString('es-AR') + '</small>'
+        : '<b>$' + precio.toLocaleString('es-AR') + '</b>' + (peso ? ' <small>el kilo</small>' : '')) + '</td>' +
+      '<td><span class="stock-badge ' + sc + '">' + _varEsc(typeof stockTexto === 'function' ? stockTexto(m) : String(stock)) + '</span></td>' +
+      '<td class="var-tabla-acc"><button type="button" class="btn-icon" onclick="editProduct(\'' + _varAttr(m.id) + '\')" title="Abrir su ficha"><i class="bi bi-pencil"></i></button></td>' +
+    '</tr>';
+  };
+  return '<tr class="var-panel-fila"><td colspan="10"><div class="var-panel">' +
+    '<div class="var-panel-cab"><span><i class="bi bi-stack"></i> <b>' + g.miembros.length + ' ' + que + '</b> de ' + _varEsc(baseDeNombre(p.nombre) || p.nombre || '') + '</span>' +
+      '<span class="var-panel-acc">' +
+        '<button type="button" class="btn btn-secondary btn-sm" onclick="openGramajeModal(\'' + _varAttr(p.id) + '\')" title="Enganchar un producto que ya está cargado">Asociar uno existente</button>' +
+        '<button type="button" class="btn btn-primary btn-sm" onclick="editarPresentaciones(\'' + _varAttr(p.id) + '\')"><i class="bi bi-pencil"></i> Editar ' + que + '</button>' +
+      '</span></div>' +
+    '<table class="var-tabla"><thead><tr><th>Tamaño</th><th>Código</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
+      g.miembros.map(fila).join('') + '</tbody></table>' +
+  '</div></td></tr>';
+}
+
+/* Abre o cierra el panel de un grupo. Se redibuja la tabla: la página no cambia (ver el
+   filterTable de admin-pagination.js, que solo vuelve a la 1 si cambian los filtros). */
+function togglePresentacionesTabla(id) {
+  const abierto = !!(window._gruposVistos && window._gruposVistos.get(id));
+  if (abierto) { window._gruposAbiertos.delete(id); window._gruposCerrados.add(id); }
+  else { window._gruposCerrados.delete(id); window._gruposAbiertos.add(id); }
+  if (typeof filterTable === 'function') filterTable();
+}
+
+/* "Editar presentaciones": el formulario del principal, en la tabla de tamaños. */
+function editarPresentaciones(id) {
+  if (typeof editProduct === 'function') editProduct(id); else if (typeof openModal === 'function') openModal(id);
+  setTimeout(() => {
+    const sec = document.getElementById('pVariantesSec');
+    if (!sec) return;
+    if (sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (sec.classList) {
+      sec.classList.add('resaltar');
+      setTimeout(() => sec.classList.remove('resaltar'), 1800);
+    }
+  }, 150);
+}
+
+/* Se agrupa ANTES de paginar (el renderTable de admin-pagination.js corta de a 20): una
+   página son 20 productos, no 20 tamaños. Otra búsqueda o filtro arranca limpio: se
+   olvida lo abierto y lo cerrado a mano, y se abren solos los que corresponden. Cambiar
+   de página o guardar un producto no lo toca. */
+if (typeof renderTable === 'function') {
+  const _varRenderTable = renderTable;
+  renderTable = function (prods) {
+    const firma = ['searchInput', 'filterCat', 'filterLista', 'filterVisibilidad']
+      .map(id => (document.getElementById(id) || {}).value || '').join('~|~');
+    if (firma !== window._firmaGruposTabla) { window._firmaGruposTabla = firma; window._gruposCerrados.clear(); window._gruposAbiertos.clear(); }
+    window._gruposVistos = new Map();
+    return _varRenderTable.call(this, agruparParaTabla(prods));
+  };
+}
+
 /* ----------------------------------------------------------- AL BORRAR
    Si se borra un producto que tiene variantes, las que quedan siguen juntas: la
    primera pasa a ser la principal. Si queda una sola, queda como producto suelto.
