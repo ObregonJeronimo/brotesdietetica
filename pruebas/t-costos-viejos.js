@@ -265,6 +265,24 @@ console.log('\n-- el editor de costos --');
   t('  cada uno con el costo nuevo de su bolsa', venta[1].costo === 4800 && venta[2].costo === 5500);
 }
 
+{
+  /* Con varios tamaños, "Costo y precio" (con la fecha de arriba) queda escondido: la
+     fecha va debajo de cada fila de la tabla (admin-variantes.js). */
+  /* La fila cuenta desde hoy (Date.now), no desde AHORA: fechas relativas a hoy. */
+  const haceHoy = d => new Date(Date.now() - d * DIA - 3600000);
+  const viejo = { id: 'v', nombre: 'Yerba x 3 kg', costo: 4500, costoActualizadoEn: haceHoy(62) };
+  const nuevo = { id: 'n', nombre: 'Yerba x 1 kg', costo: 5000, costoActualizadoEn: haceHoy(5) };
+  const m = armar({ productos: [viejo, nuevo], conVariantes: true });
+  const hv = m.ctx._fechaCostoHtml(viejo), hn = m.ctx._fechaCostoHtml(nuevo);
+  t('la fila de un costo de hace 62 días lo dice en amarillo, con el mismo aviso que al vender', hv.indexOf('vfe-vieja') > 0 &&
+    hv.indexOf('(hace 62 días). Desactualizado: al venderlo se va a avisar.') > 0, hv);
+  t('  la de uno de hace 5 días, solo la fecha', hn.indexOf('vfe-vieja') < 0 && hn.indexOf('(hace 5 días).') > 0 && hn.indexOf('Desactualizado') < 0);
+  t('  y sin fecha registrada, nada (como arriba: no se puede saber)', m.ctx._fechaCostoHtml({ id: 'x', costo: 1 }) === '');
+  const src = leer('admin-variantes.js');
+  t('  va en las filas de las otras y en la de este producto', src.indexOf("(f.id ? _fechaCostoHtml(_varProds().find(x => x && x.id === f.id)) : '')") > 0 &&
+    src.indexOf('_fechaCostoHtml(_varProds().find(x => x && x.id === _varPrincipalActual()))') > 0);
+}
+
 /* ================================== LA MISMA CUENTA QUE EL FORMULARIO */
 console.log('\n-- la cuenta del precio es la del formulario --');
 {

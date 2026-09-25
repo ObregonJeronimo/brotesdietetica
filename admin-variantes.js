@@ -571,6 +571,29 @@ function _resFilaVar(r, peso, caja, dsc) {
     '<span>Precio <b>$' + r.precio.toLocaleString('es-AR') + '</b>' + kg + '</span>' + oferta(r.precio) +
     '<span class="vfe-may">Mayorista $' + r.may.toLocaleString('es-AR') + kg + '</span>';
 }
+/* La fecha del último cambio de costo de un tamaño, debajo de su fila. Con varios
+   tamaños la de arriba (pCostoFecha, admin-costos.js) queda escondida con "Costo y
+   precio", y sin esto no había forma de ver que un costo estaba viejo hasta vender.
+   Desactualizado (30 días o más), en amarillo: es el mismo aviso que sale al vender. */
+function _fechaCostoHtml(p) {
+  if (!p || typeof fechaDeCosto !== 'function') return '';
+  const f = fechaDeCosto(p);
+  if (!f) return '';
+  const dias = Math.floor((Date.now() - f.getTime()) / 86400000);
+  const vieja = typeof COSTO_VIEJO_DIAS === 'number' && dias >= COSTO_VIEJO_DIAS;
+  const fecha = typeof _costoFechaTxt === 'function' ? _costoFechaTxt(f) : f.toLocaleDateString('es-AR');
+  const hace = typeof _costoHace === 'function' ? _costoHace(dias) : 'hace ' + dias + ' días';
+  return '<p class="vfe-nota vfe-fecha' + (vieja ? ' vfe-vieja' : '') + '">Último cambio de costo: ' + fecha + ' (' + hace + ')' +
+    (vieja ? '. Desactualizado: al venderlo se va a avisar.' : '.') + '</p>';
+}
+/* Si se escribe un costo, lo que decía la fecha ya no vale: se registra al guardar. */
+function _fechaCostoTocada(fila) {
+  const n = fila && fila.querySelector ? fila.querySelector('.vfe-fecha') : null;
+  if (!n) return;
+  n.className = 'vfe-nota vfe-fecha';
+  n.textContent = 'El costo cambió: la fecha se registra al guardar.';
+}
+
 /* El descuento de una fila: de 0 a 100, entero, como el del formulario. */
 function _varDsc(v) { return Math.min(100, Math.max(0, parseInt(v, 10) || 0)); }
 function _varLimpiarDsc(inp) {
@@ -609,6 +632,7 @@ function _filaVarHtml(f, i, peso) {
     '</div>' +
     (peso ? '' : _cajaHtml(f.caja, 'varFilaCambio(' + i + ',\'caja\',this.checked)')) +
     (f.oculto ? '<p class="vfe-nota">Oculta: no aparece en la venta ni en la tienda.</p>' : '') +
+    (f.id ? _fechaCostoHtml(_varProds().find(x => x && x.id === f.id)) : '') +
   '</div>';
 }
 
@@ -686,6 +710,7 @@ function _filaPpalHtml(peso) {
       '<div class="vfe-res">' + _resPpal(v, peso) + '</div>' +
     '</div>' +
     (peso ? '' : _cajaHtml(v.caja, ev('caja'))) +
+    _fechaCostoHtml(_varProds().find(x => x && x.id === _varPrincipalActual())) +
   '</div>';
 }
 
@@ -693,6 +718,7 @@ function _filaPpalHtml(peso) {
    se pasa a costo por kilo con su tamaño; sin tamaño todavía, queda esperando. */
 function varPpalCambio(campo, el) {
   const peso = _varEsPeso();
+  if (campo === 'costoIn') _fechaCostoTocada(document.querySelector('#pVariantes .vfe-ppal'));
   if (campo === 'costoIn') {
     const monto = _varMonto(el.value);
     if (!peso) _varPonerArriba('pCosto', monto > 0 ? String(monto) : '');
@@ -837,6 +863,7 @@ function varFilaCambio(i, campo, valor) {
   f.tocado[campo] = true;
   const res = document.querySelector('#pVariantes .vfe[data-i="' + i + '"] .vfe-res');
   if (res) res.innerHTML = _resFilaVar(_calcFilaVar(f, _varEsPeso()), _varEsPeso(), f.caja, f.dsc);
+  if (campo === 'costoIn') _fechaCostoTocada(document.querySelector('#pVariantes .vfe[data-i="' + i + '"]'));
 }
 
 /* Una fila nueva, con la ganancia y el mayorista del producto de arriba. */

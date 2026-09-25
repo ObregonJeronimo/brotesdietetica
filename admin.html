@@ -431,6 +431,8 @@
         .vfe-ppal{border-color:var(--border)}
         .vfe-hueco{width:34px}
         .vfe-dsc .form-input{font-family:var(--mono)}
+        .vfe-nota.vfe-fecha{margin-top:0.4rem}
+        .vfe-nota.vfe-vieja{color:#EDB833}
         .vfe-oferta{color:#e57373}
         .vfe-tamw .form-input::placeholder{font-style:italic;opacity:0.55;font-family:var(--font)}
         .vfe-campo .vfe-tamw .form-input{padding-left:0.45rem;padding-right:0.2rem}
@@ -514,7 +516,7 @@
         .stock-row.sin-guardar{outline:1px solid rgba(237,184,51,0.55)}
         .stock-row.sin-guardar .stock-input{border-color:#EDB833;color:#EDB833}
         .stock-chip-sg{font-size:0.62rem;font-weight:700;color:#EDB833;background:rgba(237,184,51,0.18);padding:1px 6px;border-radius:8px;white-space:nowrap;margin-left:6px}
-        .stock-input{width:70px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.5rem;color:var(--text);font-family:var(--mono);font-size:0.9rem;text-align:center;outline:none}.stock-input:focus{border-color:var(--accent)}.stock-save{background:var(--accent);color:white;border:none;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.8rem;cursor:pointer;font-weight:600;transition:all 0.2s}.stock-save:hover{background:var(--accent-light)}
+        .stock-input{width:70px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.5rem;color:var(--text);font-family:var(--mono);font-size:0.9rem;text-align:center;outline:none}.stock-input:focus{border-color:var(--accent)}.stock-actual{display:flex;flex-direction:column;align-items:flex-end;min-width:86px;text-align:right}.stock-actual b{font-family:var(--mono);font-size:0.95rem;color:var(--text);white-space:nowrap}.stock-actual small{font-size:0.68rem;color:var(--text-dim);white-space:nowrap}.stock-agregar{width:auto;white-space:nowrap;padding:0.45rem 0.8rem;font-size:0.8rem}.stock-corregir{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;width:34px;height:34px;flex:0 0 auto;cursor:pointer}.stock-corregir:hover{color:var(--text);border-color:var(--accent)}.stock-save{background:var(--accent);color:white;border:none;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.8rem;cursor:pointer;font-weight:600;transition:all 0.2s}.stock-save:hover{background:var(--accent-light)}
         .admin-topbar-logo{height:36px;width:auto;}
         @media(max-width:768px){.topbar{padding:0.75rem 1rem}.admin-topbar-logo{height:28px}.user-badge{display:none}.topbar-right .btn{font-size:0.75rem;padding:0.3rem 0.6rem}}
         .editor-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}.editor-title{font-size:0.85rem;font-weight:700;color:var(--accent-light);margin-bottom:1rem;display:flex;align-items:center;gap:8px}
@@ -2493,14 +2495,17 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                     '<div class="stock-row-info"><strong>'+esc(p.nombre||'')+(esPorPeso(p)?'<span class="vprod-chip neutro" style="margin-left:6px">POR PESO</span>':'')+
                         (pend?'<span class="stock-chip-sg">SIN GUARDAR</span>':'')+'</strong>'+
                         '<small>'+esc((p.categoria||'')+(p.subcategoria?' / '+p.subcategoria:''))+'</small></div>'+
+                    /* Pedido del comercio (25/09/2026): en vez de escribir el total, "Agregar
+                       stock" suma lo que llego, y el lapiz corrige el total (despues de contar).
+                       Ver admin-stock.js. Sin ese archivo, el campo de siempre. En los de peso
+                       el numero son GRAMOS: sin la unidad al lado, 3400 se lee como unidades. */
+                    (typeof accionesStockHtml==='function'?accionesStockHtml(p):
                     '<input type="number" class="stock-input" id="stock-'+_attrHtml(p.id)+'" value="'+val+'" min="0" step="'+(esPorPeso(p)?'50':'1')+'"'+
                         ' oninput="stockCambio(\''+_attrHtml(p.id)+'\',this)"'+
                         ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();saveStock(\''+_attrHtml(p.id)+'\');}">'+
-                    /* En los de peso el numero son GRAMOS. Sin la unidad al lado,
-                       un 3400 se lee como 3400 unidades. */
                     (esPorPeso(p)?'<span style="color:var(--text-dim);font-size:0.74rem;white-space:nowrap">g<br><span style="font-size:0.68rem">'+fmtPeso(val)+'</span></span>':'')+
                     '<button class="stock-save" onclick="saveStock(\''+_attrHtml(p.id)+'\')" title="Guardar este producto">'+
-                        '<i class="bi bi-check-lg"></i></button>'+
+                        '<i class="bi bi-check-lg"></i></button>')+
                 '</div>';
             }).join('');
 
@@ -7477,6 +7482,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
 <script src="admin-costos.js"></script>
 <script src="admin-variantes.js"></script>
 <script src="admin-escalas.js"></script>
+<script src="admin-stock.js"></script>
     <script src="admin-admins.js"></script>
 
     <div class="visor" id="visorImagen" onclick="if(event.target===this)cerrarImagen()">
