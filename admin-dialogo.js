@@ -101,6 +101,67 @@ function avisar(mensaje, opts) {
     .then(() => true);
 }
 
+/**
+ * Como pedirConfirmacion, pero con varias salidas con nombre propio -por ejemplo
+ * "Modificar costos" e "Ignorar advertencia y vender de todas formas"-. Devuelve el
+ * `valor` de la opción elegida, o null si se cerró con Escape o clickeando afuera:
+ * cerrar sin elegir no puede contar como ninguna de las opciones.
+ * Enter no elige solo: aprieta el botón que tiene el foco, que arranca en el principal.
+ * @param {string} mensaje
+ * @param {Object} opts { titulo, icono, opciones: [{ valor, texto, principal }] }
+ * @returns {Promise<string|null>}
+ */
+function pedirOpcion(mensaje, opts) {
+  opts = opts || {};
+  const titulo = opts.titulo || 'Elegí una opción';
+  const icono = opts.icono || 'bi-question-circle';
+  const opciones = (opts.opciones || []).filter(o => o && o.valor);
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.className = 'dlg-overlay';
+    ov.style.zIndex = String(400 + _dlgAbiertos);
+    _dlgAbiertos++;
+    ov.innerHTML =
+      '<div class="dlg-box" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitOp">' +
+        '<div class="dlg-cab">' +
+          '<span class="dlg-ico"><i class="bi ' + _dlgEsc(icono) + '"></i></span>' +
+          '<h3 id="dlgTitOp">' + _dlgEsc(titulo) + '</h3>' +
+        '</div>' +
+        '<div class="dlg-msg">' + _dlgTexto(mensaje) + '</div>' +
+        '<div class="dlg-pie dlg-pie-opciones">' +
+          opciones.map((o, i) => '<button type="button" class="btn ' + (o.principal ? 'btn-primary' : 'btn-secondary') +
+            ' dlg-op" data-i="' + i + '">' + _dlgEsc(o.texto) + '</button>').join('') +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+
+    const anteriorFoco = document.activeElement;
+    let cerrado = false;
+    const cerrar = (valor) => {
+      if (cerrado) return;
+      cerrado = true;
+      _dlgAbiertos = Math.max(0, _dlgAbiertos - 1);
+      document.removeEventListener('keydown', onTecla, true);
+      ov.remove();
+      try { if (anteriorFoco && anteriorFoco.focus) anteriorFoco.focus(); } catch (e) {}
+      resolve(valor);
+    };
+    function onTecla(e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cerrar(null); }
+    }
+    ov.querySelectorAll('.dlg-op').forEach(b => b.addEventListener('click', () => {
+      const o = opciones[Number(b.getAttribute('data-i'))];
+      cerrar(o ? o.valor : null);
+    }));
+    ov.addEventListener('mousedown', e => { if (e.target === ov) cerrar(null); });
+    document.addEventListener('keydown', onTecla, true);
+    setTimeout(() => {
+      const b = ov.querySelector('.dlg-op.btn-primary') || ov.querySelector('.dlg-op');
+      if (b) b.focus();
+    }, 30);
+  });
+}
+
 function _dlgEsc(s) {
   const d = document.createElement('div');
   d.textContent = String(s == null ? '' : s);

@@ -860,3 +860,56 @@ exports.registrarReposicion = onDocumentWritten(
     }
   }
 );
+
+/**
+ * Trigger: cada escritura en productos/{id}.
+ * Anota costoActualizadoEn cuando CAMBIA el costo, y en un alta que ya trae costo. Lo usa
+ * el aviso de "costo desactualizado" que sale al registrar una venta (pedido del comercio,
+ * 24/09/2026; ver admin-costos.js).
+ *
+ * Escucha la base y no las pantallas, igual que registrarReposicion: el costo cambia desde el
+ * formulario, Importar Costos, Importar Nuevos, una compra, el PDF semanal... y cualquier
+ * camino nuevo queda cubierto sin que nadie se acuerde de nada.
+ *
+ * Si la MISMA escritura ya trae costoActualizadoEn, no se toca: el panel la pone al CONFIRMAR
+ * un costo que sigue igual, y la siembra del sandbox la pone con fechas viejas para probar el
+ * aviso. Esa fecha es a proposito.
+ *
+ * No se dispara en bucle: su propia escritura solo cambia costoActualizadoEn, no el costo.
+ * Sin reintento automatico, por lo mismo que registrarReposicion.
+ */
+exports.registrarCambioDeCosto = onDocumentWritten(
+  {
+    document: 'productos/{productoId}',
+    region: 'southamerica-east1'
+  },
+  async (event) => {
+    const antes = event.data && event.data.before;
+    const despues = event.data && event.data.after;
+    if (!despues || !despues.exists) return;   /* se borro el producto */
+    const nuevo = despues.data() || {};
+    const viejo = (antes && antes.exists) ? (antes.data() || {}) : null;
+    const cambioElCosto = viejo
+      ? Number(viejo.costo || 0) !== Number(nuevo.costo || 0)
+      : (nuevo.costo !== undefined && nuevo.costo !== null);
+    if (!cambioElCosto) return;
+    /* La escritura ya trae la fecha: la puso el panel a proposito. */
+    if (_msDeFecha(nuevo.costoActualizadoEn) !== _msDeFecha(viejo ? viejo.costoActualizadoEn : null)) return;
+    try {
+      await despues.ref.update({costoActualizadoEn: FieldValue.serverTimestamp()});
+    } catch (e) {
+      if (e && (e.code === 5 || e.code === 'not-found')) return;
+      logger.error('No se pudo anotar costoActualizadoEn en ' + event.params.productoId + ':', e);
+      throw e;
+    }
+  }
+);
+
+/* Timestamp de Firestore, Date o texto, a milisegundos; null si no hay. */
+function _msDeFecha(v) {
+  if (!v) return null;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (typeof v.seconds === 'number') return v.seconds * 1000 + Math.floor((v.nanoseconds || 0) / 1e6);
+  const d = new Date(v);
+  return isNaN(d) ? null : d.getTime();
+}

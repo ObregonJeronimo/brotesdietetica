@@ -58,6 +58,9 @@ async function fetchDeMentira(url, opciones) {
   t('uno nuevo', !!campo('productos/prod100', 'creadoEn').timestampValue);
   t('un principal con su presentación', campo('productos/prod057', 'gramajePadreId').stringValue === 'prod056');
   t('productos con la reposición registrada', productos.some(k => escrito[k].stockSubioEn));
+  t('todos con fecha de costo, y algunos de hace más de un mes para ver el aviso',
+    productos.every(k => escrito[k].costoActualizadoEn) &&
+    productos.some(k => (Date.now() - new Date(escrito[k].costoActualizadoEn.timestampValue)) > 30 * 86400000));
   t('y desde cuándo hay registro', !!campo('config/depuracion', 'registroStockDesde').timestampValue);
 
   console.log('\n-- los pedidos --');

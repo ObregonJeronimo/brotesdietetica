@@ -75,8 +75,13 @@ t('  pero si además hay uno a la vista, el formulario queda', abiertos(e) === '
 
 console.log('\n-- las clases que mira son las de verdad --');
 const dialogo = leer('admin-dialogo.js');
-t('los dos diálogos, confirmar y gramos, usan .dlg-overlay', (dialogo.match(/ov\.className = 'dlg-overlay'/g) || []).length === 2);
-t('  y cada uno cierra con su propio Escape', (dialogo.match(/if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\); cerrar\(/g) || []).length === 2);
+t('los tres diálogos -confirmar, gramos y opciones- usan .dlg-overlay', (dialogo.match(/ov\.className = 'dlg-overlay'/g) || []).length === 3);
+t('  y cada uno cierra con su propio Escape', (dialogo.match(/if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\); cerrar\(/g) || []).length === 3);
+/* El editor de costos se abre ENCIMA de la venta: con otra clase, el Escape de atajos
+   cerraba la venta con el carrito armado. */
+const costos = leer('admin-costos.js');
+t('el editor de costos también es .dlg-overlay', /ov\.className = 'dlg-overlay'/.test(costos));
+t('  y se cierra con su propio Escape, sin llegar a la venta', /e\.key === 'Escape'[\s\S]{0,120}e\.stopPropagation\(\); cerrarEditorCostos\(\)/.test(costos));
 /* El CSS decia content:'<caracter de control>2' y toda lista adentro de un dialogo
    mostraba un cuadradito con un 2. check-admin.js ahora tambien lo agarra. */
 t('la viñeta de las listas del diálogo es una viñeta de verdad',

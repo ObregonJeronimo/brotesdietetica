@@ -291,6 +291,10 @@ function prepararDepuracion(productos, compras) {
   productos.forEach((p, i) => {
     if (i % 5 === 0 && !p.datos.stockSubioEn) p.datos.stockSubioEn = diasAtras(i % 2 ? 110 : 8 + (i % 40));
   });
+  /* Fecha del ultimo cambio de costo (24/09/2026): la mayoria reciente y uno de cada cuatro
+     con mas de un mes, para que el aviso de costos viejos se vea al vender. La funcion
+     registrarCambioDeCosto no la pisa: la escritura ya la trae. */
+  productos.forEach((p, i) => { p.datos.costoActualizadoEn = diasAtras(i % 4 === 0 ? 35 + (i % 30) : 2 + (i % 20)); });
   Object.assign(porId.prod090, { depurado: true, depuradoEn: diasAtras(10), depuradoPor: 'sandbox@local',
     depuradoMotivo: { dias: 90, criterios: ['sinVentas', 'sinReposicion'], stock: porId.prod090.stock, ultimaVenta: null } });
   Object.assign(porId.prod095, { excluidoDepuracion: true, excluidoDepuracionEn: diasAtras(4), excluidoDepuracionPor: 'sandbox@local' });
