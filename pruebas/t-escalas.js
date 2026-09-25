@@ -419,6 +419,13 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     w.porId.pGramaje.value = '';
     w.ctx.pintarCostoBolsa();
     t('  ni en uno por peso sin tamaño', cont.hidden === true);
+    w.porId.pGramaje.value = '3 kg';
+    w.ctx.pintarCostoBolsa();
+    const seVe = cont.hidden === false;
+    w.ctx.window._varFilas = [{ id: null, tam: '5 kg' }];
+    w.ctx.pintarCostoBolsa();
+    t('  y se esconde con la tabla de bolsas a la vista: lo que costó la bolsa va en su primera fila', seVe && cont.hidden === true);
+    w.ctx.window._varFilas = [];
   }
 
   /* ============================================== EL AVISO DE LOS PEDIDOS WEB */

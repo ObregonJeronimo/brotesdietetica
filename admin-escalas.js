@@ -598,7 +598,10 @@ function pintarCostoBolsa() {
   const peso = typeof _tipoVentaProd !== 'undefined' && _tipoVentaProd === 'peso';
   const gEl = document.getElementById('pGramaje');
   const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ gramaje: gEl ? gEl.value : '' }) : null;
-  if (!peso || !c || c.unidad !== 'g' || !(c.valor > 0)) { cont.hidden = true; cont.innerHTML = ''; return; }
+  /* Con la tabla de bolsas a la vista sobra: lo que costó la bolsa de este producto va
+     en su primera fila (admin-variantes.js). */
+  const conTabla = typeof window !== 'undefined' && !!(window._varFilas && window._varFilas.length && !window._varHijo && !window._varianteDeNueva);
+  if (!peso || conTabla || !c || c.unidad !== 'g' || !(c.valor > 0)) { cont.hidden = true; cont.innerHTML = ''; return; }
   let inp = cont.querySelector('input');
   if (!inp) {
     cont.innerHTML = '<label class="cb-lbl" for="pCostoBolsaInput">¿Tenés lo que costó la bolsa? Bolsa de <span class="cb-tam"></span>:</label>' +

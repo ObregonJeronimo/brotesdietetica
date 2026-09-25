@@ -477,7 +477,7 @@ function _filaVarHtml(f, i, peso) {
   return '<div class="vfe" data-i="' + i + '">' +
     '<div class="vfe-fila">' +
       '<label class="vfe-campo vfe-tam"><span>' + (peso ? 'Bolsa de' : 'Tamaño') + '</span>' +
-        _tamWidgetHtml(f.tam, peso, 'varFilaTam(' + i + ',this)', peso ? '3' : '160') + '</label>' +
+        _tamWidgetHtml(f.tam, peso, 'varFilaTam(' + i + ',this)', peso ? 'ej. 3' : 'ej. 160') + '</label>' +
       '<label class="vfe-campo vfe-costo"><span>' + (peso ? 'Costo de la bolsa' : 'Costo') + '</span>' +
         '<input type="text" inputmode="numeric" class="form-input" value="' + _varAttr(f.costoIn) + '" oninput="if(typeof limpiarMonto===\'function\')limpiarMonto(this);' + ev('costoIn') + '"></label>' +
       '<label class="vfe-campo vfe-stock"><span>Stock' + (peso ? ' (gramos)' : ' (unitario)') + '</span>' +
@@ -498,6 +498,122 @@ function _filaVarHtml(f, i, peso) {
       ' onchange="varFilaCambio(' + i + ',\'caja\',this.checked)"> <span>Caja cerrada: en el mostrador y en la tienda se cobra el precio mayorista</span></label>') +
     (f.oculto ? '<p class="vfe-nota">Oculta: no aparece en la venta ni en la tienda.</p>' : '') +
   '</div>';
+}
+
+/* ------------------------------------------ LA PRIMERA FILA: ESTE PRODUCTO
+   Pedido del comercio (25/09/2026): "Este producto es la bolsa de ___ kg" no se
+   entendía. La bolsa de 1 kg se cargaba como una fila más y al guardar decía "Hay dos
+   del mismo tamaño". Ahora la tabla muestra TODAS las bolsas (o presentaciones) y la
+   primera es este producto: sus campos son los de arriba (Gramaje / Presentación,
+   Costo, Stock, % ganancia, % mayorista y la caja cerrada), escritos en los dos
+   sentidos. No se guarda aparte: la guarda saveProduct con el resto del formulario. */
+
+/* Pone un valor en un campo de arriba y avisa como si se hubiera escrito ahí: su
+   oninput recalcula los precios. */
+function _varPonerArriba(id, valor) {
+  const e = document.getElementById(id);
+  if (!e) return;
+  e.value = valor;
+  window._varPpalEscribiendo = true;
+  try { e.dispatchEvent(new Event('input', { bubbles: true })); } finally { window._varPpalEscribiendo = false; }
+}
+
+/* Lo que muestra la primera fila, leído de arriba. En una bolsa el costo es el de la
+   bolsa (el del kilo por su tamaño); si se escribió en la fila, se muestra ese: con el
+   redondeo del kilo, $1.000 la bolsa de 3 kg volvería como $999. */
+function _valoresPpal(peso) {
+  const val = id => { const e = document.getElementById(id); return e && e.value != null ? String(e.value) : ''; };
+  const tam = val('pGramaje');
+  const costo = _varMonto(val('pCosto'));
+  const c = contenidoDeVariante({ gramaje: tam });
+  const bolsaOk = !!(c && c.unidad === 'g' && c.valor > 0);
+  let costoIn = '';
+  if (!peso) costoIn = costo > 0 ? String(costo) : '';
+  else {
+    const escrito = _varMonto(window._varPpalBolsa);
+    if (escrito > 0 && (!bolsaOk || Math.round(escrito * 1000 / c.valor) === costo)) costoIn = String(escrito);
+    else if (bolsaOk && costo > 0) costoIn = String(Math.round(costo * c.valor / 1000));
+  }
+  const pct = val('pPorcentaje'), pctMay = val('pPorcentajeMay');
+  const cb = document.getElementById('pCajaCerrada');
+  const listo = costo > 0 && (!peso || bolsaOk);
+  return {
+    tam: tam, costoIn: costoIn, stock: val('pStock'), pct: pct, pctMay: pctMay, caja: !!(cb && cb.checked),
+    r: listo
+      ? { costo: costo, c: c, precio: Math.round(costo * (1 + (Number(pct) || 0) / 100)), may: _varMay(Math.round(costo * (1 + (Number(pctMay) || 0) / 100))) }
+      : { costo: null, c: (peso && !bolsaOk) ? null : c },
+  };
+}
+
+function _filaPpalHtml(peso) {
+  const v = _valoresPpal(peso);
+  const ev = campo => 'varPpalCambio(\'' + campo + '\',this)';
+  return '<div class="vfe vfe-ppal">' +
+    '<div class="vfe-cab"><span class="vfe-tag">Este producto</span><span>lo mismo que cargaste arriba</span></div>' +
+    '<div class="vfe-fila">' +
+      '<label class="vfe-campo vfe-tam"><span>' + (peso ? 'Bolsa de' : 'Tamaño') + '</span>' +
+        _tamWidgetHtml(v.tam, peso, 'varTamPrincipal(this)', peso ? 'ej. 1' : 'ej. 80', ' id="pVarTam"') + '</label>' +
+      '<label class="vfe-campo vfe-costo"><span>' + (peso ? 'Costo de la bolsa' : 'Costo') + '</span>' +
+        '<input type="text" inputmode="numeric" class="form-input" value="' + _varAttr(v.costoIn) +
+        '" oninput="if(typeof limpiarMonto===\'function\')limpiarMonto(this);' + ev('costoIn') + '"></label>' +
+      '<label class="vfe-campo vfe-stock"><span>Stock' + (peso ? ' (gramos)' : ' (unitario)') + '</span>' +
+        '<input type="number" class="form-input" value="' + _varAttr(v.stock) + '" step="1" oninput="' + ev('stock') + '"></label>' +
+      '<span class="vfe-hueco"></span>' +
+    '</div>' +
+    '<div class="vfe-fila">' +
+      '<label class="vfe-campo vfe-pct"><span>% ganancia</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(v.pct) +
+        '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pct') + '"></label>' +
+      '<label class="vfe-campo vfe-pctmay"><span>% mayorista</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(v.pctMay) +
+        '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pctMay') + '"></label>' +
+      '<div class="vfe-res">' + _resFilaVar(v.r, peso, v.caja) + '</div>' +
+    '</div>' +
+    (peso ? '' : '<label class="vfe-caja"><input type="checkbox"' + (v.caja ? ' checked' : '') + ' onchange="' + ev('caja') + '">' +
+      ' <span>Caja cerrada: en el mostrador y en la tienda se cobra el precio mayorista</span></label>') +
+  '</div>';
+}
+
+/* Escribir en la primera fila es escribir arriba. En una bolsa, lo que costó la bolsa
+   se pasa a costo por kilo con su tamaño; sin tamaño todavía, queda esperando. */
+function varPpalCambio(campo, el) {
+  const peso = _varEsPeso();
+  if (campo === 'costoIn') {
+    const monto = _varMonto(el.value);
+    if (!peso) _varPonerArriba('pCosto', monto > 0 ? String(monto) : '');
+    else {
+      window._varPpalBolsa = monto > 0 ? String(monto) : null;
+      const g = document.getElementById('pGramaje');
+      const c = contenidoDeVariante({ gramaje: g ? g.value : '' });
+      if (c && c.unidad === 'g' && c.valor > 0) _varPonerArriba('pCosto', monto > 0 ? String(Math.round(monto * 1000 / c.valor)) : '');
+    }
+  } else if (campo === 'stock') _varPonerArriba('pStock', el.value);
+  else if (campo === 'pct') _varPonerArriba('pPorcentaje', el.value);
+  else if (campo === 'pctMay') _varPonerArriba('pPorcentajeMay', el.value);
+  else if (campo === 'caja') {
+    const cb = document.getElementById('pCajaCerrada');
+    if (cb) { cb.checked = !!el.checked; if (typeof pintarCajaCerrada === 'function') pintarCajaCerrada(); }
+  }
+  pintarFilaPpal();
+}
+
+/* Y lo que se escribe arriba aparece en la primera fila (menos en el campo que se está
+   escribiendo, para no mover el cursor). */
+function pintarFilaPpal() {
+  const fila = document.querySelector('#pVariantes .vfe-ppal');
+  if (!fila) return;
+  const peso = _varEsPeso();
+  const v = _valoresPpal(peso);
+  const poner = (sel, valor) => {
+    const e = fila.querySelector(sel);
+    if (e && document.activeElement !== e && String(e.value) !== String(valor)) e.value = valor;
+  };
+  poner('.vfe-costo input', v.costoIn);
+  poner('.vfe-stock input', v.stock);
+  poner('.vfe-pct input', v.pct);
+  poner('.vfe-pctmay input', v.pctMay);
+  const cb = fila.querySelector('.vfe-caja input');
+  if (cb) cb.checked = v.caja;
+  const res = fila.querySelector('.vfe-res');
+  if (res) res.innerHTML = _resFilaVar(v.r, peso, v.caja);
 }
 
 function pintarVariantesForm() {
@@ -523,15 +639,16 @@ function pintarVariantesForm() {
     return;
   }
   const filas = window._varFilas || [];
-  const g = document.getElementById('pGramaje');
+  /* Con otras filas, la tabla las muestra TODAS y la primera es este producto (ver
+     _filaPpalHtml). Sin otras, la sección es la explicación y el botón. */
   let h = '<p class="var-ayuda">' + (peso
     ? 'Si comprás este producto en bolsas de distinto tamaño, cargá cada una con lo que te costó y su ganancia. ' +
       'Al vender, el precio sale solo de la cantidad: con 3 kg o más se cobra el de la bolsa de 3 kg.'
     : 'Si el mismo producto viene en otros tamaños (maní x 80 g y x 160 g), cargá cada uno con su costo y su ganancia. ' +
-      'En la venta y en la tienda se ven como un solo producto.') + '</p>';
-  h += '<label class="var-tam-ppal"><span>' + (peso ? 'Este producto es la bolsa de' : 'Este producto es el de') + '</span>' +
-    _tamWidgetHtml(g ? g.value : '', peso, 'varTamPrincipal(this)', peso ? '1' : '80', ' id="pVarTam"') + '</label>';
-  h += '<div class="var-filas">' + filas.map((f, i) => _filaVarHtml(f, i, peso)).join('') + '</div>';
+      'En la venta y en la tienda se ven como un solo producto.') +
+    (filas.length ? (peso ? ' La primera bolsa es este producto: lo mismo que cargaste arriba.'
+      : ' La primera es este producto: lo mismo que cargaste arriba.') : '') + '</p>';
+  if (filas.length) h += '<div class="var-filas">' + _filaPpalHtml(peso) + filas.map((f, i) => _filaVarHtml(f, i, peso)).join('') + '</div>';
   h += '<button type="button" class="btn btn-secondary btn-sm var-agregar" onclick="varFilaAgregar()"><i class="bi bi-plus-lg"></i> ' +
     (peso ? 'Agregar bolsa' : 'Agregar presentación') + '</button>';
   /* Las de la otra forma de venta (un paquete de 500 g de un granel) no se editan acá:
@@ -548,6 +665,9 @@ function pintarVariantesForm() {
       'Cargar una con su propio formulario (otro nombre, otra forma de venta, foto o código de barras)</button>';
   }
   el.innerHTML = h;
+  /* Con la tabla a la vista, lo que costó la bolsa de este producto va en su primera
+     fila: el "¿Tenés lo que costó la bolsa?" de arriba se esconde (admin-escalas.js). */
+  if (typeof pintarCostoBolsa === 'function') pintarCostoBolsa();
 }
 
 /* Escribir en una fila: se guarda y se recalculan sus precios, sin repintar la sección
@@ -568,9 +688,12 @@ function varFilaAgregar() {
   const val = id => { const e = document.getElementById(id); return e ? e.value : ''; };
   filas.push({ id: null, tam: '', costoIn: '', pct: Number(val('pPorcentaje')) || 0, pctMay: Number(val('pPorcentajeMay')) || 0, stock: 0, tocado: {} });
   pintarVariantesForm();
+  /* Si este producto todavía no dice de cuánto es, primero eso: la primera fila. */
   setTimeout(() => {
+    const g = document.getElementById('pGramaje');
+    const ppal = document.getElementById('pVarTam');
     const ins = document.querySelectorAll('#pVariantes .vfe-tam input');
-    const ult = ins[ins.length - 1];
+    const ult = (ppal && g && !String(g.value || '').trim()) ? ppal : ins[ins.length - 1];
     if (ult) ult.focus();
   }, 30);
 }
@@ -585,7 +708,7 @@ function varFilaQuitar(i) {
   pintarVariantesForm();
 }
 
-/* "Este producto es la bolsa de..." es el mismo campo que Gramaje / Presentación.
+/* El tamaño de la primera fila (este producto) es el mismo campo que Gramaje / Presentación.
    Recibe el campo (el número o la unidad) o directamente la etiqueta. */
 function varTamPrincipal(v) {
   const texto = (typeof v === 'string') ? v : _tamDeWidget(v);
@@ -635,6 +758,7 @@ if (typeof openModal === 'function') {
     window._varFilas = [];
     window._varHijo = null;
     window._varFilasPeso = null;
+    window._varPpalBolsa = null;
     const r = _varOpenModal.apply(this, arguments);
     const p = id ? (_varProds().find(x => x && x.id === id) || null) : null;
     iniciarVariantesForm(p);
@@ -642,6 +766,7 @@ if (typeof openModal === 'function') {
     const cb = document.getElementById('pCajaCerrada');
     if (cb) cb.checked = !!(p && p.cajaCerrada === true);
     pintarCajaCerrada();
+    pintarFilaPpal();
     return r;
   };
 }
@@ -658,6 +783,7 @@ if (typeof setTipoVenta === 'function') {
       const escrito = (window._varFilas || []).some(f => f.id ? Object.keys(f.tocado || {}).length
         : (String(f.tam || '').trim() || String(f.costoIn || '').trim()));
       const pid = _varPrincipalActual();
+      window._varPpalBolsa = null;
       iniciarVariantesForm(pid ? (_varProds().find(x => x && x.id === pid) || null) : null, peso);
       if (escrito && typeof showAdminToast === 'function') {
         showAdminToast('Cambió la forma de venta: lo que habías cargado en ' + (peso ? 'las presentaciones' : 'las bolsas') + ' no se guarda.', 'info');
@@ -674,6 +800,7 @@ if (typeof calcPrecioModal === 'function') {
   calcPrecioModal = function () {
     const r = _varCalcPrecio.apply(this, arguments);
     pintarCajaCerrada();
+    pintarFilaPpal();
     return r;
   };
 }
@@ -734,17 +861,33 @@ function datosCajaCerrada(data, id) {
   return data;
 }
 (function () {
-  /* Si se escribe en Gramaje / Presentación, el campo de la tabla lo sigue. */
+  /* La primera fila de la tabla es este producto: lo que se escribe arriba la sigue. */
   const g = document.getElementById('pGramaje');
   if (g) g.addEventListener('input', () => {
     const t = document.getElementById('pVarTam');
-    if (!t || document.activeElement === t) return;
-    const p = _tamPartes(g.value, _varEsPeso());
-    t.value = p.num;
-    const w = t.closest ? t.closest('.vfe-tamw') : null;
-    const sel = w ? w.querySelector('select') : null;
-    if (sel && document.activeElement !== sel) sel.value = p.uni;
+    if (t && document.activeElement !== t) {
+      const p = _tamPartes(g.value, _varEsPeso());
+      t.value = p.num;
+      const w = t.closest ? t.closest('.vfe-tamw') : null;
+      const sel = w ? w.querySelector('select') : null;
+      if (sel && document.activeElement !== sel) sel.value = p.uni;
+    }
+    /* Si el costo se escribió en la fila como lo que costó la bolsa, al cambiar el
+       tamaño se mantiene la bolsa y cambia el costo por kilo, como en las otras filas. */
+    const monto = _varMonto(window._varPpalBolsa);
+    const c = contenidoDeVariante({ gramaje: g.value });
+    if (_varEsPeso() && monto > 0 && c && c.unidad === 'g' && c.valor > 0) _varPonerArriba('pCosto', String(Math.round(monto * 1000 / c.valor)));
+    pintarFilaPpal();
   });
+  /* El costo por kilo escrito a mano arriba manda sobre lo que costó la bolsa. */
+  const pc = document.getElementById('pCosto');
+  if (pc) pc.addEventListener('input', () => { if (!window._varPpalEscribiendo) window._varPpalBolsa = null; pintarFilaPpal(); });
+  ['pStock', 'pPorcentaje', 'pPorcentajeMay'].forEach(id => {
+    const e = document.getElementById(id);
+    if (e) e.addEventListener('input', pintarFilaPpal);
+  });
+  const cb = document.getElementById('pCajaCerrada');
+  if (cb) cb.addEventListener('change', pintarFilaPpal);
 })();
 
 /* ---------------------------------------------------------- AL GUARDAR
@@ -780,8 +923,8 @@ function faltaPresentacionDeVariante() {
   const foco = (i, sel) => { const e = document.querySelector('#pVariantes .vfe[data-i="' + i + '"] ' + sel); if (e) e.focus(); };
   const cp = contenidoDeVariante({ gramaje: g ? g.value : '', nombre: n ? n.value : '' });
   if (!cp || (peso && cp.unidad !== 'g')) {
-    aviso(peso ? 'Poné de cuánto es la bolsa de este producto (ej. 1 kg), en "Este producto es la bolsa de".'
-      : 'Poné el tamaño de este producto (ej. 80 g), en "Este producto es el de".');
+    aviso(peso ? 'Poné de cuánto es la bolsa de este producto (ej. 1 kg): es la primera fila, la que dice "Este producto".'
+      : 'Poné el tamaño de este producto (ej. 80 g): es la primera fila, la que dice "Este producto".');
     const t = document.getElementById('pVarTam');
     if (t) t.focus();
     return true;
