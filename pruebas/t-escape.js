@@ -82,6 +82,10 @@ t('  y cada uno cierra con su propio Escape', (dialogo.match(/if \(e\.key === 'E
 const costos = leer('admin-costos.js');
 t('el editor de costos también es .dlg-overlay', /ov\.className = 'dlg-overlay'/.test(costos));
 t('  y se cierra con su propio Escape, sin llegar a la venta', /e\.key === 'Escape'[\s\S]{0,120}e\.stopPropagation\(\); cerrarEditorCostos\(\)/.test(costos));
+/* El selector de variantes también se abre encima de la venta. */
+const variantes = leer('admin-variantes.js');
+t('el selector de variantes también es .dlg-overlay', /ov\.className = 'dlg-overlay'/.test(variantes));
+t('  y se cierra con su propio Escape, sin llegar a la venta', /e\.key === 'Escape'[\s\S]{0,120}e\.stopPropagation\(\); cerrarVariantesVenta\(\)/.test(variantes));
 /* El CSS decia content:'<caracter de control>2' y toda lista adentro de un dialogo
    mostraba un cuadradito con un 2. check-admin.js ahora tambien lo agarra. */
 t('la viñeta de las listas del diálogo es una viñeta de verdad',

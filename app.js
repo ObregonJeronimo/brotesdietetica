@@ -194,13 +194,21 @@ let _searchTimer=null;
 function onSearchInput(v){busquedaTexto=v;clearTimeout(_searchTimer);_searchTimer=setTimeout(()=>{paginaActual=1;aplicarFiltros();},200);}
 function aplicarFiltros() {
     let r = [...productos];
-    /* Excluir productos hijos de gramaje: solo se muestran como botones dentro del padre de gramaje */
-    r = r.filter(p => !p.gramajePadreId);
+    /* Las variantes no tienen tarjeta propia: salen como botones de su principal. Una
+       cuyo principal no esta en la tienda -oculto, depurado o borrado- sale sola: antes
+       quedaba escondida y no se veia en ningun lado. */
+    const _enTienda = new Set(productos.map(p => p.id));
+    r = r.filter(p => !p.gramajePadreId || !_enTienda.has(p.gramajePadreId));
     if (categoriaActual === 'Populares') r = r.filter(p => p.popular === true);
     else if (categoriaActual === 'Ofertas') r = r.filter(p => (p.descuento||0) > 0);
     else if (categoriaActual !== 'Todos') r = r.filter(p => p.categoria === categoriaActual);
     if (subcategoriaActual) r = r.filter(p => p.subcategoria === subcategoriaActual);
-    if (busquedaTexto) { r=r.filter(p=>_searchScore(busquedaTexto,p)>0); }
+    if (busquedaTexto) {
+        /* Buscando "mani 160" coincide la variante, que no tiene tarjeta: se muestra la de
+           su principal. Antes no aparecia nada. */
+        const _porVariante = new Set(productos.filter(h => h.gramajePadreId && _searchScore(busquedaTexto, h) > 0).map(h => h.gramajePadreId));
+        r=r.filter(p=>_searchScore(busquedaTexto,p)>0||_porVariante.has(p.id));
+    }
     r.sort((a,b)=>{
         if(ordenAlfa){const cmp=(a.nombre||'').localeCompare(b.nombre||'','es');if(cmp!==0)return ordenAlfa==='asc'?cmp:-cmp;}
         if(ordenPrecio){const cmp=precioFinal(a)-precioFinal(b);if(cmp!==0)return ordenPrecio==='asc'?cmp:-cmp;}
@@ -329,6 +337,60 @@ function goToPage(page) {
     if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/* ===== VARIANTES (presentaciones y bultos) =====
+   Un producto que viene en varias presentaciones -mani x 80 g y x 160 g, alfajor x1 y
+   x12- es UNA tarjeta, y cada variante es un boton con su precio. Las variantes son
+   productos con gramajePadreId apuntando al principal: las arma el panel
+   (admin-variantes.js). Antes el boton decia solo "160 g" y el precio que se veia era
+   siempre el del principal: se agregaba al carrito sin saber cuanto costaba. */
+function _tamVariante(v){
+    const s=String((v&&(v.gramaje||v.nombre))||'').toLowerCase().replace(/(\d),(\d)/g,'$1.$2');
+    let m;
+    if((m=s.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilos?)\b/)))return parseFloat(m[1])*1000;
+    if((m=s.match(/(\d+(?:\.\d+)?)\s*(g|gr|grs|gramos?)\b/)))return parseFloat(m[1]);
+    if((m=s.match(/(\d+(?:\.\d+)?)\s*(l|lt|lts|litros?)\b/)))return parseFloat(m[1])*1000;
+    if((m=s.match(/(\d+(?:\.\d+)?)\s*(ml|cc)\b/)))return parseFloat(m[1]);
+    if((m=s.match(/(\d+)\s*(u|un|unid|unidades)\b/)))return parseFloat(m[1]);
+    if((m=s.match(/(?:^|\s)x\s*(\d+)\b/)))return parseFloat(m[1]);
+    return Infinity;
+}
+/* La etiqueta del boton: su presentacion, o el tamano que dice el nombre. */
+function _etqVariante(v,esPrincipal){
+    if(v.gramaje)return v.gramaje;
+    const m=String(v.nombre||'').match(/\d+(?:[.,]\d+)?\s*(?:kg|kgs|kilos?|g|gr|grs|gramos?|l|lt|lts|litros?|ml|cc|u|un|unid|unidades)\b/i);
+    if(m)return m[0];
+    return esPrincipal?'Base':(v.nombreMostrado||v.nombre);
+}
+/* El principal y sus variantes, ordenados: primero las de unidad, despues las de
+   granel, cada grupo de menor a mayor. Vacio si no tiene variantes. */
+function _variantesTienda(p){
+    const hijos=productos.filter(h=>h.gramajePadreId===p.id);
+    if(!hijos.length)return [];
+    return [p].concat(hijos).sort((a,b)=>{
+        const ta=_tamVariante(a),tb=_tamVariante(b);
+        return (esPesoProd(a)-esPesoProd(b))||(ta===tb?0:(ta<tb?-1:1));
+    });
+}
+function _btnVariante(v,p,enModal){
+    const sin=(v.stock||0)<=0;
+    /* Sin stock se dice en el boton y no solo en el globo: en el celular no hay globo. */
+    const extra=sin?'<span class="gramaje-precio">sin stock</span>'
+        :sinPrecio(v)?'':'<span class="gramaje-precio">$'+formatPrice(precioFinal(v))+(esPesoProd(v)?'/kg':'')+'</span>';
+    const accion=(enModal?'':'event.stopPropagation();')+'addVarianteToCart(\''+v.id+'\')';
+    return '<button class="gramaje-btn'+(v.id===p.id?' active':'')+'"'+(sin?' disabled title="Sin stock"':'')+' onclick="'+accion+'" data-id="'+v.id+'">'+esc(_etqVariante(v,v.id===p.id))+extra+'</button>';
+}
+/* addToCart avisa al agregar uno nuevo, pero al sumar otro del mismo no dice nada, y
+   la tarjeta muestra la cantidad del principal: tocar "160 g" por segunda vez parecia
+   no hacer nada. */
+async function addVarianteToCart(id){
+    const cuantos=()=>{const i=carrito.find(x=>x.id===id);return i?Number(i.cantidad||0):0;};
+    const antes=cuantos();
+    await addToCart(id);
+    const ahora=cuantos();
+    const v=productos.find(x=>x.id===id);
+    if(v&&antes>0&&ahora>antes&&!esPesoProd(v))showToast((v.nombreMostrado||v.nombre)+': '+ahora+' en el carrito','success');
+}
+
 function renderProducts(list) {
     const c = document.getElementById('productsGrid'); if(!c)return;
     if (list.length===0) { c.innerHTML='<div class="empty-products"><i class="bi bi-search" style="font-size:2.5rem;color:var(--color-text-light)"></i><p style="color:var(--color-text-light);margin-top:1rem;font-size:1.05rem">No se encontraron productos</p></div>'; return; }
@@ -352,12 +414,9 @@ function renderProducts(list) {
         const atcAttrs=qty>0
             ?'class="add-to-cart-btn added"'
             :'class="add-to-cart-btn"'+(noStock||noPrecio?' disabled':'')+' onclick="'+(qty===0?'addToCart(\''+p.id+'\')':'event.stopPropagation()')+'"';
-        /* Gramajes asociados: hijos de este producto (sistema independiente de envasado propio) */
-        const hijos=productos.filter(h=>h.gramajePadreId===p.id);
-        const gramajeHTML=hijos.length>0?'<div class="gramaje-btns">'+
-            '<button class="gramaje-btn active" onclick="event.stopPropagation();addToCart(\''+p.id+'\')" data-id="'+p.id+'">'+esc(p.gramaje||'Base')+'</button>'+
-            hijos.map(h=>'<button class="gramaje-btn" onclick="event.stopPropagation();addToCart(\''+h.id+'\')" data-id="'+h.id+'">'+esc(h.gramaje||h.nombre)+'</button>').join('')+
-            '</div>':'';
+        /* Variantes: un boton por presentacion, con su precio. Ver _btnVariante. */
+        const variantes=_variantesTienda(p);
+        const gramajeHTML=variantes.length?'<div class="gramaje-btns">'+variantes.map(v=>_btnVariante(v,p,false)).join('')+'</div>':'';
         const dscPct=Math.min(100,Math.max(0,p.descuento||0));
         const nombreDisplay=p.nombreMostrado||p.nombre;
         const badgeDesc=dscPct>0?'<span class="product-discount-ribbon">-'+(p.descuento||0)+'%</span>':'';
@@ -377,7 +436,9 @@ function renderProducts(list) {
             '<div class="img-skeleton"></div>' +
             '<img src="'+esc(img)+'" alt="'+esc(nombreDisplay)+'" loading="lazy" decoding="async" onload="this.style.opacity=1;this.previousElementSibling.style.display=\'none\'" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig;}else{this.src=\'img/default-product.svg\';}this.style.opacity=1;this.previousElementSibling.style.display=\'none\'" data-orig="'+esc(p.imagen||'')+'" style="opacity:0;transition:opacity 0.3s">' +
             '<span class="product-category">'+esc(p.categoria)+(p.subcategoria?' - '+esc(p.subcategoria):'')+'</span>' +
-            (noStock?'<span class="product-stock out">Sin stock</span>':'') +
+            /* Con variantes, "Sin stock" solo si no queda de ninguna: si el de 80 g se
+               termino pero hay de 160 g, el producto se sigue vendiendo. */
+            (noStock&&!variantes.some(v=>(v.stock||0)>0)?'<span class="product-stock out">Sin stock</span>':'') +
             '</div>' +
             '<div class="product-info">' +
             '<h3 class="product-name" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">'+esc(nombreDisplay)+'</h3>' +
@@ -599,10 +660,11 @@ function openProductDetailModal(id){
         ?'<div class="pdm-price-row"><span class="pdm-price product-price-off">$'+formatPrice(Math.round(p.precio*(1-dscPct/100)))+'</span><span class="price-original" style="font-size:1rem">$'+formatPrice(p.precio)+'</span><span style="background:linear-gradient(135deg,#a79066,#8a7856);color:#161616;font-size:0.72rem;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:6px">-'+(p.descuento||0)+'% OFF</span>'+(noStock?'<span class="pdm-stock-tag">Sin stock</span>':'')+'</div>'
         :'<div class="pdm-price-row"><span class="pdm-price">$'+formatPrice(p.precio)+'</span>'+(noStock?'<span class="pdm-stock-tag">Sin stock</span>':'')+'</div>';
     /* Gramajes asociados */
-    const pdmHijos=productos.filter(h=>h.gramajePadreId===p.id);
-    const pdmGramajeHtml=pdmHijos.length>0?'<div class="pdm-section"><h4>Presentaciones</h4><div class="gramaje-btns">'+
-        '<button class="gramaje-btn active" onclick="addToCart(\''+p.id+'\');showToast(\''+esc((p.nombreMostrado||p.nombre)).replace(/'/g,"")+'\'+\' agregado\',\'success\')">'+esc(p.gramaje||'Base')+'</button>'+
-        pdmHijos.map(h=>'<button class="gramaje-btn" onclick="addToCart(\''+h.id+'\');showToast(\'Agregado\',\'success\')">'+esc(h.gramaje||h.nombre)+'</button>').join('')+
+    /* El aviso lo da addToCart (y addVarianteToCart al sumar otro). Antes este boton
+       mostraba "Agregado" apenas se tocaba, aunque despues se cancelaran los gramos. */
+    const pdmVariantes=_variantesTienda(p);
+    const pdmGramajeHtml=pdmVariantes.length?'<div class="pdm-section"><h4>Presentaciones</h4><div class="gramaje-btns">'+
+        pdmVariantes.map(v=>_btnVariante(v,p,true)).join('')+
         '</div></div>':'';
     document.getElementById('productDetailBody').innerHTML=
         '<div class="pdm-carousel">'+imgsHtml+carouselNav+'</div>'+
