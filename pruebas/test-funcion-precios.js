@@ -267,6 +267,44 @@ async function correr(pedido, vivo) {
     items: [{ id: 'caja', nombre: 'Caja sin mayorista', precio: 5000, cantidad: 1 }] });
   t('una caja sin precio mayorista se compara con el de lista', p.subtotalCatalogo === 5000);
 
+  /* Revision del 25/09: el granel con escalas llega partido por bolsa, todo al precio de
+     la escala que se cobro (escalaId). Comparado contra cada bolsa, toda mezcla quedaba
+     marcada "bajo costo", como si alguien hubiera tocado el carrito. */
+  grupo('Caso 12 - granel con escalas partido por bolsa');
+  const almendras = () => ({
+    a1: { nombre: 'Almendras x 1 kg', gramaje: '1 kg', tipoVenta: 'peso', precio: 10000, costo: 6000, descuento: 0, stock: 2000 },
+    a3: { nombre: 'Almendras x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', precio: 7000, costo: 4500, descuento: 0, stock: 0, gramajePadreId: 'a1' },
+    a5: { nombre: 'Almendras x 5 kg', gramaje: '5 kg', tipoVenta: 'peso', precio: 5500, costo: 4000, descuento: 0, stock: 3000, gramajePadreId: 'a1' },
+    pack: { nombre: 'Almendras x 200 g', gramaje: '200 g', tipoVenta: 'unidad', precio: 100, costo: 50, descuento: 0, stock: 9, gramajePadreId: 'a1' },
+    otro: { nombre: 'Mani x 5 kg', tipoVenta: 'peso', precio: 100, costo: 50, descuento: 0, stock: 9 },
+  });
+  PRODUCTOS = almendras();
+  p = await correr({ origen: 'web', subtotalProductos: 27500, total: 27500, items: [
+    { id: 'a5', nombre: 'Almendras', precio: 5500, cantidad: 3000, tipoVenta: 'peso', escala: '5 kg', escalaId: 'a5' },
+    { id: 'a1', nombre: 'Almendras', precio: 5500, cantidad: 2000, tipoVenta: 'peso', escala: '5 kg', escalaId: 'a5' }] });
+  t('5 kg a la escala de 5 kg, 2 kg de la bolsa de 1 kg (costo 6000): NO queda "bajo costo"', !p.itemsBajoCosto && !p.revisarPrecio);
+  t('  el catalogo es el de la escala: 5 kg a 5500 = 27500', p.subtotalCatalogo === 27500 && p.diferenciaCatalogo === 0);
+  t('  y descuenta de cada bolsa lo suyo', INCREMENTOS.length === 2 &&
+    INCREMENTOS.find(x => x.id === 'a5').patch.stock.__inc === -3000 && INCREMENTOS.find(x => x.id === 'a1').patch.stock.__inc === -2000);
+  PRODUCTOS = almendras();
+  p = await correr({ origen: 'web', subtotalProductos: 21000, total: 21000, items: [
+    { id: 'a5', nombre: 'Almendras', precio: 7000, cantidad: 3000, tipoVenta: 'peso', escala: '3 kg', escalaId: 'a3' }] });
+  t('la escala cobrada sin stock (sin renglon propio) se lee igual: 3 kg a 7000 = 21000', p.subtotalCatalogo === 21000 && !p.revisarPrecio &&
+    INCREMENTOS.length === 1 && INCREMENTOS[0].id === 'a5');
+  PRODUCTOS = almendras();
+  p = await correr({ origen: 'web', subtotalProductos: 500, total: 500, items: [
+    { id: 'a1', nombre: 'Almendras', precio: 100, cantidad: 5000, tipoVenta: 'peso', escalaId: 'otro' }] });
+  t('un escalaId de otro producto no sirve de excusa: 5 kg a 100 queda bajo costo', p.revisarPrecio === true && !!p.itemsBajoCosto);
+  PRODUCTOS = almendras();
+  p = await correr({ origen: 'web', subtotalProductos: 500, total: 500, items: [
+    { id: 'a1', nombre: 'Almendras', precio: 100, cantidad: 5000, tipoVenta: 'peso', escalaId: 'pack' }] });
+  t('  ni uno del grupo que se vende por unidad', p.revisarPrecio === true && !!p.itemsBajoCosto);
+  PRODUCTOS = almendras();
+  p = await correr({ origen: 'web', subtotalProductos: 10000, total: 10000, items: [
+    { id: 'a1', nombre: 'Almendras', precio: 10000, cantidad: 1000, tipoVenta: 'peso', escalaId: 'a/b/c' }] });
+  t('  y uno que no es un id (con barras) ni se lee: el pedido se procesa normal', !!p && p.stockDescontado === true &&
+    p.subtotalCatalogo === 10000 && !p.revisarPrecio);
+
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('EXPLOTO:', e); process.exit(1); });

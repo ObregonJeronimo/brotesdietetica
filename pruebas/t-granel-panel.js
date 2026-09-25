@@ -117,7 +117,7 @@ console.log('\nLa tienda guarda el subtotal de cada item del pedido');
 /* Desde las escalas de granel (25/09/2026) los renglones los arma _itemsDelPedido: un
    granel con escalas va partido por bolsa, cada renglon con su subtotal. */
 const mapItems = cuerpo('_itemsDelPedido', app);
-t('encontre donde se arman los items del checkout', mapItems.length > 0 && /items:_itemsDelPedido\(/.test(app));
+t('encontre donde se arman los items del checkout', mapItems.length > 0 && /const _itemsPed=_itemsDelPedido\(_stockFresco\);/.test(app) && /items:_itemsPed,/.test(app));
 t('usa subtotalCarrito, que sabe de gramos (tambien en los renglones de cada bolsa)',
   /subtotal:subtotalCarrito\(i\)/.test(mapItems) && /it\.subtotal=subtotalCarrito\(it\)/.test(mapItems),
   mapItems.slice(0, 200));

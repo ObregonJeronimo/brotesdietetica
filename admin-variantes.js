@@ -211,7 +211,7 @@ function abrirVariantesVenta(principalId, ctx) {
         vs.map(v => {
           const sin = Number(v.stock || 0) <= 0;
           return '<button type="button" class="var-op' + (sin ? ' sin-stock' : '') + '" data-id="' + _varAttr(v.id) + '">' +
-            '<span class="var-etq">' + _varEsc(etiquetaVariante(v)) + '</span>' +
+            '<span class="var-etq">' + _varEsc(etiquetaVariante(v)) + (esCajaCerrada(v) ? ' <small class="var-caja">caja cerrada</small>' : '') + '</span>' +
             '<span class="var-precio">$' + precioDeVentaVariante(v, ctx).toLocaleString('es-AR') + (v.tipoVenta === 'peso' ? ' el kilo' : '') + '</span>' +
             '<span class="var-stock">' + _varStockTxt(v) + '</span></button>';
         }).join('') + opGranel +
@@ -268,11 +268,37 @@ function sugerenciaPresentacion(p, enVenta, productos) {
   return opciones[0] || null;
 }
 
+/* Lo que ya descontó del stock la venta que se está armando: la venta que se edita (se
+   le devuelve al guardar) o el pedido web del que sale (la tienda ya lo descontó). Sin
+   esto, al editar una venta lo suyo se contaba dos veces: "no hay stock" de algo que
+   había, o una mezcla de bolsas que no existía (chequeo del 25/09). */
+function stockYaTomadoPorVenta(ctx) {
+  const orig = {};
+  const sumar = items => (items || []).forEach(i => { if (i && i.id) orig[i.id] = (orig[i.id] || 0) + Number(i.cantidad || 0); });
+  try {
+    if (ctx === 'may') {
+      if (typeof editingVentaMayId !== 'undefined' && editingVentaMayId && typeof ventasMayData !== 'undefined') {
+        const v = ventasMayData.find(x => x.id === editingVentaMayId);
+        if (v && v.stockDescontado) sumar(v.items);
+      }
+    } else if (typeof editingVentaId !== 'undefined' && editingVentaId) {
+      if (typeof editingVentaOriginal !== 'undefined' && editingVentaOriginal && editingVentaOriginal.stockDescontado) sumar(editingVentaOriginal.items);
+    } else if (typeof window !== 'undefined' && window._pedidoOrigenVentaId && typeof pedidosData !== 'undefined') {
+      const ped = pedidosData.find(x => x && x.docId === window._pedidoOrigenVentaId);
+      if (ped && ped.stockDescontado === true) sumar(ped.items);
+    }
+  } catch (e) { /* sin venta en edición: solo el stock */ }
+  return orig;
+}
+
 /* Lo que ve el que cobra. Devuelve 'seguir' (agregar la pedida como siempre), 'hecho'
    (se agregó la otra) o 'cancelar' (cerró el aviso sin elegir: no se agrega nada). */
 async function sugerirPresentacion(p, lista, ctx) {
   const enVenta = {};
   (lista || []).forEach(it => { if (it && it.id) enVenta[it.id] = (enVenta[it.id] || 0) + Number(it.cantidad || 0); });
+  /* Lo que la venta ya había descontado (una que se edita, un pedido web) no cuenta dos veces. */
+  const tomado = stockYaTomadoPorVenta(ctx);
+  Object.keys(tomado).forEach(id => { enVenta[id] = (enVenta[id] || 0) - tomado[id]; });
   const s = sugerenciaPresentacion(p, enVenta, _varProds());
   if (!s || typeof pedirOpcion !== 'function') return 'seguir';
   const may = ctx === 'may';
@@ -281,7 +307,11 @@ async function sugerirPresentacion(p, lista, ctx) {
   if (!orig) return 'seguir';
   const quedan = Math.max(0, Number(p.stock || 0) - (enVenta[p.id] || 0));
   const pu = precioDeVentaVariante(s.variante, ctx);
-  const msg = 'No hay stock de ' + (p.nombreMostrado || p.nombre) + (quedan ? ' (quedan ' + quedan + ').' : '.') + _VAR_NL + _VAR_NL +
+  /* Si lo que falta es una caja cerrada, se dice cuánto salía: lo que se ofrece va a
+     precio normal y puede salir más caro (chequeo del 25/09). */
+  const caja = esCajaCerrada(p);
+  const msg = 'No hay stock de ' + (p.nombreMostrado || p.nombre) + (quedan ? ' (quedan ' + quedan + ').' : '.') +
+    (caja ? ' Es una caja cerrada: salía $' + precioDeVentaVariante(p, ctx).toLocaleString('es-AR') + '.' : '') + _VAR_NL + _VAR_NL +
     '¿Agregar ' + s.cantidad + ' de ' + etiquetaVariante(s.variante) + ' en su lugar? Cada una a su precio: $' +
     pu.toLocaleString('es-AR') + ', en total $' + (pu * s.cantidad).toLocaleString('es-AR') + '.';
   const r = await pedirOpcion(msg, {
@@ -318,6 +348,12 @@ function _varMonto(v) {
   return l ? parseInt(l, 10) : 0;
 }
 function _varMay(n) { return typeof _redondearMayorista === 'function' ? _redondearMayorista(n) : (n ? Math.ceil(n / 50) * 50 : 0); }
+/* El nombre de una variante: "Maní" y "160 g" dan "Maní x 160 g"; "Alfajor" y "x12",
+   "Alfajor x12" (no "Alfajor x x12", que salía en el chequeo del 25/09). */
+function _nombreConTam(base, tam) {
+  const t = String(tam || '').trim();
+  return /^x\s*\d/i.test(t) ? base + ' ' + t : base + ' x ' + t;
+}
 function _varPrincipalActual() { return (typeof editingId !== 'undefined' && editingId) ? editingId : null; }
 
 /* EL TAMAÑO: en el campo va solo el número, y la unidad al lado. En una bolsa es kg
@@ -376,11 +412,16 @@ function varFilaTam(i, el) { varFilaCambio(i, 'tam', _tamDeWidget(el)); }
 
 /* Las filas del producto que se abrió: los tamaños que ya tiene, con la misma forma de
    venta. Lo que se escriba en el formulario queda acá hasta guardar. */
-function iniciarVariantesForm(p) {
+function iniciarVariantesForm(p, pesoForm) {
   window._varHijo = (p && p.gramajePadreId) ? p : null;
   window._varFilas = [];
-  if (!p || p.gramajePadreId) return;
-  const peso = p.tipoVenta === 'peso';
+  window._varFilasPeso = null;
+  if (p && p.gramajePadreId) return;
+  /* De qué forma de venta son las filas: si cambia en el formulario se arman de nuevo
+     (ver el envoltorio de setTipoVenta, más abajo). */
+  const peso = pesoForm != null ? !!pesoForm : (p ? p.tipoVenta === 'peso' : _varEsPeso());
+  window._varFilasPeso = peso;
+  if (!p) return;
   _varProds().filter(x => x && x.gramajePadreId === p.id && x.depurado !== true && (x.tipoVenta === 'peso') === peso)
     .sort(_ordenVariantes)
     .forEach(v => {
@@ -593,6 +634,7 @@ if (typeof openModal === 'function') {
     window._varianteNombreBase = null;
     window._varFilas = [];
     window._varHijo = null;
+    window._varFilasPeso = null;
     const r = _varOpenModal.apply(this, arguments);
     const p = id ? (_varProds().find(x => x && x.id === id) || null) : null;
     iniciarVariantesForm(p);
@@ -607,6 +649,20 @@ if (typeof setTipoVenta === 'function') {
   const _varSetTipoVenta = setTipoVenta;
   setTipoVenta = function () {
     const r = _varSetTipoVenta.apply(this, arguments);
+    /* Las filas son de una forma de venta: el costo de una bolsa no es el de una unidad.
+       Si cambia, se arman de nuevo con las del producto que son de la nueva. Antes
+       quedaban las otras, y tocar su costo guardaba un costo por kilo en un producto por
+       unidad (chequeo del 25/09). Lo escrito en esas filas no se guarda, y se avisa. */
+    const peso = _varEsPeso();
+    if (window._varFilasPeso != null && window._varFilasPeso !== peso && !window._varHijo && !window._varianteDeNueva) {
+      const escrito = (window._varFilas || []).some(f => f.id ? Object.keys(f.tocado || {}).length
+        : (String(f.tam || '').trim() || String(f.costoIn || '').trim()));
+      const pid = _varPrincipalActual();
+      iniciarVariantesForm(pid ? (_varProds().find(x => x && x.id === pid) || null) : null, peso);
+      if (escrito && typeof showAdminToast === 'function') {
+        showAdminToast('Cambió la forma de venta: lo que habías cargado en ' + (peso ? 'las presentaciones' : 'las bolsas') + ' no se guarda.', 'info');
+      }
+    }
     pintarVariantesForm();
     pintarCajaCerrada();
     return r;
@@ -618,6 +674,29 @@ if (typeof calcPrecioModal === 'function') {
   calcPrecioModal = function () {
     const r = _varCalcPrecio.apply(this, arguments);
     pintarCajaCerrada();
+    return r;
+  };
+}
+
+/* Ocultar el principal de un grupo: la tienda ya no lo tiene y las otras se venden cada
+   una por separado (en el granel, sin precio por cantidad). Se avisa, y cómo seguir
+   juntas: borrándolo, la siguiente pasa a ser la principal (chequeo del 25/09). */
+if (typeof toggleOculto === 'function') {
+  const _varToggleOculto = toggleOculto;
+  toggleOculto = async function (id) {
+    const r = await _varToggleOculto.apply(this, arguments);
+    const p = _varProds().find(x => x && x.id === id);
+    if (p && p.oculto === true && !p.gramajePadreId) {
+      const hijas = _varProds().filter(x => x && x.gramajePadreId === id && x.depurado !== true && x.oculto !== true);
+      if (hijas.length && typeof avisar === 'function') {
+        const granel = p.tipoVenta === 'peso' && hijas.some(x => x.tipoVenta === 'peso');
+        await avisar(nombreDeGrupo(p) + ' tiene ' + (hijas.length === 1 ? 'otra presentación' : hijas.length + ' presentaciones más') +
+          ' (' + hijas.slice().sort(_ordenVariantes).map(etiquetaVariante).join(', ') + '). Mientras esté oculto, se venden cada una por separado' +
+          (granel ? ', a su precio: sin precio por cantidad' : '') + '.' + _VAR_NL + _VAR_NL +
+          'Si ya no lo vas a vender, mejor borralo: la siguiente pasa a ser la principal y siguen juntas.',
+          { titulo: 'Ocultaste el producto principal', icono: 'bi-eye-slash' });
+      }
+    }
     return r;
   };
 }
@@ -732,7 +811,7 @@ function datosDeVarianteNueva(data) {
   if (!padre || !data) return data;
   data.gramajePadreId = padre;
   const base = window._varianteNombreBase;
-  if (base && data.nombre === base && data.gramaje) data.nombre = base + ' x ' + data.gramaje;
+  if (base && data.nombre === base && data.gramaje) data.nombre = _nombreConTam(base, data.gramaje);
   return data;
 }
 
@@ -757,7 +836,7 @@ async function guardarVariantesForm(principalId, data) {
         const codigo = (typeof sugerirCodigoProducto === 'function') ? sugerirCodigoProducto(reservados) : null;
         if (codigo) reservados.push(codigo);
         const nuevo = {
-          nombre: base + ' x ' + tam, nombreMostrado: null, gramaje: tam, codigoBarras: null,
+          nombre: _nombreConTam(base, tam), nombreMostrado: null, gramaje: tam, codigoBarras: null,
           costo: r.costo, porcentaje: Number(f.pct) || 0, precio: r.precio,
           porcentajeMayorista: Number(f.pctMay) || 0, precioMayorista: r.may, descuento: 0,
           stock: parseInt(f.stock, 10) || 0,
@@ -774,11 +853,17 @@ async function guardarVariantesForm(principalId, data) {
         continue;
       }
       const old = _varProds().find(x => x && x.id === f.id) || {};
+      /* Una fila de la otra forma de venta no se toca: sus números son de otra cosa. */
+      if ((old.tipoVenta === 'peso') !== peso) { errores.push((f.tam || '?') + ': es de la otra forma de venta'); continue; }
       const t = f.tocado || {};
       const upd = {};
       let costo = Number(old.costo || 0);
-      if (t.costoIn && r.costo !== null) { costo = r.costo; upd.costo = costo; }
-      if (t.costoIn || t.pct || t.pctMay) {
+      /* En una bolsa se escribe lo que costó la bolsa: si cambia el tamaño cambia el costo
+         por kilo, como ya lo mostraba la fila. Antes se guardaba el de antes (25/09). */
+      const tamNuevo = !!(t.tam && tam && tam !== String(f.tamAntes || '').trim());
+      const recalcular = !!(t.costoIn || (peso && tamNuevo));
+      if (recalcular && r.costo !== null) { costo = r.costo; upd.costo = costo; }
+      if (recalcular || t.pct || t.pctMay) {
         const pct = t.pct ? (Number(f.pct) || 0) : Number(old.porcentaje || 0);
         const pctMay = t.pctMay ? (Number(f.pctMay) || 0) : Number(old.porcentajeMayorista || 0);
         upd.porcentaje = pct;
@@ -790,7 +875,7 @@ async function guardarVariantesForm(principalId, data) {
       if (t.caja && !peso && (!!f.caja) !== (old.cajaCerrada === true)) upd.cajaCerrada = !!f.caja;
       if (t.tam && tam && tam !== (old.gramaje || '')) {
         upd.gramaje = tam;
-        if (old.nombre && f.tamAntes && old.nombre === base + ' x ' + f.tamAntes) upd.nombre = base + ' x ' + tam;
+        if (old.nombre && f.tamAntes && old.nombre === _nombreConTam(base, f.tamAntes)) upd.nombre = _nombreConTam(base, tam);
       }
       if (!Object.keys(upd).length) continue;
       await db.collection('productos').doc(f.id).update(upd);

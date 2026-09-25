@@ -243,12 +243,26 @@ function _refrescarItemsDeVenta(ctx, productos) {
   const lista = may ? (typeof ventaMayItems !== 'undefined' ? ventaMayItems : [])
                     : (typeof ventaItems !== 'undefined' ? ventaItems : []);
   const desdePedido = !may && typeof window !== 'undefined' && !!window._pedidoOrigenVentaId;
+  /* Un granel con escalas se cobra al precio de la escala (escalaId), que puede ser otra
+     bolsa que la del renglón; una caja cerrada, al mayorista. Antes todo pasaba al precio
+     de lista de su propio producto y se cobraba mal (chequeo del 25/09). */
+  const escala = it => (typeof escalaDeLinea === 'function' ? escalaDeLinea(it) : null);
+  const cambiados = new Set(productos.map(p => p.id));
   productos.forEach(p => {
     lista.filter(it => it && it.id === p.id).forEach(it => {
       it.costo = Number(p.costo || 0);
-      if (!desdePedido) it.precio = may ? (p.precioMayorista || p.precio || 0) : p.precio;
+      if (!desdePedido && !escala(it)) {
+        it.precio = may ? (p.precioMayorista || p.precio || 0)
+          : (typeof precioMostradorDe === 'function' ? precioMostradorDe(p) : p.precio);
+      }
     });
   });
+  if (!desdePedido) {
+    lista.forEach(it => {
+      const e = it && escala(it);
+      if (e && cambiados.has(e.id)) it.precio = Number(may ? (e.producto.precioMayorista || e.producto.precio || 0) : (e.producto.precio || 0));
+    });
+  }
   if (may) { if (typeof renderVentaMayItems === 'function') renderVentaMayItems(); }
   else if (typeof renderVentaItems === 'function') renderVentaItems();
 }

@@ -37,7 +37,9 @@ const _escPlata = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-AR');
 /* Las escalas de un grupo: sus variantes por peso que dicen su tamaño en gramos, de
    la más chica a la más grande, sin ocultas ni depuradas. Con menos de dos, ninguna. */
 function escalasDelGrupo(principal, productos) {
-  if (!principal || typeof variantesDeGrupo !== 'function') return [];
+  /* Con el principal oculto o depurado, sus bolsas se venden cada una por separado, a
+     su precio: así las muestra la tienda, que no lo tiene (chequeo del 25/09). */
+  if (!principal || principal.oculto === true || principal.depurado === true || typeof variantesDeGrupo !== 'function') return [];
   const prods = productos || _escProds();
   const lista = variantesDeGrupo(principal, prods)
     .filter(v => v.tipoVenta === 'peso')
@@ -65,6 +67,35 @@ function escalaPara(escalas, gramos) {
   return e;
 }
 
+/* La escala a la que se cobró un renglón (escalaId), si de verdad es una escala del
+   grupo de su bolsa. En un pedido web escalaId lo manda el navegador del cliente: uno
+   que no cuadra no se usa, y el renglón se mira como uno cualquiera (chequeo del 25/09). */
+function escalaDeLinea(it, productos) {
+  if (!it || !it.id || !it.escalaId) return null;
+  const prods = productos || _escProds();
+  const p = prods.find(x => x.id === it.id);
+  const esc = p ? escalasDe(p, prods) : [];
+  return esc.find(e => e.id === it.escalaId) || null;
+}
+
+/* El precio de catálogo que tendría que traer un renglón de un pedido. Un granel con
+   escalas, el de la escala que toca por el total de gramos del producto en el pedido
+   (la regla de la tienda): si el cliente mandó otra, el precio no cuadra y se avisa. Una
+   caja cerrada, el mayorista. Antes se comparaba contra el precio de lista de su propia
+   bolsa, y toda caja y toda mezcla de bolsas salían como "precio distinto". */
+function precioCatalogoDeLinea(it, items, productos) {
+  const prods = productos || _escProds();
+  const p = it && prods.find(x => x.id === it.id);
+  if (!p) return null;
+  const esc = it.escalaId ? escalasDe(p, prods) : [];
+  if (esc.length) {
+    const ids = new Set(esc.map(e => e.id));
+    const total = (items || [it]).filter(x => x && ids.has(x.id)).reduce((s, x) => s + Number(x.cantidad || 0), 0);
+    return Number(escalaPara(esc, total).producto.precio || 0);
+  }
+  return typeof precioMostradorDe === 'function' ? precioMostradorDe(p) : Number(p.precio || 0);
+}
+
 /* Precio de lista del kilo. En la mayorista, el mayorista (o el de mostrador si no
    tiene, igual que addVentaMayItem). */
 function precioKgEscala(e, ctx) {
@@ -82,6 +113,18 @@ function precioFinalKg(e, ctx, dsc) {
 /* Lo que sale llevar esos gramos a precio de la escala: la misma cuenta que subtotalItem. */
 function cobroEscala(e, gramos, ctx, dsc) {
   return Math.round(precioFinalKg(e, ctx, dsc) * gramos / 1000);
+}
+
+/* El descuento que sigue al sumar o cambiar gramos: el que se puso a mano en la línea.
+   El de la escala (su oferta) no se arrastra: si cambia de escala va el de la nueva,
+   igual que cargando todo de una vez. Antes 500 g + 2.500 g no llevaban la oferta de la
+   bolsa de 3 kg, y 3.000 g de una sí (chequeo del 25/09). null = el de cada escala. */
+function _dscDeLineas(lineas, escalas, ctx) {
+  if (!lineas || !lineas.length) return null;
+  const d = Number(lineas[0].descuento || 0);
+  const total = lineas.reduce((s, it) => s + Number(it.cantidad || 0), 0);
+  const antes = escalas.find(e => e.id === lineas[0].escalaId) || escalaPara(escalas, total);
+  return d === descuentoEscala(antes, ctx) ? null : d;
 }
 
 /* Si llevando más paga menos, la escala que conviene (la de menor total), o null. */
@@ -160,9 +203,13 @@ function mensajeMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan) {
     ? 'De la bolsa de ' + cobra.etiqueta + ' quedan ' + _escPeso(quedan) + ': el resto sale de otra bolsa.'
     : 'De la bolsa de ' + cobra.etiqueta + ' no queda stock: sale de otra bolsa.');
   L.push('');
+  /* De la bolsa que se cobra se lista lo que hay de verdad: lo que falta va aparte, al
+     final. Antes decía "1 kg de la bolsa de 2 kg" de una bolsa vacía (chequeo del 25/09). */
   reparto.partes.forEach(x => {
+    const gramos = x.escala === cobra ? x.gramos - (reparto.falta || 0) : x.gramos;
+    if (gramos <= 0) return;
     const c = Number(x.escala.producto.costo || 0);
-    L.push('• ' + _escPeso(x.gramos) + ' de la bolsa de ' + x.escala.etiqueta +
+    L.push('• ' + _escPeso(gramos) + ' de la bolsa de ' + x.escala.etiqueta +
       (c > 0 ? ' (costo ' + _escPlata(c) + ' el kilo)' : ' (sin costo cargado)'));
   });
   L.push('');
@@ -176,12 +223,12 @@ function mensajeMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan) {
     L.push('Da lo mismo: las bolsas costaron igual.');
   }
   mz.bajoCosto.forEach(b => {
-    L.push('Ojo: ' + _escPeso(b.gramos) + ' salen de la bolsa de ' + b.escala.etiqueta +
-      ', que costó más de lo que se cobra: se pierden ' + _escPlata(b.perdida) + '.');
+    L.push('Ojo: lo que sale de la bolsa de ' + b.escala.etiqueta + ' (' + _escPeso(b.gramos) +
+      ') costó más de lo que se cobra: se pierden ' + _escPlata(b.perdida) + '.');
   });
   if (reparto.falta > 0) {
-    L.push('Ni sumando las otras bolsas alcanza: faltan ' + _escPeso(reparto.falta) +
-      ', que quedan en negativo en la de ' + cobra.etiqueta + '.');
+    L.push('No alcanza ni sumando las otras bolsas: la de ' + cobra.etiqueta + ' queda con ' +
+      _escPeso(reparto.falta) + ' en negativo.');
   }
   return L.join(_ESC_NL);
 }
@@ -199,21 +246,10 @@ function lineasDeEscalas(lista, escalas) {
 }
 
 /* Cuánto hay de cada bolsa para esta venta: su stock, más lo que ya había descontado
-   la venta que se está editando, que se le devuelve al guardar. */
+   la venta que se está editando (se le devuelve al guardar) o el pedido web del que
+   sale: ver stockYaTomadoPorVenta en admin-variantes.js. */
 function disponibleParaVenta(ctx) {
-  const orig = {};
-  const sumar = items => (items || []).forEach(i => { if (i && i.id) orig[i.id] = (orig[i.id] || 0) + Number(i.cantidad || 0); });
-  try {
-    if (ctx === 'may') {
-      if (typeof editingVentaMayId !== 'undefined' && editingVentaMayId && typeof ventasMayData !== 'undefined') {
-        const v = ventasMayData.find(x => x.id === editingVentaMayId);
-        if (v && v.stockDescontado) sumar(v.items);
-      }
-    } else if (typeof editingVentaId !== 'undefined' && editingVentaId && typeof editingVentaOriginal !== 'undefined' &&
-               editingVentaOriginal && editingVentaOriginal.stockDescontado) {
-      sumar(editingVentaOriginal.items);
-    }
-  } catch (e) { /* sin venta en edición: solo el stock */ }
+  const orig = typeof stockYaTomadoPorVenta === 'function' ? stockYaTomadoPorVenta(ctx) : {};
   return e => Math.max(0, Number(e.producto.stock || 0) + (orig[e.id] || 0));
 }
 
@@ -247,7 +283,7 @@ async function agregarGranelVenta(p, ctx) {
   if (!escalas.length) return 'no';
   const lineas = lineasDeEscalas(_escLista(ctx), escalas);
   const ya = lineas.reduce((s, it) => s + Number(it.cantidad || 0), 0);
-  const dsc = lineas.length ? Number(lineas[0].descuento || 0) : null;
+  const dsc = _dscDeLineas(lineas, escalas, ctx);
   const gr = await pedirCantidadPeso(p, opcionesGramosEscalas(escalas, ctx, ya, dsc));
   if (gr == null) return 'cancelar';
   return fijarGranelVenta(escalas, ya + gr, ctx, { dsc: dsc });
@@ -383,7 +419,7 @@ function _grupoDeLinea(id, lista) {
 
 async function cambiarGramosGranel(g, val, ctx) {
   const total = Math.max(1, parseInt(val, 10) || 1);
-  const r = await fijarGranelVenta(g.escalas, total, ctx, { dsc: Number(g.lineas[0].descuento || 0) });
+  const r = await fijarGranelVenta(g.escalas, total, ctx, { dsc: _dscDeLineas(g.lineas, g.escalas, ctx) });
   /* Cancelado: se repinta para que el campo vuelva a los gramos que había. */
   if (r !== 'hecho') _escRepintar(ctx);
   return r;
@@ -434,6 +470,84 @@ _escEnvolver('removeVentaMayItem', () => ventaMayItems, g => quitarGranel(g, 'ma
 _escEnvolver('setVentaItemDsc', () => ventaItems, (g, id, val) => descuentoGranel(g, id, val, 'min'));
 _escEnvolver('setVentaMayItemDsc', () => ventaMayItems, (g, id, val) => descuentoGranel(g, id, val, 'may'));
 
+/* ------------------------------------------------ LOS PEDIDOS DEL PANEL
+   Un pedido tomado en el panel (por teléfono) no descuenta stock: lo descuenta la venta
+   al convertirlo. El granel con escalas va en UNA línea por producto, al precio de la
+   escala que toca por el total, como en el mostrador y en la tienda; antes cada bolsa
+   iba a su propio precio (chequeo del 25/09). Un pedido que ya descontó stock (uno web)
+   no se toca: sus renglones dicen de qué bolsa salió cada gramo. */
+function reescalarPedido(id) {
+  if (typeof pedItems === 'undefined' || !Array.isArray(pedItems)) return false;
+  try {
+    if (typeof editingPedidoId !== 'undefined' && editingPedidoId && typeof pedidosData !== 'undefined') {
+      const ped = pedidosData.find(x => x && x.docId === editingPedidoId);
+      if (ped && ped.stockDescontado === true) return false;
+    }
+  } catch (e) { /* sin pedido en edición */ }
+  const prods = _escProds();
+  const p = prods.find(x => x.id === id);
+  const esc = p ? escalasDe(p, prods) : [];
+  if (!esc.length) return false;
+  const lineas = lineasDeEscalas(pedItems, esc);
+  if (!lineas.length) return false;
+  const total = lineas.reduce((s, it) => s + Number(it.cantidad || 0), 0);
+  const cobra = escalaPara(esc, total);
+  const una = Object.assign({}, lineas[0], {
+    id: cobra.id, nombre: _escNombre(cobra), precio: precioKgEscala(cobra, 'min'),
+    costo: Number(cobra.producto.costo || 0) || null, cantidad: total, tipoVenta: 'peso',
+    escala: cobra.etiqueta, escalaId: cobra.id,
+  });
+  const pos = pedItems.indexOf(lineas[0]);
+  const resto = pedItems.filter(it => lineas.indexOf(it) < 0);
+  pedItems = resto.slice(0, pos).concat([una], resto.slice(pos));
+  return true;
+}
+(function () {
+  if (typeof window === 'undefined') return;
+  ['addPedItem', 'updatePedQty', 'removePedItem'].forEach(nombre => {
+    const orig = window[nombre];
+    if (typeof orig !== 'function') return;
+    window[nombre] = function (id) {
+      const r = orig.apply(this, arguments);
+      if (reescalarPedido(id) && typeof renderPedItems === 'function') renderPedItems();
+      return r;
+    };
+  });
+})();
+
+/* Al pasar a venta un pedido que todavía no descontó stock (uno del panel, o uno web si
+   la tienda no descuenta), el granel se reparte por bolsa como en el mostrador, al
+   precio del pedido, y si mezcla bolsas con el mismo aviso. La venta descuenta de cada
+   bolsa al guardarse. */
+async function repartirGranelDeVenta(ctx) {
+  const prods = _escProds();
+  const vistos = new Set();
+  for (const it of _escLista(ctx).slice()) {
+    const g = it && _grupoDeLinea(it.id, _escLista(ctx));
+    if (!g || vistos.has(g.escalas[0].id)) continue;
+    vistos.add(g.escalas[0].id);
+    const total = g.lineas.reduce((s, x) => s + Number(x.cantidad || 0), 0);
+    /* La de g.escalas y no la que devuelve escalaDeLinea, que es otra lista:
+       repartirStock las busca por identidad (escalas.indexOf). */
+    const e0 = escalaDeLinea(g.lineas[0], prods);
+    const cobra = (e0 && g.escalas.find(e => e.id === e0.id)) || escalaPara(g.escalas, total);
+    const precio = Number(g.lineas[0].precio || 0);
+    const dsc = Number(g.lineas[0].descuento || 0);
+    const disp = disponibleParaVenta(ctx);
+    const reparto = repartirStock(g.escalas, cobra, total, disp);
+    const mz = mezclaDe(reparto, cobra, ctx, dsc);
+    if (mz && typeof pedirConfirmacion === 'function') {
+      const ok = await pedirConfirmacion(mensajeMezcla(reparto, cobra, mz, total, ctx, dsc, disp(cobra)), {
+        titulo: 'Mezcla de stock', icono: 'bi-shuffle', aceptar: 'Repartir así', cancelar: 'Dejarlo como vino',
+      });
+      if (!ok) continue;
+    }
+    aplicarGranelVenta(g.escalas, cobra, reparto.partes, ctx, dsc);
+    lineasDeEscalas(_escLista(ctx), g.escalas).forEach(x => { x.precio = precio; });
+  }
+  _escRepintar(ctx);
+}
+
 /* ----------------------------------------------------- LOS PEDIDOS WEB */
 /* La tienda parte el granel por bolsa y marca cada renglón con la escala que se cobró
    (escalaId). Si alguno salió de otra bolsa, el texto para el aviso del tablero de
@@ -443,25 +557,27 @@ function mezclaDePedido(items) {
   const prods = _escProds();
   const porCobro = new Map();
   (items || []).forEach(i => {
-    if (!i || !i.escalaId) return;
-    const l = porCobro.get(i.escalaId) || [];
-    l.push(i);
-    porCobro.set(i.escalaId, l);
+    /* Solo lo que cuadra con el catálogo, y con los nombres del catálogo: este texto va
+       al tablero y lo que escribe el cliente no se muestra (chequeo del 25/09). */
+    const cobra = escalaDeLinea(i, prods);
+    if (!cobra) return;
+    const g = porCobro.get(cobra.id) || { cobra: cobra, lineas: [] };
+    g.lineas.push(i);
+    porCobro.set(cobra.id, g);
   });
   const textos = [];
-  porCobro.forEach((lineas, cobraId) => {
-    const otras = lineas.filter(i => i.id !== cobraId);
+  porCobro.forEach(g => {
+    const cobra = g.cobra;
+    const otras = g.lineas.filter(i => i.id !== cobra.id);
     if (!otras.length) return;
-    const cobraP = prods.find(x => x.id === cobraId);
-    const etq = p => (p ? (typeof etiquetaVariante === 'function' ? etiquetaVariante(p) : (p.gramaje || p.nombre)) : '?');
+    const esc = escalasDe(cobra.producto, prods);
     const partes = otras.map(i => {
-      const u = prods.find(x => x.id === i.id);
-      return { i: i, u: u, costo: u ? Number(u.costo || 0) : 0 };
+      const u = esc.find(e => e.id === i.id);
+      return { i: i, u: u, costo: u ? Number(u.producto.costo || 0) : 0 };
     });
-    let txt = (lineas[0].nombre || (cobraP && cobraP.nombre) || '') + ': se cobró a precio de la escala de ' +
-      (lineas[0].escala || etq(cobraP)) + ', y ' +
-      partes.map(x => _escPeso(Number(x.i.cantidad || 0)) + ' salen de la bolsa de ' + etq(x.u)).join(' y ') + '.';
-    const cT = cobraP ? Number(cobraP.costo || 0) : 0;
+    let txt = _escNombre(cobra) + ': se cobró a precio de la escala de ' + cobra.etiqueta + ', y ' +
+      partes.map(x => _escPeso(Number(x.i.cantidad || 0)) + ' salen de la bolsa de ' + (x.u ? x.u.etiqueta : '?')).join(' y ') + '.';
+    const cT = Number(cobra.producto.costo || 0);
     if (cT > 0 && partes.every(x => x.costo > 0)) {
       const dif = partes.reduce((s, x) => s + Math.round((cT - x.costo) * Number(x.i.cantidad || 0) / 1000), 0);
       if (dif > 0) txt += ' A favor: se gana ' + _escPlata(dif) + ' más.';

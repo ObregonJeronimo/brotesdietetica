@@ -193,6 +193,19 @@ const b = (ctx, id) => ctx.allProducts.find(p => p.id === id);
     t('  en un suelto, ni la marca', fila(b(ctx, 'alf1'), 'min').indexOf('CAJA CERRADA') < 0);
   }
 
+  {
+    /* Chequeo del 25/09: la caja x12 sin stock ofrecía otra presentación sin decir cuánto
+       salía la caja, y lo ofrecido (a precio normal) sale más caro. */
+    const w = armar();
+    let msg = null;
+    w.ctx.pedirOpcion = async m => { msg = m; return 'igual'; };
+    w.ctx._origAddVentaItem = () => {};
+    const r = await w.ctx.sugerirPresentacion(Object.assign(b(w.ctx, 'alf12'), { stock: 0 }), [], 'min');
+    t('una caja sin stock: la sugerencia dice cuánto salía la caja', r === 'seguir' && !!msg &&
+      msg.indexOf('Es una caja cerrada: salía $9.600.') > 0 && msg.indexOf('12 de x1') > 0);
+    t('el selector de la venta marca las cajas', VAR.indexOf("(esCajaCerrada(v) ? ' <small class=\"var-caja\">caja cerrada</small>' : '')") > 0);
+  }
+
   console.log('\n-- los ganchos del panel --');
   t('la casilla va en el precio mayorista del formulario', /id="pCajaWrap" class="caja-wrap" hidden><label class="caja-lbl"><input type="checkbox" id="pCajaCerrada" onchange="pintarCajaCerrada\(\)">/.test(html) &&
     html.indexOf('id="pCajaWrap"') < html.indexOf('id="pVariantesSec"'));
@@ -212,8 +225,20 @@ const b = (ctx, id) => ctx.allProducts.find(p => p.id === id);
       leer('styles.min.css').indexOf('.gramaje-caja') >= 0 && leer('app.min.js').indexOf('_precioBaseTienda') >= 0);
   }
 
+  console.log('\n-- revisión del 25/09: los pedidos --');
+  {
+    const w = armar();
+    t('al convertir un pedido web, el precio de catálogo de una caja es el mayorista (no avisa "precio distinto")',
+      w.ctx.precioCatalogoDeLinea({ id: 'alf12', cantidad: 1 }) === 9600);
+    t('el pedido tomado en el panel cobra la caja cerrada al mayorista, como el mostrador',
+      html.indexOf("pedItems.push({id:p.id,nombre:p.nombre,precio:(typeof precioMostradorDe==='function'?precioMostradorDe(p):p.precio),") > 0);
+  }
+
   console.log('\n-- en el servidor --');
-  t('descontarStockPedido compara la caja con el mayorista', /const base = \(p\.cajaCerrada === true && p\.tipoVenta !== 'peso' && Number\(p\.precioMayorista \|\| 0\) > 0\)/.test(fun));
+  /* Desde la revisión del 25/09 compara contra "ref": el producto, o la escala a la que
+     se cobró un granel partido por bolsa. Una caja cerrada no es por peso: ref es ella. */
+  t('descontarStockPedido compara la caja con el mayorista', /const base = \(ref\.cajaCerrada === true && ref\.tipoVenta !== 'peso' && Number\(ref\.precioMayorista \|\| 0\) > 0\)/.test(fun) &&
+    /const ref = referenciaDe\(ids\[k\], itemPedido\) \|\| p;/.test(fun));
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);

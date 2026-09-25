@@ -40,7 +40,7 @@ const FUNCIONES = ['esPesoProd', 'fmtGramos', 'formatPrice', 'sinPrecio', 'preci
   '_stockEscalas', '_cobroEscalaTienda', '_escalasTxt', '_llevandoMasTienda', '_lineaGranel', '_fijarLineaGranel',
   'addGranelToCart', 'cambiarGranelCarrito', '_normalizarGranelCarrito', '_gruposGranelCarrito', '_repartirTienda',
   '_itemsDelPedido', '_itemsParaMostrar', '_estadoCompra', '_qtyCompraHtml', '_btnGranel', 'addToCart',
-  'updateCartItemQuantity', 'removeFromCart'];
+  'updateCartItemQuantity', 'removeFromCart', 'renderCartItems', 'clearCart'];
 
 const P = (id, extra) => Object.assign({ id, nombre: id, precio: 1000, descuento: 0, stock: 0, tipoVenta: 'peso' }, extra || {});
 function catalogo() {
@@ -74,6 +74,9 @@ function tienda(opts) {
     requireLoginToBuy: () => toasts.push('login'),
     esc: s => String(s),
     pedirGramosTienda: async (p, op) => { pedidos.push({ p, op }); return o.gramos === undefined ? null : o.gramos; },
+    document: o.document || { getElementById: () => null, createElement: () => ({}) },
+    confirm: () => true,
+    optImg: s => s,
   };
   const nombres = Object.keys(env);
   const f = new Function(...nombres, FUNCIONES.map(cuerpo).join('\n') +
@@ -124,6 +127,8 @@ const b = (w, id) => w.productos.find(p => p.id === id);
       w.carrito[0].id === 'y3' && w.carrito[0].precio === 7200 && w.carrito[0].escala === '3 kg');
     const op = w.pedidos[0].op;
     t('  el diálogo dice lo que ya había y el stock que queda', op.detalle.indexOf('ya tenés 700 g en el carrito') > 0 && op.stock === 11800);
+    t('  y si cambia la escala, que lo del carrito también cambia de precio', op.cotizar(2500).nota.indexOf('Lo que ya tenías en el carrito pasa a este precio.') > 0 &&
+      op.cotizar(100).nota.indexOf('Lo que ya tenías') < 0);
   }
   {
     const w = tienda({ gramos: 500 });
@@ -236,7 +241,10 @@ const b = (w, id) => w.productos.find(p => p.id === id);
   const ck = cuerpo('confirmCheckout');
   t('el checkout lee también las otras bolsas del granel', ck.indexOf('_gruposGranelCarrito()') > 0 && ck.indexOf('ids.concat(_idsGr)') > 0);
   t('  y mide el granel por todas sus bolsas, no por la que se cobra', ck.indexOf("!_gruposGr.some(g=>g.linea.id===ids[k])&&disp<porProd[ids[k]]") > 0);
-  t('  los renglones salen de _itemsDelPedido, con el stock recién leído', ck.indexOf('items:_itemsDelPedido(_stockFresco)') > 0);
+  t('  los renglones salen de _itemsDelPedido, con el stock recién leído', ck.indexOf('const _itemsPed=_itemsDelPedido(_stockFresco);') > 0 &&
+    ck.indexOf('items:_itemsPed,') > 0);
+  t('  y con más de 100 renglones (el granel partido) se frena antes de sacar el número',
+    ck.indexOf('if(_itemsPed.length>100)') > 0 && ck.indexOf('if(_itemsPed.length>100)') < ck.indexOf('pedidoNum=await db.runTransaction'));
   t('  el aviso de "nos quedamos sin stock" dice gramos en los de peso', ck.indexOf("_faltante.tipoVenta==='peso'?fmtGramos(_faltante.disponible)") > 0);
   t('al cargar el catálogo se acomoda el granel del carrito', cuerpo('loadProductsFromFirebase').indexOf('_normalizarGranelCarrito()') > 0);
   t('repetir un pedido junta el granel', cuerpo('repetirPedido').indexOf('_normalizarGranelCarrito()') > 0);
@@ -246,6 +254,29 @@ const b = (w, id) => w.productos.find(p => p.id === id);
   t('  y le ofrece al cliente llevar más si paga menos', pg.indexOf('pgt-llevar') > 0);
   t('la tienda usa el app.min.js recompilado', fs.readFileSync(path.join(RAIZ, 'app.min.js'), 'utf8').indexOf('addGranelToCart') >= 0);
   t('  y el styles.min.css con las escalas', fs.readFileSync(path.join(RAIZ, 'styles.min.css'), 'utf8').indexOf('.precio-escalas') >= 0);
+
+  /* ======================================== LA REVISIÓN DE CÓDIGO DEL 25/09 */
+  console.log('\n-- revisión del 25/09: el carrito --');
+  {
+    const insertados = [];
+    const body = { querySelectorAll: () => [], insertBefore: el => insertados.push(el) };
+    const doc = { getElementById: id => (id === 'cartBody' ? body : null), createElement: () => ({}) };
+    const w = tienda({ document: doc, carrito: [{ id: 'y3', grupo: 'y1', nombre: 'Yerba Mate', tipoVenta: 'peso', precio: 7200, cantidad: 2300, escala: '3 kg' }] });
+    w.api.renderCartItems();
+    const h = insertados.length ? insertados[0].innerHTML : '';
+    t('con toda la bolsa de 3 kg en el carrito el + sigue andando: queda en las otras bolsas', h.indexOf('bi-plus') > 0 && h.indexOf('disabled') < 0);
+    insertados.length = 0;
+    tienda({ document: doc, carrito: [{ id: 'nuez', nombre: 'Nueces', tipoVenta: 'peso', precio: 18000, cantidad: 3000 }] }).api.renderCartItems();
+    t('  un granel sin escalas con todo su stock en el carrito, sí se apaga', insertados.length === 1 && insertados[0].innerHTML.indexOf('disabled') > 0);
+  }
+  {
+    const w = tienda({ carrito: [{ id: 'y3', grupo: 'y1', nombre: 'Yerba Mate', tipoVenta: 'peso', precio: 7200, cantidad: 3000 },
+      { id: 'nuez', nombre: 'Nueces', tipoVenta: 'peso', precio: 18000, cantidad: 500 }] });
+    w.api.clearCart();
+    t('vaciar el carrito repinta la tarjeta del granel (la del grupo, que es la que se ve) y las demás',
+      w.tarjetas.indexOf('y1') >= 0 && w.tarjetas.indexOf('nuez') >= 0);
+    t('  y al confirmar el pedido, también', cuerpo('confirmCheckout').indexOf('if(i.grupo&&i.grupo!==i.id)idsAResetear.push(i.grupo);') > 0);
+  }
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);

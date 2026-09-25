@@ -480,9 +480,11 @@ async function addGranelToCart(prId){
         stock:hay,
         cotizar:g=>{
             const e=_escalaParaTienda(esc,ya+g),pk=precioFinal(e.producto),i=esc.indexOf(e);
+            const antes=ya>0?_escalaParaTienda(esc,ya):null;
             const m=_llevandoMasTienda(esc,ya+g);
             return {total:Math.round(pk*g/1000),
-                nota:(i?'Precio de '+e.etiqueta+' o más':'Precio de menos de '+esc[1].etiqueta)+': $'+formatPrice(pk)+' el kilo.',
+                nota:(i?'Precio de '+e.etiqueta+' o más':'Precio de menos de '+esc[1].etiqueta)+': $'+formatPrice(pk)+' el kilo.'+
+                    (antes&&antes!==e?' Lo que ya tenías en el carrito pasa a este precio.':''),
                 mas:(m&&m.gramos-ya<=hay)?{gramos:m.gramos-ya,etiqueta:fmtGramos(m.gramos),total:m.total,actual:m.actual,antes:fmtGramos(ya+g)}:null};
         }
     });
@@ -855,7 +857,7 @@ function updateProductCard(id) {
 function updateCartItemQuantity(id,ch){const _li=carrito.find(i=>i.id===id);if(_li&&_li.grupo&&_escalasDelGrupoTienda(productos.find(x=>x.id===_li.grupo)).length)return cambiarGranelCarrito(_li.grupo,ch);const p=productos.find(x=>x.id===id),idx=carrito.findIndex(i=>i.id===id);if(idx===-1)return;const stock=p?p.stock:carrito[idx].cantidad;const nq=carrito[idx].cantidad+ch;if(nq<=0)removeFromCart(id);else if(nq<=stock){carrito[idx].cantidad=nq;saveCart();updateCartUI();updateProductCard(id);}else showToast('Stock máximo: '+(esPesoProd(carrito[idx])?fmtGramos(stock):stock),'error');}
 function removeFromCart(id){const idx=carrito.findIndex(i=>i.id===id);if(idx!==-1){const nm=carrito[idx].nombre,gr=carrito[idx].grupo;carrito.splice(idx,1);showToast(nm+' eliminado','info');saveCart();updateCartUI();updateProductCard(id);if(gr&&gr!==id)updateProductCard(gr);}}
 function saveCart(){try{localStorage.setItem('brotesCart',JSON.stringify(carrito));}catch(e){console.warn('No se pudo guardar el carrito:',e);}}
-function clearCart(){if(carrito.length===0)return;if(!confirm('Vaciar todo el carrito?'))return;const ids=carrito.map(i=>i.id);carrito=[];saveCart();updateCartUI();ids.forEach(id=>updateProductCard(id));showToast('Carrito vaciado','info');}
+function clearCart(){if(carrito.length===0)return;if(!confirm('Vaciar todo el carrito?'))return;const ids=[];carrito.forEach(i=>{ids.push(i.id);if(i.grupo&&i.grupo!==i.id)ids.push(i.grupo);});carrito=[];saveCart();updateCartUI();ids.forEach(id=>updateProductCard(id));showToast('Carrito vaciado','info');}
 
 let _pdmCurrentImgIdx=0;
 let _pdmImages=[];
@@ -977,7 +979,7 @@ function updateCartUI() {
 function renderCartItems() {
     const body=document.getElementById('cartBody'),empty=document.getElementById('cartEmpty');if(!body)return;
     body.querySelectorAll('.cart-item').forEach(i=>i.remove());
-    carrito.forEach(item=>{const p=productos.find(x=>x.id===item.id),ms=p?p.stock:item.cantidad;const el=document.createElement('div');el.className='cart-item';el.innerHTML='<img src="'+esc(optImg(item.imagen,200)||'img/default-product.svg')+'" alt="'+esc(item.nombre)+'" class="cart-item-image"><div class="cart-item-info"><h4 class="cart-item-name">'+esc(item.nombre)+'</h4><span class="cart-item-price">$'+formatPrice(item.precio)+(esPesoProd(item)?' el kilo':'')+'</span>'+(esPesoProd(item)?'<span class="cart-item-price" style="display:block;opacity:0.8;font-size:0.85em">'+fmtGramos(item.cantidad)+' = $'+formatPrice(subtotalCarrito(item))+'</span>':'')+'<div class="cart-item-controls"><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\',-'+pasoCantidad(item)+')"><i class="bi bi-dash"></i></button><span class="qty-value">'+(esPesoProd(item)?fmtGramos(item.cantidad):item.cantidad)+'</span><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\','+pasoCantidad(item)+')"'+(item.cantidad>=ms?' disabled':'')+'><i class="bi bi-plus"></i></button><button class="cart-item-remove" onclick="removeFromCart(\''+item.id+'\')"><i class="bi bi-trash"></i></button></div></div>';body.insertBefore(el,empty);});
+    carrito.forEach(item=>{const p=productos.find(x=>x.id===item.id),_escG=item.grupo?_escalasDelGrupoTienda(productos.find(x=>x.id===item.grupo)):[],ms=_escG.length?_stockEscalas(_escG):(p?p.stock:item.cantidad);const el=document.createElement('div');el.className='cart-item';el.innerHTML='<img src="'+esc(optImg(item.imagen,200)||'img/default-product.svg')+'" alt="'+esc(item.nombre)+'" class="cart-item-image"><div class="cart-item-info"><h4 class="cart-item-name">'+esc(item.nombre)+'</h4><span class="cart-item-price">$'+formatPrice(item.precio)+(esPesoProd(item)?' el kilo':'')+'</span>'+(esPesoProd(item)?'<span class="cart-item-price" style="display:block;opacity:0.8;font-size:0.85em">'+fmtGramos(item.cantidad)+' = $'+formatPrice(subtotalCarrito(item))+'</span>':'')+'<div class="cart-item-controls"><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\',-'+pasoCantidad(item)+')"><i class="bi bi-dash"></i></button><span class="qty-value">'+(esPesoProd(item)?fmtGramos(item.cantidad):item.cantidad)+'</span><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\','+pasoCantidad(item)+')"'+(item.cantidad>=ms?' disabled':'')+'><i class="bi bi-plus"></i></button><button class="cart-item-remove" onclick="removeFromCart(\''+item.id+'\')"><i class="bi bi-trash"></i></button></div></div>';body.insertBefore(el,empty);});
 }
 
 function updateShippingBar(total) {
@@ -1374,6 +1376,16 @@ async function confirmCheckout(){
             }
         }
 
+        /* El granel con escalas se parte por bolsa: el pedido puede pasar de 100 renglones
+           con menos productos en el carrito, y la regla lo rechazaria (quedaba solo por
+           WhatsApp). Se frena antes de sacar el numero. */
+        const _itemsPed=_itemsDelPedido(_stockFresco);
+        if(_itemsPed.length>100){
+            showToast('El pedido quedó muy grande para guardarlo (más de 100 renglones). Sacá algunos productos y confirmá el resto.','error');
+            const b=document.getElementById('chkConfirmBtn');
+            if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
+            return;
+        }
         /* El numero sale de config/pedidosCount, que las reglas SI le permiten
            escribir a un usuario logueado. Va en transaccion para que dos pedidos
            simultaneos no saquen el mismo numero. */
@@ -1423,7 +1435,7 @@ async function confirmCheckout(){
                esta hecho. */
             stockDescontado:false,
             /* Un granel con escalas va partido por bolsa: ver _itemsDelPedido. */
-            items:_itemsDelPedido(_stockFresco),
+            items:_itemsPed,
             subtotalProductos:subtotal,
             envio:envio,
             envioGratis:tipoEntrega==='envio'&&envio===0,
@@ -1464,7 +1476,8 @@ async function confirmCheckout(){
         msg+='*TOTAL: $'+total.toLocaleString('es-AR')+'*';
         msg+='\n\nGracias!';
         /* Limpiar carrito y resetear las cards de productos */
-        const idsAResetear=carrito.map(i=>i.id);
+        /* La tarjeta de un granel con escalas es la del grupo, no la de la bolsa cobrada. */
+        const idsAResetear=[];carrito.forEach(i=>{idsAResetear.push(i.id);if(i.grupo&&i.grupo!==i.id)idsAResetear.push(i.grupo);});
         carrito=[];saveCart();updateCartUI();
         idsAResetear.forEach(id=>updateProductCard(id));
         closeCheckoutModal();closeCart();

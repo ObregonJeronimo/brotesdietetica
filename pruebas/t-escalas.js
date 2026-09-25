@@ -108,6 +108,19 @@ function armar(opts) {
     removeVentaMayItem: id => originales.push('mayquitar:' + id),
     setVentaItemDsc: (id, v) => originales.push('dsc:' + id + '=' + v),
     setVentaMayItemDsc: (id, v) => originales.push('maydsc:' + id + '=' + v),
+    /* Los pedidos del panel (admin.html), para los envoltorios de admin-escalas.js. */
+    pedItems: o.pedItems || [],
+    pedidosData: o.pedidosData || [],
+    editingPedidoId: o.editingPedidoId || null,
+    addPedItem: id => {
+      const ya = ctx.pedItems.find(i => i.id === id);
+      if (ya) { ya.cantidad++; return; }
+      const p = ctx.allProducts.find(x => x.id === id);
+      ctx.pedItems.push({ id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, cantidad: 1, descuento: 0, tipoVenta: p.tipoVenta || 'unidad' });
+    },
+    updatePedQty: (id, v) => { const it = ctx.pedItems.find(i => i.id === id); if (it) it.cantidad = Math.max(1, parseInt(v, 10) || 1); },
+    removePedItem: id => { ctx.pedItems = ctx.pedItems.filter(i => i.id !== id); },
+    renderPedItems: () => pintados.push('ped'),
   };
   ctx.window = ctx;
   vm.createContext(ctx);
@@ -225,7 +238,8 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     t('  en contra lo dice así', ctx.mensajeMezcla(rep2, esc[2], mz2, 11000, 'min', null, 10000).indexOf('En contra: ganás $750 menos') > 0);
     const repFalta = ctx.repartirStock(esc, esc[0], 20000);
     const msgFalta = ctx.mensajeMezcla(repFalta, esc[0], ctx.mezclaDe(repFalta, esc[0], 'min'), 20000, 'min', null, 200);
-    t('  y si ni sumando alcanza, cuánto falta', msgFalta.indexOf('faltan 7,5 kg, que quedan en negativo en la de 1 kg') > 0);
+    t('  y si ni sumando alcanza, cuánto falta', msgFalta.indexOf('No alcanza ni sumando las otras bolsas: la de 1 kg queda con 7,5 kg en negativo.') > 0);
+    t('  sin sumarle el faltante a la bolsa que se cobra (tiene 200 g)', msgFalta.indexOf('• 200 g de la bolsa de 1 kg') > 0 && msgFalta.indexOf('• 7,7 kg') < 0);
     t('  sin stock en la bolsa que se cobra, lo dice', ctx.mensajeMezcla(ctx.repartirStock(esc, esc[0], 700, e => (e.id === 'y1' ? 0 : 5000)), esc[0], mz, 700, 'min', null, 0)
       .indexOf('De la bolsa de 1 kg no queda stock') > 0);
   }
@@ -479,6 +493,118 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     w2.ctx.document.removeEventListener = () => {};
     w2.ctx.abrirVariantesVenta('y1', 'may');
     t('si solo tiene escalas, no hay nada que elegir: directo a los gramos', eleg2.join() === 'y1@may');
+  }
+
+  /* ======================================== LA REVISIÓN DE CÓDIGO DEL 25/09 */
+  console.log('\n-- revisión del 25/09: el principal oculto --');
+  {
+    const prods = catalogo();
+    prods.find(p => p.id === 'y1').oculto = true;
+    const { ctx } = armar({ productos: prods });
+    t('con el principal oculto sus bolsas no son escalas: se venden por separado, como en la tienda',
+      ctx.escalasDe(b(ctx, 'y3')).length === 0 && ctx.escalasDe(b(ctx, 'y5')).length === 0);
+  }
+
+  console.log('\n-- revisión del 25/09: los renglones de un pedido web --');
+  {
+    const { ctx } = armar();
+    const L = (id, escalaId, extra) => Object.assign({ id, escalaId, cantidad: 1000, precio: 7200 }, extra || {});
+    t('escalaDeLinea: la escala del grupo a la que se cobró', (ctx.escalaDeLinea(L('y1', 'y3')) || {}).id === 'y3');
+    t('  una de otro grupo, una por unidad, una oculta o cualquier cosa, no', ctx.escalaDeLinea(L('y1', 'nuez')) === null &&
+      ctx.escalaDeLinea(L('y1', 'y500')) === null && ctx.escalaDeLinea(L('y1', 'y10')) === null &&
+      ctx.escalaDeLinea(L('y1', 'x" onmouseover="alert(1)')) === null && ctx.escalaDeLinea({ id: 'y1' }) === null);
+    const items = [L('y3', 'y3', { cantidad: 2300 }), L('y5', 'y3', { cantidad: 700 })];
+    t('precio de catálogo de un renglón partido: el de la escala que toca por el total (3 kg, $7.200), no el de su bolsa',
+      ctx.precioCatalogoDeLinea(items[0], items) === 7200 && ctx.precioCatalogoDeLinea(items[1], items) === 7200);
+    const trampa = [L('y1', 'y5', { cantidad: 500, precio: 6000 })];
+    t('  si el cliente dice otra escala (500 g a la de 5 kg), el de catálogo es el de 1 kg: se avisa',
+      ctx.precioCatalogoDeLinea(trampa[0], trampa) === 8000);
+    t('  sin escala, el de su producto', ctx.precioCatalogoDeLinea({ id: 'nuez', cantidad: 100 }) === 18000 &&
+      ctx.precioCatalogoDeLinea({ id: 'y5', cantidad: 100 }) === 6000);
+    const txt = ctx.mezclaDePedido([
+      { id: 'y3', nombre: '<img src=x onerror=alert(1)>', escala: 'x" onmouseover="y', escalaId: 'y3', cantidad: 2300 },
+      { id: 'y5', nombre: 'lo que sea', escalaId: 'y3', cantidad: 700 }]);
+    t('el aviso de Mezcla del tablero usa los nombres del catálogo, no lo que manda el cliente', !!txt &&
+      txt.indexOf('Yerba Mate: se cobró a precio de la escala de 3 kg, y 700 g salen de la bolsa de 5 kg.') === 0 &&
+      txt.indexOf('<img') < 0 && txt.indexOf('onmouseover') < 0, txt);
+    t('  y un escalaId que no es del grupo no arma mezcla', ctx.mezclaDePedido([{ id: 'nuez', escalaId: 'y3', cantidad: 100 },
+      { id: 'y5', escalaId: 'nuez', cantidad: 100 }]) === null);
+    const fakeDoc = { createElement: () => { let s = ''; return { set textContent(v) { s = String(v); },
+      get innerHTML() { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); } }; } };
+    const escHtml = new Function('document', cuerpo(html, 'esc') + '\nreturn esc;')(fakeDoc);
+    t('esc() de admin.html escapa también las comillas: el texto del cliente no cierra un title="..."',
+      escHtml('x" onmouseover="alert(1)') === 'x&quot; onmouseover=&quot;alert(1)' && escHtml("it's") === 'it&#39;s' && escHtml('<b>') === '&lt;b&gt;');
+    t('  y el cartel de Mezcla del tablero pasa por esc()', html.indexOf('title="\'+esc(_mzPed)+\'"') > 0);
+    t('al convertir un pedido, el precio de catálogo sale de precioCatalogoDeLinea y el nombre va escapado',
+      html.indexOf('precioCatalogoDeLinea(i,p.items)') > 0 && html.indexOf('map(function(i){return esc(i.nombre);})') > 0);
+    t('las ventas guardan de qué escala se cobró cada renglón (al guardar, al editar, en la mayorista y en los pedidos del panel)',
+      html.split('...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})').length - 1 === 7);
+  }
+
+  console.log('\n-- revisión del 25/09: el descuento de la escala no depende del orden --');
+  {
+    const prods = catalogo();
+    prods.find(p => p.id === 'y3').descuento = 10;
+    const linea = d => [{ id: 'y1', nombre: 'Yerba Mate', precio: 8000, costo: 5000, cantidad: 500, descuento: d, tipoVenta: 'peso', escala: '1 kg', escalaId: 'y1' }];
+    const w = armar({ productos: prods, gramos: 2500, ventaItems: linea(0) });
+    await w.ctx.agregarGranelVenta(b(w.ctx, 'y1'), 'min');
+    t('500 g y después 2.500 g van a la escala de 3 kg con su oferta del 10%, como cargando 3 kg de una',
+      w.ctx.ventaItems.length === 2 && w.ctx.ventaItems.every(i => i.descuento === 10 && i.escalaId === 'y3'), renglones(w.ctx.ventaItems));
+    const w2 = armar({ productos: prods, gramos: 2500, ventaItems: linea(15) });
+    await w2.ctx.agregarGranelVenta(b(w2.ctx, 'y1'), 'min');
+    t('  un descuento puesto a mano en la línea, en cambio, sigue', w2.ctx.ventaItems.every(i => i.descuento === 15));
+    const w3 = armar({ productos: prods, ventaItems: linea(0) });
+    await w3.ctx.updateVentaQty('y1', 3000);
+    t('  y cambiar los gramos en la línea hace lo mismo', w3.ctx.ventaItems.every(i => i.descuento === 10 && i.escalaId === 'y3'));
+  }
+
+  console.log('\n-- revisión del 25/09: lo que ya descontó un pedido web --');
+  {
+    const w = armar();
+    w.ctx._pedidoOrigenVentaId = 'ped1';
+    w.ctx.pedidosData = [{ docId: 'ped1', stockDescontado: true, items: [{ id: 'y3', cantidad: 1000 }] }];
+    const y3 = w.ctx.escalasDe(b(w.ctx, 'y3'))[1];
+    t('convirtiendo un pedido que ya descontó stock, lo suyo vuelve a estar disponible (2,3 kg + 1 kg)', w.ctx.disponibleParaVenta('min')(y3) === 3300);
+    w.ctx.pedidosData[0].stockDescontado = false;
+    t('  si el pedido no descontó, solo el stock', w.ctx.disponibleParaVenta('min')(y3) === 2300);
+  }
+
+  console.log('\n-- revisión del 25/09: los pedidos del panel --');
+  {
+    const w = armar();
+    w.ctx.addPedItem('y1');
+    w.ctx.updatePedQty('y1', 3500);
+    let l = w.ctx.pedItems;
+    t('el granel con escalas va en UNA línea, al precio de la escala por el total (3,5 kg: la de 3 kg)',
+      l.length === 1 && l[0].id === 'y3' && l[0].precio === 7200 && l[0].cantidad === 3500 && l[0].escalaId === 'y3' && l[0].nombre === 'Yerba Mate');
+    w.ctx.addPedItem('nuez');
+    w.ctx.addPedItem('y5');
+    l = w.ctx.pedItems;
+    t('  sumar otra bolsa del mismo producto la junta en esa línea', l.length === 2 && l[0].id === 'y3' && l[0].cantidad === 3501 && l[1].id === 'nuez');
+    w.ctx.updatePedQty('y3', 800);
+    t('  y bajar los gramos la baja de escala', w.ctx.pedItems[0].id === 'y1' && w.ctx.pedItems[0].precio === 8000);
+    w.ctx.removePedItem('y1');
+    t('  sacarla la saca', w.ctx.pedItems.length === 1 && w.ctx.pedItems[0].id === 'nuez');
+    t('  y la lista se repinta con los precios nuevos', w.pintados.indexOf('ped') >= 0);
+  }
+  {
+    const w = armar({ editingPedidoId: 'p9', pedidosData: [{ docId: 'p9', stockDescontado: true }],
+      pedItems: [{ id: 'y3', cantidad: 2300, precio: 7200, escalaId: 'y3' }, { id: 'y5', cantidad: 700, precio: 7200, escalaId: 'y3' }] });
+    w.ctx.updatePedQty('y5', 800);
+    t('  un pedido web que ya descontó stock no se junta: sus renglones dicen de qué bolsa salió cada gramo', w.ctx.pedItems.length === 2);
+  }
+  {
+    const linea = () => [{ id: 'y3', nombre: 'Yerba Mate', precio: 7000, costo: 4500, cantidad: 3000, descuento: 0, tipoVenta: 'peso', escala: '3 kg', escalaId: 'y3' }];
+    const w = armar({ ventaItems: linea() });
+    await w.ctx.repartirGranelDeVenta('min');
+    t('al pasar a venta un pedido que no descontó stock, el granel se reparte por bolsa al precio del pedido',
+      renglones(w.ctx.ventaItems) === 'y3:2300@7000/c4500 y5:700@7000/c3750', renglones(w.ctx.ventaItems));
+    t('  con el aviso de la mezcla, como en el mostrador', w.confirmaciones.length === 1 && w.confirmaciones[0].op.titulo === 'Mezcla de stock');
+    const w2 = armar({ confirma: false, ventaItems: linea() });
+    await w2.ctx.repartirGranelDeVenta('min');
+    t('  si no se acepta, queda como vino', renglones(w2.ctx.ventaItems) === 'y3:3000@7000/c4500');
+    t('el panel lo llama al convertir un pedido que no descontó stock',
+      html.indexOf("if(p.stockDescontado!==true&&typeof repartirGranelDeVenta==='function')await repartirGranelDeVenta('min');") > 0);
   }
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');

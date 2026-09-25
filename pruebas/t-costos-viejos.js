@@ -101,6 +101,8 @@ function armar(opts) {
     },
   };
   vm.createContext(ctx);
+  /* Las cajas cerradas y las escalas viven en admin-variantes.js y admin-escalas.js. */
+  if (o.conVariantes) { vm.runInContext(leer('admin-variantes.js'), ctx); vm.runInContext(leer('admin-escalas.js'), ctx); }
   vm.runInContext(SRC + '\n;this.__api = { fechaDeCosto, costosViejos, preciosDesdeCosto, avisoCostosViejos, ' +
     'abrirEditorCostos, guardarEditorCostos, cerrarEditorCostos };', ctx);
   /* Las filas del editor: un input por producto, con el valor que se escribe en la prueba. */
@@ -141,7 +143,9 @@ console.log('\n-- que cuenta como costo viejo --');
 /* ============================================================ EL AVISO */
 console.log('\n-- el aviso --');
 {
-  const P = [{ id: 'c', nombre: 'Chia', costo: 800, tipoVenta: 'peso', costoActualizadoEn: hace(40) }];
+  /* El aviso cuenta los días desde HOY (el reloj de verdad), no desde AHORA: con hace(40)
+     la prueba pasaba solo el 24/09 y al otro día decía "hace 41 días". */
+  const P = [{ id: 'c', nombre: 'Chia', costo: 800, tipoVenta: 'peso', costoActualizadoEn: new Date(Date.now() - 40 * DIA) }];
   let pedido = null;
   const m = armar({ productos: P, pedirOpcion: async (msg, op) => { pedido = { msg, op }; return 'ignorar'; } });
   const r = await (m.api.avisoCostosViejos([{ id: 'c' }], 'min'));
@@ -234,6 +238,31 @@ console.log('\n-- el editor de costos --');
   await (m2.api.guardarEditorCostos());
   t('si la base falla, no se toca nada en memoria y el editor sigue abierto', m2.ctx.allProducts[0].costo === 1000 &&
     !!m2.elementos.costosEditor && m2.avisos.some(a => a.indexOf('error: No se pudieron guardar') === 0));
+}
+
+{
+  /* Revisión del 25/09: "Modificar costos" pasaba todo al precio de lista de su propio
+     producto. Una caja cerrada va al mayorista y un granel con escalas, al precio de la
+     escala que se cobró: todos sus renglones al mismo, cada uno con el costo de su bolsa. */
+  const caja = { id: 'cx', nombre: 'Alfajor x12', gramaje: 'x12', tipoVenta: 'unidad', cajaCerrada: true, costo: 6000, porcentaje: 60, porcentajeMayorista: 30,
+    precio: 9600, precioMayorista: 7800, costoActualizadoEn: hace(40) };
+  const y1 = { id: 'y1', nombre: 'Yerba x 1 kg', gramaje: '1 kg', tipoVenta: 'peso', costo: 5000, porcentaje: 60, porcentajeMayorista: 30,
+    precio: 8000, precioMayorista: 6500, stock: 0, costoActualizadoEn: hace(40) };
+  const y3 = { id: 'y3', nombre: 'Yerba x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', costo: 4500, porcentaje: 60, porcentajeMayorista: 30,
+    precio: 7200, precioMayorista: 5850, stock: 2300, gramajePadreId: 'y1', costoActualizadoEn: hace(40) };
+  const venta = [
+    { id: 'cx', precio: 7800, costo: 6000, cantidad: 1 },
+    { id: 'y3', precio: 7200, costo: 4500, cantidad: 2300, tipoVenta: 'peso', escala: '3 kg', escalaId: 'y3' },
+    { id: 'y1', precio: 7200, costo: 5000, cantidad: 700, tipoVenta: 'peso', escala: '3 kg', escalaId: 'y3' },
+  ];
+  const m = armar({ productos: [caja, y1, y3], ventaItems: venta, conVariantes: true });
+  m.api.abrirEditorCostos([caja, y1, y3].map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'min');
+  m.conInputs(['6500', '5500', '4800']);
+  await (m.api.guardarEditorCostos());
+  t('la caja cerrada toma el precio MAYORISTA nuevo, no el de lista', caja.precio === 10400 && venta[0].precio === caja.precioMayorista && venta[0].costo === 6500);
+  t('los renglones del granel quedan todos al precio nuevo de la escala de 3 kg (no la bolsa de 1 kg al suyo)',
+    y3.precio === 7680 && venta[1].precio === 7680 && venta[2].precio === 7680 && y1.precio === 8800);
+  t('  cada uno con el costo nuevo de su bolsa', venta[1].costo === 4800 && venta[2].costo === 5500);
 }
 
 /* ================================== LA MISMA CUENTA QUE EL FORMULARIO */

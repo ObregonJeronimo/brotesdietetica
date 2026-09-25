@@ -485,6 +485,29 @@ exports.descontarStockPedido = onDocumentCreated(
       if (ped.bloqueadoPorLimite === true) return null; /* rateLimitPedidos lo frenó */
       const refs = ids.map((id) => db.collection('productos').doc(id));
       const snaps = await t.getAll(...refs);
+      /* Un granel con escalas llega partido por bolsa, todo al precio de la escala que se
+         cobro (escalaId: ver _itemsDelPedido en app.js). El precio y el costo se comparan
+         contra esa escala y no contra la bolsa de la que sale cada renglon: si no, toda
+         mezcla de bolsas quedaba marcada "bajo costo" (chequeo del 25/09). escalaId lo
+         manda el cliente: se usa solo si es del mismo grupo y los dos son por peso. */
+      const leidos = {};
+      snaps.forEach((sn, k) => { if (sn.exists) leidos[ids[k]] = sn.data(); });
+      const idValido = (x) => typeof x === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(x);
+      const escIds = [...new Set((data.items || [])
+        .map((i) => (i && idValido(i.escalaId) ? i.escalaId : null))
+        .filter((x) => x && ids.indexOf(x) < 0))];
+      if (escIds.length) {
+        const escSnaps = await t.getAll(...escIds.map((id) => db.collection('productos').doc(id)));
+        escSnaps.forEach((sn, k) => { if (sn.exists) leidos[escIds[k]] = sn.data(); });
+      }
+      const grupoDe = (id) => (leidos[id] ? (leidos[id].gramajePadreId || id) : null);
+      const referenciaDe = (id, item) => {
+        const p = leidos[id];
+        const eid = item && idValido(item.escalaId) ? item.escalaId : null;
+        if (!p || !eid || eid === id || !leidos[eid]) return p;
+        const e = leidos[eid];
+        return (p.tipoVenta === 'peso' && e.tipoVenta === 'peso' && grupoDe(eid) === grupoDe(id)) ? e : p;
+      };
       const falt = [];
       const bajoCosto = [];
       /* Un item cuyo producto ya no existe se salteaba sin dejar rastro: no descontaba,
@@ -518,10 +541,12 @@ exports.descontarStockPedido = onDocumentCreated(
            cliente acepto ESE precio. Cambiarselo despues seria peor. */
         /* Una caja cerrada se vende al precio mayorista tambien en la tienda (etapa 3
            de las variantes): comparar contra el de lista la marcaria como cobrada de menos. */
-        const base = (p.cajaCerrada === true && p.tipoVenta !== 'peso' && Number(p.precioMayorista || 0) > 0)
-          ? Number(p.precioMayorista)
-          : Number(p.precio || 0);
-        const desc = Number(p.descuento || 0);
+        const itemPedido = (data.items || []).find((it) => it && it.id === ids[k]);
+        const ref = referenciaDe(ids[k], itemPedido) || p;
+        const base = (ref.cajaCerrada === true && ref.tipoVenta !== 'peso' && Number(ref.precioMayorista || 0) > 0)
+          ? Number(ref.precioMayorista)
+          : Number(ref.precio || 0);
+        const desc = Number(ref.descuento || 0);
         const unidad = Math.round(base * (1 - desc / 100));
         /* En un producto a granel el precio es POR KILO y la cantidad viene en GRAMOS,
            igual que en subtotalCarrito() de la tienda. Multiplicar derecho daba el
@@ -540,9 +565,8 @@ exports.descontarStockPedido = onDocumentCreated(
            Lo que nunca pasa por un cambio de precios es cobrar por debajo del COSTO,
            porque el comercio estaria perdiendo plata en cada unidad. Eso es la firma de
            alguien tocando el carrito desde la consola. */
-        const itemPedido = (data.items || []).find((it) => it && it.id === ids[k]);
         const cobradoUnidad = itemPedido ? Number(itemPedido.precio || 0) : null;
-        const costoUnidad = Number(p.costo || 0);
+        const costoUnidad = Number(ref.costo || 0);
         if (cobradoUnidad !== null && costoUnidad > 0 && cobradoUnidad < costoUnidad) {
           bajoCosto.push({
             id: ids[k],

@@ -34,6 +34,9 @@ function pedirConfirmacion(mensaje, opts) {
   const titulo = opts.titulo || 'Confirmar';
   const txtOk = opts.aceptar || (peligro ? 'Eliminar' : 'Aceptar');
   const txtNo = opts.cancelar || 'Cancelar';
+  /* cancelar: null = un aviso de una sola opción (avisar): sin el botón. Antes salía
+     "Cancelar" igual, y en un aviso no hay nada que cancelar (chequeo del 25/09). */
+  const sinNo = opts.cancelar === null;
   const icono = opts.icono || (peligro ? 'bi-exclamation-octagon' : 'bi-question-circle');
 
   return new Promise(resolve => {
@@ -52,7 +55,7 @@ function pedirConfirmacion(mensaje, opts) {
         '</div>' +
         '<div class="dlg-msg">' + _dlgTexto(mensaje) + '</div>' +
         '<div class="dlg-pie">' +
-          '<button type="button" class="btn btn-secondary dlg-no">' + _dlgEsc(txtNo) + '</button>' +
+          (sinNo ? '' : '<button type="button" class="btn btn-secondary dlg-no">' + _dlgEsc(txtNo) + '</button>') +
           '<button type="button" class="btn ' + (peligro ? 'dlg-peligro' : 'btn-primary') + ' dlg-si">' + _dlgEsc(txtOk) + '</button>' +
         '</div>' +
       '</div>';
@@ -83,7 +86,8 @@ function pedirConfirmacion(mensaje, opts) {
     }
 
     ov.querySelector('.dlg-si').addEventListener('click', () => cerrar(true));
-    ov.querySelector('.dlg-no').addEventListener('click', () => cerrar(false));
+    const no = ov.querySelector('.dlg-no');
+    if (no) no.addEventListener('click', () => cerrar(false));
     ov.addEventListener('mousedown', e => { if (e.target === ov) cerrar(false); });
     document.addEventListener('keydown', onTecla, true);
 

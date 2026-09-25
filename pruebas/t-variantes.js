@@ -140,6 +140,8 @@ function armar(opts) {
     sugerirCodigoProducto: res => '0009' + String((res || []).length).padStart(2, '0'),
     refrescarProductoLocal: async () => true,
     logAction: (a, b, c) => historial.push(a + ' | ' + b + ' | ' + c),
+    toggleOculto: async id => { const p = ctx.allProducts.find(x => x.id === id); p.oculto = !(p.oculto === true); llamadas.push('ocultar:' + id); },
+    avisar: async (m, op) => { avisos.push('aviso: ' + m + ' [' + (op && op.titulo) + ']'); return true; },
   };
   vm.createContext(ctx);
   vm.runInContext(SRC, ctx);
@@ -400,6 +402,13 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  hasta 4 cifras y 3 decimales', inp('123456') === '1234' && inp('0,2555') === '0,255');
   }
 
+  {
+    const w = armar();
+    t('el nombre de una variante: "Maní x 160 g" y "Alfajor x12" (no "Alfajor x x12")',
+      w.ctx._nombreConTam('Maní', '160 g') === 'Maní x 160 g' && w.ctx._nombreConTam('Alfajor', 'x12') === 'Alfajor x12' &&
+      w.ctx._nombreConTam('Yerba', '0,5 kg') === 'Yerba x 0,5 kg');
+  }
+
   console.log('\n-- el formulario: qué no se puede guardar --');
   {
     const w = armar({ tipo: 'peso' });
@@ -474,6 +483,88 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     try { await w.ctx.guardarVariantesForm('ppal', { nombre: 'Yerba', tipoVenta: 'peso', codigo: 'Y1' }); } catch (e) { error = e; }
     t('si falla, avisa y NO corta: el producto ya se guardó y volver a guardar lo crearía otra vez',
       error === null && /No se pudieron guardar todas las bolsas: 3 kg: sin red/.test(w.avisos.join()));
+  }
+
+  /* ======================================== LA REVISIÓN DE CÓDIGO DEL 25/09 */
+  console.log('\n-- revisión del 25/09: cambiar la forma de venta en el formulario --');
+  const conBolsas = () => catalogo().concat([P('g1', { nombre: 'Yerba 1 kg', gramaje: '1 kg', tipoVenta: 'peso', costo: 5000, porcentaje: 60 }),
+    P('g3', { nombre: 'Yerba 3 kg', gramaje: '3 kg', tipoVenta: 'peso', costo: 4500, porcentaje: 60, porcentajeMayorista: 30, gramajePadreId: 'g1' }),
+    P('g500', { nombre: 'Yerba x 500 g', gramaje: '500 g', precio: 4160, costo: 2600, porcentaje: 60, gramajePadreId: 'g1' })]);
+  {
+    const w = armar({ tipo: 'peso', productos: conBolsas(), editingId: 'g1' });
+    w.ctx.openModal('g1');
+    t('las filas de un producto por peso son sus bolsas', w.ctx.window._varFilas.map(f => f.id).join() === 'g3' && w.ctx.window._varFilasPeso === true);
+    w.ctx.varFilaCambio(0, 'costoIn', '9000');
+    w.ctx._tipoVentaProd = 'unidad';
+    w.ctx.setTipoVenta('unidad');
+    t('al pasarlo a por unidad, las filas pasan a ser sus presentaciones por unidad (el paquete de 500 g)',
+      w.ctx.window._varFilas.map(f => f.id).join() === 'g500' && w.ctx.window._varFilasPeso === false && w.ctx.window._varFilas[0].costoIn === '2600');
+    t('  y avisa que lo que se tocó en las bolsas no se guarda', /Cambió la forma de venta: lo que habías cargado en las bolsas no se guarda/.test(w.avisos.join()));
+    w.ctx.varFilaCambio(0, 'costoIn', '3000');
+    await w.ctx.guardarVariantesForm('g1', { nombre: 'Yerba 1 kg', tipoVenta: 'unidad', codigo: 'G1' });
+    const up = w.escrituras.find(e => e[0] === 'update');
+    t('  al guardar, el costo por unidad va al paquete y la bolsa no se toca', !!up && up[1] === 'g500' && up[2].costo === 3000 &&
+      !w.escrituras.some(e => e[1] === 'g3'));
+    w.ctx._tipoVentaProd = 'peso';
+    w.ctx.setTipoVenta('peso');
+    t('volviendo a por peso, vuelven las bolsas como están guardadas', w.ctx.window._varFilas.map(f => f.id).join() === 'g3' &&
+      w.ctx.window._varFilas[0].costoIn === '13500');
+  }
+  {
+    const w = armar({ tipo: 'peso', productos: conBolsas(), editingId: 'g1' });
+    w.ctx.openModal('g1');
+    w.ctx.varFilaCambio(0, 'costoIn', '9000');
+    await w.ctx.guardarVariantesForm('g1', { nombre: 'Yerba 1 kg', tipoVenta: 'unidad', codigo: 'G1' });
+    t('y si igual llegara a guardarse una fila de la otra forma de venta, no se escribe', !w.escrituras.some(e => e[0] === 'update') &&
+      /3 kg: es de la otra forma de venta/.test(w.avisos.join()));
+  }
+
+  console.log('\n-- revisión del 25/09: cambiar el tamaño de una bolsa --');
+  {
+    const w = armar({ tipo: 'peso', productos: conBolsas(), editingId: 'g1' });
+    w.ctx.openModal('g1');
+    w.ctx.varFilaCambio(0, 'tam', '5 kg');
+    await w.ctx.guardarVariantesForm('g1', { nombre: 'Yerba 1 kg', tipoVenta: 'peso', codigo: 'G1' });
+    const up = w.escrituras.find(e => e[0] === 'update');
+    t('la bolsa de $13.500 pasa de 3 kg a 5 kg: se guarda lo que mostraba la fila, $2.700 el kilo, con sus precios',
+      !!up && up[2].gramaje === '5 kg' && up[2].costo === 2700 && up[2].precio === 4320 && up[2].precioMayorista > 0, JSON.stringify(up && up[2]));
+    const w2 = armar({ tipo: 'peso', productos: conBolsas(), editingId: 'g1' });
+    w2.ctx.openModal('g1');
+    w2.ctx.varFilaCambio(0, 'tam', '3 kg');
+    await w2.ctx.guardarVariantesForm('g1', { nombre: 'Yerba 1 kg', tipoVenta: 'peso', codigo: 'G1' });
+    t('  volver a escribir el mismo tamaño no toca nada', !w2.escrituras.some(e => e[0] === 'update'));
+  }
+
+  console.log('\n-- revisión del 25/09: editar una venta no cuenta su stock dos veces --');
+  {
+    const w = armar({ respuesta: 'otra' });
+    w.ctx.editingVentaId = 'v1';
+    w.ctx.editingVentaOriginal = { stockDescontado: true, items: [{ id: 'mani320', cantidad: 1 }] };
+    const r = await w.ctx.sugerirPresentacion(buscar(w.ctx.allProducts, 'mani320'), [{ id: 'mani320', cantidad: 1 }], 'min');
+    t('editando una venta, lo que ella ya había descontado vuelve: hay otro de 320 g y no ofrece otra presentación',
+      r === 'seguir' && w.preguntas.length === 0);
+    const w2 = armar({ respuesta: 'otra' });
+    await w2.ctx.sugerirPresentacion(buscar(w2.ctx.allProducts, 'mani320'), [{ id: 'mani320', cantidad: 1 }], 'min');
+    t('  en una venta nueva, con el único que quedaba ya en la venta, sí la ofrece', w2.preguntas.length === 1);
+    const w3 = armar({ respuesta: 'otra' });
+    w3.ctx.window._pedidoOrigenVentaId = 'ped1';
+    w3.ctx.pedidosData = [{ docId: 'ped1', stockDescontado: true, items: [{ id: 'mani320', cantidad: 1 }] }];
+    const r3 = await w3.ctx.sugerirPresentacion(buscar(w3.ctx.allProducts, 'mani320'), [{ id: 'mani320', cantidad: 1 }], 'min');
+    t('  y convirtiendo un pedido web que ya lo descontó, tampoco', r3 === 'seguir' && w3.preguntas.length === 0);
+  }
+
+  console.log('\n-- revisión del 25/09: ocultar el producto principal --');
+  {
+    const w = armar();
+    await w.ctx.toggleOculto('yerba1');
+    const av = w.avisos.join(' | ');
+    t('ocultar el principal de unas bolsas avisa que se venden cada una por separado, sin precio por cantidad',
+      /aviso: Yerba Mate tiene otra presentación \(3 kg\)\. Mientras esté oculto, se venden cada una por separado, a su precio: sin precio por cantidad\./.test(av) &&
+      /mejor borralo: la siguiente pasa a ser la principal/.test(av), av);
+    const n = w.avisos.length;
+    await w.ctx.toggleOculto('yerba1');
+    await w.ctx.toggleOculto('mani160');
+    t('  mostrarlo de nuevo, u ocultar una variante, no avisa nada', w.avisos.length === n && w.llamadas.filter(x => /^ocultar:/.test(x)).length === 3);
   }
 
   console.log('\n-- crear una variante --');
