@@ -157,6 +157,9 @@ async function loadProductsFromFirebase(retries) {
             carrito=carrito.filter(item=>{const sigue=productos.some(p=>p.id===item.id);if(!sigue){_fuera.push(item.nombre||'un producto');carritoActualizado=true;}return sigue;});
         }
         carrito=carrito.map(item=>{const prod=productos.find(p=>p.id===item.id);if(prod){const pf=precioFinal(prod);if(pf!==item.precio){carritoActualizado=true;return{...item,precio:pf,nombre:prod.nombreMostrado||prod.nombre};}}return item;});
+        /* El precio de arriba es el de la bolsa de cada linea; la de un granel con
+           escalas se vuelve a calcular entera (y junta las que vengan separadas). */
+        if(_normalizarGranelCarrito())carritoActualizado=true;
         if(_fuera.length)showToast(_fuera.join(', ')+(_fuera.length>1?' ya no están disponibles':' ya no está disponible')+' y se quitaron del carrito','error');
         if(carritoActualizado){saveCart();updateCartUI();}
         /* Scroll automático a productos SOLO si la URL lo pide (#productos).
@@ -391,15 +394,201 @@ async function addVarianteToCart(id){
     if(v&&antes>0&&ahora>antes&&!esPesoProd(v))showToast((v.nombreMostrado||v.nombre)+': '+ahora+' en el carrito','success');
 }
 
+/* ===== ESCALAS DE GRANEL (tienda) =====
+   Un granel que el comercio compra en bolsas de distinto tamano -yerba de 1, 3 y 5 kg-
+   tiene una escala por bolsa, y el precio del kilo depende de cuanto se lleva: se cobra
+   la escala mas grande que no supera lo pedido (700 g y 2,9 kg pagan la de 1 kg; 3,1 kg
+   la de 3 kg). Es la misma regla que el mostrador (admin-escalas.js).
+   En la tienda el producto es UNO: una tarjeta, un Agregar que pregunta los gramos, y
+   una linea en el carrito que cambia de escala sola cuando cambian los gramos. Al
+   confirmar, la linea se parte segun de que bolsa sale el stock -primero la de la
+   escala que se cobra, despues la siguiente, despues la anterior-, todos los renglones
+   al mismo precio: asi descontarStockPedido descuenta de cada bolsa. Los costos no se
+   ven aca: la mezcla la mira el panel. */
+function _gramosDeTam(v){
+    for(const t of [v&&v.gramaje,v&&v.nombre]){
+        const s=String(t||'').toLowerCase().replace(/(\d),(\d)/g,'$1.$2');
+        let m;
+        if((m=s.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilos?)\b/)))return Math.round(parseFloat(m[1])*1000);
+        if((m=s.match(/(\d+(?:\.\d+)?)\s*(g|gr|grs|gramos?)\b/)))return Math.round(parseFloat(m[1]));
+        if(/(\d+(?:\.\d+)?)\s*(l|lt|lts|litros?|ml|cc|u|un|unid|unidades)\b/.test(s)||/(^|\s)x\s*\d+\b/.test(s))return 0;
+    }
+    return 0;
+}
+function _principalTienda(p){return p&&p.gramajePadreId?(productos.find(x=>x.id===p.gramajePadreId)||p):p;}
+/* Las escalas de un grupo: sus variantes por peso con tamano en gramos, de menor a
+   mayor. Con menos de dos no hay escalas. La lista de productos ya viene sin ocultos. */
+function _escalasDelGrupoTienda(pr){
+    if(!pr)return [];
+    const todos=[pr].concat(productos.filter(h=>h.gramajePadreId===pr.id&&h.id!==pr.id));
+    const esc=todos.filter(esPesoProd).map(v=>({v:v,g:_gramosDeTam(v)})).filter(x=>x.g>0)
+        .sort((a,b)=>a.g-b.g).map(x=>({id:x.v.id,producto:x.v,desde:x.g,etiqueta:fmtGramos(x.g)}));
+    return esc.length>=2?esc:[];
+}
+/* Las escalas del producto, si es una de ellas. */
+function _escalasTienda(p){const esc=_escalasDelGrupoTienda(_principalTienda(p));return esc.some(e=>e.id===(p&&p.id))?esc:[];}
+function _escalaParaTienda(esc,g){let e=esc[0];esc.forEach(x=>{if(x.desde<=g)e=x;});return e;}
+function _nombreGrupoTienda(pr){
+    return pr.nombreMostrado||String(pr.nombre||'')
+        .replace(/\s*[-·]?\s*\bx?\s*\d+(?:[.,]\d+)?\s*(kg|kgs|kilos?|g|gr|grs|gramos?|l|lt|lts|litros?|ml|cc|u|un|unid|unidades)\b\.?/gi,' ')
+        .replace(/(^|\s)x\s*\d+\b/gi,' ').replace(/\s+/g,' ').trim()||pr.nombre;
+}
+function _stockEscalas(esc){return esc.reduce((s,e)=>s+Math.max(0,Number(e.producto.stock||0)),0);}
+function _cobroEscalaTienda(e,g){return Math.round(precioFinal(e.producto)*g/1000);}
+/* "3 kg o mas: $7.200 · 5 kg o mas: $6.000 el kilo" */
+function _escalasTxt(esc){return esc.slice(1).map(e=>e.etiqueta+' o más: $'+formatPrice(precioFinal(e.producto))).join(' · ')+' el kilo';}
+/* Si llevando mas paga menos: la escala que conviene, o null. */
+function _llevandoMasTienda(esc,g){
+    const total=_cobroEscalaTienda(_escalaParaTienda(esc,g),g);let mejor=null;
+    esc.forEach(x=>{if(x.desde<=g)return;const t=_cobroEscalaTienda(x,x.desde);if(t<total&&(!mejor||t<mejor.total))mejor={escala:x,gramos:x.desde,total:t,actual:total};});
+    return mejor;
+}
+/* La linea del carrito de un granel con escalas: una sola, marcada con el grupo. */
+function _lineaGranel(prId,esc){return carrito.find(i=>i.grupo===prId)||(esc&&esc.length?carrito.find(i=>esc.some(e=>e.id===i.id)):null)||null;}
+/* Deja la linea con esos gramos, a la escala que toca. */
+function _fijarLineaGranel(pr,esc,gramos){
+    const e=_escalaParaTienda(esc,gramos);
+    const datos={id:e.id,grupo:pr.id,nombre:_nombreGrupoTienda(pr),tipoVenta:'peso',precio:precioFinal(e.producto),
+        precioOriginal:e.producto.precio||0,descuento:Math.min(100,Math.max(0,e.producto.descuento||0)),
+        cantidad:gramos,imagen:pr.imagen||e.producto.imagen||'',escala:e.etiqueta};
+    const li=_lineaGranel(pr.id,esc);
+    if(li)Object.assign(li,datos);else carrito.push(datos);
+    return e;
+}
+async function addGranelToCart(prId){
+    if(!clienteAuth){requireLoginToBuy();return;}
+    const pr=productos.find(x=>x.id===prId);if(!pr)return;
+    const esc=_escalasDelGrupoTienda(pr);
+    if(!esc.length)return addToCart(prId);
+    const nombre=_nombreGrupoTienda(pr);
+    if(esc.some(e=>sinPrecio(e.producto))){showToast('"'+nombre+'" todavia no tiene precio cargado. Consultanos y te lo pasamos.','info');return;}
+    const li=_lineaGranel(pr.id,esc),ya=li?Number(li.cantidad||0):0;
+    const hay=_stockEscalas(esc)-ya;
+    if(hay<=0){showToast(ya?'Ya tenés en el carrito todo lo que queda de '+nombre+'.':'No queda stock de '+nombre+'.','error');return;}
+    _acusarCarrito();
+    const gr=await pedirGramosTienda(pr,{
+        nombre:nombre,
+        detalle:'$'+formatPrice(precioFinal(esc[0].producto))+' el kilo · '+_escalasTxt(esc)+(ya?' · ya tenés '+fmtGramos(ya)+' en el carrito':''),
+        stock:hay,
+        cotizar:g=>{
+            const e=_escalaParaTienda(esc,ya+g),pk=precioFinal(e.producto),i=esc.indexOf(e);
+            const m=_llevandoMasTienda(esc,ya+g);
+            return {total:Math.round(pk*g/1000),
+                nota:(i?'Precio de '+e.etiqueta+' o más':'Precio de menos de '+esc[1].etiqueta)+': $'+formatPrice(pk)+' el kilo.',
+                mas:(m&&m.gramos-ya<=hay)?{gramos:m.gramos-ya,etiqueta:fmtGramos(m.gramos),total:m.total,actual:m.actual,antes:fmtGramos(ya+g)}:null};
+        }
+    });
+    if(gr==null)return;
+    _fijarLineaGranel(pr,esc,ya+gr);
+    showToast(fmtGramos(gr)+' de '+nombre+' agregado','success');
+    saveCart();updateCartUI();updateProductCard(pr.id);
+}
+/* Los + y - de la linea del granel (tarjeta y carrito): de a 100 g, y la escala se
+   vuelve a elegir sola. */
+function cambiarGranelCarrito(prId,ch){
+    const pr=productos.find(x=>x.id===prId);const esc=_escalasDelGrupoTienda(pr);
+    const li=_lineaGranel(prId,esc);if(!li||!esc.length)return;
+    const nq=Number(li.cantidad||0)+ch;
+    if(nq<=0){carrito.splice(carrito.indexOf(li),1);showToast(li.nombre+' eliminado','info');}
+    else{const hay=_stockEscalas(esc);if(nq>hay){showToast('Stock máximo: '+fmtGramos(hay),'error');return;}_fijarLineaGranel(pr,esc,nq);}
+    saveCart();updateCartUI();updateProductCard(prId);
+}
+/* Las lineas de un granel con escalas van juntas y a la escala que toca. Un carrito
+   guardado puede traer una por bolsa (un pedido repetido) o un precio viejo. */
+function _normalizarGranelCarrito(){
+    let cambio=false;
+    const grupos=new Map();
+    carrito.forEach(it=>{
+        const p=productos.find(x=>x.id===it.id);if(!p||!esPesoProd(p))return;
+        const esc=_escalasTienda(p);if(!esc.length)return;
+        const pr=_principalTienda(p);
+        const g=grupos.get(pr.id)||{pr:pr,esc:esc,lineas:[]};g.lineas.push(it);grupos.set(pr.id,g);
+    });
+    grupos.forEach(g=>{
+        const total=g.lineas.reduce((s,i)=>s+Number(i.cantidad||0),0);
+        const primera=g.lineas[0],antes=JSON.stringify(primera);
+        g.lineas.slice(1).forEach(x=>carrito.splice(carrito.indexOf(x),1));
+        primera.grupo=g.pr.id;
+        _fijarLineaGranel(g.pr,g.esc,total);
+        if(g.lineas.length>1||JSON.stringify(primera)!==antes)cambio=true;
+    });
+    return cambio;
+}
+function _gruposGranelCarrito(){
+    return carrito.filter(i=>i.grupo).map(i=>({linea:i,esc:_escalasDelGrupoTienda(productos.find(x=>x.id===i.grupo))})).filter(g=>g.esc.length);
+}
+/* De que bolsa sale cada gramo: la de la escala que se cobra, despues las de peso
+   siguiente y despues las anteriores. Lo que no alcanza queda en la que se cobra. */
+function _repartirTienda(esc,cobra,gramos,disp){
+    const i=esc.indexOf(cobra),orden=[cobra].concat(esc.slice(i+1),esc.slice(0,i).reverse());
+    let resta=gramos;const partes=[];
+    orden.forEach(e=>{if(resta<=0)return;const t=Math.min(Math.max(0,disp(e)),resta);if(t>0){partes.push({escala:e,gramos:t});resta-=t;}});
+    if(resta>0){const p0=partes.find(x=>x.escala===cobra);if(p0)p0.gramos+=resta;else partes.unshift({escala:cobra,gramos:resta});}
+    return partes;
+}
+/* Los renglones del pedido. Un granel con escalas se parte por bolsa, todo al precio
+   de la escala que se cobra y marcado con ella (escala, escalaId) para el panel. */
+function _itemsDelPedido(stockFresco){
+    const out=[];
+    carrito.forEach(i=>{
+        const base={nombre:i.nombre,tipoVenta:i.tipoVenta||'unidad',precio:i.precio,precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0};
+        const pr=i.grupo?productos.find(x=>x.id===i.grupo):null;
+        const esc=pr?_escalasDelGrupoTienda(pr):[];
+        const cobra=esc.find(e=>e.id===i.id);
+        if(!cobra){out.push(Object.assign({id:i.id},base,{cantidad:i.cantidad,subtotal:subtotalCarrito(i)}));return;}
+        const disp=e=>(stockFresco&&stockFresco[e.id]!=null)?stockFresco[e.id]:Number(e.producto.stock||0);
+        const partes=PEDIDOS.descontarStock?_repartirTienda(esc,cobra,Number(i.cantidad||0),disp):[{escala:cobra,gramos:Number(i.cantidad||0)}];
+        partes.forEach(x=>{const it=Object.assign({id:x.escala.id},base,{cantidad:x.gramos,escala:i.escala||cobra.etiqueta,escalaId:cobra.id});it.subtotal=subtotalCarrito(it);out.push(it);});
+    });
+    return out;
+}
+/* Para mostrarle al cliente su pedido: los renglones de un granel van juntos. */
+function _itemsParaMostrar(items){
+    const out=[],porEscala={};
+    (items||[]).forEach(i=>{
+        if(i&&i.escalaId){const k=i.escalaId+'|'+i.precio;if(porEscala[k]){porEscala[k].cantidad+=Number(i.cantidad||0);return;}porEscala[k]=Object.assign({},i,{cantidad:Number(i.cantidad||0)});out.push(porEscala[k]);return;}
+        out.push(i);
+    });
+    return out;
+}
+/* Lo que necesitan la tarjeta y la ficha para el boton de compra. En un granel con
+   escalas el stock es el de todas sus bolsas y la linea es la del grupo. */
+function _estadoCompra(p){
+    const escT=_escalasDelGrupoTienda(p),granel=escT.some(e=>e.id===p.id);
+    const ci=granel?_lineaGranel(p.id,escT):carrito.find(i=>i.id===p.id);
+    const qty=ci?Number(ci.cantidad||0):0;
+    const stock=granel?_stockEscalas(escT):Number(p.stock||0);
+    const peso=granel||esPesoProd(p);
+    return {escT:escT,granel:granel,ci:ci,qty:qty,stock:stock,noStock:stock<=0,
+        sinPrecioEscala:granel&&escT.some(e=>sinPrecio(e.producto)),
+        maxOut:peso?qty+100>stock:qty>=stock};
+}
+/* Los + y - de la tarjeta y de la ficha. En los de peso van de a 100 g y dicen los
+   gramos: antes sumaban de a UN gramo y mostraban "250" pelado. */
+function _qtyCompraHtml(p,qty,maxOut,granel,pre,despues){
+    const id=p.id,peso=granel||esPesoProd(p),tras=despues?';'+despues:'';
+    const accion=d=>(granel?'cambiarGranelCarrito(\''+id+'\','+(d*100)+')':peso?'updateCartItemQuantity(\''+id+'\','+(d*100)+')':'updateProductQuantity(\''+id+'\','+d+')')+tras;
+    return '<span class="'+pre+'-qty-wrap"><button class="'+pre+'-qty-btn" onclick="event.stopPropagation();'+accion(-1)+'"><i class="bi bi-dash"></i></button><span class="'+pre+'-qty-num">'+(peso?fmtGramos(qty):qty)+'</span><button class="'+pre+'-qty-btn" onclick="event.stopPropagation();'+accion(1)+'"'+(maxOut?' disabled':'')+'><i class="bi bi-plus"></i></button></span>';
+}
+/* El boton "A granel" de un producto cuyo principal es un paquete. */
+function _btnGranel(p,esc,enModal){
+    const sin=_stockEscalas(esc)<=0;
+    const accion=(enModal?'':'event.stopPropagation();')+'addGranelToCart(\''+p.id+'\')';
+    return '<button class="gramaje-btn"'+(sin?' disabled title="Sin stock"':'')+' onclick="'+accion+'">A granel'+
+        '<span class="gramaje-precio">'+(sin?'sin stock':'desde $'+formatPrice(Math.min.apply(null,esc.map(e=>precioFinal(e.producto))))+'/kg')+'</span></button>';
+}
+
 function renderProducts(list) {
     const c = document.getElementById('productsGrid'); if(!c)return;
     if (list.length===0) { c.innerHTML='<div class="empty-products"><i class="bi bi-search" style="font-size:2.5rem;color:var(--color-text-light)"></i><p style="color:var(--color-text-light);margin-top:1rem;font-size:1.05rem">No se encontraron productos</p></div>'; return; }
     c.innerHTML = list.map(p => {
-        const ci=carrito.find(i=>i.id===p.id),qty=ci?ci.cantidad:0;
+        /* Un granel con escalas: stock de todas sus bolsas y la linea del grupo. Ver
+           _estadoCompra. */
+        const _ec=_estadoCompra(p),escT=_ec.escT,granel=_ec.granel,ci=_ec.ci,qty=_ec.qty;
         const img=optImg(p.imagen,400)||'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23e8e0d5%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%22200%22 y=%22155%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2216%22%3ESin imagen%3C/text%3E%3C/svg%3E';
-        const noStock = p.stock === 0;
-        const noPrecio = sinPrecio(p);
-        const maxOut = qty>=p.stock;
+        const noStock = _ec.noStock;
+        const noPrecio = sinPrecio(p)||_ec.sinPrecioEscala;
+        const maxOut = _ec.maxOut;
         let btnContent;
         if(noStock){
             btnContent='<span class="atc-text"><i class="bi bi-x-circle"></i> Sin stock</span>';
@@ -408,19 +597,25 @@ function renderProducts(list) {
         }else if(qty===0){
             btnContent='<span class="atc-text"><i class="bi bi-cart-plus"></i> Agregar</span>';
         }else{
-            btnContent='<span class="atc-qty-wrap"><button class="atc-qty-btn" onclick="event.stopPropagation();updateProductQuantity(\''+p.id+'\',-1)"><i class="bi bi-dash"></i></button><span class="atc-qty-num">'+qty+'</span><button class="atc-qty-btn" onclick="event.stopPropagation();updateProductQuantity(\''+p.id+'\',1)"'+(maxOut?' disabled':'')+'><i class="bi bi-plus"></i></button></span>';
+            btnContent=_qtyCompraHtml(p,qty,maxOut,granel,'atc','');
         }
         const atcTag=qty>0?'div':'button';
         const atcAttrs=qty>0
             ?'class="add-to-cart-btn added"'
-            :'class="add-to-cart-btn"'+(noStock||noPrecio?' disabled':'')+' onclick="'+(qty===0?'addToCart(\''+p.id+'\')':'event.stopPropagation()')+'"';
-        /* Variantes: un boton por presentacion, con su precio. Ver _btnVariante. */
-        const variantes=_variantesTienda(p);
-        const gramajeHTML=variantes.length?'<div class="gramaje-btns">'+variantes.map(v=>_btnVariante(v,p,false)).join('')+'</div>':'';
-        const dscPct=Math.min(100,Math.max(0,p.descuento||0));
-        const nombreDisplay=p.nombreMostrado||p.nombre;
-        const badgeDesc=dscPct>0?'<span class="product-discount-ribbon">-'+(p.descuento||0)+'%</span>':'';
-        const precioConDesc=dscPct>0?Math.round(p.precio*(1-dscPct/100)):p.precio;
+            :'class="add-to-cart-btn"'+(noStock||noPrecio?' disabled':'')+' onclick="'+(qty===0?(granel?'addGranelToCart':'addToCart')+'(\''+p.id+'\')':'event.stopPropagation()')+'"';
+        /* Variantes: un boton por presentacion, con su precio. Ver _btnVariante. Las
+           escalas de granel no van como botones: el precio sale de los gramos. Si el
+           principal es un paquete, el granel es un boton mas. */
+        const variantes=_variantesTienda(p).filter(v=>!escT.some(e=>e.id===v.id));
+        const btnGranel=(escT.length&&!granel)?_btnGranel(p,escT,false):'';
+        const gramajeHTML=(variantes.length||btnGranel)?'<div class="gramaje-btns">'+variantes.map(v=>_btnVariante(v,p,false)).join('')+btnGranel+'</div>':'';
+        /* En un granel con escalas se muestra el precio de la escala mas chica (el de
+           poca cantidad) y abajo las otras. Y el nombre del producto, sin el tamano. */
+        const pv=granel?escT[0].producto:p;
+        const dscPct=Math.min(100,Math.max(0,pv.descuento||0));
+        const nombreDisplay=escT.length?_nombreGrupoTienda(p):(p.nombreMostrado||p.nombre);
+        const badgeDesc=dscPct>0?'<span class="product-discount-ribbon">-'+(pv.descuento||0)+'%</span>':'';
+        const precioConDesc=dscPct>0?Math.round(pv.precio*(1-dscPct/100)):pv.precio;
         /* En los que se venden sueltos el precio es POR KILO, y hay que decirlo:
            si no, el cliente ve $9.000 y cree que esa es la bolsa. */
         const sufKilo=esPesoProd(p)?'<span class="precio-por-kilo">el kilo</span>':'';
@@ -428,8 +623,8 @@ function renderProducts(list) {
         const precioHtml=noPrecio
             ?'<span class="product-price product-price-consultar" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">Consultar precio</span>'
             :dscPct>0
-            ?'<span class="product-price product-price-off" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer"><span class="price-original">$'+formatPrice(p.precio)+'</span> $'+formatPrice(precioConDesc)+sufKilo+'</span>'
-            :'<span class="product-price" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">$'+formatPrice(p.precio)+sufKilo+'</span>';
+            ?'<span class="product-price product-price-off" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer"><span class="price-original">$'+formatPrice(pv.precio)+'</span> $'+formatPrice(precioConDesc)+sufKilo+'</span>'
+            :'<span class="product-price" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">$'+formatPrice(pv.precio)+sufKilo+'</span>';
         return '<article class="product-card" data-id="'+p.id+'">' +
             '<div class="product-image" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">' +
             badgeDesc +
@@ -445,6 +640,7 @@ function renderProducts(list) {
             '<div class="product-footer">' +
             precioHtml +
             '</div>' +
+            (granel&&!noPrecio?'<div class="precio-escalas">'+esc(_escalasTxt(escT))+'</div>':'') +
             '<'+atcTag+' '+atcAttrs+'>' +
             btnContent +
             '</'+atcTag+'>' +
@@ -506,11 +702,15 @@ function _acusarCarrito(){
 
    Devuelve los GRAMOS, o null si se cerro sin elegir.
    ============================================================================= */
-function pedirGramosTienda(p){
+function pedirGramosTienda(p,opts){
+    /* Un granel con escalas no tiene UN precio por kilo: opts trae el nombre, la linea
+       de precios (detalle), el stock de todas sus bolsas y cotizar(gramos), que da el
+       total, la escala y si llevando mas paga menos. */
+    const o=opts||{};
     const RAPIDOS=[100,250,500,1000];
     const precioKg=precioFinal(p);
-    const stock=Number(p.stock||0);
-    const nombre=p.nombreMostrado||p.nombre||'';
+    const stock=Number(o.stock!=null?o.stock:(p.stock||0));
+    const nombre=o.nombre||p.nombreMostrado||p.nombre||'';
     return new Promise(resolve=>{
         const ov=document.createElement('div');
         ov.setAttribute('role','dialog');
@@ -523,7 +723,7 @@ function pedirGramosTienda(p){
             '<div style="background:#fff;border-radius:16px;padding:1.5rem;width:100%;max-width:380px;box-shadow:0 20px 50px rgba(0,0,0,0.3)">'+
               '<h3 style="font-family:var(--font-display);color:var(--color-primary);font-size:1.15rem;margin:0 0 0.2rem">&iquest;Cu&aacute;nto quer&eacute;s?</h3>'+
               '<p style="color:var(--color-text-light);font-size:0.88rem;margin:0 0 0.15rem">'+esc(nombre)+'</p>'+
-              '<p style="color:var(--color-text-light);font-size:0.82rem;margin:0 0 0.9rem">$'+formatPrice(precioKg)+' el kilo'+
+              '<p style="color:var(--color-text-light);font-size:0.82rem;margin:0 0 0.9rem">'+(o.detalle?esc(o.detalle):'$'+formatPrice(precioKg)+' el kilo')+
                  (stock>0?' &middot; hay '+fmtGramos(stock):'')+'</p>'+
               '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.7rem">'+btnRap+'</div>'+
               '<div style="display:flex;align-items:center;gap:0.5rem">'+
@@ -532,6 +732,8 @@ function pedirGramosTienda(p){
                 '<span style="color:var(--color-text-light);font-size:0.9rem">gramos</span>'+
               '</div>'+
               '<div class="pgt-total" aria-live="polite" style="display:flex;justify-content:space-between;align-items:center;margin-top:0.8rem;min-height:1.7rem;color:var(--color-text-light);font-size:0.9rem"></div>'+
+              '<div class="pgt-nota" style="color:var(--color-text-light);font-size:0.8rem"></div>'+
+              '<div class="pgt-mas" style="display:none;margin-top:0.4rem;padding:0.5rem 0.6rem;border-radius:10px;background:var(--color-fondo);font-size:0.82rem;color:var(--color-text)"></div>'+
               '<div class="pgt-aviso" style="color:var(--color-secondary-dark);font-size:0.8rem;min-height:1.1rem"></div>'+
               '<div style="display:flex;gap:0.6rem;margin-top:1rem">'+
                 '<button type="button" class="pgt-no" style="flex:0 0 auto;padding:0.75rem 1.1rem;border:1.5px solid var(--brand-crudo);background:#fff;color:var(--color-text);font-family:inherit;font-weight:600;border-radius:10px;cursor:pointer">Cancelar</button>'+
@@ -543,6 +745,8 @@ function pedirGramosTienda(p){
         const ok=ov.querySelector('.pgt-si');
         const tot=ov.querySelector('.pgt-total');
         const avi=ov.querySelector('.pgt-aviso');
+        const nota=ov.querySelector('.pgt-nota');
+        const masEl=ov.querySelector('.pgt-mas');
         let cerrado=false;
         const cerrar=v=>{if(cerrado)return;cerrado=true;document.removeEventListener('keydown',tecla,true);ov.remove();resolve(v);};
         function pintar(){
@@ -550,8 +754,20 @@ function pedirGramosTienda(p){
             const valido=Number.isFinite(g)&&g>0&&(!stock||g<=stock);
             ok.disabled=!valido;
             ok.style.opacity=valido?'1':'0.5';
+            const q=(Number.isFinite(g)&&g>0&&typeof o.cotizar==='function')?(o.cotizar(g)||null):null;
             tot.innerHTML=(Number.isFinite(g)&&g>0)
-                ?'<span>'+fmtGramos(g)+'</span><b style="color:var(--color-primary);font-size:1.1rem">$'+formatPrice(Math.round(precioKg*g/1000))+'</b>':'';
+                ?'<span>'+fmtGramos(g)+'</span><b style="color:var(--color-primary);font-size:1.1rem">$'+formatPrice(q&&q.total!=null?q.total:Math.round(precioKg*g/1000))+'</b>':'';
+            if(nota)nota.textContent=(q&&q.nota)||'';
+            /* Llevando mas paga menos: se le dice al cliente y se le ofrece. */
+            if(masEl){
+                if(q&&q.mas&&valido){
+                    masEl.style.display='';
+                    masEl.innerHTML='Llevando <b>'+esc(q.mas.etiqueta)+'</b> pagás $'+formatPrice(q.mas.total)+': menos que por '+esc(q.mas.antes)+' ($'+formatPrice(q.mas.actual)+'). '+
+                        '<button type="button" class="pgt-llevar" style="margin-left:0.3rem;padding:0.3rem 0.7rem;border:1.5px solid var(--color-primary);background:#fff;color:var(--color-primary);font-family:inherit;font-weight:700;border-radius:8px;cursor:pointer">Llevar '+esc(q.mas.etiqueta)+'</button>';
+                    const gMas=q.mas.gramos;
+                    masEl.querySelector('.pgt-llevar').addEventListener('click',()=>{inp.value=String(gMas);pintar();inp.focus();});
+                }else{masEl.style.display='none';masEl.innerHTML='';}
+            }
             /* Aca SI se bloquea si no alcanza: a diferencia del mostrador, el pedido
                web se prepara despues y prometer stock que no hay es peor. */
             avi.textContent=(Number.isFinite(g)&&g>0&&stock&&g>stock)?('Solo quedan '+fmtGramos(stock)+'.'):'';
@@ -572,6 +788,9 @@ function pedirGramosTienda(p){
 
 async function addToCart(id) {
     if(!clienteAuth){requireLoginToBuy();return;}
+    /* Una escala de granel se compra por su grupo: el precio sale de los gramos. */
+    const _pe=productos.find(x=>x.id===id);
+    if(_pe&&_escalasTienda(_pe).length)return addGranelToCart(_principalTienda(_pe).id);
     _acusarCarrito();
     const p=productos.find(x=>x.id===id); if(!p||(p.stock||0)<=0)return;
     /* Sin precio no se vende. La guarda va aca porque es el unico camino comun a
@@ -602,10 +821,10 @@ function updateProductCard(id) {
     const p=productos.find(x=>x.id===id);if(!p)return;
     const card=document.querySelector('.product-card[data-id="'+id+'"]');
     if(!card)return;
-    const ci=carrito.find(i=>i.id===id),qty=ci?ci.cantidad:0;
-    const noStock=(p.stock||0)<=0;
-    const noPrecio=sinPrecio(p);
-    const maxOut=qty>=p.stock;
+    const _ec=_estadoCompra(p),granel=_ec.granel,qty=_ec.qty;
+    const noStock=_ec.noStock;
+    const noPrecio=sinPrecio(p)||_ec.sinPrecioEscala;
+    const maxOut=_ec.maxOut;
     const oldEl=card.querySelector('.add-to-cart-btn');
     if(!oldEl)return;
     let btnContent;
@@ -616,17 +835,17 @@ function updateProductCard(id) {
     }else if(qty===0){
         btnContent='<span class="atc-text"><i class="bi bi-cart-plus"></i> Agregar</span>';
     }else{
-        btnContent='<span class="atc-qty-wrap"><button class="atc-qty-btn" onclick="event.stopPropagation();updateProductQuantity(\''+id+'\',-1)"><i class="bi bi-dash"></i></button><span class="atc-qty-num">'+qty+'</span><button class="atc-qty-btn" onclick="event.stopPropagation();updateProductQuantity(\''+id+'\',1)"'+(maxOut?' disabled':'')+'><i class="bi bi-plus"></i></button></span>';
+        btnContent=_qtyCompraHtml(p,qty,maxOut,granel,'atc','');
     }
     const newTag=qty>0?'div':'button';
     const newEl=document.createElement(newTag);
     newEl.className='add-to-cart-btn'+(qty>0?' added':'');
-    if(newTag==='button'){newEl.disabled=noStock;newEl.setAttribute('onclick',qty===0?'addToCart(\''+id+'\')':'event.stopPropagation()');}
+    if(newTag==='button'){newEl.disabled=noStock;newEl.setAttribute('onclick',qty===0?(granel?'addGranelToCart':'addToCart')+'(\''+id+'\')':'event.stopPropagation()');}
     newEl.innerHTML=btnContent;
     oldEl.parentNode.replaceChild(newEl,oldEl);
 }
-function updateCartItemQuantity(id,ch){const p=productos.find(x=>x.id===id),idx=carrito.findIndex(i=>i.id===id);if(idx===-1)return;const stock=p?p.stock:carrito[idx].cantidad;const nq=carrito[idx].cantidad+ch;if(nq<=0)removeFromCart(id);else if(nq<=stock){carrito[idx].cantidad=nq;saveCart();updateCartUI();updateProductCard(id);}else showToast('Stock máximo: '+(esPesoProd(carrito[idx])?fmtGramos(stock):stock),'error');}
-function removeFromCart(id){const idx=carrito.findIndex(i=>i.id===id);if(idx!==-1){const nm=carrito[idx].nombre;carrito.splice(idx,1);showToast(nm+' eliminado','info');saveCart();updateCartUI();updateProductCard(id);}}
+function updateCartItemQuantity(id,ch){const _li=carrito.find(i=>i.id===id);if(_li&&_li.grupo&&_escalasDelGrupoTienda(productos.find(x=>x.id===_li.grupo)).length)return cambiarGranelCarrito(_li.grupo,ch);const p=productos.find(x=>x.id===id),idx=carrito.findIndex(i=>i.id===id);if(idx===-1)return;const stock=p?p.stock:carrito[idx].cantidad;const nq=carrito[idx].cantidad+ch;if(nq<=0)removeFromCart(id);else if(nq<=stock){carrito[idx].cantidad=nq;saveCart();updateCartUI();updateProductCard(id);}else showToast('Stock máximo: '+(esPesoProd(carrito[idx])?fmtGramos(stock):stock),'error');}
+function removeFromCart(id){const idx=carrito.findIndex(i=>i.id===id);if(idx!==-1){const nm=carrito[idx].nombre,gr=carrito[idx].grupo;carrito.splice(idx,1);showToast(nm+' eliminado','info');saveCart();updateCartUI();updateProductCard(id);if(gr&&gr!==id)updateProductCard(gr);}}
 function saveCart(){try{localStorage.setItem('brotesCart',JSON.stringify(carrito));}catch(e){console.warn('No se pudo guardar el carrito:',e);}}
 function clearCart(){if(carrito.length===0)return;if(!confirm('Vaciar todo el carrito?'))return;const ids=carrito.map(i=>i.id);carrito=[];saveCart();updateCartUI();ids.forEach(id=>updateProductCard(id));showToast('Carrito vaciado','info');}
 
@@ -642,29 +861,32 @@ function openProductDetailModal(id){
     if(Array.isArray(p.imagenes))p.imagenes.forEach(u=>{if(u&&!imgsArr.includes(u))imgsArr.push(u);});
     _pdmImages=imgsArr;
     _pdmCurrentImgIdx=0;
-    const ci=carrito.find(i=>i.id===id),qty=ci?ci.cantidad:0;
-    const noStock=(p.stock||0)<=0;
-    const noPrecio=sinPrecio(p);
-    const maxOut=qty>=p.stock;
+    const _ec=_estadoCompra(p),escT=_ec.escT,granel=_ec.granel,qty=_ec.qty;
+    const noStock=_ec.noStock;
+    const noPrecio=sinPrecio(p)||_ec.sinPrecioEscala;
+    const maxOut=_ec.maxOut;
     const imgsHtml=_pdmImages.length?_pdmImages.map((url,i)=>'<img src="'+esc(optImg(url,800)||url)+'" class="pdm-img'+(i===0?' active':'')+'" data-idx="'+i+'" alt="'+esc(p.nombre)+'" data-orig="'+esc(url||'')+'" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig;}else{this.src=\'img/default-product.svg\';}">').join(''):'<div class="pdm-img-placeholder"><i class="bi bi-image"></i> Sin imagen</div>';
     const carouselNav=_pdmImages.length>1?'<button class="pdm-carousel-btn pdm-prev" onclick="pdmCarouselNav(-1)"><i class="bi bi-chevron-left"></i></button><button class="pdm-carousel-btn pdm-next" onclick="pdmCarouselNav(1)"><i class="bi bi-chevron-right"></i></button><div class="pdm-carousel-dots">'+_pdmImages.map((_,i)=>'<span class="pdm-dot'+(i===0?' active':'')+'" onclick="pdmCarouselGoTo('+i+')"></span>').join('')+'</div>':'';
     let btnContent;
     if(noStock){btnContent='<i class="bi bi-x-circle"></i> Sin stock';}
     else if(qty===0){btnContent='<i class="bi bi-cart-plus"></i> Agregar al carrito';}
-    else{btnContent='<span class="pdm-qty-wrap"><button class="pdm-qty-btn" onclick="event.stopPropagation();updateProductQuantity(\''+id+'\',-1);refreshProductDetailModal(\''+id+'\')"><i class="bi bi-dash"></i></button><span class="pdm-qty-num">'+qty+'</span><button class="pdm-qty-btn" onclick="event.stopPropagation();updateProductQuantity(\''+id+'\',1);refreshProductDetailModal(\''+id+'\')"'+(maxOut?' disabled':'')+'><i class="bi bi-plus"></i></button></span>';}
+    else{btnContent=_qtyCompraHtml(p,qty,maxOut,granel,'pdm','refreshProductDetailModal(\''+id+'\')');}
     const desc=p.descripcion||'';
     const vn=p.valoresNutricionales||p.infoNutricional||p.tablaNutricional||'';
-    const nombreDisplay=p.nombreMostrado||p.nombre;
-    const dscPct=Math.min(100,Math.max(0,p.descuento||0));
+    const nombreDisplay=escT.length?_nombreGrupoTienda(p):(p.nombreMostrado||p.nombre);
+    /* En un granel con escalas, el precio de la escala mas chica y abajo las otras. */
+    const pp=granel?escT[0].producto:p;
+    const dscPct=Math.min(100,Math.max(0,pp.descuento||0));
     const precioRowHtml=dscPct>0
-        ?'<div class="pdm-price-row"><span class="pdm-price product-price-off">$'+formatPrice(Math.round(p.precio*(1-dscPct/100)))+'</span><span class="price-original" style="font-size:1rem">$'+formatPrice(p.precio)+'</span><span style="background:linear-gradient(135deg,#a79066,#8a7856);color:#161616;font-size:0.72rem;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:6px">-'+(p.descuento||0)+'% OFF</span>'+(noStock?'<span class="pdm-stock-tag">Sin stock</span>':'')+'</div>'
-        :'<div class="pdm-price-row"><span class="pdm-price">$'+formatPrice(p.precio)+'</span>'+(noStock?'<span class="pdm-stock-tag">Sin stock</span>':'')+'</div>';
+        ?'<div class="pdm-price-row"><span class="pdm-price product-price-off">$'+formatPrice(Math.round(pp.precio*(1-dscPct/100)))+'</span><span class="price-original" style="font-size:1rem">$'+formatPrice(pp.precio)+'</span><span style="background:linear-gradient(135deg,#a79066,#8a7856);color:#161616;font-size:0.72rem;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:6px">-'+(pp.descuento||0)+'% OFF</span>'+(noStock?'<span class="pdm-stock-tag">Sin stock</span>':'')+'</div>'
+        :'<div class="pdm-price-row"><span class="pdm-price">$'+formatPrice(pp.precio)+'</span>'+(noStock?'<span class="pdm-stock-tag">Sin stock</span>':'')+'</div>';
     /* Gramajes asociados */
     /* El aviso lo da addToCart (y addVarianteToCart al sumar otro). Antes este boton
        mostraba "Agregado" apenas se tocaba, aunque despues se cancelaran los gramos. */
-    const pdmVariantes=_variantesTienda(p);
-    const pdmGramajeHtml=pdmVariantes.length?'<div class="pdm-section"><h4>Presentaciones</h4><div class="gramaje-btns">'+
-        pdmVariantes.map(v=>_btnVariante(v,p,true)).join('')+
+    const pdmVariantes=_variantesTienda(p).filter(v=>!escT.some(e=>e.id===v.id));
+    const pdmBtnGranel=(escT.length&&!granel)?_btnGranel(p,escT,true):'';
+    const pdmGramajeHtml=(pdmVariantes.length||pdmBtnGranel)?'<div class="pdm-section"><h4>Presentaciones</h4><div class="gramaje-btns">'+
+        pdmVariantes.map(v=>_btnVariante(v,p,true)).join('')+pdmBtnGranel+
         '</div></div>':'';
     document.getElementById('productDetailBody').innerHTML=
         '<div class="pdm-carousel">'+imgsHtml+carouselNav+'</div>'+
@@ -672,11 +894,12 @@ function openProductDetailModal(id){
         '<div class="pdm-cat">'+esc(p.categoria||'')+(p.subcategoria?' &middot; '+esc(p.subcategoria):'')+'</div>'+
         '<h2 class="pdm-name">'+esc(nombreDisplay)+'</h2>'+
         precioRowHtml+
+        (granel&&!noPrecio?'<div class="pdm-escalas">'+esc(_escalasTxt(escT))+'</div>':'')+
         pdmGramajeHtml+
         (desc?'<div class="pdm-section"><h4>Descripción</h4><p>'+esc(desc).replace(/\n/g,'<br>')+'</p></div>':'')+
         (vn?'<div class="pdm-section"><h4>Información nutricional</h4><div class="pdm-nutritional">'+esc(vn).replace(/\n/g,'<br>')+'</div></div>':'')+
         (!desc&&!vn?'<div class="pdm-section pdm-no-info"><i class="bi bi-info-circle"></i> Próximamente más información sobre este producto</div>':'')+
-        (qty===0||noStock?'<button class="pdm-add-btn'+(noStock||noPrecio?' disabled':'')+'" id="pdmAddBtn-'+id+'" onclick="'+(qty===0&&!noStock?'addToCart(\''+id+'\');refreshProductDetailModal(\''+id+'\')'  :'event.stopPropagation()')+'"'+(noStock||noPrecio?' disabled':'')+'>'+btnContent+'</button>':'<div class="pdm-add-btn added" id="pdmAddBtn-'+id+'">'+btnContent+'</div>')+
+        (qty===0||noStock?'<button class="pdm-add-btn'+(noStock||noPrecio?' disabled':'')+'" id="pdmAddBtn-'+id+'" onclick="'+(qty===0&&!noStock?(granel?'addGranelToCart':'addToCart')+'(\''+id+'\').then(function(){refreshProductDetailModal(\''+id+'\')})'  :'event.stopPropagation()')+'"'+(noStock||noPrecio?' disabled':'')+'>'+btnContent+'</button>':'<div class="pdm-add-btn added" id="pdmAddBtn-'+id+'">'+btnContent+'</div>')+
         '</div>';
     const footerEl=document.getElementById('productDetailFooter');
     const btnEl=document.getElementById('productDetailBody').querySelector('.pdm-add-btn');
@@ -690,10 +913,10 @@ function refreshProductDetailModal(id){
     const p=productos.find(x=>x.id===id);if(!p)return;
     const btnEl=document.getElementById('pdmAddBtn-'+id)||(document.getElementById('productDetailFooter')&&document.getElementById('productDetailFooter').querySelector('#pdmAddBtn-'+id));
     if(!btnEl)return;
-    const ci=carrito.find(i=>i.id===id),qty=ci?ci.cantidad:0;
-    const noStock=(p.stock||0)<=0;
-    const noPrecio=sinPrecio(p);
-    const maxOut=qty>=p.stock;
+    const _ec=_estadoCompra(p),granel=_ec.granel,qty=_ec.qty;
+    const noStock=_ec.noStock;
+    const noPrecio=sinPrecio(p)||_ec.sinPrecioEscala;
+    const maxOut=_ec.maxOut;
     let btnContent,newEl;
     if(noStock){
         btnContent='<i class="bi bi-x-circle"></i> Sin stock';
@@ -702,9 +925,9 @@ function refreshProductDetailModal(id){
         newEl='<button class="pdm-add-btn" id="pdmAddBtn-'+id+'" onclick="event.stopPropagation()" disabled>'+btnContent+'</button>';
     }else if(qty===0){
         btnContent='<i class="bi bi-cart-plus"></i> Agregar al carrito';
-        newEl='<button class="pdm-add-btn" id="pdmAddBtn-'+id+'" onclick="addToCart(\''+id+'\');refreshProductDetailModal(\''+id+'\')">' +btnContent+'</button>';
+        newEl='<button class="pdm-add-btn" id="pdmAddBtn-'+id+'" onclick="'+(granel?'addGranelToCart':'addToCart')+'(\''+id+'\').then(function(){refreshProductDetailModal(\''+id+'\')})">' +btnContent+'</button>';
     }else{
-        btnContent='<span class="pdm-qty-wrap"><button class="pdm-qty-btn" onclick="event.stopPropagation();updateProductQuantity(\''+id+'\',-1);refreshProductDetailModal(\''+id+'\')"><i class="bi bi-dash"></i></button><span class="pdm-qty-num">'+qty+'</span><button class="pdm-qty-btn" onclick="event.stopPropagation();updateProductQuantity(\''+id+'\',1);refreshProductDetailModal(\''+id+'\')"'+(maxOut?' disabled':'')+'><i class="bi bi-plus"></i></button></span>';
+        btnContent=_qtyCompraHtml(p,qty,maxOut,granel,'pdm','refreshProductDetailModal(\''+id+'\')');
         newEl='<div class="pdm-add-btn added" id="pdmAddBtn-'+id+'">'+btnContent+'</div>';
     }
     btnEl.outerHTML=newEl;
@@ -1064,13 +1287,21 @@ async function confirmCheckout(){
         let pedidoNum=null;
         const cntRef=db.collection('config').doc('pedidosCount');
         let _faltante=null;
+        /* El stock recien leido, para partir el granel por bolsa. */
+        let _stockFresco=null;
 
         if(PEDIDOS.descontarStock){
             const porProd={};
             carrito.forEach(i=>{porProd[i.id]=(porProd[i.id]||0)+i.cantidad;});
             const ids=Object.keys(porProd);
+            /* Un granel con escalas se mira entero: el stock de todas sus bolsas. */
+            const _gruposGr=_gruposGranelCarrito();
+            const _idsGr=[...new Set(_gruposGr.flatMap(g=>g.esc.map(e=>e.id)))].filter(x=>ids.indexOf(x)<0);
             try{
-                const snaps=await Promise.all(ids.map(id=>db.collection('productos').doc(id).get()));
+                const _todosIds=ids.concat(_idsGr);
+                const snaps=await Promise.all(_todosIds.map(id=>db.collection('productos').doc(id).get()));
+                _stockFresco={};
+                snaps.forEach((s,k)=>{if(s.exists)_stockFresco[_todosIds[k]]=Number(s.data().stock||0);});
                 /* Se aprovecha esta misma lectura fresca para comparar tambien el PRECIO.
                    `productos` se baja una sola vez al cargar la pagina y el carrito vive en
                    localStorage: el cliente que deja la pestaña abierta a la mañana y confirma
@@ -1087,14 +1318,20 @@ async function confirmCheckout(){
                        pero con la pestaña abierta eso no vuelve a correr: se podia pedir algo que
                        el comercio ya habia sacado de la tienda. */
                     if(prod.oculto===true||prod.depurado===true){_noDisp.push({id:ids[k],nombre:prod.nombreMostrado||prod.nombre||'un producto'});continue;}
-                    if(disp<porProd[ids[k]]){
-                        _faltante={nombre:prod.nombreMostrado||prod.nombre||'un producto',disponible:disp};
+                    if(!_gruposGr.some(g=>g.linea.id===ids[k])&&disp<porProd[ids[k]]){
+                        _faltante={nombre:prod.nombreMostrado||prod.nombre||'un producto',disponible:disp,tipoVenta:prod.tipoVenta||'unidad'};
                         break;
                     }
                     const _enCarrito=carrito.find(x=>x.id===ids[k]);
                     const _pfFresco=precioFinal({precio:Number(prod.precio||0),descuento:Number(prod.descuento||0)});
                     if(_enCarrito&&_pfFresco!==Number(_enCarrito.precio||0)){
                         _cambios.push({id:ids[k],nombre:prod.nombreMostrado||prod.nombre||'un producto',precio:_pfFresco,precioOriginal:Number(prod.precio||0),descuento:Math.min(100,Math.max(0,Number(prod.descuento||0)))});
+                    }
+                }
+                if(!_faltante){
+                    for(const g of _gruposGr){
+                        const hay=g.esc.reduce((s,e)=>s+Math.max(0,_stockFresco[e.id]!=null?_stockFresco[e.id]:0),0);
+                        if(hay<Number(g.linea.cantidad||0)){_faltante={nombre:g.linea.nombre,disponible:hay,tipoVenta:'peso'};break;}
                     }
                 }
                 if(_noDisp.length){
@@ -1121,7 +1358,7 @@ async function confirmCheckout(){
                 console.warn('No se pudo verificar el stock antes de confirmar:',e);
             }
             if(_faltante){
-                showToast('Nos quedamos sin stock de "'+_faltante.nombre+'" (quedan '+_faltante.disponible+'). Revisa el carrito.','error');
+                showToast('Nos quedamos sin stock de "'+_faltante.nombre+'" (quedan '+(_faltante.tipoVenta==='peso'?fmtGramos(_faltante.disponible):_faltante.disponible)+'). Revisa el carrito.','error');
                 loadProductsFromFirebase();
                 const b=document.getElementById('chkConfirmBtn');
                 if(b){b.disabled=false;b.innerHTML='Confirmar pedido';}
@@ -1177,7 +1414,8 @@ async function confirmCheckout(){
                tiene que descontar al convertirlo en venta, no dar por hecho que ya
                esta hecho. */
             stockDescontado:false,
-            items:carrito.map(i=>({id:i.id,nombre:i.nombre,tipoVenta:i.tipoVenta||'unidad',precio:i.precio,precioOriginal:i.precioOriginal||i.precio,descuento:i.descuento||0,cantidad:i.cantidad,subtotal:subtotalCarrito(i)})),
+            /* Un granel con escalas va partido por bolsa: ver _itemsDelPedido. */
+            items:_itemsDelPedido(_stockFresco),
             subtotalProductos:subtotal,
             envio:envio,
             envioGratis:tipoEntrega==='envio'&&envio===0,
@@ -2002,7 +2240,7 @@ function _renderPedidosCliente() {
             ? NEGOCIO.nroPedido(p.numero)
             : '#' + String(p.numero || 0).padStart(5, '0');
         const fecha = p.creadoEn.toLocaleDateString('es-AR');
-        const items = (p.items || []).map(i => '<div style="font-size:0.8rem;color:#555;padding:1px 0">• '+esc(i.nombre)+' <span style="color:var(--color-text-light)">'+esc(esPesoProd(i)?fmtGramos(i.cantidad):'x'+i.cantidad)+'</span></div>').join('');
+        const items = _itemsParaMostrar(p.items).map(i => '<div style="font-size:0.8rem;color:#555;padding:1px 0">• '+esc(i.nombre)+' <span style="color:var(--color-text-light)">'+esc(esPesoProd(i)?fmtGramos(i.cantidad):'x'+i.cantidad)+'</span></div>').join('');
         const estadoClass = 'estado-' + (p.estado || 'pendiente');
         const estadoLabel = { pendiente: 'Pendiente', confirmado: 'Confirmado', entregado: 'Entregado' }[p.estado] || p.estado;
         return `<div class="pedido-hist-card">
@@ -2030,7 +2268,8 @@ async function repetirPedido(pedidoId) {
     for (const item of (pedido.items || [])) {
         const prod = productos.find(p => p.id === item.id);
         if (!prod) { omitidos.push(item.nombre + ' (ya no existe)'); continue; }
-        if ((prod.stock || 0) <= 0) { omitidos.push(item.nombre + ' (sin stock)'); continue; }
+        const _escR = _escalasTienda(prod);
+        if (_escR.length ? _stockEscalas(_escR) <= 0 : (prod.stock || 0) <= 0) { omitidos.push(item.nombre + ' (sin stock)'); continue; }
         /* Se cobra el precio VIGENTE con su descuento, igual que addToCart. Antes usaba
            prod.precio pelado: un producto con 20% off que la web mostraba a $8.000 entraba
            al carrito a $10.000, o sea que repetir un pedido salia mas caro que armarlo a
@@ -2052,6 +2291,8 @@ async function repetirPedido(pedidoId) {
             imagen: prod.imagen, cantidad: item.cantidad, tipoVenta: modoAhora });
         agregados++;
     }
+    /* Los renglones de un granel (uno por bolsa) vuelven a ser una linea. */
+    _normalizarGranelCarrito();
     saveCart(); updateCartUI();
     closeHistorialModal();
     if (omitidos.length) showToast('Omitidos: ' + omitidos.join(', '), 'error');

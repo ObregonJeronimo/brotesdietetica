@@ -407,6 +407,23 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     t('  ni en uno por peso sin tamaño', cont.hidden === true);
   }
 
+  /* ============================================== EL AVISO DE LOS PEDIDOS WEB */
+  console.log('\n-- el aviso de los pedidos web --');
+  {
+    const w = armar();
+    const web = [{ id: 'y3', nombre: 'Yerba Mate', cantidad: 2300, precio: 7200, escala: '3 kg', escalaId: 'y3' },
+      { id: 'y5', nombre: 'Yerba Mate', cantidad: 700, precio: 7200, escala: '3 kg', escalaId: 'y3' }];
+    t('un pedido web que sacó de otra bolsa: qué, de dónde y la plata (con el costo de cada bolsa)',
+      w.ctx.mezclaDePedido(web) === 'Yerba Mate: se cobró a precio de la escala de 3 kg, y 700 g salen de la bolsa de 5 kg. A favor: se gana $525 más.',
+      w.ctx.mezclaDePedido(web));
+    const contra = [{ id: 'y1', nombre: 'Yerba Mate', cantidad: 1000, precio: 6000, escala: '5 kg', escalaId: 'y5' }];
+    t('  en contra también (1 kg de la bolsa de 1 kg cobrado a precio de 5 kg)', /En contra: se gana \$1\.250 menos\./.test(w.ctx.mezclaDePedido(contra) || ''));
+    t('sin mezcla no avisa', w.ctx.mezclaDePedido([{ id: 'y3', cantidad: 3000, escalaId: 'y3' }]) === null);
+    t('  ni en un pedido sin granel', w.ctx.mezclaDePedido([{ id: 'nuez', cantidad: 250 }]) === null && w.ctx.mezclaDePedido(undefined) === null);
+    t('el tablero de pedidos lo muestra como "Mezcla"', /var _mzPed=\(typeof mezclaDePedido==='function'\)\?mezclaDePedido\(p\.items\):null;/.test(html) &&
+      html.indexOf('<i class="bi bi-shuffle"></i> Mezcla</span>') > 0);
+  }
+
   /* ========================================================= LOS GANCHOS */
   console.log('\n-- los ganchos --');
   const iEsc = html.indexOf('<script src="admin-escalas.js"></script>');

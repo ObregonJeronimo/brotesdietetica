@@ -114,9 +114,12 @@ t('saveVenta() guarda tipoVenta en cada item', /tipoVenta:i\.tipoVenta\|\|'unida
    (buildEtiquetaFooter y buildFacturaA4Items leen it.subtotal), asi que el
    comprobante impreso mostraba el granel x1000 aunque el TOTAL estuviera bien. */
 console.log('\nLa tienda guarda el subtotal de cada item del pedido');
-const mapItems = (app.match(/items:carrito\.map\([^\n]*?\)\),/) || [''])[0];
-t('encontre el map de items del checkout', mapItems.length > 0);
-t('usa subtotalCarrito(i), que sabe de gramos', /subtotal:subtotalCarrito\(i\)/.test(mapItems),
+/* Desde las escalas de granel (25/09/2026) los renglones los arma _itemsDelPedido: un
+   granel con escalas va partido por bolsa, cada renglon con su subtotal. */
+const mapItems = cuerpo('_itemsDelPedido', app);
+t('encontre donde se arman los items del checkout', mapItems.length > 0 && /items:_itemsDelPedido\(/.test(app));
+t('usa subtotalCarrito, que sabe de gramos (tambien en los renglones de cada bolsa)',
+  /subtotal:subtotalCarrito\(i\)/.test(mapItems) && /it\.subtotal=subtotalCarrito\(it\)/.test(mapItems),
   mapItems.slice(0, 200));
 t('ya no multiplica derecho', !/subtotal:i\.precio\*i\.cantidad/.test(mapItems));
 t('sigue guardando tipoVenta en el item', /tipoVenta:i\.tipoVenta\|\|'unidad'/.test(mapItems));

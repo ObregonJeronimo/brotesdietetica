@@ -426,6 +426,44 @@ _escEnvolver('removeVentaMayItem', () => ventaMayItems, g => quitarGranel(g, 'ma
 _escEnvolver('setVentaItemDsc', () => ventaItems, (g, id, val) => descuentoGranel(g, id, val, 'min'));
 _escEnvolver('setVentaMayItemDsc', () => ventaMayItems, (g, id, val) => descuentoGranel(g, id, val, 'may'));
 
+/* ----------------------------------------------------- LOS PEDIDOS WEB */
+/* La tienda parte el granel por bolsa y marca cada renglón con la escala que se cobró
+   (escalaId). Si alguno salió de otra bolsa, el texto para el aviso del tablero de
+   pedidos, con lo que se gana de más o de menos según el costo de cada bolsa. Al
+   cliente no se le dice nada: los costos no salen del panel. null si no hubo mezcla. */
+function mezclaDePedido(items) {
+  const prods = _escProds();
+  const porCobro = new Map();
+  (items || []).forEach(i => {
+    if (!i || !i.escalaId) return;
+    const l = porCobro.get(i.escalaId) || [];
+    l.push(i);
+    porCobro.set(i.escalaId, l);
+  });
+  const textos = [];
+  porCobro.forEach((lineas, cobraId) => {
+    const otras = lineas.filter(i => i.id !== cobraId);
+    if (!otras.length) return;
+    const cobraP = prods.find(x => x.id === cobraId);
+    const etq = p => (p ? (typeof etiquetaVariante === 'function' ? etiquetaVariante(p) : (p.gramaje || p.nombre)) : '?');
+    const partes = otras.map(i => {
+      const u = prods.find(x => x.id === i.id);
+      return { i: i, u: u, costo: u ? Number(u.costo || 0) : 0 };
+    });
+    let txt = (lineas[0].nombre || (cobraP && cobraP.nombre) || '') + ': se cobró a precio de la escala de ' +
+      (lineas[0].escala || etq(cobraP)) + ', y ' +
+      partes.map(x => _escPeso(Number(x.i.cantidad || 0)) + ' salen de la bolsa de ' + etq(x.u)).join(' y ') + '.';
+    const cT = cobraP ? Number(cobraP.costo || 0) : 0;
+    if (cT > 0 && partes.every(x => x.costo > 0)) {
+      const dif = partes.reduce((s, x) => s + Math.round((cT - x.costo) * Number(x.i.cantidad || 0) / 1000), 0);
+      if (dif > 0) txt += ' A favor: se gana ' + _escPlata(dif) + ' más.';
+      else if (dif < 0) txt += ' En contra: se gana ' + _escPlata(-dif) + ' menos.';
+    }
+    textos.push(txt);
+  });
+  return textos.length ? textos.join(' ') : null;
+}
+
 /* ------------------------------------------------ EL COSTO DE LA BOLSA */
 /* El costo de un producto por peso es por kilo, pero lo que está a mano es la
    factura: "la bolsa de 3 kg me salió $2.600". Se carga eso y el costo por kilo sale
