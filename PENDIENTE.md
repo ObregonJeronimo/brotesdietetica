@@ -593,6 +593,10 @@ apagan solas.** No se tocó la base.
 
 ### C) Que el agrupamiento de gramajes ande en Brotes · NO EMPEZADO
 
+> **Lo reemplaza K** (variantes, 25/09/2026): los tamaños del mismo producto ya se muestran
+> juntos, en la tienda y en la venta. Lo que queda de C es la migración de los grupos de
+> YERCO, que es la etapa 4 de K y no se hace hasta que el dueño lo pida.
+
 La migración copia `grupoId`, `grupoMascara`, `grupoOrden` y `grupoPrincipal` de los 658
 productos que los tienen, pero **en Brotes esos campos no los lee nadie** (0 usos en
 `admin.html`, `app.js` y los 8 módulos). En YERCO sí: 11 usos en el panel, 19 en la tienda y
@@ -956,6 +960,43 @@ son kilos o bultos, así que la cantidad y el costo van a mano"*.
 
 **Queda por mirar:** si en producción ya entró alguna compra así. Se revisa comparando las
 compras de productos a granel cargadas desde un remito contra el papel.
+
+### K) Variantes: presentaciones, escalas de granel y cajas cerradas · **HECHO EN EL SANDBOX, SIN SUBIR** (25/09/2026)
+
+Pedido del comercio (24/09): un producto que viene en varios tamaños es UNO —una tarjeta en
+la tienda, una fila en la venta— y cada tamaño tiene su costo, su ganancia y su stock.
+- **Etapa 1, presentaciones:** maní x 80 g y x 160 g, alfajor x1 y x12. Si falta una, la
+  venta ofrece la que la cubre (dos de 80 g en vez de una de 160 g).
+- **Etapa 2, escalas de granel:** yerba en bolsas de 1, 3 y 5 kg; se cobra la escala más
+  grande que no supera lo que se lleva, avisa si llevando más paga menos, y el stock sale de
+  la bolsa de la escala, después de la siguiente y después de la anterior, avisando la mezcla.
+- **Etapa 3, caja cerrada:** la caja se cobra a precio mayorista; los sueltos, a precio normal.
+- **Etapa 4, migrar los grupos de YERCO:** **no se hace** hasta que el dueño lo pida.
+- **El formulario:** con más de un tamaño, la tabla "Costo y precio de cada bolsa" es el
+  único lugar de carga (lo de arriba se esconde).
+- **La venta avisa al vender más de lo que hay en stock**, para cualquier producto.
+
+Está en commits locales, probado en el sandbox; **no se subió**. Pruebas: 2877 en 69 suites.
+
+**Al subirlo** (solo cuando lo pida el dueño, y con la clienta sin usar el sistema):
+- desplegar las functions `registrarCambioDeCosto` y `descontarStockPedido` (esta cambió: compara
+  contra la escala que se cobró y la caja cerrada contra el mayorista);
+- backfill de `costoActualizadoEn` para el momento de la subida;
+- si se decide el pendiente 1 de abajo, desplegar también las reglas.
+
+**Pendientes (anotados el 25/09/2026):**
+
+1. **Los pedidos telefónicos no se pueden crear desde el panel.** `firestore.rules` solo deja
+   crear pedidos web (`origen == 'web'` y el `clienteAuthUid` de quien escribe); el admin tiene
+   `update, delete` pero no `create`, así que "Nuevo pedido" da PERMISSION_DENIED. Está así desde el
+   primer commit (11/08); en producción había 0 pedidos, así que no afectó a nadie. Arreglo
+   propuesto: `allow create: if isAdmin();` en `/pedidos` y desplegar las reglas. **Decisión tuya.**
+2. **Convertir un pedido web cambiando cantidades no mueve el stock.** Si el pedido ya
+   descontó (la tienda y el servidor), la venta no descuenta nada: la diferencia entre lo
+   pedido y lo vendido no se suma ni se resta. Viene de antes de las variantes.
+3. **Un granel que sale de dos bolsas puede diferir en $1 del total.** Cada renglón se
+   redondea por separado (precio × gramos de su bolsa), y la suma puede diferir en $1 del
+   total que vio el cliente o el diálogo de gramos.
 
 ## 2. Decisiones tuyas
 
