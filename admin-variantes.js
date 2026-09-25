@@ -436,6 +436,7 @@ function iniciarVariantesForm(p, pesoForm) {
         pct: Number(v.porcentaje || 0),
         pctMay: Number(v.porcentajeMayorista || 0),
         stock: Number(v.stock || 0),
+        dsc: Number(v.descuento || 0),
         oculto: v.oculto === true,
         caja: v.cajaCerrada === true,
         tocado: {},
@@ -456,20 +457,41 @@ function _calcFilaVar(f, peso) {
   return { costo: costo, c: c, precio: Math.round(costo * (1 + pct / 100)), may: _varMay(Math.round(costo * (1 + pctMay / 100))) };
 }
 
-function _resFilaVar(r, peso, caja) {
+function _resFilaVar(r, peso, caja, dsc) {
   if (r.costo === null) {
     const sinTam = !r.c || (peso && r.c.unidad !== 'g');
     return '<span class="vfe-falta">' + (sinTam ? (peso ? 'Poné de cuánto es la bolsa.' : 'Poné el tamaño.') : 'Poné el costo.') + '</span>';
   }
+  /* Con descuento (una oferta), lo que paga el cliente: sobre el precio que se cobra. */
+  const d = _varDsc(dsc);
+  const oferta = base => (d > 0 ? '<span class="vfe-oferta">Con el ' + d + '% de descuento: $' +
+    Math.round(base * (1 - d / 100)).toLocaleString('es-AR') + (peso ? ' el kilo' : '') + '</span>' : '');
   /* Una caja cerrada se cobra al mayorista: eso es lo que se dice primero. */
   if (caja && !peso) {
     return '<span>Se cobra <b>$' + r.may.toLocaleString('es-AR') + '</b> (caja cerrada, precio mayorista)</span>' +
-      '<span>Precio de lista $' + r.precio.toLocaleString('es-AR') + '</span>';
+      oferta(r.may) + '<span>Precio de lista $' + r.precio.toLocaleString('es-AR') + '</span>';
   }
   const kg = peso ? ' el kilo' : '';
   return (peso ? '<span>Costo $' + r.costo.toLocaleString('es-AR') + ' el kilo</span>' : '') +
-    '<span>Precio <b>$' + r.precio.toLocaleString('es-AR') + '</b>' + kg + '</span>' +
+    '<span>Precio <b>$' + r.precio.toLocaleString('es-AR') + '</b>' + kg + '</span>' + oferta(r.precio) +
     '<span class="vfe-may">Mayorista $' + r.may.toLocaleString('es-AR') + kg + '</span>';
+}
+/* El descuento de una fila: de 0 a 100, entero, como el del formulario. */
+function _varDsc(v) { return Math.min(100, Math.max(0, parseInt(v, 10) || 0)); }
+function _varLimpiarDsc(inp) {
+  if (!inp) return;
+  let v = String(inp.value == null ? '' : inp.value).replace(/[^0-9]/g, '').slice(0, 3);
+  if (v && Number(v) > 100) v = '100';
+  if (v !== inp.value) inp.value = v;
+}
+/* Los tres porcentajes de una fila: ganancia, mayorista y descuento. */
+function _pctsFilaHtml(f, ev) {
+  return '<label class="vfe-campo vfe-pct"><span>% ganancia</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pct) +
+      '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pct') + '"></label>' +
+    '<label class="vfe-campo vfe-pctmay"><span>% mayorista</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pctMay) +
+      '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pctMay') + '"></label>' +
+    '<label class="vfe-campo vfe-dsc"><span>% oferta</span><input type="text" inputmode="numeric" class="form-input" value="' + _varAttr(f.dsc || 0) +
+      '" oninput="_varLimpiarDsc(this);' + ev('dsc') + '"></label>';
 }
 
 function _filaVarHtml(f, i, peso) {
@@ -486,13 +508,9 @@ function _filaVarHtml(f, i, peso) {
         ? '<button type="button" class="vfe-btn" title="Abrir su ficha (lo que no guardaste acá se pierde)" onclick="closeModal();openModal(\'' + _varAttr(f.id) + '\')"><i class="bi bi-box-arrow-up-right"></i></button>'
         : '<button type="button" class="vfe-btn" title="Quitar" onclick="varFilaQuitar(' + i + ')"><i class="bi bi-x-lg"></i></button>') +
     '</div>' +
-    '<div class="vfe-fila">' +
-      /* Hasta 999%: ver limpiarPorcentaje en admin.html. */
-      '<label class="vfe-campo vfe-pct"><span>% ganancia</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pct) +
-        '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pct') + '"></label>' +
-      '<label class="vfe-campo vfe-pctmay"><span>% mayorista</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pctMay) +
-        '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pctMay') + '"></label>' +
-      '<div class="vfe-res">' + _resFilaVar(_calcFilaVar(f, peso), peso, f.caja) + '</div>' +
+    /* Hasta 999%: ver limpiarPorcentaje en admin.html. */
+    '<div class="vfe-fila">' + _pctsFilaHtml(f, ev) +
+      '<div class="vfe-res">' + _resFilaVar(_calcFilaVar(f, peso), peso, f.caja, f.dsc) + '</div>' +
     '</div>' +
     (peso ? '' : '<label class="vfe-caja"><input type="checkbox"' + (f.caja ? ' checked' : '') +
       ' onchange="varFilaCambio(' + i + ',\'caja\',this.checked)"> <span>Caja cerrada: en el mostrador y en la tienda se cobra el precio mayorista</span></label>') +
@@ -503,10 +521,12 @@ function _filaVarHtml(f, i, peso) {
 /* ------------------------------------------ LA PRIMERA FILA: ESTE PRODUCTO
    Pedido del comercio (25/09/2026): "Este producto es la bolsa de ___ kg" no se
    entendía. La bolsa de 1 kg se cargaba como una fila más y al guardar decía "Hay dos
-   del mismo tamaño". Ahora la tabla muestra TODAS las bolsas (o presentaciones) y la
-   primera es este producto: sus campos son los de arriba (Gramaje / Presentación,
-   Costo, Stock, % ganancia, % mayorista y la caja cerrada), escritos en los dos
-   sentidos. No se guarda aparte: la guarda saveProduct con el resto del formulario. */
+   del mismo tamaño". Y con la primera fila y los campos de arriba a la vista a la vez,
+   tampoco: unos se copiaban y otros no. Ahora, con más de un tamaño, la tabla es el
+   ÚNICO lugar donde se cargan (ver pintarModoTamanos): la primera fila es este
+   producto, y por dentro escribe en los campos de siempre (Gramaje / Presentación,
+   Costo, Stock, % ganancia, % mayorista, Descuento y la caja cerrada), que quedan
+   escondidos. Así saveProduct lo guarda como siempre. */
 
 /* Pone un valor en un campo de arriba y avisa como si se hubiera escrito ahí: su
    oninput recalcula los precios. */
@@ -538,18 +558,26 @@ function _valoresPpal(peso) {
   const cb = document.getElementById('pCajaCerrada');
   const listo = costo > 0 && (!peso || bolsaOk);
   return {
-    tam: tam, costoIn: costoIn, stock: val('pStock'), pct: pct, pctMay: pctMay, caja: !!(cb && cb.checked),
+    tam: tam, costoIn: costoIn, stock: val('pStock'), pct: pct, pctMay: pctMay, dsc: val('pDescuento'),
+    caja: !!(cb && cb.checked), costoKg: costo, bolsaOk: bolsaOk,
     r: listo
       ? { costo: costo, c: c, precio: Math.round(costo * (1 + (Number(pct) || 0) / 100)), may: _varMay(Math.round(costo * (1 + (Number(pctMay) || 0) / 100))) }
       : { costo: null, c: (peso && !bolsaOk) ? null : c },
   };
+}
+/* Lo que dice la primera fila. Si ya hay costo por kilo pero falta el tamaño de la
+   bolsa (se cargó el producto como siempre y después se agregó otra bolsa), se dice. */
+function _resPpal(v, peso) {
+  if (peso && !v.bolsaOk && v.costoKg > 0) {
+    return '<span class="vfe-falta">Tenés $' + v.costoKg.toLocaleString('es-AR') + ' el kilo: poné de cuánto es esta bolsa.</span>';
+  }
+  return _resFilaVar(v.r, peso, v.caja, v.dsc);
 }
 
 function _filaPpalHtml(peso) {
   const v = _valoresPpal(peso);
   const ev = campo => 'varPpalCambio(\'' + campo + '\',this)';
   return '<div class="vfe vfe-ppal">' +
-    '<div class="vfe-cab"><span class="vfe-tag">Este producto</span><span>lo mismo que cargaste arriba</span></div>' +
     '<div class="vfe-fila">' +
       '<label class="vfe-campo vfe-tam"><span>' + (peso ? 'Bolsa de' : 'Tamaño') + '</span>' +
         _tamWidgetHtml(v.tam, peso, 'varTamPrincipal(this)', peso ? 'ej. 1' : 'ej. 80', ' id="pVarTam"') + '</label>' +
@@ -560,12 +588,8 @@ function _filaPpalHtml(peso) {
         '<input type="number" class="form-input" value="' + _varAttr(v.stock) + '" step="1" oninput="' + ev('stock') + '"></label>' +
       '<span class="vfe-hueco"></span>' +
     '</div>' +
-    '<div class="vfe-fila">' +
-      '<label class="vfe-campo vfe-pct"><span>% ganancia</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(v.pct) +
-        '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pct') + '"></label>' +
-      '<label class="vfe-campo vfe-pctmay"><span>% mayorista</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(v.pctMay) +
-        '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pctMay') + '"></label>' +
-      '<div class="vfe-res">' + _resFilaVar(v.r, peso, v.caja) + '</div>' +
+    '<div class="vfe-fila">' + _pctsFilaHtml(v, ev) +
+      '<div class="vfe-res">' + _resPpal(v, peso) + '</div>' +
     '</div>' +
     (peso ? '' : '<label class="vfe-caja"><input type="checkbox"' + (v.caja ? ' checked' : '') + ' onchange="' + ev('caja') + '">' +
       ' <span>Caja cerrada: en el mostrador y en la tienda se cobra el precio mayorista</span></label>') +
@@ -588,6 +612,7 @@ function varPpalCambio(campo, el) {
   } else if (campo === 'stock') _varPonerArriba('pStock', el.value);
   else if (campo === 'pct') _varPonerArriba('pPorcentaje', el.value);
   else if (campo === 'pctMay') _varPonerArriba('pPorcentajeMay', el.value);
+  else if (campo === 'dsc') _varPonerArriba('pDescuento', el.value);
   else if (campo === 'caja') {
     const cb = document.getElementById('pCajaCerrada');
     if (cb) { cb.checked = !!el.checked; if (typeof pintarCajaCerrada === 'function') pintarCajaCerrada(); }
@@ -610,13 +635,49 @@ function pintarFilaPpal() {
   poner('.vfe-stock input', v.stock);
   poner('.vfe-pct input', v.pct);
   poner('.vfe-pctmay input', v.pctMay);
+  poner('.vfe-dsc input', v.dsc);
   const cb = fila.querySelector('.vfe-caja input');
   if (cb) cb.checked = v.caja;
   const res = fila.querySelector('.vfe-res');
-  if (res) res.innerHTML = _resFilaVar(v.r, peso, v.caja);
+  if (res) res.innerHTML = _resPpal(v, peso);
 }
 
 function pintarVariantesForm() {
+  _pintarVariantes();
+  pintarModoTamanos();
+  /* Con la tabla a la vista, lo que costó la bolsa de este producto va en su primera
+     fila: el "¿Tenés lo que costó la bolsa?" de arriba no va (admin-escalas.js). */
+  if (typeof pintarCostoBolsa === 'function') pintarCostoBolsa();
+}
+
+/* EL MODO TAMAÑOS. Con un solo tamaño, el formulario de siempre, y abajo el botón para
+   agregar otra bolsa (o presentación). Con más de uno, la tabla tiene TODO lo de cada
+   tamaño -también el de este producto, en la primera fila- y se esconde lo de arriba
+   que es de un tamaño: Gramaje / Presentación, Stock, Costo y precio, y Precio
+   mayorista. Pedido del comercio (25/09/2026): con los dos a la vista no se entendía
+   cuál mandaba. */
+function enModoTamanos() {
+  return !!((window._varFilas || []).length && !window._varHijo && !window._varianteDeNueva);
+}
+function pintarModoTamanos() {
+  const modo = enModoTamanos();
+  ['pGramajeWrap', 'pStockWrap', 'pCostoSec', 'pMayoristaSec'].forEach(id => {
+    const e = document.getElementById(id);
+    if (e && e.style) e.style.display = modo ? 'none' : '';
+  });
+  /* El costo es obligatorio, pero escondido el navegador no puede marcarlo y "Guardar"
+     no haría nada. Con la tabla lo revisa faltaPresentacionDeVariante. */
+  const c = document.getElementById('pCosto');
+  if (c) c.required = !modo;
+  /* "Cómo se vende y stock": con la tabla, el stock va en cada fila. */
+  const sw = document.getElementById('pStockWrap');
+  const sec = sw && sw.closest ? sw.closest('.precio-section') : null;
+  const tt = sec ? sec.querySelector('.precio-section-title') : null;
+  const texto = tt && tt.childNodes ? Array.prototype.slice.call(tt.childNodes).reverse().find(x => x.nodeType === 3) : null;
+  if (texto) texto.textContent = modo ? ' Cómo se vende' : ' Cómo se vende y stock';
+}
+
+function _pintarVariantes() {
   const el = document.getElementById('pVariantes');
   if (!el) return;
   const peso = _varEsPeso();
@@ -639,18 +700,24 @@ function pintarVariantesForm() {
     return;
   }
   const filas = window._varFilas || [];
-  /* Con otras filas, la tabla las muestra TODAS y la primera es este producto (ver
-     _filaPpalHtml). Sin otras, la sección es la explicación y el botón. */
-  let h = '<p class="var-ayuda">' + (peso
-    ? 'Si comprás este producto en bolsas de distinto tamaño, cargá cada una con lo que te costó y su ganancia. ' +
-      'Al vender, el precio sale solo de la cantidad: con 3 kg o más se cobra el de la bolsa de 3 kg.'
-    : 'Si el mismo producto viene en otros tamaños (maní x 80 g y x 160 g), cargá cada uno con su costo y su ganancia. ' +
-      'En la venta y en la tienda se ven como un solo producto.') +
-    (filas.length ? (peso ? ' La primera bolsa es este producto: lo mismo que cargaste arriba.'
-      : ' La primera es este producto: lo mismo que cargaste arriba.') : '') + '</p>';
-  if (filas.length) h += '<div class="var-filas">' + _filaPpalHtml(peso) + filas.map((f, i) => _filaVarHtml(f, i, peso)).join('') + '</div>';
-  h += '<button type="button" class="btn btn-secondary btn-sm var-agregar" onclick="varFilaAgregar()"><i class="bi bi-plus-lg"></i> ' +
-    (peso ? 'Agregar bolsa' : 'Agregar presentación') + '</button>';
+  let h;
+  if (filas.length) {
+    /* Varios tamaños: la tabla con todos, este producto primero. */
+    if (tit) tit.textContent = peso ? 'Costo y precio de cada bolsa' : 'Costo y precio de cada presentación';
+    h = '<p class="var-ayuda">' + (peso
+      ? 'Cada bolsa con lo que te costó, su ganancia y su stock. Al vender, el precio sale solo de la cantidad: con 3 kg o más se cobra el de la bolsa de 3 kg.'
+      : 'Cada presentación con su costo, su ganancia y su stock. En la venta y en la tienda se ven como un solo producto.') + '</p>';
+    h += '<div class="var-filas">' + _filaPpalHtml(peso) + filas.map((f, i) => _filaVarHtml(f, i, peso)).join('') + '</div>';
+    h += '<button type="button" class="btn btn-secondary btn-sm var-agregar" onclick="varFilaAgregar()"><i class="bi bi-plus-lg"></i> ' +
+      (peso ? 'Agregar bolsa' : 'Agregar presentación') + '</button>';
+  } else {
+    /* Un solo tamaño: el formulario de siempre, y la invitación. */
+    h = '<p class="var-ayuda">' + (peso
+      ? '¿Lo comprás en bolsas de distinto tamaño (1 kg, 3 kg, 5 kg)? Agregá las otras, cada una con lo que te costó y su ganancia: al vender, el precio sale solo según la cantidad.'
+      : '¿Viene en otros tamaños (maní x 80 g y x 160 g)? Agregá los otros, cada uno con su costo y su ganancia: en la venta y en la tienda se ven como un solo producto.') + '</p>';
+    h += '<button type="button" class="btn btn-secondary btn-sm var-agregar" onclick="varFilaAgregar()"><i class="bi bi-plus-lg"></i> ' +
+      (peso ? 'Agregar otra bolsa' : 'Agregar otra presentación') + '</button>';
+  }
   /* Las de la otra forma de venta (un paquete de 500 g de un granel) no se editan acá:
      se nombran, con su ficha a un toque. */
   const pid = _varPrincipalActual();
@@ -665,9 +732,6 @@ function pintarVariantesForm() {
       'Cargar una con su propio formulario (otro nombre, otra forma de venta, foto o código de barras)</button>';
   }
   el.innerHTML = h;
-  /* Con la tabla a la vista, lo que costó la bolsa de este producto va en su primera
-     fila: el "¿Tenés lo que costó la bolsa?" de arriba se esconde (admin-escalas.js). */
-  if (typeof pintarCostoBolsa === 'function') pintarCostoBolsa();
 }
 
 /* Escribir en una fila: se guarda y se recalculan sus precios, sin repintar la sección
@@ -679,14 +743,14 @@ function varFilaCambio(i, campo, valor) {
   f.tocado = f.tocado || {};
   f.tocado[campo] = true;
   const res = document.querySelector('#pVariantes .vfe[data-i="' + i + '"] .vfe-res');
-  if (res) res.innerHTML = _resFilaVar(_calcFilaVar(f, _varEsPeso()), _varEsPeso(), f.caja);
+  if (res) res.innerHTML = _resFilaVar(_calcFilaVar(f, _varEsPeso()), _varEsPeso(), f.caja, f.dsc);
 }
 
 /* Una fila nueva, con la ganancia y el mayorista del producto de arriba. */
 function varFilaAgregar() {
   const filas = window._varFilas || (window._varFilas = []);
   const val = id => { const e = document.getElementById(id); return e ? e.value : ''; };
-  filas.push({ id: null, tam: '', costoIn: '', pct: Number(val('pPorcentaje')) || 0, pctMay: Number(val('pPorcentajeMay')) || 0, stock: 0, tocado: {} });
+  filas.push({ id: null, tam: '', costoIn: '', pct: Number(val('pPorcentaje')) || 0, pctMay: Number(val('pPorcentajeMay')) || 0, stock: 0, dsc: 0, tocado: {} });
   pintarVariantesForm();
   /* Si este producto todavía no dice de cuánto es, primero eso: la primera fila. */
   setTimeout(() => {
@@ -882,7 +946,7 @@ function datosCajaCerrada(data, id) {
   /* El costo por kilo escrito a mano arriba manda sobre lo que costó la bolsa. */
   const pc = document.getElementById('pCosto');
   if (pc) pc.addEventListener('input', () => { if (!window._varPpalEscribiendo) window._varPpalBolsa = null; pintarFilaPpal(); });
-  ['pStock', 'pPorcentaje', 'pPorcentajeMay'].forEach(id => {
+  ['pStock', 'pPorcentaje', 'pPorcentajeMay', 'pDescuento'].forEach(id => {
     const e = document.getElementById(id);
     if (e) e.addEventListener('input', pintarFilaPpal);
   });
@@ -904,7 +968,7 @@ function faltaPresentacionDeVariante() {
   const cb = document.getElementById('pCajaCerrada');
   if (cb && cb.checked && !_varEsPeso() && !((Number((document.getElementById('pPorcentajeMay') || {}).value) || 0) > 0)) {
     aviso('Una caja cerrada se cobra al precio mayorista: poné el % mayorista (con 0 se vendería al costo).');
-    const m = document.getElementById('pPorcentajeMay');
+    const m = enModoTamanos() ? document.querySelector('#pVariantes .vfe-ppal .vfe-pctmay input') : document.getElementById('pPorcentajeMay');
     if (m) m.focus();
     return true;
   }
@@ -916,19 +980,30 @@ function faltaPresentacionDeVariante() {
     return true;
   }
   const filas = window._varFilas || [];
-  if (!filas.some(f => !f.id || Object.keys(f.tocado || {}).length)) return false;
   const peso = _varEsPeso();
   const que = peso ? 'bolsa' : 'presentación';
   const g = document.getElementById('pGramaje'), n = document.getElementById('pNombre');
   const foco = (i, sel) => { const e = document.querySelector('#pVariantes .vfe[data-i="' + i + '"] ' + sel); if (e) e.focus(); };
   const cp = contenidoDeVariante({ gramaje: g ? g.value : '', nombre: n ? n.value : '' });
-  if (!cp || (peso && cp.unidad !== 'g')) {
-    aviso(peso ? 'Poné de cuánto es la bolsa de este producto (ej. 1 kg): es la primera fila, la que dice "Este producto".'
-      : 'Poné el tamaño de este producto (ej. 80 g): es la primera fila, la que dice "Este producto".');
+  const faltaTam = () => {
+    aviso(peso ? 'Poné de cuánto es la primera bolsa (ej. 1 kg).' : 'Poné el tamaño de la primera presentación (ej. 80 g).');
     const t = document.getElementById('pVarTam');
     if (t) t.focus();
     return true;
+  };
+  /* Con varios tamaños lo de arriba está escondido: este producto se revisa en su fila,
+     la primera, aunque no se haya tocado ninguna otra. */
+  if (enModoTamanos()) {
+    if (!cp || (peso && cp.unidad !== 'g')) return faltaTam();
+    if (!(_varMonto((document.getElementById('pCosto') || {}).value) > 0)) {
+      aviso(peso ? 'Poné lo que costó la primera bolsa.' : 'Poné el costo de la primera presentación.');
+      const e = document.querySelector('#pVariantes .vfe-ppal .vfe-costo input');
+      if (e) e.focus();
+      return true;
+    }
   }
+  if (!filas.some(f => !f.id || Object.keys(f.tocado || {}).length)) return false;
+  if (!cp || (peso && cp.unidad !== 'g')) return faltaTam();
   const vistos = new Set([cp.unidad + cp.valor]);
   for (let i = 0; i < filas.length; i++) {
     const f = filas[i];
@@ -981,7 +1056,7 @@ async function guardarVariantesForm(principalId, data) {
         const nuevo = {
           nombre: _nombreConTam(base, tam), nombreMostrado: null, gramaje: tam, codigoBarras: null,
           costo: r.costo, porcentaje: Number(f.pct) || 0, precio: r.precio,
-          porcentajeMayorista: Number(f.pctMay) || 0, precioMayorista: r.may, descuento: 0,
+          porcentajeMayorista: Number(f.pctMay) || 0, precioMayorista: r.may, descuento: _varDsc(f.dsc),
           stock: parseInt(f.stock, 10) || 0,
           categoria: data.categoria || '', subcategoria: data.subcategoria || null,
           descripcion: data.descripcion || '', valoresNutricionales: data.valoresNutricionales || '',
@@ -1015,6 +1090,7 @@ async function guardarVariantesForm(principalId, data) {
         upd.precioMayorista = _varMay(Math.round(costo * (1 + pctMay / 100)));
       }
       if (t.stock) upd.stock = parseInt(f.stock, 10) || 0;
+      if (t.dsc && _varDsc(f.dsc) !== Number(old.descuento || 0)) upd.descuento = _varDsc(f.dsc);
       if (t.caja && !peso && (!!f.caja) !== (old.cajaCerrada === true)) upd.cajaCerrada = !!f.caja;
       if (t.tam && tam && tam !== (old.gramaje || '')) {
         upd.gramaje = tam;

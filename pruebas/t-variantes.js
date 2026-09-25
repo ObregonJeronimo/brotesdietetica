@@ -75,7 +75,7 @@ function armar(opts) {
     escuchas: {}, addEventListener(tp, fn) { (this.escuchas[tp] = this.escuchas[tp] || []).push(fn); },
     dispatchEvent(e) { (this.escuchas[e && e.type] || []).forEach(fn => fn(e)); } });
   ['pVariantes', 'pNombre', 'pDescripcion', 'pPorcentaje', 'pPorcentajeMay', 'pCategoria', 'pSubcategoria', 'pLista', 'pGramaje', 'modalTitle',
-    'pCosto', 'pStock', 'pCajaCerrada'].forEach(campo);
+    'pCosto', 'pStock', 'pCajaCerrada', 'pDescuento', 'pVariantesTitulo', 'pGramajeWrap', 'pStockWrap', 'pCostoSec', 'pMayoristaSec'].forEach(campo);
   const cuerpoPag = [];
   const escuchas = [];
   const document = {
@@ -345,7 +345,7 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  el tamaño se escribe con número y la unidad al lado (una presentación elige g, kg, ml, l o unidades)',
       h.indexOf('limpiarNumeroTam(this);varFilaTam(0,this)') > 0 && (h.match(/class="vfe-unisel"/g) || []).length === 4 && h.indexOf('>unid.</option>') > 0);
     t('  la primera fila es este producto, antes que las otras', h.indexOf('class="vfe vfe-ppal"') > 0 &&
-      h.indexOf('class="vfe vfe-ppal"') < h.indexOf('class="vfe" data-i="0"') && h.indexOf('>Este producto</span>') > 0);
+      h.indexOf('class="vfe vfe-ppal"') < h.indexOf('class="vfe" data-i="0"'));
     t('  el stock dice (unitario), en la de este producto y en las otras tres', (h.match(/Stock \(unitario\)/g) || []).length === 4);
     t('  y los % no pasan de 999 (limpiarPorcentaje)', (h.match(/limpiarPorcentaje\(this\)/g) || []).length === 8);
     t('  una que ya existe se abre, no se quita desde acá', h.indexOf("openModal('mani160')") > 0 && h.indexOf('varFilaQuitar(0)') < 0);
@@ -372,7 +372,7 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     const w = armar({ tipo: 'peso' });
     w.ctx.openModal();
     t('por peso, la sección habla de bolsas; sin otras, es la explicación y el botón (sin tabla)',
-      w.porId.pVariantes.innerHTML.indexOf('Agregar bolsa') > 0 && w.porId.pVariantes.innerHTML.indexOf('vfe-ppal') < 0 &&
+      w.porId.pVariantes.innerHTML.indexOf('Agregar otra bolsa') > 0 && w.porId.pVariantes.innerHTML.indexOf('vfe-ppal') < 0 &&
       w.porId.pVariantes.innerHTML.indexOf('Este producto es la bolsa de') < 0);
     const r = w.ctx._calcFilaVar({ tam: '3 kg', costoIn: '13500', pct: 60, pctMay: 30 }, true);
     t('  se carga lo que costó la bolsa y el kilo sale solo: $13.500 la de 3 kg son $4.500 el kilo', r.costo === 4500 && r.precio === 7200 && r.may === 5850);
@@ -427,15 +427,20 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     w.ctx.varFilaAgregar();
     const h = w.porId.pVariantes.innerHTML;
     const iPpal = h.indexOf('class="vfe vfe-ppal"'), iOtra = h.indexOf('class="vfe" data-i="0"');
-    t('al agregar una bolsa, la tabla muestra las dos: primero este producto, después la nueva', iPpal > 0 && iOtra > iPpal &&
-      h.indexOf('>Este producto</span>') > 0 && h.indexOf('lo mismo que cargaste arriba') > 0);
-    t('  la ayuda lo dice', h.indexOf('La primera bolsa es este producto: lo mismo que cargaste arriba.') > 0);
+    t('al agregar una bolsa, la tabla muestra las dos: primero este producto, después la nueva', iPpal > 0 && iOtra > iPpal);
+    t('  y pasa a ser el ÚNICO lugar: lo de arriba que es de un tamaño se esconde (gramaje, stock, costo y precio, mayorista)',
+      ['pGramajeWrap', 'pStockWrap', 'pCostoSec', 'pMayoristaSec'].every(id => w.porId[id].style.display === 'none'));
+    t('  el costo de arriba deja de ser obligatorio (escondido, el navegador no dejaría guardar): lo revisa la tabla',
+      w.porId.pCosto.required === false);
+    t('  el título y la ayuda lo dicen', w.porId.pVariantesTitulo.textContent === 'Costo y precio de cada bolsa' &&
+      h.indexOf('Cada bolsa con lo que te costó, su ganancia y su stock.') > 0 && h.indexOf('lo mismo que cargaste arriba') < 0);
     t('  ya no está "Este producto es la bolsa de"', h.indexOf('Este producto es la bolsa de') < 0);
     t('  su tamaño es Gramaje (pVarTam), y los ejemplos dicen "ej." para que no parezcan cargados',
       h.indexOf('id="pVarTam"') > 0 && h.indexOf('varTamPrincipal(this)') > 0 && h.indexOf('placeholder="ej. 1"') > 0 && h.indexOf('placeholder="ej. 3"') > 0);
     t('  la de este producto no se quita: la × es solo de la nueva', (h.match(/varFilaQuitar\(/g) || []).length === 1);
     let v = w.ctx._valoresPpal(true);
-    t('sin el tamaño de la bolsa, la fila lo pide', v.costoIn === '' && w.ctx._resFilaVar(v.r, true, false).indexOf('Poné de cuánto es la bolsa.') > 0);
+    t('sin el tamaño de la bolsa, la fila lo pide y dice el costo por kilo que ya había', v.costoIn === '' &&
+      w.ctx._resPpal(v, true).indexOf('Tenés $6.000 el kilo: poné de cuánto es esta bolsa.') > 0);
     w.ctx.varTamPrincipal('1 kg');
     v = w.ctx._valoresPpal(true);
     t('con el tamaño, la fila muestra lo de arriba: la bolsa de 1 kg a $6.000, 800 g, 75% y 65%', w.porId.pGramaje.value === '1 kg' &&
@@ -459,8 +464,19 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     w.ctx.varPpalCambio('pctMay', { value: '30' });
     t('el stock y las ganancias de la fila van a los de arriba', w.porId.pStock.value === '2500' && w.porId.pPorcentaje.value === '60' &&
       w.porId.pPorcentajeMay.value === '30');
+    w.ctx.varPpalCambio('dsc', { value: '10' });
+    v = w.ctx._valoresPpal(true);
+    t('el descuento de la fila es el de arriba, y la fila dice lo que paga el cliente', w.porId.pDescuento.value === '10' &&
+      w.ctx._resPpal(v, true).indexOf('Con el 10% de descuento: $5.760 el kilo') > 0);
     w.ctx.varPpalCambio('costoIn', { value: '' });
     t('  y borrar el costo de la fila lo borra arriba', w.porId.pCosto.value === '' && w.ctx.window._varPpalBolsa === null);
+    w.ctx.varFilaQuitar(0);
+    t('quitando la otra bolsa vuelve el formulario de siempre, con el costo obligatorio',
+      ['pGramajeWrap', 'pStockWrap', 'pCostoSec', 'pMayoristaSec'].every(id => w.porId[id].style.display === '') &&
+      w.porId.pCosto.required === true && w.porId.pVariantesTitulo.textContent === 'Bolsas y precios por cantidad');
+    const d = x => { const o = { value: x }; w.ctx._varLimpiarDsc(o); return o.value; };
+    t('en la fila el descuento dice "% oferta" (entra en un renglón)', w.ctx._pctsFilaHtml({ pct: 1, pctMay: 1, dsc: 0 }, () => '').indexOf('<span>% oferta</span>') > 0);
+    t('el descuento de una fila: solo números, hasta 100', d('150') === '100' && d('a5') === '5' && d('10%') === '10' && w.ctx._varDsc('250') === 100);
   }
   {
     const w = armar({ tipo: 'peso' });
@@ -486,7 +502,7 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  y tiene su casilla, como las otras presentaciones', (h.match(/Caja cerrada: en el mostrador y en la tienda/g) || []).length === 4);
   }
   t('arriba, lo que se escribe llega a la primera fila (costo, stock, ganancias, caja y tamaño)',
-    /\['pStock', 'pPorcentaje', 'pPorcentajeMay'\]\.forEach/.test(SRC) && SRC.indexOf("cb.addEventListener('change', pintarFilaPpal)") > 0 &&
+    /\['pStock', 'pPorcentaje', 'pPorcentajeMay', 'pDescuento'\]\.forEach/.test(SRC) && SRC.indexOf("cb.addEventListener('change', pintarFilaPpal)") > 0 &&
     SRC.indexOf("pc.addEventListener('input', () => { if (!window._varPpalEscribiendo) window._varPpalBolsa = null; pintarFilaPpal(); });") > 0);
 
   console.log('\n-- el formulario: qué no se puede guardar --');
@@ -497,8 +513,12 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     w.ctx.varFilaAgregar();
     w.ctx.varFilaCambio(0, 'tam', '3 kg');
     w.ctx.varFilaCambio(0, 'costoIn', '13500');
-    t('con filas, este producto tiene que decir de cuánto es', w.ctx.faltaPresentacionDeVariante() === true && /Poné de cuánto es la bolsa de este producto/.test(w.avisos.join()));
+    t('con filas, la primera bolsa (este producto) tiene que decir de cuánto es', w.ctx.faltaPresentacionDeVariante() === true &&
+      /Poné de cuánto es la primera bolsa/.test(w.avisos.join()));
     w.porId.pGramaje.value = '1 kg';
+    t('  y tener su costo: con la tabla, el de arriba está escondido', w.ctx.faltaPresentacionDeVariante() === true &&
+      /Poné lo que costó la primera bolsa/.test(w.avisos.join()));
+    w.porId.pCosto.value = '5000';
     t('  con eso, se puede', w.ctx.faltaPresentacionDeVariante() === false);
     w.ctx.varFilaCambio(0, 'tam', 'x12');
     t('una bolsa va en kg o g', w.ctx.faltaPresentacionDeVariante() === true && /El tamaño de una bolsa va en kg o g/.test(w.avisos.join()));
@@ -518,7 +538,7 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     w.ctx.varFilaAgregar();
     Object.assign(w.ctx.window._varFilas[0], { tam: '3 kg', costoIn: '13500', pct: 60, pctMay: 30, stock: '2300', tocado: { tam: true } });
     w.ctx.varFilaAgregar();
-    Object.assign(w.ctx.window._varFilas[1], { tam: '5 kg', costoIn: '18750', pct: 55, pctMay: 30, stock: '0', tocado: { tam: true } });
+    Object.assign(w.ctx.window._varFilas[1], { tam: '5 kg', costoIn: '18750', pct: 55, pctMay: 30, stock: '0', dsc: '15', tocado: { tam: true } });
     const data = { nombre: 'Yerba Mate', tipoVenta: 'peso', codigo: '000900', categoria: 'Infusiones', subcategoria: null, descripcion: 'La de siempre',
       valoresNutricionales: '', imagen: 'https://x/y.jpg', lista: 'L1' };
     await w.ctx.guardarVariantesForm('ppal', data);
@@ -530,6 +550,7 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  el costo por kilo y los precios de la fila', altas[0].costo === 4500 && altas[0].precio === 7200 && altas[0].precioMayorista === 5850 &&
       altas[0].porcentaje === 60 && altas[1].costo === 3750 && altas[1].precio === 5813);
     t('  el stock que se cargó', altas[0].stock === 2300 && altas[1].stock === 0);
+    t('  y su descuento (0 si no se puso)', altas[0].descuento === 0 && altas[1].descuento === 15);
     t('  y cada una con su código, sin repetir el del producto', altas[0].codigo === '000901' && altas[1].codigo === '000902');
     t('  queda en el historial', w.historial.filter(x => /^crear \| Creado: Yerba Mate x/.test(x)).length === 2);
     t('  y la tabla queda vacía', w.ctx.window._varFilas.length === 0 && /2 bolsas guardadas/.test(w.avisos.join()));
@@ -539,12 +560,14 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     w.ctx.openModal('mani80');
     w.ctx.varFilaCambio(0, 'stock', '25');
     w.ctx.varFilaCambio(1, 'pct', '45');
+    w.ctx.varFilaCambio(2, 'dsc', '20');
     await w.ctx.guardarVariantesForm('mani80', { nombre: 'Maní x 80 g', tipoVenta: 'unidad', codigo: 'M80' });
     const ups = Object.fromEntries(w.escrituras.filter(e => e[0] === 'update').map(e => [e[1], e[2]]));
     t('en una que ya existe solo se escribe lo que se tocó: el stock', JSON.stringify(ups.mani160) === '{"stock":25}');
     t('  o la ganancia, y con ella los precios (sobre su costo guardado, sin tocar el costo)', !!ups.mani320 && ups.mani320.porcentaje === 45 &&
       ups.mani320.precio === 0 && ups.mani320.costo === undefined);
-    t('  la que no se tocó no se escribe', ups.mani500 === undefined && w.escrituras.filter(e => e[0] === 'add').length === 0);
+    t('  o el descuento', JSON.stringify(ups.mani500) === '{"descuento":20}');
+    t('  la que no se tocó no se escribe, ni se crea ninguna', Object.keys(ups).length === 3 && w.escrituras.filter(e => e[0] === 'add').length === 0);
   }
   {
     const w = armar({ editingId: 'mani80' });

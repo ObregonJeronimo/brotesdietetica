@@ -122,6 +122,7 @@ const b = (ctx, id) => ctx.allProducts.find(p => p.id === id);
     const w = armar();
     w.ctx.window._varFilas = [{ id: null, tam: 'x12', costoIn: '7200', pct: 60, pctMay: 0, stock: 2, caja: true, tocado: { tam: true, caja: true } }];
     w.porId.pGramaje.value = 'x1';
+    w.porId.pCosto = { id: 'pCosto', value: '600' };
     t('una caja nueva con 0% mayorista no se guarda: se vendería al costo',
       w.ctx.faltaPresentacionDeVariante() === true && /La caja cerrada de x12 se cobra al precio mayorista/.test(w.avisos.join()));
     w.ctx.window._varFilas[0].pctMay = 33;
