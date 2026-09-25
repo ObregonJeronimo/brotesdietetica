@@ -52,7 +52,7 @@ const P = (id, extra) => Object.assign({ id, nombre: id, precio: 1000, precioMay
 function catalogo() {
   return [
     P('mani80', { nombre: 'Maní x 80 g', gramaje: '80 g', precio: 1200, precioMayorista: 1000, stock: 10, descripcion: 'Maní tostado', porcentaje: 40, porcentajeMayorista: 20, categoria: 'Frutos secos', lista: 'L1' }),
-    P('mani160', { nombre: 'Maní x 160 g', gramaje: '160 g', precio: 2300, precioMayorista: 2000, stock: 0, gramajePadreId: 'mani80' }),
+    P('mani160', { nombre: 'Maní x 160 g', gramaje: '160 g', precio: 2300, precioMayorista: 2000, stock: 0, gramajePadreId: 'mani80', costo: 1500, porcentaje: 50, porcentajeMayorista: 30 }),
     P('mani320', { nombre: 'Maní x 320 g', gramaje: '320 g', precio: 4400, precioMayorista: 3800, stock: 1, gramajePadreId: 'mani80' }),
     P('mani500', { nombre: 'Maní x 500 g', gramaje: '500 g', stock: 9, oculto: true, gramajePadreId: 'mani80' }),
     P('mani1k', { nombre: 'Maní x 1 kg', gramaje: '1 kg', stock: 9, depurado: true, gramajePadreId: 'mani80' }),
@@ -70,7 +70,8 @@ function catalogo() {
 function armar(opts) {
   const o = opts || {};
   const porId = {};
-  const campo = id => (porId[id] = porId[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, focus() { this.enfocado = true; } });
+  const campo = id => (porId[id] = porId[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, focus() { this.enfocado = true; },
+    addEventListener() {}, dispatchEvent() {} });
   ['pVariantes', 'pNombre', 'pDescripcion', 'pPorcentaje', 'pPorcentajeMay', 'pCategoria', 'pSubcategoria', 'pLista', 'pGramaje', 'modalTitle'].forEach(campo);
   const cuerpoPag = [];
   const escuchas = [];
@@ -97,8 +98,11 @@ function armar(opts) {
     body: { appendChild: el => cuerpoPag.push(el) },
     addEventListener: (tipo, fn) => escuchas.push(fn),
     removeEventListener: (tipo, fn) => { const i = escuchas.indexOf(fn); if (i >= 0) escuchas.splice(i, 1); },
+    querySelector: () => null,
+    querySelectorAll: () => [],
   };
-  const avisos = [], agregados = [], elegidos = [], preguntas = [], updates = [], llamadas = [];
+  const avisos = [], agregados = [], elegidos = [], preguntas = [], updates = [], llamadas = [], escrituras = [], historial = [];
+  let nuevos = 0;
   const ctx = {
     console, Math, Number, String, Object, Array, Set, Map, Promise, Infinity,
     setTimeout: () => 0,
@@ -116,7 +120,10 @@ function armar(opts) {
     _agregarItemVenta: (id, c) => elegidos.push(id + '@' + c),
     firebase: { firestore: { FieldValue: { delete: () => '__BORRAR__' } } },
     db: {
-      collection: () => ({ doc: id => ({ id }) }),
+      collection: () => ({
+        doc: id => ({ id, update: async d => { if (o.fallaEscribir) throw new Error('sin red'); escrituras.push(['update', id, d]); } }),
+        add: async d => { if (o.fallaEscribir) throw new Error('sin red'); escrituras.push(['add', d]); return { id: 'nuevo' + (++nuevos) }; },
+      }),
       batch: () => ({
         update: (ref, data) => updates.push([ref.id, data]),
         commit: async () => { if (o.falla) throw new Error('sin red'); },
@@ -127,10 +134,16 @@ function armar(opts) {
     updateCatSelects: () => {}, updateSubcatSelect: () => {}, calcPrecioModal: () => {},
     updateListaSelect: v => { porId.pLista.value = v; },
     setTipoVenta: tv => llamadas.push('tipo:' + tv),
+    _tipoVentaProd: o.tipo || 'unidad',
+    editingId: o.editingId || null,
+    Event: function (tipo) { this.type = tipo; },
+    sugerirCodigoProducto: res => '0009' + String((res || []).length).padStart(2, '0'),
+    refrescarProductoLocal: async () => true,
+    logAction: (a, b, c) => historial.push(a + ' | ' + b + ' | ' + c),
   };
   vm.createContext(ctx);
   vm.runInContext(SRC, ctx);
-  return { ctx, porId, cuerpoPag, escuchas, avisos, agregados, elegidos, preguntas, updates, llamadas };
+  return { ctx, porId, cuerpoPag, escuchas, avisos, agregados, elegidos, preguntas, updates, llamadas, escrituras, historial };
 }
 const buscar = (lista, id) => lista.find(p => p.id === id);
 
@@ -300,7 +313,7 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
   }
 
   /* ============================================================ EL FORMULARIO */
-  console.log('\n-- el formulario --');
+  console.log('\n-- el formulario: la tabla de tamaños --');
   {
     const w = armar();
     w.ctx.window._varianteDeNueva = 'viejo';
@@ -308,21 +321,135 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('abrir el formulario olvida la variante que se estaba por crear', w.ctx.window._varianteDeNueva === null);
     t('  y abre el de verdad', w.llamadas.indexOf('openModal:mani160') >= 0);
     const h = w.porId.pVariantes.innerHTML;
-    t('en una variante: de quién es, con el botón al principal', h.indexOf('Es una variante de <b>Maní</b>') > 0 && h.indexOf("openModal('mani80')") > 0);
-    t('  la lista con la oculta marcada y sin la depurada', h.indexOf('Maní x 500 g · oculto') > 0 && h.indexOf('mani1k') < 0);
-    t('  y cuál es la que está abierta', /var-fila actual[\s\S]{0,80}160 g/.test(h) && h.indexOf('>este<') > 0);
-    t('  se pueden sumar más desde cualquiera', h.indexOf("nuevaVariante('mani80')") > 0);
-    w.ctx.openModal();
-    t('un producto nuevo explica cómo sumarle variantes', w.porId.pVariantes.innerHTML.indexOf('Guardalo, y después') > 0);
-    w.ctx.openModal('chia');
-    t('uno sin variantes lo dice, con el botón', w.porId.pVariantes.innerHTML.indexOf('Todavía no tiene variantes') > 0 &&
-      w.porId.pVariantes.innerHTML.indexOf("nuevaVariante('chia')") > 0);
-    const sinEtq = [P('sx', { nombre: 'Maní tostado' }), P('sy', { nombre: 'Maní tostado grande', gramaje: '500 g', gramajePadreId: 'sx' })];
-    const w2 = armar({ productos: sinEtq });
-    w2.ctx.openModal('sx');
-    t('si al principal no se le puede leer la presentación, lo avisa', w2.porId.pVariantes.innerHTML.indexOf('var-falta') > 0);
+    t('en una variante: cuál es y de quién, con el botón al principal',
+      h.indexOf('Es la presentación de <b>160 g</b> de <b>Maní</b>') > 0 && h.indexOf("openModal('mani80')") > 0);
+    t('  sin la tabla: las otras se cargan desde el principal', h.indexOf('class="vfe"') < 0 && (w.ctx.window._varFilas || []).length === 0);
+  }
+  {
+    const w = armar({ editingId: 'mani80' });
     w.ctx.openModal('mani80');
-    t('  y si se le puede leer del nombre, no', w.porId.pVariantes.innerHTML.indexOf('var-falta') < 0);
+    const f = w.ctx.window._varFilas;
+    t('en el principal: una fila por tamaño que ya tiene, de menor a mayor', f.map(x => x.id).join() === 'mani160,mani320,mani500');
+    t('  con lo que tiene cargado (costo, ganancia, mayorista, stock)', f[0].tam === '160 g' && f[0].costoIn === '1500' && f[0].pct === 50 &&
+      f[0].pctMay === 30 && f[0].stock === 0 && Object.keys(f[0].tocado).length === 0);
+    t('  la oculta va marcada; la depurada no está', f[2].oculto === true && !f.some(x => x.id === 'mani1k'));
+    const h = w.porId.pVariantes.innerHTML;
+    t('  se dibujan como filas editables, con el botón para agregar', (h.match(/class="vfe"/g) || []).length === 3 && h.indexOf('varFilaAgregar()') > 0 &&
+      h.indexOf('Agregar presentación') > 0 && h.indexOf('Oculta: no aparece') > 0);
+    t('  el tamaño de este producto es el mismo campo que Gramaje', h.indexOf('id="pVarTam"') > 0 && h.indexOf('varTamPrincipal(this.value)') > 0);
+    t('  una que ya existe se abre, no se quita desde acá', h.indexOf("openModal('mani160')") > 0 && h.indexOf('varFilaQuitar(0)') < 0);
+    t('  y se puede cargar una con su propio formulario', h.indexOf("nuevaVariante('mani80')") > 0);
+  }
+  {
+    const w = armar();
+    w.ctx.openModal();
+    t('un producto nuevo también tiene la tabla (antes había que guardarlo primero)',
+      w.porId.pVariantes.innerHTML.indexOf('varFilaAgregar()') > 0 && w.ctx.window._varFilas.length === 0);
+    w.porId.pPorcentaje.value = '60'; w.porId.pPorcentajeMay.value = '25';
+    w.ctx.varFilaAgregar();
+    const f = w.ctx.window._varFilas[0];
+    t('agregar una fila trae la ganancia y el mayorista de arriba', !!f && f.id === null && f.pct === 60 && f.pctMay === 25 && f.stock === 0);
+    w.ctx.varFilaCambio(0, 'tam', '160 g');
+    w.ctx.varFilaCambio(0, 'costoIn', '1300');
+    t('escribir en la fila la guarda y la marca como tocada', f.tam === '160 g' && f.costoIn === '1300' && f.tocado.tam && f.tocado.costoIn);
+    const r = w.ctx._calcFilaVar(f, false);
+    t('  por unidad: costo 1.300 con 60% es $2.080; mayorista con 25%, $1.650', r.costo === 1300 && r.precio === 2080 && r.may === 1650);
+    w.ctx.varFilaQuitar(0);
+    t('una fila nueva se puede quitar', w.ctx.window._varFilas.length === 0);
+  }
+  {
+    const w = armar({ tipo: 'peso' });
+    w.ctx.openModal();
+    t('por peso, la sección habla de bolsas', w.porId.pVariantes.innerHTML.indexOf('Agregar bolsa') > 0 &&
+      w.porId.pVariantes.innerHTML.indexOf('Este producto es la bolsa de') > 0);
+    const r = w.ctx._calcFilaVar({ tam: '3 kg', costoIn: '13500', pct: 60, pctMay: 30 }, true);
+    t('  se carga lo que costó la bolsa y el kilo sale solo: $13.500 la de 3 kg son $4.500 el kilo', r.costo === 4500 && r.precio === 7200 && r.may === 5850);
+    t('  sin tamaño en kg o g no calcula, y lo dice', w.ctx._calcFilaVar({ tam: 'x12', costoIn: '13500' }, true).costo === null &&
+      w.ctx._resFilaVar(w.ctx._calcFilaVar({ tam: 'x12', costoIn: '1' }, true), true).indexOf('Poné el tamaño en kg o g') > 0);
+    const prods = catalogo().concat([P('g1', { nombre: 'Yerba 1 kg', gramaje: '1 kg', tipoVenta: 'peso', costo: 5000, porcentaje: 60 }),
+      P('g3', { nombre: 'Yerba 3 kg', gramaje: '3 kg', tipoVenta: 'peso', costo: 4500, porcentaje: 60, gramajePadreId: 'g1' }),
+      P('g500', { nombre: 'Yerba x 500 g', gramaje: '500 g', precio: 4160, gramajePadreId: 'g1' })]);
+    const w2 = armar({ tipo: 'peso', productos: prods, editingId: 'g1' });
+    w2.ctx.openModal('g1');
+    t('  una bolsa que ya existe muestra lo que sale la bolsa ($4.500 el kilo × 3 kg)', w2.ctx.window._varFilas.length === 1 && w2.ctx.window._varFilas[0].costoIn === '13500');
+    t('  y la de otra forma de venta (el paquete de 500 g) se nombra aparte, con su ficha', w2.porId.pVariantes.innerHTML.indexOf('Por unidad:') > 0 &&
+      w2.porId.pVariantes.innerHTML.indexOf("openModal('g500')") > 0);
+  }
+
+  console.log('\n-- el formulario: qué no se puede guardar --');
+  {
+    const w = armar({ tipo: 'peso' });
+    w.ctx.openModal();
+    t('sin filas nuevas ni tocadas se guarda como siempre', w.ctx.faltaPresentacionDeVariante() === false);
+    w.ctx.varFilaAgregar();
+    w.ctx.varFilaCambio(0, 'tam', '3 kg');
+    w.ctx.varFilaCambio(0, 'costoIn', '13500');
+    t('con filas, este producto tiene que decir de cuánto es', w.ctx.faltaPresentacionDeVariante() === true && /Poné de cuánto es la bolsa de este producto/.test(w.avisos.join()));
+    w.porId.pGramaje.value = '1 kg';
+    t('  con eso, se puede', w.ctx.faltaPresentacionDeVariante() === false);
+    w.ctx.varFilaCambio(0, 'tam', 'x12');
+    t('una bolsa va en kg o g', w.ctx.faltaPresentacionDeVariante() === true && /El tamaño de una bolsa va en kg o g/.test(w.avisos.join()));
+    w.ctx.varFilaCambio(0, 'tam', '1000 g');
+    t('dos del mismo tamaño no (1000 g es 1 kg)', w.ctx.faltaPresentacionDeVariante() === true && /Hay dos del mismo tamaño/.test(w.avisos.join()));
+    w.ctx.varFilaCambio(0, 'tam', '');
+    t('sin tamaño no', w.ctx.faltaPresentacionDeVariante() === true && /Falta el tamaño/.test(w.avisos.join()));
+    w.ctx.varFilaCambio(0, 'tam', '3 kg');
+    w.ctx.varFilaCambio(0, 'costoIn', '');
+    t('una nueva sin costo no', w.ctx.faltaPresentacionDeVariante() === true && /Poné el costo de la bolsa de 3 kg/.test(w.avisos.join()));
+  }
+
+  console.log('\n-- el formulario: al guardar --');
+  {
+    const w = armar({ tipo: 'peso' });
+    w.ctx.openModal();
+    w.ctx.varFilaAgregar();
+    Object.assign(w.ctx.window._varFilas[0], { tam: '3 kg', costoIn: '13500', pct: 60, pctMay: 30, stock: '2300', tocado: { tam: true } });
+    w.ctx.varFilaAgregar();
+    Object.assign(w.ctx.window._varFilas[1], { tam: '5 kg', costoIn: '18750', pct: 55, pctMay: 30, stock: '0', tocado: { tam: true } });
+    const data = { nombre: 'Yerba Mate', tipoVenta: 'peso', codigo: '000900', categoria: 'Infusiones', subcategoria: null, descripcion: 'La de siempre',
+      valoresNutricionales: '', imagen: 'https://x/y.jpg', lista: 'L1' };
+    await w.ctx.guardarVariantesForm('ppal', data);
+    const altas = w.escrituras.filter(e => e[0] === 'add').map(e => e[1]);
+    t('crea una por fila, enganchada al producto', altas.length === 2 && altas.every(a => a.gramajePadreId === 'ppal'));
+    t('  con nombre, tamaño, forma de venta, lista, categoría y foto del producto',
+      altas[0].nombre === 'Yerba Mate x 3 kg' && altas[0].gramaje === '3 kg' && altas[0].tipoVenta === 'peso' && altas[0].lista === 'L1' &&
+      altas[0].categoria === 'Infusiones' && altas[0].imagen === 'https://x/y.jpg' && altas[0].descripcion === 'La de siempre');
+    t('  el costo por kilo y los precios de la fila', altas[0].costo === 4500 && altas[0].precio === 7200 && altas[0].precioMayorista === 5850 &&
+      altas[0].porcentaje === 60 && altas[1].costo === 3750 && altas[1].precio === 5813);
+    t('  el stock que se cargó', altas[0].stock === 2300 && altas[1].stock === 0);
+    t('  y cada una con su código, sin repetir el del producto', altas[0].codigo === '000901' && altas[1].codigo === '000902');
+    t('  queda en el historial', w.historial.filter(x => /^crear \| Creado: Yerba Mate x/.test(x)).length === 2);
+    t('  y la tabla queda vacía', w.ctx.window._varFilas.length === 0 && /2 bolsas guardadas/.test(w.avisos.join()));
+  }
+  {
+    const w = armar({ editingId: 'mani80' });
+    w.ctx.openModal('mani80');
+    w.ctx.varFilaCambio(0, 'stock', '25');
+    w.ctx.varFilaCambio(1, 'pct', '45');
+    await w.ctx.guardarVariantesForm('mani80', { nombre: 'Maní x 80 g', tipoVenta: 'unidad', codigo: 'M80' });
+    const ups = Object.fromEntries(w.escrituras.filter(e => e[0] === 'update').map(e => [e[1], e[2]]));
+    t('en una que ya existe solo se escribe lo que se tocó: el stock', JSON.stringify(ups.mani160) === '{"stock":25}');
+    t('  o la ganancia, y con ella los precios (sobre su costo guardado, sin tocar el costo)', !!ups.mani320 && ups.mani320.porcentaje === 45 &&
+      ups.mani320.precio === 0 && ups.mani320.costo === undefined);
+    t('  la que no se tocó no se escribe', ups.mani500 === undefined && w.escrituras.filter(e => e[0] === 'add').length === 0);
+  }
+  {
+    const w = armar({ editingId: 'mani80' });
+    w.ctx.openModal('mani80');
+    w.ctx.varFilaCambio(0, 'tam', '170 g');
+    await w.ctx.guardarVariantesForm('mani80', { nombre: 'Maní x 80 g', tipoVenta: 'unidad', codigo: 'M80' });
+    const up = w.escrituras.find(e => e[0] === 'update');
+    t('cambiarle el tamaño cambia la etiqueta, y el nombre si era el automático', !!up && up[2].gramaje === '170 g' && up[2].nombre === 'Maní x 170 g');
+  }
+  {
+    const w = armar({ tipo: 'peso', fallaEscribir: true });
+    w.ctx.openModal();
+    w.ctx.varFilaAgregar();
+    Object.assign(w.ctx.window._varFilas[0], { tam: '3 kg', costoIn: '13500', tocado: { tam: true } });
+    let error = null;
+    try { await w.ctx.guardarVariantesForm('ppal', { nombre: 'Yerba', tipoVenta: 'peso', codigo: 'Y1' }); } catch (e) { error = e; }
+    t('si falla, avisa y NO corta: el producto ya se guardó y volver a guardar lo crearía otra vez',
+      error === null && /No se pudieron guardar todas las bolsas: 3 kg: sin red/.test(w.avisos.join()));
   }
 
   console.log('\n-- crear una variante --');
@@ -382,14 +509,20 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
   const iScript = html.indexOf('<script src="admin-variantes.js"></script>');
   t('el módulo se carga después del panel y de los diálogos',
     iScript > html.indexOf('<script src="admin-dialogo.js"></script>') && iScript > html.indexOf('const _origOpenModal = openModal;'));
-  t('la sección va debajo de "Gramaje / Presentación"', /id="pGramaje"[^>]*><\/div><div id="pVariantes" class="variantes-form"><\/div>/.test(html));
+  {
+    const iSec = html.indexOf('id="pVariantesSec"');
+    t('la sección va después del precio mayorista y antes de dónde va en el catálogo',
+      iSec > html.indexOf('Precio mayorista</div>') && iSec < html.indexOf('D&oacute;nde va en el cat&aacute;logo</div>') && html.indexOf('<div id="pVariantes"></div>') > iSec);
+  }
   const guardar = cuerpo(html, 'saveProduct');
-  t('guardar pide la presentación antes de validar nada más, y solo al crear',
-    /if\(!editingId&&typeof faltaPresentacionDeVariante==='function'&&faltaPresentacionDeVariante\(\)\)return;/.test(guardar) &&
+  t('guardar revisa la presentación y la tabla antes de validar nada más, al crear Y al editar',
+    /if\(typeof faltaPresentacionDeVariante==='function'&&faltaPresentacionDeVariante\(\)\)return;/.test(guardar) &&
     guardar.indexOf('faltaPresentacionDeVariante()') < guardar.indexOf('validarCodigoProducto('));
   t('  y engancha la variante antes de crearla',
     /if\(!editingId&&typeof datosDeVarianteNueva==='function'\)datosDeVarianteNueva\(data\);/.test(guardar) &&
     guardar.indexOf('datosDeVarianteNueva(data)') < guardar.indexOf(".add(data)"));
+  t('  y guarda la tabla después del producto, con su id, antes de cerrar',
+    /if\(typeof guardarVariantesForm==='function'\)await guardarVariantesForm\(_refId,data\);closeModal\(\);/.test(guardar));
   const borrar = cuerpo(html, 'deleteProduct');
   t('borrar avisa de las variantes en la confirmación', /pedirConfirmacion\([^;]*avisoVariantesAlBorrar\(id\)/.test(borrar));
   t('  y las reengancha ANTES de borrar el documento',

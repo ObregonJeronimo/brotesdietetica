@@ -43,9 +43,12 @@ t('y el codigo sigue avisando si esta repetido', /oninput="_pintarEstadoCodigo\(
 console.log('\nSeis grupos con titulo, en un orden que se sigue de arriba a abajo');
 const titulos=(form.match(/class="precio-section-title"[^>]*>[\s\S]*?<\/div>/g)||[])
   .map(x=>x.replace(/<[^>]*>/g,'').replace(/&oacute;/g,'o').replace(/&aacute;/g,'a').replace(/&eacute;/g,'e').replace(/\s+/g,' ').trim());
-t('hay 6 grupos (habia 3, y ninguno cubria la identificacion)', titulos.length===6);
+/* Desde el 25/09/2026 hay uno mas, despues del mayorista: los tamanos del producto
+   (Presentaciones, o "Bolsas y precios por cantidad" si se vende por peso), cada uno con
+   su costo y su ganancia. Ver admin-variantes.js. */
+t('hay 7 grupos (habia 3, y ninguno cubria la identificacion)', titulos.length===7);
 [['Identificacion',0],['Como se vende y stock',1],['Costo y precio',2],
- ['Precio mayorista',3],['Donde va en el catalogo',4],['Lo que ve el cliente',5]]
+ ['Precio mayorista',3],['Presentaciones',4],['Donde va en el catalogo',5],['Lo que ve el cliente',6]]
  .forEach(([nom,pos])=>t(pos+1+'. '+nom, (titulos[pos]||'').indexOf(nom)>=0));
 /* Un titulo por grupo: si un grupo quedara adentro de otro habria mas titulos
    que contenedores, y la pantalla mostraria dos encabezados pegados. Paso al

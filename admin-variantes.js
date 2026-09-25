@@ -281,54 +281,191 @@ async function sugerirPresentacion(p, lista, ctx) {
   return 'hecho';
 }
 
-/* ------------------------------------------------------ EN EL FORMULARIO */
-function pintarVariantesForm(p) {
+/* ------------------------------------------------------ EN EL FORMULARIO
+   La sección "Bolsas y precios por cantidad" (por peso) o "Presentaciones" (por
+   unidad), debajo del precio mayorista. Cada tamaño es una fila con su costo, su
+   ganancia, su mayorista y su stock, y se carga ahí mismo -también en un producto
+   nuevo, antes de guardarlo-. Al guardar el producto se crean o se actualizan
+   (guardarVariantesForm). Cada fila es un producto por dentro, con su código y su
+   etiqueta, que se arman solos.
+
+   Pedido del comercio (25/09/2026): la etapa 1 las cargaba de a una, guardando primero
+   el producto y abriendo "+ Nueva variante", otro formulario entero. No era lo que se
+   había pedido. Ese camino sigue, para una presentación con otro nombre, foto o código
+   de barras (nuevaVariante). */
+
+function _varEsPeso() { return typeof _tipoVentaProd !== 'undefined' && _tipoVentaProd === 'peso'; }
+function _varMonto(v) {
+  if (typeof montoAR === 'function') return montoAR(v);
+  const l = String(v == null ? '' : v).replace(/[^0-9]/g, '');
+  return l ? parseInt(l, 10) : 0;
+}
+function _varMay(n) { return typeof _redondearMayorista === 'function' ? _redondearMayorista(n) : (n ? Math.ceil(n / 50) * 50 : 0); }
+function _varPrincipalActual() { return (typeof editingId !== 'undefined' && editingId) ? editingId : null; }
+
+/* Las filas del producto que se abrió: los tamaños que ya tiene, con la misma forma de
+   venta. Lo que se escriba en el formulario queda acá hasta guardar. */
+function iniciarVariantesForm(p) {
+  window._varHijo = (p && p.gramajePadreId) ? p : null;
+  window._varFilas = [];
+  if (!p || p.gramajePadreId) return;
+  const peso = p.tipoVenta === 'peso';
+  _varProds().filter(x => x && x.gramajePadreId === p.id && x.depurado !== true && (x.tipoVenta === 'peso') === peso)
+    .sort(_ordenVariantes)
+    .forEach(v => {
+      const c = contenidoDeVariante(v);
+      const costo = Number(v.costo || 0);
+      window._varFilas.push({
+        id: v.id,
+        tam: v.gramaje || etiquetaVariante(v),
+        tamAntes: v.gramaje || '',
+        /* En los de peso se muestra lo que sale la bolsa: el costo guardado es por kilo. */
+        costoIn: String(peso && c && c.unidad === 'g' ? Math.round(costo * c.valor / 1000) : costo),
+        pct: Number(v.porcentaje || 0),
+        pctMay: Number(v.porcentajeMayorista || 0),
+        stock: Number(v.stock || 0),
+        oculto: v.oculto === true,
+        tocado: {},
+      });
+    });
+}
+
+/* El costo por kilo (o por unidad) y los precios de una fila, como los calcula el
+   formulario: la misma cuenta que saveProduct. */
+function _calcFilaVar(f, peso) {
+  const c = contenidoDeVariante({ gramaje: f.tam });
+  const monto = _varMonto(f.costoIn);
+  let costo = null;
+  if (peso) { if (c && c.unidad === 'g' && c.valor > 0 && monto > 0) costo = Math.round(monto * 1000 / c.valor); }
+  else if (monto > 0) costo = monto;
+  if (costo === null) return { costo: null, c: c };
+  const pct = Number(f.pct) || 0, pctMay = Number(f.pctMay) || 0;
+  return { costo: costo, c: c, precio: Math.round(costo * (1 + pct / 100)), may: _varMay(Math.round(costo * (1 + pctMay / 100))) };
+}
+
+function _resFilaVar(r, peso) {
+  if (r.costo === null) {
+    return '<span class="vfe-falta">' + (peso && !(r.c && r.c.unidad === 'g') ? 'Poné el tamaño en kg o g (ej. 3 kg).' : 'Poné el costo.') + '</span>';
+  }
+  const kg = peso ? ' el kilo' : '';
+  return (peso ? '<span>Costo $' + r.costo.toLocaleString('es-AR') + ' el kilo</span>' : '') +
+    '<span>Precio <b>$' + r.precio.toLocaleString('es-AR') + '</b>' + kg + '</span>' +
+    '<span class="vfe-may">Mayorista $' + r.may.toLocaleString('es-AR') + kg + '</span>';
+}
+
+function _filaVarHtml(f, i, peso) {
+  const ev = campo => 'varFilaCambio(' + i + ',\'' + campo + '\',this.value)';
+  return '<div class="vfe" data-i="' + i + '">' +
+    '<div class="vfe-fila">' +
+      '<label class="vfe-campo vfe-tam"><span>' + (peso ? 'Bolsa de' : 'Tamaño') + '</span>' +
+        '<input type="text" class="form-input" value="' + _varAttr(f.tam) + '" placeholder="' + (peso ? '3 kg' : '160 g') + '" oninput="' + ev('tam') + '"></label>' +
+      '<label class="vfe-campo vfe-costo"><span>' + (peso ? 'Costo de la bolsa' : 'Costo') + '</span>' +
+        '<input type="text" inputmode="numeric" class="form-input" value="' + _varAttr(f.costoIn) + '" oninput="if(typeof limpiarMonto===\'function\')limpiarMonto(this);' + ev('costoIn') + '"></label>' +
+      '<label class="vfe-campo vfe-stock"><span>Stock' + (peso ? ' (gramos)' : '') + '</span>' +
+        '<input type="number" class="form-input" value="' + _varAttr(f.stock) + '" step="1" oninput="' + ev('stock') + '"></label>' +
+      (f.id
+        ? '<button type="button" class="vfe-btn" title="Abrir su ficha (lo que no guardaste acá se pierde)" onclick="closeModal();openModal(\'' + _varAttr(f.id) + '\')"><i class="bi bi-box-arrow-up-right"></i></button>'
+        : '<button type="button" class="vfe-btn" title="Quitar" onclick="varFilaQuitar(' + i + ')"><i class="bi bi-x-lg"></i></button>') +
+    '</div>' +
+    '<div class="vfe-fila">' +
+      '<label class="vfe-campo"><span>% ganancia</span><input type="number" class="form-input" value="' + _varAttr(f.pct) + '" step="0.1" oninput="' + ev('pct') + '"></label>' +
+      '<label class="vfe-campo"><span>% mayorista</span><input type="number" class="form-input" value="' + _varAttr(f.pctMay) + '" step="0.1" oninput="' + ev('pctMay') + '"></label>' +
+      '<div class="vfe-res">' + _resFilaVar(_calcFilaVar(f, peso), peso) + '</div>' +
+    '</div>' +
+    (f.oculto ? '<p class="vfe-nota">Oculta: no aparece en la venta ni en la tienda.</p>' : '') +
+  '</div>';
+}
+
+function pintarVariantesForm() {
   const el = document.getElementById('pVariantes');
   if (!el) return;
+  const peso = _varEsPeso();
+  const tit = document.getElementById('pVariantesTitulo');
+  if (tit) tit.textContent = peso ? 'Bolsas y precios por cantidad' : 'Presentaciones';
   const prods = _varProds();
-  const titulo = '<div class="var-titulo"><i class="bi bi-stack"></i> Variantes</div>';
   if (window._varianteDeNueva) {
     const pr = prods.find(x => x && x.id === window._varianteDeNueva);
-    el.innerHTML = titulo + '<p class="var-ayuda">Nueva variante de <b>' + _varEsc(nombreDeGrupo(pr)) + '</b>. ' +
+    el.innerHTML = '<p class="var-ayuda">Nueva variante de <b>' + _varEsc(nombreDeGrupo(pr)) + '</b>. ' +
       'Poné arriba, en <b>Gramaje / Presentación</b>, lo que la distingue: 160 g, 3 kg, x12.</p>';
     return;
   }
-  if (!p) {
-    el.innerHTML = titulo + '<p class="var-ayuda">¿Viene en otras presentaciones (80 g, 160 g) o en otros bultos (1 kg, 3 kg)? ' +
-      'Guardalo, y después le agregás las variantes desde acá.</p>';
+  const hijo = window._varHijo;
+  if (hijo) {
+    const pr = principalDeVariante(hijo, prods);
+    el.innerHTML = '<p class="var-ayuda">Es ' + (peso ? 'la bolsa' : 'la presentación') + ' de <b>' + _varEsc(etiquetaVariante(hijo)) +
+      '</b> de <b>' + _varEsc(nombreDeGrupo(pr)) + '</b>. Las otras se cargan desde el producto principal.</p>' +
+      '<button type="button" class="btn btn-secondary btn-sm var-nueva" onclick="closeModal();openModal(\'' + _varAttr(pr.id) + '\')">' +
+      '<i class="bi bi-box-arrow-up-right"></i> Ir al producto principal</button>';
     return;
   }
-  const pr = principalDeVariante(p, prods);
-  const vs = variantesDeGrupo(pr, prods, { conOcultos: true });
-  const esHijo = !!p.gramajePadreId;
-  let h = titulo;
-  if (esHijo) {
-    h += '<p class="var-ayuda">Es una variante de <b>' + _varEsc(nombreDeGrupo(pr)) + '</b>. ' +
-      '<button type="button" class="btn btn-secondary btn-sm" onclick="closeModal();openModal(\'' + _varAttr(pr.id) + '\')">Ir al producto principal</button></p>';
+  const filas = window._varFilas || [];
+  const g = document.getElementById('pGramaje');
+  let h = '<p class="var-ayuda">' + (peso
+    ? 'Si comprás este producto en bolsas de distinto tamaño, cargá cada una con lo que te costó y su ganancia. ' +
+      'Al vender, el precio sale solo de la cantidad: con 3 kg o más se cobra el de la bolsa de 3 kg.'
+    : 'Si el mismo producto viene en otros tamaños (maní x 80 g y x 160 g), cargá cada uno con su costo y su ganancia. ' +
+      'En la venta y en la tienda se ven como un solo producto.') + '</p>';
+  h += '<label class="var-tam-ppal"><span>' + (peso ? 'Este producto es la bolsa de' : 'Este producto es el de') + '</span>' +
+    '<input type="text" class="form-input" id="pVarTam" placeholder="' + (peso ? '1 kg' : '80 g') + '" value="' + _varAttr(g ? g.value : '') +
+    '" oninput="varTamPrincipal(this.value)"></label>';
+  h += '<div class="var-filas">' + filas.map((f, i) => _filaVarHtml(f, i, peso)).join('') + '</div>';
+  h += '<button type="button" class="btn btn-secondary btn-sm var-agregar" onclick="varFilaAgregar()"><i class="bi bi-plus-lg"></i> ' +
+    (peso ? 'Agregar bolsa' : 'Agregar presentación') + '</button>';
+  /* Las de la otra forma de venta (un paquete de 500 g de un granel) no se editan acá:
+     se nombran, con su ficha a un toque. */
+  const pid = _varPrincipalActual();
+  if (pid) {
+    const otras = prods.filter(x => x && x.gramajePadreId === pid && x.depurado !== true && (x.tipoVenta === 'peso') !== peso);
+    if (otras.length) {
+      h += '<div class="var-otras"><span>' + (peso ? 'Por unidad:' : 'A granel:') + '</span>' + otras.map(v =>
+        '<span class="var-otra">' + _varEsc(etiquetaVariante(v)) + ' · $' + Number(v.precio || 0).toLocaleString('es-AR') + (v.tipoVenta === 'peso' ? '/kg' : '') +
+        ' <button type="button" class="var-link" onclick="closeModal();openModal(\'' + _varAttr(v.id) + '\')">Abrir</button></span>').join('') + '</div>';
+    }
+    h += '<button type="button" class="var-link var-completa" onclick="nuevaVariante(\'' + _varAttr(pid) + '\')">' +
+      'Cargar una con su propio formulario (otro nombre, otra forma de venta, foto o código de barras)</button>';
   }
-  /* El principal también es una opción, y su etiqueta es la de su botón en la tienda.
-     Sin gramaje y sin tamaño en el nombre, no habría cómo distinguirlo de las otras. */
-  if (vs.length > 1 && !pr.gramaje && !contenidoDeVariante(pr)) {
-    h += '<p class="var-ayuda var-falta"><i class="bi bi-exclamation-triangle"></i> ' +
-      (esHijo ? 'Al principal le falta' : 'A este le falta') + ' su presentación: ponela en <b>Gramaje / Presentación</b> (80 g, 1 kg, x6).</p>';
-  }
-  if (vs.length > 1) {
-    h += '<div class="var-lista">' + vs.map(v =>
-      '<div class="var-fila' + (v.id === p.id ? ' actual' : '') + '">' +
-        '<span class="var-etq">' + _varEsc(etiquetaVariante(v)) + '</span>' +
-        '<span class="var-nom">' + _varEsc(v.nombre) + (v.oculto === true ? ' · oculto' : '') + '</span>' +
-        '<span class="var-precio">$' + Number(v.precio || 0).toLocaleString('es-AR') + (v.tipoVenta === 'peso' ? '/kg' : '') + '</span>' +
-        '<span class="var-stock">' + _varStockTxt(v) + '</span>' +
-        (v.id === p.id ? '<span class="var-este">este</span>'
-          : '<button type="button" class="btn btn-secondary btn-sm" onclick="closeModal();openModal(\'' + _varAttr(v.id) + '\')">Abrir</button>') +
-      '</div>').join('') + '</div>';
-  } else {
-    h += '<p class="var-ayuda">Todavía no tiene variantes.</p>';
-  }
-  /* También desde una variante: la nueva queda colgada del mismo principal. */
-  h += '<button type="button" class="btn btn-secondary btn-sm var-nueva" onclick="nuevaVariante(\'' + _varAttr(pr.id) + '\')">' +
-    '<i class="bi bi-plus-lg"></i> Nueva variante</button>';
   el.innerHTML = h;
+}
+
+/* Escribir en una fila: se guarda y se recalculan sus precios, sin repintar la sección
+   (se perdería el foco a cada tecla). */
+function varFilaCambio(i, campo, valor) {
+  const f = (window._varFilas || [])[i];
+  if (!f) return;
+  f[campo] = valor;
+  f.tocado = f.tocado || {};
+  f.tocado[campo] = true;
+  const res = document.querySelector('#pVariantes .vfe[data-i="' + i + '"] .vfe-res');
+  if (res) res.innerHTML = _resFilaVar(_calcFilaVar(f, _varEsPeso()), _varEsPeso());
+}
+
+/* Una fila nueva, con la ganancia y el mayorista del producto de arriba. */
+function varFilaAgregar() {
+  const filas = window._varFilas || (window._varFilas = []);
+  const val = id => { const e = document.getElementById(id); return e ? e.value : ''; };
+  filas.push({ id: null, tam: '', costoIn: '', pct: Number(val('pPorcentaje')) || 0, pctMay: Number(val('pPorcentajeMay')) || 0, stock: 0, tocado: {} });
+  pintarVariantesForm();
+  setTimeout(() => {
+    const ins = document.querySelectorAll('#pVariantes .vfe-tam input');
+    const ult = ins[ins.length - 1];
+    if (ult) ult.focus();
+  }, 30);
+}
+
+/* Solo las nuevas: una que ya existe es un producto, con ventas y stock. Se borra desde
+   su ficha, y ahí las otras quedan juntas (reengancharVariantesAlBorrar). */
+function varFilaQuitar(i) {
+  const filas = window._varFilas || [];
+  const f = filas[i];
+  if (!f || f.id) return;
+  filas.splice(i, 1);
+  pintarVariantesForm();
+}
+
+/* "Este producto es la bolsa de..." es el mismo campo que Gramaje / Presentación. */
+function varTamPrincipal(v) {
+  const g = document.getElementById('pGramaje');
+  if (g) { g.value = v; g.dispatchEvent(new Event('input', { bubbles: true })); }
 }
 
 /* Abre el formulario para crear una variante: un producto nuevo, enganchado al
@@ -355,38 +492,87 @@ function nuevaVariante(principalId) {
   if (typeof calcPrecioModal === 'function') calcPrecioModal();
   const t = document.getElementById('modalTitle');
   if (t) t.textContent = 'Nueva variante';
-  pintarVariantesForm(null);
+  pintarVariantesForm();
   setTimeout(() => { const g = document.getElementById('pGramaje'); if (g) g.focus(); }, 60);
 }
 
-/* Se envuelve openModal en vez de tocarlo por dentro: es una sola línea de casi 2000
-   caracteres (ver _origOpenModal en admin.html). Al abrir el formulario se olvida la
-   variante que se estaba por crear -nuevaVariante la marca DESPUÉS de abrirlo- y se
-   pinta la sección con las del producto. */
+/* Se envuelven openModal y setTipoVenta en vez de tocarlos por dentro: openModal es una
+   sola línea de casi 2000 caracteres (ver _origOpenModal en admin.html). Al abrir el
+   formulario se olvida la variante que se estaba por crear -nuevaVariante la marca
+   DESPUÉS de abrirlo- y se arman las filas del producto. Las filas se vacían ANTES de
+   abrir: el openModal de admin.html llama a setTipoVenta, que repinta la sección, y no
+   puede mostrar las del producto anterior. */
 if (typeof openModal === 'function') {
   const _varOpenModal = openModal;
   openModal = function (id) {
     window._varianteDeNueva = null;
     window._varianteNombreBase = null;
+    window._varFilas = [];
+    window._varHijo = null;
     const r = _varOpenModal.apply(this, arguments);
-    pintarVariantesForm(id ? (_varProds().find(x => x && x.id === id) || null) : null);
+    iniciarVariantesForm(id ? (_varProds().find(x => x && x.id === id) || null) : null);
+    pintarVariantesForm();
     return r;
   };
 }
+if (typeof setTipoVenta === 'function') {
+  const _varSetTipoVenta = setTipoVenta;
+  setTipoVenta = function () {
+    const r = _varSetTipoVenta.apply(this, arguments);
+    pintarVariantesForm();
+    return r;
+  };
+}
+(function () {
+  const g = document.getElementById('pGramaje');
+  if (g) g.addEventListener('input', () => {
+    const t = document.getElementById('pVarTam');
+    if (t && document.activeElement !== t) t.value = g.value;
+  });
+})();
 
 /* ---------------------------------------------------------- AL GUARDAR
-   saveProduct llama a las dos: la primera antes de guardar nada, la segunda al armar
-   los datos de un producto NUEVO. */
+   saveProduct llama a las tres: faltaPresentacionDeVariante antes de guardar nada,
+   datosDeVarianteNueva al armar los datos de un producto NUEVO, y guardarVariantesForm
+   después de guardar el producto, con su id. */
 
-/* Una variante sin su presentación no se distinguiría de las otras en la venta ni en
-   la tienda. */
+/* Lo que no se puede guardar: una variante sin su presentación, o filas incompletas.
+   Solo se revisan si se agregó o se tocó alguna: un producto de antes se sigue
+   guardando como siempre. */
 function faltaPresentacionDeVariante() {
-  if (!window._varianteDeNueva) return false;
-  const g = document.getElementById('pGramaje');
-  if (g && g.value.trim()) return false;
-  if (typeof showAdminToast === 'function') showAdminToast('Poné la presentación de la variante: 160 g, 3 kg, x12...', 'error');
-  if (g) g.focus();
-  return true;
+  const aviso = m => { if (typeof showAdminToast === 'function') showAdminToast(m, 'error'); };
+  if (window._varianteDeNueva) {
+    const g = document.getElementById('pGramaje');
+    if (g && g.value.trim()) return false;
+    aviso('Poné la presentación de la variante: 160 g, 3 kg, x12...');
+    if (g) g.focus();
+    return true;
+  }
+  const filas = window._varFilas || [];
+  if (!filas.some(f => !f.id || Object.keys(f.tocado || {}).length)) return false;
+  const peso = _varEsPeso();
+  const que = peso ? 'bolsa' : 'presentación';
+  const g = document.getElementById('pGramaje'), n = document.getElementById('pNombre');
+  const foco = (i, sel) => { const e = document.querySelector('#pVariantes .vfe[data-i="' + i + '"] ' + sel); if (e) e.focus(); };
+  const cp = contenidoDeVariante({ gramaje: g ? g.value : '', nombre: n ? n.value : '' });
+  if (!cp || (peso && cp.unidad !== 'g')) {
+    aviso(peso ? 'Poné de cuánto es la bolsa de este producto (ej. 1 kg), en "Este producto es la bolsa de".'
+      : 'Poné el tamaño de este producto (ej. 80 g), en "Este producto es el de".');
+    const t = document.getElementById('pVarTam');
+    if (t) t.focus();
+    return true;
+  }
+  const vistos = new Set([cp.unidad + cp.valor]);
+  for (let i = 0; i < filas.length; i++) {
+    const f = filas[i];
+    const c = contenidoDeVariante({ gramaje: f.tam });
+    if (!String(f.tam || '').trim() || !c) { aviso('Falta el tamaño de una ' + que + ' (ej. ' + (peso ? '3 kg' : '160 g') + ').'); foco(i, '.vfe-tam input'); return true; }
+    if (peso && c.unidad !== 'g') { aviso('El tamaño de una bolsa va en kg o g: "' + f.tam + '".'); foco(i, '.vfe-tam input'); return true; }
+    if (vistos.has(c.unidad + c.valor)) { aviso('Hay dos del mismo tamaño: ' + f.tam + '.'); foco(i, '.vfe-tam input'); return true; }
+    vistos.add(c.unidad + c.valor);
+    if (!f.id && !(_varMonto(f.costoIn) > 0)) { aviso('Poné el costo de la ' + que + ' de ' + f.tam + '.'); foco(i, '.vfe-costo input'); return true; }
+  }
+  return false;
 }
 
 /* El enlace con el principal. Si se dejó el nombre que se precargó, se le suma la
@@ -398,6 +584,78 @@ function datosDeVarianteNueva(data) {
   const base = window._varianteNombreBase;
   if (base && data.nombre === base && data.gramaje) data.nombre = base + ' x ' + data.gramaje;
   return data;
+}
+
+/* Crea las filas nuevas y guarda las que se tocaron. El producto ya está guardado:
+   si algo falla acá se avisa y NO se corta, porque volver a guardar crearía el
+   producto otra vez. Lo que no se guardó se vuelve a cargar desde su ficha. */
+async function guardarVariantesForm(principalId, data) {
+  const filas = (window._varFilas || []).filter(f => !f.id || Object.keys(f.tocado || {}).length);
+  window._varFilas = [];
+  if (!filas.length || !principalId || !data) return;
+  const peso = data.tipoVenta === 'peso';
+  const base = baseDeNombre(data.nombre) || data.nombre;
+  const reservados = [data.codigo];
+  const hechos = [], errores = [];
+  for (const f of filas) {
+    try {
+      const r = _calcFilaVar(f, peso);
+      const tam = String(f.tam || '').trim();
+      /* faltaPresentacionDeVariante ya las frena; esto es por si algún camino no pasa por ahí. */
+      if (!f.id && (r.costo === null || !tam)) { errores.push((tam || '?') + ': falta el tamaño o el costo'); continue; }
+      if (!f.id) {
+        const codigo = (typeof sugerirCodigoProducto === 'function') ? sugerirCodigoProducto(reservados) : null;
+        if (codigo) reservados.push(codigo);
+        const nuevo = {
+          nombre: base + ' x ' + tam, nombreMostrado: null, gramaje: tam, codigoBarras: null,
+          costo: r.costo, porcentaje: Number(f.pct) || 0, precio: r.precio,
+          porcentajeMayorista: Number(f.pctMay) || 0, precioMayorista: r.may, descuento: 0,
+          stock: parseInt(f.stock, 10) || 0,
+          categoria: data.categoria || '', subcategoria: data.subcategoria || null,
+          descripcion: data.descripcion || '', valoresNutricionales: data.valoresNutricionales || '',
+          imagenesExtra: [], imagen: data.imagen || null, lista: data.lista || null,
+          codigo: codigo, tipoVenta: peso ? 'peso' : 'unidad',
+          gramajePadreId: principalId, creadoEn: new Date(),
+        };
+        const ref = await db.collection('productos').add(nuevo);
+        hechos.push(ref.id);
+        if (typeof logAction === 'function') logAction('crear', 'Creado: ' + nuevo.nombre, 'Variante de ' + data.nombre + ' | $' + nuevo.precio + ' | stock:' + nuevo.stock);
+        continue;
+      }
+      const old = _varProds().find(x => x && x.id === f.id) || {};
+      const t = f.tocado || {};
+      const upd = {};
+      let costo = Number(old.costo || 0);
+      if (t.costoIn && r.costo !== null) { costo = r.costo; upd.costo = costo; }
+      if (t.costoIn || t.pct || t.pctMay) {
+        const pct = t.pct ? (Number(f.pct) || 0) : Number(old.porcentaje || 0);
+        const pctMay = t.pctMay ? (Number(f.pctMay) || 0) : Number(old.porcentajeMayorista || 0);
+        upd.porcentaje = pct;
+        upd.precio = Math.round(costo * (1 + pct / 100));
+        upd.porcentajeMayorista = pctMay;
+        upd.precioMayorista = _varMay(Math.round(costo * (1 + pctMay / 100)));
+      }
+      if (t.stock) upd.stock = parseInt(f.stock, 10) || 0;
+      if (t.tam && tam && tam !== (old.gramaje || '')) {
+        upd.gramaje = tam;
+        if (old.nombre && f.tamAntes && old.nombre === base + ' x ' + f.tamAntes) upd.nombre = base + ' x ' + tam;
+      }
+      if (!Object.keys(upd).length) continue;
+      await db.collection('productos').doc(f.id).update(upd);
+      hechos.push(f.id);
+      if (typeof logAction === 'function') {
+        logAction('editar', 'Editado: ' + (upd.nombre || old.nombre || f.id), Object.keys(upd).map(k => k + ': ' + upd[k]).join(' | '));
+      }
+    } catch (e) {
+      errores.push((f.tam || '?') + ': ' + (e && e.message ? e.message : e));
+    }
+  }
+  for (const id of hechos) { if (typeof refrescarProductoLocal === 'function') await refrescarProductoLocal(id); }
+  if (typeof showAdminToast === 'function') {
+    if (errores.length) showAdminToast('No se pudieron guardar todas las ' + (peso ? 'bolsas' : 'presentaciones') + ': ' + errores.join(' · '), 'error');
+    else if (hechos.length) showAdminToast(hechos.length === 1 ? (peso ? 'Bolsa guardada' : 'Presentación guardada')
+      : hechos.length + (peso ? ' bolsas guardadas' : ' presentaciones guardadas'), 'success');
+  }
 }
 
 /* ----------------------------------------------------------- AL BORRAR
