@@ -189,12 +189,17 @@ function _dlgTexto(msg) {
    antes de confirmar.
 
    Devuelve los GRAMOS, o null si se canceló.
+
+   Un producto con escalas (admin-escalas.js) no tiene UN precio por kilo: depende
+   de cuánto se lleva. Para eso están opts.detalle (la línea de precios, en lugar de
+   "$X el kilo"), opts.stock (el de todas sus bolsas) y opts.cotizar(gramos), que
+   devuelve { total, nota } para el total en vivo.
    ============================================================================= */
 function pedirCantidadPeso(producto, opts) {
   opts = opts || {};
-  const nombre = (producto && (producto.nombreMostrado || producto.nombre)) || 'el producto';
+  const nombre = opts.nombre || (producto && (producto.nombreMostrado || producto.nombre)) || 'el producto';
   const precioKg = Number(opts.precioKg != null ? opts.precioKg : (producto && producto.precio) || 0);
-  const stock = Number((producto && producto.stock) || 0);
+  const stock = Number(opts.stock != null ? opts.stock : (producto && producto.stock) || 0);
   const RAPIDOS = [100, 250, 500, 1000];
 
   return new Promise(resolve => {
@@ -210,7 +215,7 @@ function pedirCantidadPeso(producto, opts) {
         '<div class="dlg-msg">' +
           '<p class="dlg-linea"><b>' + _dlgEsc(nombre) + '</b></p>' +
           '<p class="dlg-linea" style="color:var(--text-dim);font-size:0.83rem">' +
-            '$' + precioKg.toLocaleString('es-AR') + ' el kilo' +
+            (opts.detalle ? _dlgEsc(opts.detalle) : '$' + precioKg.toLocaleString('es-AR') + ' el kilo') +
             (stock > 0 ? ' &middot; hay ' + _dlgPeso(stock) : '') + '</p>' +
           '<div class="pz-rapidos">' +
             RAPIDOS.map(g => '<button type="button" class="pz-rap" data-g="' + g + '">' + _dlgPeso(g) + '</button>').join('') +
@@ -220,6 +225,7 @@ function pedirCantidadPeso(producto, opts) {
             '<span class="pz-unidad">gramos</span>' +
           '</div>' +
           '<div class="pz-total" aria-live="polite"></div>' +
+          '<div class="pz-nota"></div>' +
           '<div class="pz-aviso"></div>' +
         '</div>' +
         '<div class="dlg-pie">' +
@@ -232,6 +238,7 @@ function pedirCantidadPeso(producto, opts) {
     const inp = ov.querySelector('.pz-input');
     const btnOk = ov.querySelector('.dlg-si');
     const tot = ov.querySelector('.pz-total');
+    const nota = ov.querySelector('.pz-nota');
     const avi = ov.querySelector('.pz-aviso');
     let cerrado = false;
 
@@ -248,9 +255,12 @@ function pedirCantidadPeso(producto, opts) {
       const g = parseInt(inp.value, 10);
       const ok = Number.isFinite(g) && g > 0;
       btnOk.disabled = !ok;
+      const q = (ok && typeof opts.cotizar === 'function') ? (opts.cotizar(g) || {}) : null;
+      const total = q && q.total != null ? q.total : Math.round(precioKg * g / 1000);
       tot.innerHTML = ok
-        ? '<span>' + _dlgPeso(g) + '</span><b>$' + Math.round(precioKg * g / 1000).toLocaleString('es-AR') + '</b>'
+        ? '<span>' + _dlgPeso(g) + '</span><b>$' + Number(total).toLocaleString('es-AR') + '</b>'
         : '';
+      nota.textContent = (q && q.nota) || '';
       /* Se avisa si no alcanza el stock, pero NO se bloquea: en el mostrador el
          stock puede estar desactualizado y la venta ya ocurrió. */
       avi.textContent = (ok && stock > 0 && g > stock)

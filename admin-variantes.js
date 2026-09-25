@@ -165,8 +165,22 @@ function abrirVariantesVenta(principalId, ctx) {
   const prods = _varProds();
   const pr = prods.find(x => x && x.id === principalId);
   if (!pr) return;
-  const vs = variantesDeGrupo(pr, prods);
   const may = ctx === 'may';
+  /* Las escalas de granel van en UNA opción, "A granel": cuál se cobra sale de los
+     gramos (admin-escalas.js). Si no hay otra cosa para elegir, directo a los gramos. */
+  const esc = (typeof escalasDelGrupo === 'function') ? escalasDelGrupo(pr, prods) : [];
+  const idsEsc = new Set(esc.map(e => e.id));
+  const vs = variantesDeGrupo(pr, prods).filter(v => !idsEsc.has(v.id));
+  if (esc.length && !vs.length) {
+    if (typeof _agregarItemVenta === 'function') _agregarItemVenta(esc[0].id, may ? 'may' : 'min');
+    return;
+  }
+  const opGranel = !esc.length ? '' :
+    '<button type="button" class="var-op var-granel" data-id="' + _varAttr(esc[0].id) + '">' +
+      '<span class="var-etq">A granel</span>' +
+      '<span class="var-precio">' + esc.map((e, i) => (i ? 'desde ' + e.etiqueta + ' ' : '') + '$' +
+        precioDeVentaVariante(e.producto, ctx).toLocaleString('es-AR')).join(' · ') + ' el kilo</span>' +
+      '<span class="var-stock">' + _varStockTxt({ tipoVenta: 'peso', stock: esc.reduce((s, e) => s + Math.max(0, Number(e.producto.stock || 0)), 0) }) + '</span></button>';
   const ov = document.createElement('div');
   /* dlg-overlay: así el Escape de admin-atajos.js no cierra la venta de atrás. */
   ov.className = 'dlg-overlay';
@@ -183,7 +197,7 @@ function abrirVariantesVenta(principalId, ctx) {
             '<span class="var-etq">' + _varEsc(etiquetaVariante(v)) + '</span>' +
             '<span class="var-precio">$' + precioDeVentaVariante(v, ctx).toLocaleString('es-AR') + (v.tipoVenta === 'peso' ? ' el kilo' : '') + '</span>' +
             '<span class="var-stock">' + _varStockTxt(v) + '</span></button>';
-        }).join('') +
+        }).join('') + opGranel +
       '</div>' +
       '<div class="dlg-pie"><button type="button" class="btn btn-secondary" id="varVolver">Volver</button></div>' +
     '</div>';
