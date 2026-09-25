@@ -336,7 +336,11 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     const h = w.porId.pVariantes.innerHTML;
     t('  se dibujan como filas editables, con el botón para agregar', (h.match(/class="vfe"/g) || []).length === 3 && h.indexOf('varFilaAgregar()') > 0 &&
       h.indexOf('Agregar presentación') > 0 && h.indexOf('Oculta: no aparece') > 0);
-    t('  el tamaño de este producto es el mismo campo que Gramaje', h.indexOf('id="pVarTam"') > 0 && h.indexOf('varTamPrincipal(this.value)') > 0);
+    t('  el tamaño de este producto es el mismo campo que Gramaje', h.indexOf('id="pVarTam"') > 0 && h.indexOf('varTamPrincipal(this)') > 0);
+    t('  el tamaño se escribe con número y la unidad al lado (una presentación elige g, kg, ml, l o unidades)',
+      h.indexOf('limpiarNumeroTam(this);varFilaTam(0,this)') > 0 && (h.match(/class="vfe-unisel"/g) || []).length === 4 && h.indexOf('>unid.</option>') > 0);
+    t('  el stock dice (unitario)', (h.match(/Stock \(unitario\)/g) || []).length === 3);
+    t('  y los % no pasan de 999 (limpiarPorcentaje)', (h.match(/limpiarPorcentaje\(this\)/g) || []).length === 6);
     t('  una que ya existe se abre, no se quita desde acá', h.indexOf("openModal('mani160')") > 0 && h.indexOf('varFilaQuitar(0)') < 0);
     t('  y se puede cargar una con su propio formulario', h.indexOf("nuevaVariante('mani80')") > 0);
   }
@@ -365,7 +369,9 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     const r = w.ctx._calcFilaVar({ tam: '3 kg', costoIn: '13500', pct: 60, pctMay: 30 }, true);
     t('  se carga lo que costó la bolsa y el kilo sale solo: $13.500 la de 3 kg son $4.500 el kilo', r.costo === 4500 && r.precio === 7200 && r.may === 5850);
     t('  sin tamaño en kg o g no calcula, y lo dice', w.ctx._calcFilaVar({ tam: 'x12', costoIn: '13500' }, true).costo === null &&
-      w.ctx._resFilaVar(w.ctx._calcFilaVar({ tam: 'x12', costoIn: '1' }, true), true).indexOf('Poné el tamaño en kg o g') > 0);
+      w.ctx._resFilaVar(w.ctx._calcFilaVar({ tam: '', costoIn: '1' }, true), true).indexOf('Poné de cuánto es la bolsa.') > 0);
+    const hp = w.porId.pVariantes.innerHTML;
+    t('  la bolsa va siempre en kg: el número, y "kg" fijo al lado', hp.indexOf('<span class="vfe-unidad">kg</span>') > 0 && hp.indexOf('vfe-unisel') < 0);
     const prods = catalogo().concat([P('g1', { nombre: 'Yerba 1 kg', gramaje: '1 kg', tipoVenta: 'peso', costo: 5000, porcentaje: 60 }),
       P('g3', { nombre: 'Yerba 3 kg', gramaje: '3 kg', tipoVenta: 'peso', costo: 4500, porcentaje: 60, gramajePadreId: 'g1' }),
       P('g500', { nombre: 'Yerba x 500 g', gramaje: '500 g', precio: 4160, gramajePadreId: 'g1' })]);
@@ -374,6 +380,24 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  una bolsa que ya existe muestra lo que sale la bolsa ($4.500 el kilo × 3 kg)', w2.ctx.window._varFilas.length === 1 && w2.ctx.window._varFilas[0].costoIn === '13500');
     t('  y la de otra forma de venta (el paquete de 500 g) se nombra aparte, con su ficha', w2.porId.pVariantes.innerHTML.indexOf('Por unidad:') > 0 &&
       w2.porId.pVariantes.innerHTML.indexOf("openModal('g500')") > 0);
+  }
+
+  console.log('\n-- el formulario: el campo de tamaño --');
+  {
+    const w = armar();
+    const P2 = (s, peso) => JSON.stringify(w.ctx._tamPartes(s, peso));
+    t('lee la etiqueta guardada en número y unidad', P2('160 g', false) === '{"num":"160","uni":"g"}' && P2('500 ml', false) === '{"num":"500","uni":"ml"}' &&
+      P2('x12', false) === '{"num":"12","uni":"u"}' && P2('1,5 kg', false) === '{"num":"1,5","uni":"kg"}');
+    t('  en una bolsa, siempre en kilos: 500 g es 0,5', P2('500 g', true) === '{"num":"0,5","uni":"kg"}' && P2('3 kg', true) === '{"num":"3","uni":"kg"}');
+    t('  un número solo toma la unidad de la tabla', P2('2', true) === '{"num":"2","uni":"kg"}' && P2('80', false) === '{"num":"80","uni":"g"}');
+    t('  lo que no se entiende queda vacío', P2('1 wd', true) === '{"num":"","uni":"kg"}' && P2('', false) === '{"num":"","uni":"g"}');
+    t('y la arma de vuelta: "2 kg", "160 g", "x12"; sin número, nada',
+      w.ctx._tamTexto('2', 'kg') === '2 kg' && w.ctx._tamTexto('160', 'g') === '160 g' && w.ctx._tamTexto('12', 'u') === 'x12' &&
+      w.ctx._tamTexto('', 'kg') === '' && w.ctx._tamTexto('0', 'kg') === '');
+    const inp = v => { const o = { value: v }; w.ctx.limpiarNumeroTam(o); return o.value; };
+    t('en el campo solo entran números: "1 wd" queda "1"', inp('1 wd') === '1' && inp('2wd') === '2' && inp('abc') === '');
+    t('  con una coma para medio kilo, y el punto se vuelve coma', inp('0,5') === '0,5' && inp('0.5') === '0,5' && inp('1,2,3') === '1,23');
+    t('  hasta 4 cifras y 3 decimales', inp('123456') === '1234' && inp('0,2555') === '0,255');
   }
 
   console.log('\n-- el formulario: qué no se puede guardar --');
@@ -538,6 +562,19 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
   t('  y desde una variante abre las del principal', /if\(prod\.gramajePadreId\)\{[^}]*return openGramajeModal\(_pr\.id\)/.test(cuerpo(html, 'openGramajeModal')));
 
   /* _agregarItemVenta de verdad, con lo de alrededor de mentira. */
+  /* limpiarPorcentaje de verdad: los % hasta 999, en la tabla y en el formulario. */
+  console.log('\n-- los porcentajes, hasta 999 --');
+  {
+    const lp = new Function(cuerpo(html, 'limpiarPorcentaje') + '\nreturn limpiarPorcentaje;')();
+    const pc = v => { const o = { value: v, selectionStart: String(v).length, setSelectionRange() {} }; lp(o); return o.value; };
+    t('un número gigante no entra: 1111111 queda 111', pc('1111111') === '111');
+    t('  ni la notación científica ni el signo', pc('99999e5') === '999' && pc('-35') === '35');
+    t('  con un decimal, con coma o con punto (queda con punto: lo lee parseFloat)', pc('45,55') === '45.5' && pc('45.5') === '45.5' && pc('7,') === '7.');
+    t('  lo que ya está bien no se toca', pc('999') === '999' && pc('0') === '0' && pc('') === '');
+    t('el formulario de arriba también los usa', /id="pPorcentaje" value="0" oninput="limpiarPorcentaje\(this\);calcPrecioModal\(\)"/.test(html) &&
+      /id="pPorcentajeMay" value="0" oninput="limpiarPorcentaje\(this\);calcPrecioModal\(\)"/.test(html));
+  }
+
   console.log('\n-- _agregarItemVenta con la sugerencia --');
   async function agregarCon(respuesta, prod) {
     const agregados = [], busc = { value: 'mani' }, pedidos = [];

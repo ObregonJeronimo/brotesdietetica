@@ -303,6 +303,60 @@ function _varMonto(v) {
 function _varMay(n) { return typeof _redondearMayorista === 'function' ? _redondearMayorista(n) : (n ? Math.ceil(n / 50) * 50 : 0); }
 function _varPrincipalActual() { return (typeof editingId !== 'undefined' && editingId) ? editingId : null; }
 
+/* EL TAMAÑO: en el campo va solo el número, y la unidad al lado. En una bolsa es kg
+   ("2" es 2 kg; 0,5 es medio kilo); en una presentación se elige: g, kg, ml, l o
+   unidades (x12). Pedido del comercio: dejaba escribir "1 wd". Lo que se guarda es la
+   etiqueta de siempre ("3 kg", "160 g", "x12"), que es la que lee todo lo demás. */
+const _UNIDADES_TAM = [['kg', /^(kg|kgs|kilos?)$/], ['g', /^(g|gr|grs|gramos?)$/], ['l', /^(l|lt|lts|litros?)$/],
+  ['ml', /^(ml|cc)$/], ['u', /^(u|un|unid|unidades)$/]];
+function _tamPartes(texto, peso) {
+  const s = String(texto || '').trim().toLowerCase();
+  let m = s.match(/(\d+(?:[.,]\d+)?)\s*([a-z]+)/);
+  let num = null, uni = null;
+  if (m) { const u = _UNIDADES_TAM.find(x => x[1].test(m[2])); if (u) { num = m[1]; uni = u[0]; } }
+  if (!uni && (m = s.match(/(?:^|\s)x\s*(\d+)\b/))) { num = m[1]; uni = 'u'; }
+  if (!uni && (m = s.match(/^(\d+(?:[.,]\d+)?)$/))) { num = m[1]; uni = peso ? 'kg' : 'g'; }
+  if (!uni) return { num: '', uni: peso ? 'kg' : 'g' };
+  num = num.replace('.', ',');
+  if (peso && uni === 'g') { num = String(parseFloat(num.replace(',', '.')) / 1000).replace('.', ','); uni = 'kg'; }
+  if (peso && uni !== 'kg') return { num: '', uni: 'kg' };
+  return { num: num, uni: uni };
+}
+function _tamTexto(num, uni) {
+  const n = String(num || '').trim();
+  if (!n || !(parseFloat(n.replace(',', '.')) > 0)) return '';
+  return uni === 'u' ? 'x' + n : n + ' ' + uni;
+}
+/* Solo números, con una coma: hasta 4 cifras y 3 decimales (0,25 kg). */
+function limpiarNumeroTam(inp) {
+  if (!inp) return;
+  const antes = String(inp.value == null ? '' : inp.value);
+  const v = antes.replace(/\./g, ',').replace(/[^0-9,]/g, '');
+  const i = v.indexOf(',');
+  const ent = (i < 0 ? v : v.slice(0, i)).slice(0, 4);
+  const dec = i < 0 ? null : v.slice(i + 1).replace(/,/g, '').slice(0, 3);
+  const limpio = dec === null ? ent : ent + ',' + dec;
+  if (limpio !== antes) inp.value = limpio;
+}
+function _tamWidgetHtml(texto, peso, alCambiar, placeholder, idAttr) {
+  const p = _tamPartes(texto, peso);
+  const input = '<input type="text" inputmode="decimal" class="form-input"' + (idAttr || '') +
+    ' value="' + _varAttr(p.num) + '" placeholder="' + placeholder + '" oninput="limpiarNumeroTam(this);' + alCambiar + '">';
+  const unidad = peso
+    ? '<span class="vfe-unidad">kg</span>'
+    : '<select class="vfe-unisel" onchange="' + alCambiar + '">' + ['g', 'kg', 'ml', 'l', 'u'].map(u =>
+      '<option value="' + u + '"' + (u === p.uni ? ' selected' : '') + '>' + (u === 'u' ? 'unid.' : u) + '</option>').join('') + '</select>';
+  return '<div class="vfe-tamw">' + input + unidad + '</div>';
+}
+/* La etiqueta que arman el número y la unidad de un campo de tamaño. */
+function _tamDeWidget(el) {
+  const w = el && el.closest ? el.closest('.vfe-tamw') : null;
+  if (!w) return '';
+  const inp = w.querySelector('input'), sel = w.querySelector('select');
+  return _tamTexto(inp ? inp.value : '', sel ? sel.value : 'kg');
+}
+function varFilaTam(i, el) { varFilaCambio(i, 'tam', _tamDeWidget(el)); }
+
 /* Las filas del producto que se abrió: los tamaños que ya tiene, con la misma forma de
    venta. Lo que se escriba en el formulario queda acá hasta guardar. */
 function iniciarVariantesForm(p) {
@@ -345,7 +399,8 @@ function _calcFilaVar(f, peso) {
 
 function _resFilaVar(r, peso) {
   if (r.costo === null) {
-    return '<span class="vfe-falta">' + (peso && !(r.c && r.c.unidad === 'g') ? 'Poné el tamaño en kg o g (ej. 3 kg).' : 'Poné el costo.') + '</span>';
+    const sinTam = !r.c || (peso && r.c.unidad !== 'g');
+    return '<span class="vfe-falta">' + (sinTam ? (peso ? 'Poné de cuánto es la bolsa.' : 'Poné el tamaño.') : 'Poné el costo.') + '</span>';
   }
   const kg = peso ? ' el kilo' : '';
   return (peso ? '<span>Costo $' + r.costo.toLocaleString('es-AR') + ' el kilo</span>' : '') +
@@ -358,18 +413,21 @@ function _filaVarHtml(f, i, peso) {
   return '<div class="vfe" data-i="' + i + '">' +
     '<div class="vfe-fila">' +
       '<label class="vfe-campo vfe-tam"><span>' + (peso ? 'Bolsa de' : 'Tamaño') + '</span>' +
-        '<input type="text" class="form-input" value="' + _varAttr(f.tam) + '" placeholder="' + (peso ? '3 kg' : '160 g') + '" oninput="' + ev('tam') + '"></label>' +
+        _tamWidgetHtml(f.tam, peso, 'varFilaTam(' + i + ',this)', peso ? '3' : '160') + '</label>' +
       '<label class="vfe-campo vfe-costo"><span>' + (peso ? 'Costo de la bolsa' : 'Costo') + '</span>' +
         '<input type="text" inputmode="numeric" class="form-input" value="' + _varAttr(f.costoIn) + '" oninput="if(typeof limpiarMonto===\'function\')limpiarMonto(this);' + ev('costoIn') + '"></label>' +
-      '<label class="vfe-campo vfe-stock"><span>Stock' + (peso ? ' (gramos)' : '') + '</span>' +
+      '<label class="vfe-campo vfe-stock"><span>Stock' + (peso ? ' (gramos)' : ' (unitario)') + '</span>' +
         '<input type="number" class="form-input" value="' + _varAttr(f.stock) + '" step="1" oninput="' + ev('stock') + '"></label>' +
       (f.id
         ? '<button type="button" class="vfe-btn" title="Abrir su ficha (lo que no guardaste acá se pierde)" onclick="closeModal();openModal(\'' + _varAttr(f.id) + '\')"><i class="bi bi-box-arrow-up-right"></i></button>'
         : '<button type="button" class="vfe-btn" title="Quitar" onclick="varFilaQuitar(' + i + ')"><i class="bi bi-x-lg"></i></button>') +
     '</div>' +
     '<div class="vfe-fila">' +
-      '<label class="vfe-campo"><span>% ganancia</span><input type="number" class="form-input" value="' + _varAttr(f.pct) + '" step="0.1" oninput="' + ev('pct') + '"></label>' +
-      '<label class="vfe-campo"><span>% mayorista</span><input type="number" class="form-input" value="' + _varAttr(f.pctMay) + '" step="0.1" oninput="' + ev('pctMay') + '"></label>' +
+      /* Hasta 999%: ver limpiarPorcentaje en admin.html. */
+      '<label class="vfe-campo"><span>% ganancia</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pct) +
+        '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pct') + '"></label>' +
+      '<label class="vfe-campo"><span>% mayorista</span><input type="text" inputmode="decimal" class="form-input" value="' + _varAttr(f.pctMay) +
+        '" oninput="if(typeof limpiarPorcentaje===\'function\')limpiarPorcentaje(this);' + ev('pctMay') + '"></label>' +
       '<div class="vfe-res">' + _resFilaVar(_calcFilaVar(f, peso), peso) + '</div>' +
     '</div>' +
     (f.oculto ? '<p class="vfe-nota">Oculta: no aparece en la venta ni en la tienda.</p>' : '') +
@@ -406,8 +464,7 @@ function pintarVariantesForm() {
     : 'Si el mismo producto viene en otros tamaños (maní x 80 g y x 160 g), cargá cada uno con su costo y su ganancia. ' +
       'En la venta y en la tienda se ven como un solo producto.') + '</p>';
   h += '<label class="var-tam-ppal"><span>' + (peso ? 'Este producto es la bolsa de' : 'Este producto es el de') + '</span>' +
-    '<input type="text" class="form-input" id="pVarTam" placeholder="' + (peso ? '1 kg' : '80 g') + '" value="' + _varAttr(g ? g.value : '') +
-    '" oninput="varTamPrincipal(this.value)"></label>';
+    _tamWidgetHtml(g ? g.value : '', peso, 'varTamPrincipal(this)', peso ? '1' : '80', ' id="pVarTam"') + '</label>';
   h += '<div class="var-filas">' + filas.map((f, i) => _filaVarHtml(f, i, peso)).join('') + '</div>';
   h += '<button type="button" class="btn btn-secondary btn-sm var-agregar" onclick="varFilaAgregar()"><i class="bi bi-plus-lg"></i> ' +
     (peso ? 'Agregar bolsa' : 'Agregar presentación') + '</button>';
@@ -462,10 +519,12 @@ function varFilaQuitar(i) {
   pintarVariantesForm();
 }
 
-/* "Este producto es la bolsa de..." es el mismo campo que Gramaje / Presentación. */
+/* "Este producto es la bolsa de..." es el mismo campo que Gramaje / Presentación.
+   Recibe el campo (el número o la unidad) o directamente la etiqueta. */
 function varTamPrincipal(v) {
+  const texto = (typeof v === 'string') ? v : _tamDeWidget(v);
   const g = document.getElementById('pGramaje');
-  if (g) { g.value = v; g.dispatchEvent(new Event('input', { bubbles: true })); }
+  if (g) { g.value = texto; g.dispatchEvent(new Event('input', { bubbles: true })); }
 }
 
 /* Abre el formulario para crear una variante: un producto nuevo, enganchado al
@@ -524,10 +583,16 @@ if (typeof setTipoVenta === 'function') {
   };
 }
 (function () {
+  /* Si se escribe en Gramaje / Presentación, el campo de la tabla lo sigue. */
   const g = document.getElementById('pGramaje');
   if (g) g.addEventListener('input', () => {
     const t = document.getElementById('pVarTam');
-    if (t && document.activeElement !== t) t.value = g.value;
+    if (!t || document.activeElement === t) return;
+    const p = _tamPartes(g.value, _varEsPeso());
+    t.value = p.num;
+    const w = t.closest ? t.closest('.vfe-tamw') : null;
+    const sel = w ? w.querySelector('select') : null;
+    if (sel && document.activeElement !== sel) sel.value = p.uni;
   });
 })();
 
