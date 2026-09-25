@@ -975,8 +975,11 @@ la tienda, una fila en la venta— y cada tamaño tiene su costo, su ganancia y 
 - **El formulario:** con más de un tamaño, la tabla "Costo y precio de cada bolsa" es el
   único lugar de carga (lo de arriba se esconde).
 - **La venta avisa al vender más de lo que hay en stock**, para cualquier producto.
+- **Stock: "Agregar stock"** en cada fila suma lo que llegó (el lápiz corrige el total).
+- **Productos: un producto con presentaciones es una fila**, con un panel que muestra cada
+  tamaño y "Editar presentaciones".
 
-Está en commits locales, probado en el sandbox; **no se subió**. Pruebas: 2877 en 69 suites.
+Está en commits locales, probado en el sandbox; **no se subió**. Pruebas: 2944 en 71 suites.
 
 **Al subirlo** (solo cuando lo pida el dueño, y con la clienta sin usar el sistema):
 - desplegar las functions `registrarCambioDeCosto` y `descontarStockPedido` (esta cambió: compara
