@@ -367,13 +367,24 @@ function vistaItemsVenta(items) {
   const esMay = typeof ventaMayItems !== 'undefined' && items === ventaMayItems;
   const cajas = new Set(esMay || typeof esCajaCerrada !== 'function' ? [] :
     lista.filter(it => it && it.id && esCajaCerrada(prods.find(x => x.id === it.id))).map(it => it.id));
-  if (!grupoDe.size && !cajas.size) return lista;
+  /* Lo que se vende de más que el stock lo dice su línea; al registrar se pregunta (ver
+     avisoStockInsuficiente en admin-variantes.js). */
+  const ctxV = esMay ? 'may' : 'min';
+  const faltaDe = new Map();
+  if (typeof faltantesDeStock === 'function' && !(typeof _stockNoAplica === 'function' && _stockNoAplica(ctxV))) {
+    faltantesDeStock(lista, ctxV).forEach(f => faltaDe.set(f.producto.id, f));
+  }
+  if (!grupoDe.size && !cajas.size && !faltaDe.size) return lista;
   const out = [];
   const hechos = new Set();
   lista.forEach(it => {
     const esc = it && grupoDe.get(it.id);
     if (!esc) {
-      out.push(it && cajas.has(it.id) ? Object.assign({}, it, { __detalle: 'Caja cerrada: se cobra el precio mayorista' }) : it);
+      if (!it || (!cajas.has(it.id) && !faltaDe.has(it.id))) { out.push(it); return; }
+      const extra = {};
+      if (cajas.has(it.id)) extra.__detalle = 'Caja cerrada: se cobra el precio mayorista';
+      if (faltaDe.has(it.id)) extra.__falta = textoFaltaStock(faltaDe.get(it.id));
+      out.push(Object.assign({}, it, extra));
       return;
     }
     const clave = esc[0].id;

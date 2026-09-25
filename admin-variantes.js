@@ -306,6 +306,86 @@ function stockYaTomadoPorVenta(ctx) {
   return orig;
 }
 
+/* VENDER MÁS DE LO QUE HAY. La venta del mostrador nunca miró el stock: se registraba
+   igual y quedaba en negativo sin decir nada (una venta que ya pasó no se frena).
+   Pedido del comercio (25/09/2026): con 1 en stock se vendieron 2 y no avisó. Ahora la
+   línea lo dice mientras se arma la venta, y al registrar se pregunta UNA vez, con todo
+   lo que no alcanza; se puede registrar igual (el stock pudo estar mal cargado).
+   No se pregunta si el negocio no descuenta stock, si la venta sale de un pedido web que
+   ya lo descontó, ni por el granel con escalas: ese avisó al cargarlo, con la mezcla de
+   bolsas, cuál queda en negativo. */
+function _stockNoAplica(ctx) {
+  if (typeof DESCONTAR_STOCK !== 'undefined' && !DESCONTAR_STOCK) return true;
+  try {
+    if (ctx !== 'may' && typeof window !== 'undefined' && window._pedidoOrigenVentaId && typeof pedidosData !== 'undefined') {
+      const ped = pedidosData.find(x => x && x.docId === window._pedidoOrigenVentaId);
+      if (ped && ped.stockDescontado === true) return true;
+    }
+  } catch (e) { /* sin pedido: se mira */ }
+  return false;
+}
+/* Los productos de la venta que no alcanzan: { producto, hay, vende }. "Hay" cuenta lo que
+   la venta ya había descontado (una que se edita). */
+function faltantesDeStock(items, ctx) {
+  const prods = _varProds();
+  const tomado = stockYaTomadoPorVenta(ctx);
+  const vende = {};
+  (items || []).forEach(it => {
+    if (!it || !it.id || it.escalaId) return;
+    vende[it.id] = (vende[it.id] || 0) + Number(it.cantidad || 0);
+  });
+  return Object.keys(vende).map(id => {
+    const p = prods.find(x => x && x.id === id);
+    if (!p) return null;
+    const hay = Number(p.stock || 0) + (tomado[id] || 0);
+    return vende[id] > hay ? { producto: p, hay: hay, vende: vende[id] } : null;
+  }).filter(Boolean);
+}
+/* "Maní RC (80 g)": con presentaciones, cuál es. El nombre interno, el mismo que se ve en
+   la línea de la venta (el público puede ser otro: "Maní recubierto de chocolate"). */
+function _nombreConPresentacion(p) {
+  const n = p.nombre || p.nombreMostrado || '';
+  const e = tieneVariantes(p, _varProds()) ? etiquetaVariante(p) : '';
+  return e && n.indexOf(e) < 0 ? n + ' (' + e + ')' : n;
+}
+function _cantStock(p, x) {
+  return p.tipoVenta === 'peso' ? (typeof fmtPeso === 'function' ? fmtPeso(x) : x + ' g') : String(x);
+}
+/* Lo que dice la línea de la venta. */
+function textoFaltaStock(f) {
+  return f.hay > 0 ? 'Solo hay ' + _cantStock(f.producto, f.hay) + ' en stock' : 'Sin stock: queda en negativo';
+}
+/* El stock de ahora, no el de cuando se abrió el panel: otro puede haber vendido. Sin
+   conexión, a los 1,5 segundos sigue con el que ya había. */
+async function _stockFresco(ids) {
+  if (typeof db === 'undefined' || !db || typeof db.collection !== 'function') return;
+  const prods = _varProds();
+  const espera = ms => new Promise(r => setTimeout(r, ms));
+  await Promise.race([espera(1500), Promise.all(ids.map(async id => {
+    try {
+      const sn = await db.collection('productos').doc(id).get();
+      const p = prods.find(x => x && x.id === id);
+      if (sn && sn.exists && p) p.stock = Number((sn.data() || {}).stock || 0);
+    } catch (e) { /* queda el que había */ }
+  }))]);
+}
+/* true = registrar; false = volver a la venta. */
+async function avisoStockInsuficiente(items, ctx) {
+  if (_stockNoAplica(ctx)) return true;
+  const ids = Array.from(new Set((items || []).filter(it => it && it.id && !it.escalaId).map(it => it.id)));
+  if (!ids.length) return true;
+  await _stockFresco(ids);
+  const faltan = faltantesDeStock(items, ctx);
+  if (!faltan.length || typeof pedirConfirmacion !== 'function') return true;
+  const lineas = faltan.map(f => '- ' + _nombreConPresentacion(f.producto) + ': ' +
+    (f.hay > 0 ? 'hay ' + _cantStock(f.producto, f.hay) : 'no hay stock') + ' y estás vendiendo ' + _cantStock(f.producto, f.vende) + '.');
+  const msg = (faltan.length === 1 ? 'No alcanza el stock:' : 'No alcanza el stock de estos productos:') + _VAR_NL + _VAR_NL +
+    lineas.join(_VAR_NL) + _VAR_NL + _VAR_NL +
+    'Si la registrás igual, el stock queda en negativo. Registrala solo si de verdad se vendió (el stock estaba mal cargado); si no, revisá la cantidad.';
+  return pedirConfirmacion(msg, { titulo: 'Stock insuficiente', icono: 'bi-exclamation-triangle', peligro: true,
+    aceptar: 'Registrar igual', cancelar: 'Revisar la venta' });
+}
+
 /* Lo que ve el que cobra. Devuelve 'seguir' (agregar la pedida como siempre), 'hecho'
    (se agregó la otra) o 'cancelar' (cerró el aviso sin elegir: no se agrega nada). */
 async function sugerirPresentacion(p, lista, ctx) {

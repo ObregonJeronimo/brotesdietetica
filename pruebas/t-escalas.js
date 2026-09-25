@@ -502,6 +502,65 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     t('si solo tiene escalas, no hay nada que elegir: directo a los gramos', eleg2.join() === 'y1@may');
   }
 
+  /* ================================= VENDER MÁS DE LO QUE HAY (25/09/2026) */
+  console.log('\n-- vender más de lo que hay --');
+  {
+    /* Pedido del comercio: con 1 en stock se vendieron 2 y no avisó nada. */
+    const linea = (id, cant, extra) => Object.assign({ id, nombre: id, precio: 1000, cantidad: cant, tipoVenta: 'unidad' }, extra || {});
+    const w = armar({ ventaItems: [linea('y500', 12)] });
+    const f = w.ctx.faltantesDeStock(w.ctx.ventaItems, 'min');
+    t('12 paquetes de 500 g con 10 en stock: no alcanza', f.length === 1 && f[0].producto.id === 'y500' && f[0].hay === 10 && f[0].vende === 12);
+    t('  la línea de la venta lo dice', w.ctx.vistaItemsVenta(w.ctx.ventaItems)[0].__falta === 'Solo hay 10 en stock');
+    t('  y la línea sigue siendo la misma (sus manejadores no cambian)', w.ctx.vistaItemsVenta(w.ctx.ventaItems)[0].id === 'y500');
+    const ok = await w.ctx.avisoStockInsuficiente(w.ctx.ventaItems, 'min');
+    const c = w.confirmaciones[0] || { msg: '', op: {} };
+    t('al registrar se pregunta una vez, con lo que hay y lo que se vende', w.confirmaciones.length === 1 &&
+      c.msg.indexOf('Yerba Mate x 500 g: hay 10 y estás vendiendo 12.') > 0 && c.msg.indexOf('el stock queda en negativo') > 0, c.msg);
+    t('  "Registrar igual" (en rojo) o "Revisar la venta" (el que queda marcado)', ok === true && c.op.aceptar === 'Registrar igual' &&
+      c.op.cancelar === 'Revisar la venta' && c.op.peligro === true);
+    const w2 = armar({ confirma: false, ventaItems: [linea('y500', 12)] });
+    t('  y "Revisar la venta" no la registra', (await w2.ctx.avisoStockInsuficiente(w2.ctx.ventaItems, 'min')) === false);
+    const w3 = armar({ ventaItems: [linea('y500', 10)] });
+    t('si alcanza justo, no pregunta ni marca la línea', (await w3.ctx.avisoStockInsuficiente(w3.ctx.ventaItems, 'min')) === true &&
+      w3.confirmaciones.length === 0 && w3.ctx.vistaItemsVenta(w3.ctx.ventaItems) === w3.ctx.ventaItems);
+    const w4 = armar({ ventaItems: [linea('nuez', 3500, { tipoVenta: 'peso' })] });
+    await w4.ctx.avisoStockInsuficiente(w4.ctx.ventaItems, 'min');
+    t('un granel sin escalas en gramos: "hay 3 kg y estás vendiendo 3,5 kg"', (w4.confirmaciones[0] || {}).msg &&
+      w4.confirmaciones[0].msg.indexOf('Nueces: hay 3 kg y estás vendiendo 3,5 kg.') > 0);
+    const prods = catalogo();
+    prods.find(p => p.id === 'y500').stock = 0;
+    const w5 = armar({ productos: prods, ventaItems: [linea('y500', 1)] });
+    await w5.ctx.avisoStockInsuficiente(w5.ctx.ventaItems, 'min');
+    t('sin nada en stock: "no hay stock"', w5.confirmaciones[0].msg.indexOf('Yerba Mate x 500 g: no hay stock y estás vendiendo 1.') > 0 &&
+      w5.ctx.vistaItemsVenta(w5.ctx.ventaItems)[0].__falta === 'Sin stock: queda en negativo');
+    const w6 = armar({ ventaItems: [linea('y3', 3000, { tipoVenta: 'peso', escalaId: 'y3' })] });
+    t('el granel con escalas no se pregunta: ya avisó con la mezcla de bolsas', (await w6.ctx.avisoStockInsuficiente(w6.ctx.ventaItems, 'min')) === true &&
+      w6.confirmaciones.length === 0);
+    const w7 = armar({ ventaItems: [linea('y500', 12)], editingVentaId: 'v1', editingVentaOriginal: { stockDescontado: true, items: [{ id: 'y500', cantidad: 5 }] } });
+    t('editando una venta, lo que ella ya descontó vuelve: 10 + 5 alcanzan para 12', (await w7.ctx.avisoStockInsuficiente(w7.ctx.ventaItems, 'min')) === true &&
+      w7.confirmaciones.length === 0);
+    const w8 = armar({ ventaItems: [linea('y500', 12)] });
+    w8.ctx._pedidoOrigenVentaId = 'ped1';
+    w8.ctx.pedidosData = [{ docId: 'ped1', stockDescontado: true, items: [] }];
+    t('un pedido web que ya descontó no se pregunta (esta venta no descuenta)', (await w8.ctx.avisoStockInsuficiente(w8.ctx.ventaItems, 'min')) === true &&
+      w8.confirmaciones.length === 0);
+    const w9 = armar({ ventaItems: [linea('y500', 12)] });
+    w9.ctx.DESCONTAR_STOCK = false;
+    t('si el negocio no descuenta stock, tampoco', (await w9.ctx.avisoStockInsuficiente(w9.ctx.ventaItems, 'min')) === true &&
+      w9.confirmaciones.length === 0 && w9.ctx.vistaItemsVenta(w9.ctx.ventaItems) === w9.ctx.ventaItems);
+    const w10 = armar({ ventaMayItems: [linea('y500', 11)] });
+    t('en la mayorista también', (await w10.ctx.avisoStockInsuficiente(w10.ctx.ventaMayItems, 'may')) === true && w10.confirmaciones.length === 1 &&
+      w10.ctx.vistaItemsVenta(w10.ctx.ventaMayItems)[0].__falta === 'Solo hay 10 en stock');
+    const conNombre = catalogo();
+    Object.assign(conNombre.find(p => p.id === 'y1'), { nombre: 'Yerba Mate', nombreMostrado: 'Yerba Mate Orgánica de la casa' });
+    const w11 = armar({ productos: conNombre });
+    t('con presentaciones dice cuál: "Yerba Mate (1 kg)"', w11.ctx._nombreConPresentacion(b(w11.ctx, 'y1')) === 'Yerba Mate (1 kg)' &&
+      w11.ctx._nombreConPresentacion(b(w11.ctx, 'y500')) === 'Yerba Mate x 500 g' && w11.ctx._nombreConPresentacion(b(w11.ctx, 'nuez')) === 'Nueces');
+    t('la venta y la mayorista preguntan antes de registrar', html.indexOf("if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaItems,'min')))return;") > 0 &&
+      html.indexOf("if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaMayItems,'may')))return;") > 0);
+    t('  y las dos listas muestran la línea en amarillo', (html.match(/\(i\.__falta\?'<span class="vi-falta">/g) || []).length === 2);
+  }
+
   /* ======================================== LA REVISIÓN DE CÓDIGO DEL 25/09 */
   console.log('\n-- revisión del 25/09: el principal oculto --');
   {
