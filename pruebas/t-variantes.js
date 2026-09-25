@@ -343,7 +343,7 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
       h.indexOf('Agregar presentación') > 0 && h.indexOf('Oculta: no aparece') > 0);
     t('  el tamaño de este producto es el mismo campo que Gramaje', h.indexOf('id="pVarTam"') > 0 && h.indexOf('varTamPrincipal(this)') > 0);
     t('  el tamaño se escribe con número y la unidad al lado (una presentación elige g, kg, ml, l o unidades)',
-      h.indexOf('limpiarNumeroTam(this);varFilaTam(0,this)') > 0 && (h.match(/class="vfe-unisel"/g) || []).length === 4 && h.indexOf('>unid.</option>') > 0);
+      h.indexOf('limpiarNumeroTam(this);varFilaTam(0,this)') > 0 && (h.match(/class="vfe-unisel"/g) || []).length === 4 && h.indexOf('>un.</option>') > 0 && h.indexOf('>unid.</option>') < 0);
     t('  la primera fila es este producto, antes que las otras', h.indexOf('class="vfe vfe-ppal"') > 0 &&
       h.indexOf('class="vfe vfe-ppal"') < h.indexOf('class="vfe" data-i="0"'));
     t('  el stock dice (unitario), en la de este producto y en las otras tres', (h.match(/Stock \(unitario\)/g) || []).length === 4);
@@ -500,6 +500,16 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  la caja cerrada de la fila es la de arriba', w.porId.pCajaCerrada.checked === true && w.ctx._valoresPpal(false).caja === true);
     const h = w.porId.pVariantes.innerHTML;
     t('  y tiene su casilla, como las otras presentaciones', (h.match(/Caja cerrada: en el mostrador y en la tienda/g) || []).length === 4);
+    t('cada casilla de caja cerrada tiene su "?", afuera del label (tocarlo no la marca)', (h.match(/<\/label><span class="ayuda-tip" tabindex="0"/g) || []).length === 4);
+    const ayudaCaja = vm.runInContext('_AYUDA_CAJA', w.ctx);
+    t('  el cartelito dice cuándo marcarla, con el ejemplo de los alfajores', ayudaCaja.indexOf('Marcalo SOLO si vendés el producto en una caja cerrada') === 0 &&
+      ayudaCaja.indexOf('caja cerrada de alfajores de una docena') > 0 && h.indexOf('data-tip="Marcalo SOLO si vendés') > 0);
+    t('  y la casilla del formulario de un solo tamaño también, con el mismo texto', html.indexOf('</label><span class="ayuda-tip" id="pCajaAyuda" tabindex="0" role="img">') > 0 &&
+      SRC.indexOf("a.setAttribute('data-tip', _AYUDA_CAJA)") > 0);
+    t('el campo del tamaño entra entero: la columna más ancha, el selector angosto y el ejemplo con la letra normal',
+      html.indexOf('.vfe-fila{display:grid;grid-template-columns:1.2fr 1.25fr 1fr auto;') > 0 &&
+      html.indexOf('.vfe-unisel{cursor:pointer;color:var(--text);padding:0 0.1rem 0 0.3rem;flex:0 0 auto}') > 0 &&
+      html.indexOf('.vfe-tamw .form-input::placeholder{font-style:italic;opacity:0.55;font-family:var(--font)}') > 0);
   }
   t('arriba, lo que se escribe llega a la primera fila (costo, stock, ganancias, caja y tamaño)',
     /\['pStock', 'pPorcentaje', 'pPorcentajeMay', 'pDescuento'\]\.forEach/.test(SRC) && SRC.indexOf("cb.addEventListener('change', pintarFilaPpal)") > 0 &&

@@ -208,7 +208,7 @@ const b = (ctx, id) => ctx.allProducts.find(p => p.id === id);
   }
 
   console.log('\n-- los ganchos del panel --');
-  t('la casilla va en el precio mayorista del formulario', /id="pCajaWrap" class="caja-wrap" hidden><label class="caja-lbl"><input type="checkbox" id="pCajaCerrada" onchange="pintarCajaCerrada\(\)">/.test(html) &&
+  t('la casilla va en el precio mayorista del formulario, con su "?"', /id="pCajaWrap" class="caja-wrap" hidden><div class="caja-fila"><label class="caja-lbl"><input type="checkbox" id="pCajaCerrada" onchange="pintarCajaCerrada\(\)">/.test(html) &&
     html.indexOf('id="pCajaWrap"') < html.indexOf('id="pVariantesSec"'));
   t('guardar escribe la marca', /if\(typeof datosCajaCerrada==='function'\)datosCajaCerrada\(data,editingId\);/.test(cuerpo(html, 'saveProduct')));
   t('el PDF del catálogo al público pone la caja a su precio', /const base=\(!mayorista&&typeof precioMostradorDe==='function'\)\?precioMostradorDe\(p\):Number\(p\.precio\|\|0\);/.test(cuerpo(html, 'exportCatalogoPDF')));

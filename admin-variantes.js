@@ -120,6 +120,21 @@ function precioMostradorDe(p) {
   return (esCajaCerrada(p) && may > 0) ? may : Number(p.precio || 0);
 }
 
+/* El "?" de la caja cerrada: al pasar el mouse (o tocarlo) dice cuándo marcarla. Pedido
+   del comercio (25/09/2026): que se entienda que es SOLO para lo que se vende en caja
+   cerrada. El mismo texto va en la casilla del formulario (pCajaAyuda) y en cada fila. */
+const _AYUDA_CAJA = 'Marcalo SOLO si vendés el producto en una caja cerrada, por ejemplo una caja cerrada de alfajores de una docena. ' +
+  'Esa caja se cobra al precio mayorista, en el mostrador y en la tienda. Si lo vendés suelto, no lo marques: va a precio normal.';
+function _ayudaCajaHtml() {
+  return '<span class="ayuda-tip" tabindex="0" role="img" aria-label="' + _varAttr(_AYUDA_CAJA) + '" data-tip="' + _varAttr(_AYUDA_CAJA) + '">' +
+    '<i class="bi bi-question-circle"></i></span>';
+}
+/* La casilla de una fila. El "?" va afuera del label: adentro, tocarlo marcaría la casilla. */
+function _cajaHtml(marcada, alCambiar) {
+  return '<div class="vfe-caja"><label><input type="checkbox"' + (marcada ? ' checked' : '') + ' onchange="' + alCambiar + '">' +
+    ' <span>Caja cerrada: en el mostrador y en la tienda se cobra el precio mayorista</span></label>' + _ayudaCajaHtml() + '</div>';
+}
+
 function _varStockTxt(v) {
   const n = Number(v.stock || 0);
   if (n <= 0) return 'SIN STOCK';
@@ -398,7 +413,7 @@ function _tamWidgetHtml(texto, peso, alCambiar, placeholder, idAttr) {
   const unidad = peso
     ? '<span class="vfe-unidad">kg</span>'
     : '<select class="vfe-unisel" onchange="' + alCambiar + '">' + ['g', 'kg', 'ml', 'l', 'u'].map(u =>
-      '<option value="' + u + '"' + (u === p.uni ? ' selected' : '') + '>' + (u === 'u' ? 'unid.' : u) + '</option>').join('') + '</select>';
+      '<option value="' + u + '"' + (u === p.uni ? ' selected' : '') + '>' + (u === 'u' ? 'un.' : u) + '</option>').join('') + '</select>';
   return '<div class="vfe-tamw">' + input + unidad + '</div>';
 }
 /* La etiqueta que arman el número y la unidad de un campo de tamaño. */
@@ -512,8 +527,7 @@ function _filaVarHtml(f, i, peso) {
     '<div class="vfe-fila">' + _pctsFilaHtml(f, ev) +
       '<div class="vfe-res">' + _resFilaVar(_calcFilaVar(f, peso), peso, f.caja, f.dsc) + '</div>' +
     '</div>' +
-    (peso ? '' : '<label class="vfe-caja"><input type="checkbox"' + (f.caja ? ' checked' : '') +
-      ' onchange="varFilaCambio(' + i + ',\'caja\',this.checked)"> <span>Caja cerrada: en el mostrador y en la tienda se cobra el precio mayorista</span></label>') +
+    (peso ? '' : _cajaHtml(f.caja, 'varFilaCambio(' + i + ',\'caja\',this.checked)')) +
     (f.oculto ? '<p class="vfe-nota">Oculta: no aparece en la venta ni en la tienda.</p>' : '') +
   '</div>';
 }
@@ -591,8 +605,7 @@ function _filaPpalHtml(peso) {
     '<div class="vfe-fila">' + _pctsFilaHtml(v, ev) +
       '<div class="vfe-res">' + _resPpal(v, peso) + '</div>' +
     '</div>' +
-    (peso ? '' : '<label class="vfe-caja"><input type="checkbox"' + (v.caja ? ' checked' : '') + ' onchange="' + ev('caja') + '">' +
-      ' <span>Caja cerrada: en el mostrador y en la tienda se cobra el precio mayorista</span></label>') +
+    (peso ? '' : _cajaHtml(v.caja, ev('caja'))) +
   '</div>';
 }
 
@@ -924,6 +937,10 @@ function datosCajaCerrada(data, id) {
   else if (antes) data.cajaCerrada = false;
   return data;
 }
+(function () {
+  const a = document.getElementById('pCajaAyuda');
+  if (a && a.setAttribute) { a.setAttribute('data-tip', _AYUDA_CAJA); a.setAttribute('aria-label', _AYUDA_CAJA); }
+})();
 (function () {
   /* La primera fila de la tabla es este producto: lo que se escribe arriba la sigue. */
   const g = document.getElementById('pGramaje');
