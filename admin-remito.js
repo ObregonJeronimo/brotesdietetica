@@ -1,6 +1,11 @@
 /* ==========================================================================
    LEER UN REMITO EN PDF Y PRECARGAR LOS ITEMS DE LA COMPRA
 
+   >>> SIN USO DESDE EL 24/09/2026 <<<  A pedido del comercio, la compra ya no lee
+   el PDF: se adjunta como comprobante y los productos se cargan a mano. Este modulo
+   se sigue cargando y sus pruebas siguen corriendo, pero nada lo llama. Ver
+   _cpLeerRemito y donde se elige el archivo, en admin-compras.js.
+
    Solo PDFs con CAPA DE TEXTO. No hay OCR y no lo va a haber por ahora: sobre
    una foto, los modelos actuales aciertan cerca de la mitad de los renglones y
    -peor- ajustan el precio de un renglon para que la suma cierre contra el

@@ -244,7 +244,10 @@ const htmlAdm = fs.readFileSync(path.join(RAIZ, 'admin.html'), 'utf8');
 t('admin.html carga el modulo', htmlAdm.indexOf('<script src="admin-remito.js"></script>') > 0);
 t('el modulo se carga antes que compras',
   htmlAdm.indexOf('admin-remito.js') < htmlAdm.indexOf('admin-compras.js'));
-t('elegir el archivo dispara la lectura', /_cpLeerRemito\(f\)/.test(compras));
+/* Desde el 24/09/2026 el PDF ya no se lee (pedido del comercio): se adjunta y los
+   productos se cargan a mano. El lector sigue probado abajo, por si vuelve. */
+t('elegir el archivo YA NO dispara la lectura', !/_cpLeerRemito\(f\)/.test(compras));
+t('  pero se sigue adjuntando como comprobante', /_compraArchivo = f;/.test(compras));
 t('la lectura existe', /async function _cpLeerRemito\(/.test(compras));
 t('existe el lugar donde se escribe el resumen', htmlAdm.indexOf('id="compraLectura"') > 0);
 t('y la lectura escribe ahi', compras.indexOf("getElementById('compraLectura')") > 0);

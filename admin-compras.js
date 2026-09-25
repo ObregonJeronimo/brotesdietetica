@@ -525,9 +525,11 @@ function compraArchivoElegido(input) {
   }
   _compraArchivo = f;
   if (nom) nom.textContent = f.name + ' · ' + Math.round(f.size / 1024) + ' KB';
-  /* Si es un PDF con capa de texto, se intenta precargar lo que dice. Con una
-     imagen no se intenta nada: ver el encabezado de admin-remito.js. */
-  _cpLeerRemito(f);
+  /* El PDF ya NO se lee (pedido del comercio, 24/09/2026): se adjunta como comprobante
+     y los productos se cargan a mano. Cada proveedor arma el remito a su manera, y la
+     lectura automatica metia errores que no se veian: los productos por peso ya habian
+     tenido que quedar afuera por eso. El lector sigue en admin-remito.js y en
+     _cpLeerRemito, sin que nada lo llame, por si algun dia se quiere volver a usar. */
 }
 
 /* ============================ GUARDAR ============================ */

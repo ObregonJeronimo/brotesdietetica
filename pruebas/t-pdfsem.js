@@ -110,7 +110,7 @@ t('escribe en un solo batch', (g.match(/db\.batch\(\)/g)||[]).length===1);
 t('redibuja la barra despues de guardar', /filterTable\(\);/.test(g));
 t('deja rastro en el historial', /logAction\('editar','PDF Semanal: lista predeterminada/.test(g));
 
-console.log('\nEl boton se ve siempre; apagado si el filtro muestra otra lista (19/09)');
+console.log('\nEl boton se veia siempre, apagado si el filtro mostraba otra lista (19/09). Desde el 24/09 es una NOTA: el boton se saco');
 /* Esconderlo dejaba a la gente buscandolo, sobre todo desde que no se elige ninguna
    lista sola. Pero usarlo desde otra lista sigue prohibido: comparar el PDF de un
    proveedor contra el catalogo de otro manda a ocultar todo lo del otro. */
@@ -188,6 +188,13 @@ t('  ni cae en la primera lista', cargar.indexOf('listasData[0]')<0);
 t('el filtro tampoco se recuerda entre visitas', !src.includes('brotesListaActiva'));
 t('pero filtrar a mano sigue andando', /function filtrarPorLista\(id\)\{[\s\S]{0,220}sel\.value=id/.test(src));
 t('  y se puede volver a ver todo', /data-id=""[\s\S]{0,120}Quitar el filtro/.test(src));
+
+console.log('\nEl boton del PDF Semanal se saco (pedido del comercio, 24/09)');
+t('ningun boton de la pantalla abre el PDF Semanal', !/onclick="openWeeklyPdfModal\(\)"/.test(src));
+t('  pero el codigo sigue, como referencia',
+    /function openWeeklyPdfModal\(/.test(src) && /function processWeeklyPdf\(/.test(src) && src.indexOf('id="weeklyPdfModal"')>0);
+t('  y queda anotado donde estaba el boton', src.indexOf('PDF SEMANAL: el boton se saco a pedido del comercio')>0);
+t('  y el manejo de su estado quedo comentado, no vivo', !/^\s*const wrapSemanal=/m.test(src) && /\/\/ const marcadaSem=listaPdfSemanal\(\);/.test(src));
 
 console.log('\n'+ok+' pasaron, '+fail+' fallaron');
 process.exit(fail?1:0);

@@ -151,7 +151,8 @@ console.log('\nNo puede quedar un callejon sin salida para elegir la lista');
    la migracion creo FRUTICOR-TODOS con pdfSemanal:false y el boton no aparecia.
    Desde el 19/09/2026 el boton se ve SIEMPRE y queda apagado -con el motivo en el
    globo- cuando el filtro muestra otro proveedor. El detalle esta en t-pdfsem.js. */
-t('el boton no se esconde nunca', /wrapSemanal\.style\.display=''/.test(src));
+/* Desde el 24/09/2026 el boton se saco: esto queda como nota, comentado. */
+t('el boton no se escondia nunca (hoy es una nota comentada)', /wrapSemanal\.style\.display=''/.test(src));
 t('  y sin ninguna lista marcada se puede entrar igual, para poder elegirla',
     /if \(!marcada \|\| !listaSel \|\| listaUsaPdfSemanal\(listaSel\)\) return '';/.test(src));
 
