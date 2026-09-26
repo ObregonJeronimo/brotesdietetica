@@ -537,7 +537,7 @@
         .pz-unidad{color:var(--text-dim);font-size:0.85rem;white-space:nowrap}
         .pz-total{display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;min-height:1.6rem;font-size:0.9rem;color:var(--text-dim)}
         .pz-total b{font-size:1.15rem;color:var(--accent-light);font-family:var(--mono)}
-        .pz-aviso{color:#EDB833;font-size:0.78rem;min-height:1rem;margin-top:0.15rem}.pz-aviso.pz-bloqueo{display:flex;gap:0.6rem;align-items:flex-start;color:#F59A9A;background:rgba(229,69,69,0.1);border:1px solid rgba(229,69,69,0.45);border-radius:10px;padding:0.65rem 0.8rem;margin-top:0.55rem;font-size:0.84rem;line-height:1.45}.pz-bloqueo i{flex:0 0 auto;margin-top:0.12rem}.pz-bloqueo p{margin:0}.pz-bloqueo .pz-ayuda{color:var(--text-dim);font-size:0.76rem;margin-top:0.4rem}
+        .pz-aviso{color:#EDB833;font-size:0.78rem;min-height:1rem;margin-top:0.15rem}.pz-aviso.pz-bloqueo{display:flex;gap:0.6rem;align-items:flex-start;color:#F59A9A;background:rgba(229,69,69,0.1);border:1px solid rgba(229,69,69,0.45);border-radius:10px;padding:0.65rem 0.8rem;margin-top:0.55rem;font-size:0.84rem;line-height:1.45}.pz-bloqueo i{flex:0 0 auto;margin-top:0.12rem}.pz-bloqueo p{margin:0}.pz-bloqueo .pz-ayuda{color:var(--text-dim);font-size:0.76rem;margin-top:0.4rem}.pz-aviso.pz-revisando{color:var(--text-dim)}
         .stock-sin-guardar{display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;background:rgba(237,184,51,0.12);border:1px solid rgba(237,184,51,0.35);color:#EDB833;border-radius:var(--radius);padding:0.7rem 0.9rem;margin-bottom:0.75rem;font-size:0.85rem}
         .stock-sin-guardar[hidden]{display:none}
         .stock-row.sin-guardar{outline:1px solid rgba(237,184,51,0.55)}
@@ -3309,7 +3309,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 /* Sin stock suficiente no se vende (pedido del comercio, 26/09/2026): el dialogo
                    no deja pasar mas de lo que queda. Ver stockParaVenta en admin-variantes.js. */
                 const sp=(typeof stockParaVenta==='function')?stockParaVenta(p,lista,ctx):null;
-                const gr = await pedirCantidadPeso(p,Object.assign({precioKg:precioKg},(sp&&typeof frenoDeGramos==='function')?frenoDeGramos(p,sp):{}));
+                const gr = await pedirCantidadPeso(p,Object.assign({precioKg:precioKg},(sp&&typeof frenoDeGramos==='function')?frenoDeGramos(p,sp,async()=>{await _stockFresco([p.id]);return stockParaVenta(p,lista,ctx);}):{}));
                 if(gr==null) return;                       /* cancelo */
                 const yaEstaba = lista.find(x=>x.id===id);
                 const antes = yaEstaba ? Number(yaEstaba.cantidad||0) : 0;
@@ -3317,7 +3317,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 const it = lista.find(x=>x.id===id);
                 if(it){ it.cantidad = yaEstaba ? (antes+gr) : gr; repintar(); }
             } else {
-                const sp=(p&&typeof stockParaVenta==='function')?stockParaVenta(p,lista,ctx):null;
+                const sp=(p&&typeof stockParaVentaFresco==='function')?await stockParaVentaFresco(p,lista,ctx,1):null;
                 if(sp&&sp.queda<1){await avisarSinStock(p,sp.hay,sp.ya);return;}
                 orig(id);
             }

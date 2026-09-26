@@ -223,10 +223,12 @@ function pedirCantidadPeso(producto, opts) {
   opts = opts || {};
   const nombre = opts.nombre || (producto && (producto.nombreMostrado || producto.nombre)) || 'el producto';
   const precioKg = Number(opts.precioKg != null ? opts.precioKg : (producto && producto.precio) || 0);
-  const stock = Number(opts.stock != null ? opts.stock : (producto && producto.stock) || 0);
+  /* let: con opts.refrescar se relee antes de frenar, y puede cambiar. */
+  let stock = Number(opts.stock != null ? opts.stock : (producto && producto.stock) || 0);
   const RAPIDOS = [100, 250, 500, 1000];
   const bloquear = !!opts.bloquear;
   const sinStock = g => bloquear && (stock <= 0 || (Number.isFinite(g) && g > stock));
+  const hayTxt = () => (stock > 0 ? ' &middot; hay ' + _dlgPeso(stock) : (bloquear ? ' &middot; sin stock' : ''));
 
   return new Promise(resolve => {
     const ov = document.createElement('div');
@@ -242,7 +244,7 @@ function pedirCantidadPeso(producto, opts) {
           '<p class="dlg-linea"><b>' + _dlgEsc(nombre) + '</b></p>' +
           '<p class="dlg-linea" style="color:var(--text-dim);font-size:0.83rem">' +
             (opts.detalle ? _dlgEsc(opts.detalle) : '$' + precioKg.toLocaleString('es-AR') + ' el kilo') +
-            (stock > 0 ? ' &middot; hay ' + _dlgPeso(stock) : (bloquear ? ' &middot; sin stock' : '')) + '</p>' +
+            '<span class="pz-hay">' + hayTxt() + '</span></p>' +
           '<div class="pz-rapidos">' +
             RAPIDOS.map(g => '<button type="button" class="pz-rap" data-g="' + g + '">' + _dlgPeso(g) + '</button>').join('') +
           '</div>' +
@@ -267,6 +269,9 @@ function pedirCantidadPeso(producto, opts) {
     const nota = ov.querySelector('.pz-nota');
     const avi = ov.querySelector('.pz-aviso');
     let cerrado = false;
+    /* opts.refrescar: la primera vez que frenaría, se relee el stock (el de la pantalla
+       puede ser viejo) y mientras tanto dice "Revisando el stock...". Una sola vez. */
+    let refresco = null, refrescado = typeof opts.refrescar !== 'function';
 
     const cerrar = (v) => {
       if (cerrado) return;
@@ -282,12 +287,34 @@ function pedirCantidadPeso(producto, opts) {
       const ok = Number.isFinite(g) && g > 0;
       const frena = sinStock(g);
       btnOk.disabled = !ok || frena;
+      if (frena && !refrescado) {
+        if (!refresco) {
+          refresco = Promise.resolve().then(() => opts.refrescar()).then(n => {
+            if (n && Number.isFinite(Number(n.stock))) {
+              stock = Number(n.stock);
+              if (n.avisoSinStock) opts.avisoSinStock = n.avisoSinStock;
+            }
+          }).catch(() => { /* queda el que había */ }).then(() => {
+            refrescado = true;
+            if (cerrado) return;
+            const h = ov.querySelector('.pz-hay');
+            if (h) h.innerHTML = hayTxt();
+            pintar();
+          });
+        }
+      }
       const q = (ok && typeof opts.cotizar === 'function') ? (opts.cotizar(g) || {}) : null;
       const total = q && q.total != null ? q.total : Math.round(precioKg * g / 1000);
       tot.innerHTML = ok
         ? '<span>' + _dlgPeso(g) + '</span><b>$' + Number(total).toLocaleString('es-AR') + '</b>'
         : '';
       nota.textContent = (q && q.nota) || '';
+      if (frena && !refrescado) {
+        /* El total y la nota se pintan igual; el aviso rojo, cuando termine de revisar. */
+        avi.className = 'pz-aviso pz-revisando';
+        avi.textContent = 'Revisando el stock...';
+        return;
+      }
       if (frena) {
         /* "STOCK INSUFICIENTE:" en negrita, y el resto como lo pidió el comercio. */
         const txt = opts.avisoSinStock || _dlgSinStock(stock);

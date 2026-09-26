@@ -31,6 +31,8 @@ const _ESC_NL = String.fromCharCode(10);
 const _escProds = () => (typeof allProducts !== 'undefined' && Array.isArray(allProducts) ? allProducts : []);
 const _escPeso = g => (typeof fmtPeso === 'function' ? fmtPeso(g) : (typeof _dlgPeso === 'function' ? _dlgPeso(g) : g + ' g'));
 const _escPlata = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-AR');
+/* Si en esta venta el stock se mira (y entonces sin stock no se vende): stockSeMira. */
+const _escFrena = ctx => typeof stockSeMira === 'function' && stockSeMira(ctx);
 
 /* ----------------------------------------------------------- LAS ESCALAS */
 
@@ -258,7 +260,7 @@ function avisoMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan, o) {
   });
   /* Sin stock suficiente no se vende (26/09): en el mostrador esto no llega (frena antes);
      un pedido que pide más de lo que hay no se va a poder registrar. */
-  const frena = !(typeof _stockNoAplica === 'function' && _stockNoAplica(ctx));
+  const frena = _escFrena(ctx);
   if (reparto.falta > 0) {
     L.push('');
     L.push(frena
@@ -305,22 +307,28 @@ function avisoMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan, o) {
 
   const malo = gana === null || gana <= 0 || mz.diferencia < 0 || mz.bajoCosto.length > 0 || reparto.falta > 0;
   const deOtras = _escBolsas(otras);
-  L.push('');
-  if (op.pedido) {
-    L.push('¿Sacás lo que falta de ' + deOtras + '?' + (op.todoDeCobra
-      ? (frena ? ' Si no, la venta no se va a poder registrar: ' + bolsa + ' no tiene stock suficiente.'
-        : ' Si no, todo se descuenta de ' + bolsa + ', que queda con el stock en negativo.')
-      : ' Si no, se descuenta como vino en el pedido.'));
-  } else {
-    L.push(malo ? '¿Lo vendés igual?' : '¿Lo vendés así?');
+  /* Un pedido que ni sumando las bolsas alcanza no tiene nada que elegir: ninguna salida
+     se va a poder registrar. Lo dice la línea de arriba; queda "Entendido" (revisión del
+     26/09: antes preguntaba como si "Sí" se pudiera). */
+  const sinSalida = !!op.pedido && frena && reparto.falta > 0;
+  if (!sinSalida) {
+    L.push('');
+    if (op.pedido) {
+      L.push('¿Sacás lo que falta de ' + deOtras + '?' + (op.todoDeCobra
+        ? (frena ? ' Si no, la venta no se va a poder registrar: ' + bolsa + ' no tiene stock suficiente.'
+          : ' Si no, todo se descuenta de ' + bolsa + ', que queda con el stock en negativo.')
+        : ' Si no, se descuenta como vino en el pedido.'));
+    } else {
+      L.push(malo ? '¿Lo vendés igual?' : '¿Lo vendés así?');
+    }
   }
   return {
     mensaje: L.join(_ESC_NL),
     opts: {
       titulo: quedan > 0 ? 'No alcanza ' + bolsa : _escMayus(bolsa) + ' no tiene stock',
       icono: malo ? 'bi-exclamation-triangle' : 'bi-info-circle',
-      aceptar: op.pedido ? 'Sí, sacarlo de ' + deOtras : 'Sí, vender',
-      cancelar: op.pedido ? (op.todoDeCobra ? 'No, todo de ' + bolsa : 'No, dejarlo como vino') : 'No, cancelar',
+      aceptar: sinSalida ? 'Entendido' : (op.pedido ? 'Sí, sacarlo de ' + deOtras : 'Sí, vender'),
+      cancelar: sinSalida ? null : (op.pedido ? (op.todoDeCobra ? 'No, todo de ' + bolsa : 'No, dejarlo como vino') : 'No, cancelar'),
     },
   };
 }
@@ -345,7 +353,8 @@ function lineasDeEscalas(lista, escalas) {
    sale: ver stockYaTomadoPorVenta en admin-variantes.js. */
 function disponibleParaVenta(ctx) {
   const orig = typeof stockYaTomadoPorVenta === 'function' ? stockYaTomadoPorVenta(ctx) : {};
-  return e => Math.max(0, Number(e.producto.stock || 0) + (orig[e.id] || 0));
+  /* Lo tomado más el stock que queda: uno negativo no resta (ver _hayParaVenta). */
+  return e => (orig[e.id] || 0) + Math.max(0, Number(e.producto.stock || 0));
 }
 
 /* Lo que muestra el diálogo de gramos: el precio de cada escala y el total en vivo,
@@ -360,7 +369,7 @@ function opcionesGramosEscalas(escalas, ctx, ya, dsc, disponible) {
   const hay = todo - ya;
   const antes = ya > 0 ? escalaPara(escalas, ya) : null;
   /* Sin stock suficiente no se agrega: ver frenoDeGramos en admin-variantes.js. */
-  const frena = !(typeof _stockNoAplica === 'function' && _stockNoAplica(ctx)) && typeof frenoDeGramos === 'function';
+  const frena = _escFrena(ctx) && typeof frenoDeGramos === 'function';
   return Object.assign({
     nombre: _escNombre(escalas[0]),
     detalle: precios + (ya > 0 ? ' · ya hay ' + _escPeso(ya) + ' en la venta' : ''),
@@ -374,7 +383,11 @@ function opcionesGramosEscalas(escalas, ctx, ya, dsc, disponible) {
           (antes && antes !== e ? ' Lo que ya estaba en la venta pasa a este precio.' : ''),
       };
     },
-  }, frena ? frenoDeGramos(escalas[0].producto, { hay: todo, ya: ya, queda: hay }) : {});
+  }, frena ? frenoDeGramos(escalas[0].producto, { hay: todo, ya: ya, queda: hay }, async () => {
+    if (typeof _stockFresco === 'function') await _stockFresco(escalas.map(e => e.id));
+    const t = escalas.reduce((s, e) => s + disp(e), 0);
+    return { hay: t, ya: ya, queda: t - ya };
+  }) : {});
 }
 
 /* Suma gramos de un producto con escalas a la venta. Devuelve 'no' si no tiene
@@ -401,8 +414,13 @@ async function fijarGranelVenta(escalas, total, ctx, opts) {
   const disp = disponibleParaVenta(ctx);
   /* Sin stock suficiente no se vende (pedido del comercio, 26/09/2026): si no alcanza ni
      sumando todas las bolsas, no se agrega. Así llega cambiar los gramos en la línea. */
-  const frena = !(typeof _stockNoAplica === 'function' && _stockNoAplica(ctx));
-  const hay = escalas.reduce((s, e) => s + disp(e), 0);
+  const frena = _escFrena(ctx);
+  let hay = escalas.reduce((s, e) => s + disp(e), 0);
+  if (frena && gramos > hay && typeof _stockFresco === 'function') {
+    /* Antes de frenar, el stock de ahora: el de la pantalla puede ser viejo. */
+    await _stockFresco(escalas.map(e => e.id));
+    hay = escalas.reduce((s, e) => s + disp(e), 0);
+  }
   if (frena && gramos > hay) {
     if (typeof avisarSinStock === 'function') await avisarSinStock(escalas[0].producto, hay, 0, _escNombre(escalas[0]));
     return 'cancelar';
@@ -478,7 +496,7 @@ function vistaItemsVenta(items) {
      avisoStockInsuficiente en admin-variantes.js). */
   const ctxV = esMay ? 'may' : 'min';
   const faltaDe = new Map();
-  if (typeof faltantesDeStock === 'function' && !(typeof _stockNoAplica === 'function' && _stockNoAplica(ctxV))) {
+  if (typeof faltantesDeStock === 'function' && _escFrena(ctxV)) {
     faltantesDeStock(lista, ctxV).forEach(f => faltaDe.set(f.producto.id, f));
   }
   if (!grupoDe.size && !cajas.size && !faltaDe.size) return lista;
@@ -504,8 +522,8 @@ function vistaItemsVenta(items) {
        todas las bolsas (si el total alcanza, cambió el stock desde que se repartió). */
     let falta = null;
     if (lineas.some(x => faltaDe.has(x.id))) {
-      const tomado = typeof stockYaTomadoPorVenta === 'function' ? stockYaTomadoPorVenta(ctxV) : {};
-      const hayG = esc.reduce((s, e) => s + Math.max(0, Number(e.producto.stock || 0) + (tomado[e.id] || 0)), 0);
+      const d = disponibleParaVenta(ctxV);
+      const hayG = esc.reduce((s, e) => s + d(e), 0);
       falta = total > hayG ? textoFaltaStock({ producto: cobra.producto, hay: hayG }) : 'Cambió el stock de las bolsas: volvé a poner los gramos';
     }
     out.push({
@@ -729,7 +747,7 @@ function pintarCostoBolsa() {
   const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ gramaje: gEl ? gEl.value : '' }) : null;
   /* Con la tabla de bolsas a la vista sobra: lo que costó la bolsa de este producto va
      en su primera fila (admin-variantes.js). */
-  const conTabla = typeof window !== 'undefined' && !!(window._varFilas && window._varFilas.length && !window._varHijo && !window._varianteDeNueva);
+  const conTabla = typeof enModoTamanos === 'function' && enModoTamanos();
   if (!peso || conTabla || !c || c.unidad !== 'g' || !(c.valor > 0)) { cont.hidden = true; cont.innerHTML = ''; return; }
   let inp = cont.querySelector('input');
   if (!inp) {

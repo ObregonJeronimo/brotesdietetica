@@ -271,14 +271,15 @@ function sugerenciaPresentacion(p, enVenta, productos) {
   const c = contenidoDeVariante(p);
   if (!c) return null;
   const ya = enVenta || {};
-  if (Number(p.stock || 0) >= (ya[p.id] || 0) + 1) return null;
+  /* ya descuenta lo que la venta había tomado; el stock negativo no resta (_hayParaVenta). */
+  if (Math.max(0, Number(p.stock || 0)) >= (ya[p.id] || 0) + 1) return null;
   const pr = principalDeVariante(p, prods);
   const opciones = variantesDeGrupo(pr, prods)
     .filter(v => v.id !== p.id && v.tipoVenta !== 'peso')
     .map(v => ({ v: v, c: contenidoDeVariante(v) }))
     .filter(x => x.c && x.c.unidad === c.unidad && x.c.valor < c.valor && c.valor % x.c.valor === 0)
     .map(x => ({ variante: x.v, cantidad: c.valor / x.c.valor }))
-    .filter(x => Number(x.variante.stock || 0) - (ya[x.variante.id] || 0) >= x.cantidad)
+    .filter(x => Math.max(0, Number(x.variante.stock || 0)) - (ya[x.variante.id] || 0) >= x.cantidad)
     .sort((a, b) => a.cantidad - b.cantidad);
   return opciones[0] || null;
 }
@@ -325,6 +326,16 @@ function _stockNoAplica(ctx) {
   } catch (e) { /* sin pedido: se mira */ }
   return false;
 }
+/* Si el stock se mira en esta venta: lo contrario de _stockNoAplica. */
+function stockSeMira(ctx) { return !_stockNoAplica(ctx); }
+/* Lo que hay de un producto para esta venta: lo que ella ya había tomado (una que se edita)
+   más el stock que queda, si queda. Un stock en negativo no resta: si lo dejó así esta
+   misma venta, editarla sin tocar las cantidades no se puede frenar. Antes era stock +
+   tomado, y arreglar el medio de pago de una venta vieja la frenaba, y ni siquiera dejaba
+   bajar la cantidad (revisión de código del 26/09). */
+function _hayParaVenta(p, tomado) {
+  return ((tomado && tomado[p.id]) || 0) + Math.max(0, Number(p.stock || 0));
+}
 /* Los productos de la venta que no alcanzan: { producto, hay, vende }. "Hay" cuenta lo que
    la venta ya había descontado (una que se edita). El granel con escalas también: cada
    renglón es de una bolsa y descuenta de esa bolsa. */
@@ -339,7 +350,7 @@ function faltantesDeStock(items, ctx) {
   return Object.keys(vende).map(id => {
     const p = prods.find(x => x && x.id === id);
     if (!p) return null;
-    const hay = Number(p.stock || 0) + (tomado[id] || 0);
+    const hay = _hayParaVenta(p, tomado);
     return vende[id] > hay ? { producto: p, hay: hay, vende: vende[id] } : null;
   }).filter(Boolean);
 }
@@ -350,19 +361,16 @@ function _nombreConPresentacion(p) {
   const e = tieneVariantes(p, _varProds()) ? etiquetaVariante(p) : '';
   return e && n.indexOf(e) < 0 ? n + ' (' + e + ')' : n;
 }
-function _cantStock(p, x) {
-  return p.tipoVenta === 'peso' ? (typeof fmtPeso === 'function' ? fmtPeso(x) : x + ' g') : String(x);
-}
 /* Lo que dice la línea de la venta. */
 function textoFaltaStock(f) {
-  return f.hay > 0 ? 'Solo hay ' + _cantStock(f.producto, f.hay) + ' en stock: así no se puede vender' : 'Sin stock: no se puede vender';
+  return f.hay > 0 ? 'Solo hay ' + _cantConUnidad(f.producto, f.hay) + ' en stock: así no se puede vender' : 'Sin stock: no se puede vender';
 }
 /* Cuánto hay de p para esta venta: su stock más lo que la venta ya había descontado (una
    que se edita), lo que ya está en la lista y lo que queda para agregar. null si el stock
    no se mira (_stockNoAplica): entonces no se frena nada. */
 function stockParaVenta(p, lista, ctx) {
   if (!p || _stockNoAplica(ctx)) return null;
-  const hay = Number(p.stock || 0) + (stockYaTomadoPorVenta(ctx)[p.id] || 0);
+  const hay = _hayParaVenta(p, stockYaTomadoPorVenta(ctx));
   const ya = (lista || []).reduce((s, it) => s + (it && it.id === p.id ? Number(it.cantidad || 0) : 0), 0);
   return { hay: hay, ya: ya, queda: hay - ya };
 }
@@ -383,9 +391,28 @@ function textoStockInsuficiente(p, hay, ya) {
   return total + ' y en esta venta ya hay ' + c(ya) + ', así que podés agregar hasta ' + c(hay - ya) + '. Con más, ' + no;
 }
 const _AYUDA_SIN_STOCK = 'Si te llegó mercadería y todavía no la cargaste, sumala en Stock con "Agregar stock" y volvé a intentar.';
-/* Lo que necesita el diálogo de gramos para frenar (ver pedirCantidadPeso). */
-function frenoDeGramos(p, sp) {
-  return sp ? { stock: sp.queda, bloquear: true, avisoSinStock: textoStockInsuficiente(p, sp.hay, sp.ya), ayudaSinStock: _AYUDA_SIN_STOCK } : {};
+/* stockParaVenta, pero si con el stock de la pantalla no alcanza para "cuanto", lo relee
+   antes de frenar: el panel no se entera de lo que se cargó desde otra compu, y frenar con
+   un stock viejo mandaba a "Agregar stock" algo que ya estaba, que se cargaba dos veces
+   (revisión de código del 26/09). */
+async function stockParaVentaFresco(p, lista, ctx, cuanto) {
+  let sp = stockParaVenta(p, lista, ctx);
+  if (sp && sp.queda < cuanto) { await _stockFresco([p.id]); sp = stockParaVenta(p, lista, ctx); }
+  return sp;
+}
+/* Lo que necesita el diálogo de gramos para frenar (ver pedirCantidadPeso). recalcular:
+   cómo volver a sacar la cuenta con el stock recién leído; el diálogo la usa la primera vez
+   que frenaría, por lo mismo que stockParaVentaFresco. */
+function frenoDeGramos(p, sp, recalcular) {
+  if (!sp) return {};
+  const o = { stock: sp.queda, bloquear: true, avisoSinStock: textoStockInsuficiente(p, sp.hay, sp.ya), ayudaSinStock: _AYUDA_SIN_STOCK };
+  if (typeof recalcular === 'function') {
+    o.refrescar = async () => {
+      const n = await recalcular();
+      return n ? { stock: n.queda, avisoSinStock: textoStockInsuficiente(p, n.hay, n.ya) } : null;
+    };
+  }
+  return o;
 }
 /* El cartel que frena una unidad de más o una cantidad cambiada en la línea. */
 function avisarSinStock(p, hay, ya, nombre) {
@@ -424,6 +451,10 @@ async function avisoStockInsuficiente(items, ctx) {
     (faltan.length === 1 ? 'de este producto:' : 'de estos productos:') + _VAR_NL + _VAR_NL +
     lineas.join(_VAR_NL) + _VAR_NL + _VAR_NL +
     'Bajá la cantidad o sacalo de la venta. ' + _AYUDA_SIN_STOCK;
+  /* Las líneas, con el stock recién leído: al cerrar el aviso se ve cuál no alcanza. */
+  const repintar = ctx === 'may' ? (typeof renderVentaMayItems === 'function' ? renderVentaMayItems : null)
+                                 : (typeof renderVentaItems === 'function' ? renderVentaItems : null);
+  if (repintar) repintar();
   if (typeof avisar === 'function') await avisar(msg, { titulo: 'Stock insuficiente', icono: 'bi-x-octagon', aceptar: 'Entendido', alerta: true });
   return false;
 }
@@ -439,8 +470,9 @@ async function avisoStockInsuficiente(items, ctx) {
     window[nombre] = async function (id, val) {
       const lista = ctx === 'may' ? (typeof ventaMayItems !== 'undefined' ? ventaMayItems : []) : (typeof ventaItems !== 'undefined' ? ventaItems : []);
       const p = _varProds().find(x => x && x.id === id);
-      const sp = p ? stockParaVenta(p, (lista || []).filter(it => it && it.id !== id), ctx) : null;
-      if (sp && Math.max(1, parseInt(val, 10) || 1) > sp.queda) {
+      const n = Math.max(1, parseInt(val, 10) || 1);
+      const sp = p ? await stockParaVentaFresco(p, (lista || []).filter(it => it && it.id !== id), ctx, n) : null;
+      if (sp && n > sp.queda) {
         const repintar = ctx === 'may' ? (typeof renderVentaMayItems === 'function' ? renderVentaMayItems : null)
                                        : (typeof renderVentaItems === 'function' ? renderVentaItems : null);
         if (repintar) repintar();
@@ -448,6 +480,24 @@ async function avisoStockInsuficiente(items, ctx) {
         return;
       }
       return orig.apply(this, arguments);
+    };
+  });
+})();
+
+/* Registrar la venta, de a una. Antes de deshabilitar el botón, saveVenta relee el stock
+   (avisoStockInsuficiente, hasta 1,5 s): un doble clic -o dos Enter en la venta rápida- en
+   ese rato registraba la venta dos veces y descontaba el stock dos veces (revisión de
+   código del 26/09). Mientras una está en curso, las otras llamadas no hacen nada. */
+(function () {
+  if (typeof window === 'undefined') return;
+  ['saveVenta', 'saveVentaMay'].forEach(nombre => {
+    const orig = window[nombre];
+    if (typeof orig !== 'function') return;
+    let enCurso = false;
+    window[nombre] = async function () {
+      if (enCurso) return;
+      enCurso = true;
+      try { return await orig.apply(this, arguments); } finally { enCurso = false; }
     };
   });
 })();
