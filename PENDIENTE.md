@@ -1426,6 +1426,13 @@ quedar frenados en el mostrador.
 3. **Un granel que sale de dos bolsas puede diferir en $1 del total.** Cada renglón se
    redondea por separado (precio × gramos de su bolsa), y la suma puede diferir en $1 del
    total que vio el cliente o el diálogo de gramos.
+4. **El ticket térmico (de Jero) imprime una línea por bolsa** (anotado el 26/09/2026, a
+   pedido del dueño; no hay impresora térmica a mano para probarlo). Un granel que salió de
+   dos bolsas sale como "Maní Pelado 500 g $800" y "Maní Pelado 1,5 kg $2.400": el total
+   está bien, pero el cliente ve dos renglones del mismo producto. Arreglo propuesto: que
+   `ticketDocumento` (admin-ticket.js) junte los renglones de un mismo granel con escalas en
+   uno, como `vistaItemsVenta` en la venta ("Maní Pelado 2 kg $3.200"), sumando los
+   subtotales de cada renglón para que el total no cambie. Probarlo con la impresora.
 
 ---
 
