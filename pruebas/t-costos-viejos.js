@@ -225,6 +225,29 @@ console.log('\n-- el editor de costos --');
   t('en la venta mayorista el renglón toma el precio MAYORISTA nuevo', venta[0].precio === 2400 && m.repintados.join() === 'may');
 }
 {
+  /* Desde Inicio del día (admin-inicio.js, 26/09): no hay una venta atrás. */
+  const p = { id: 'a', nombre: 'Almendra', costo: 1000, porcentaje: 50, porcentajeMayorista: 20, precio: 1500, precioMayorista: 1200, costoActualizadoEn: hace(40) };
+  const q = { id: 'b', nombre: 'Banana', costo: 900, porcentaje: 40, precio: 1260, costoActualizadoEn: hace(35) };
+  const venta = [{ id: 'a', precio: 1500, costo: 1000, cantidad: 1 }];
+  const m = armar({ productos: [p, q], ventaItems: venta });
+  let campana = 0;
+  m.ctx._refrescarAlertas = () => { campana++; };
+  m.api.abrirEditorCostos([{ producto: p, fecha: hace(40), dias: 40 }, { producto: q, fecha: hace(35), dias: 35 }], 'inicio');
+  const ed = m.elementos.costosEditor;
+  t('desde Inicio del día el editor dice "Revisar costos" y "Ahora no", no "Volver a la venta"', ed && ed.innerHTML.indexOf('Revisar costos') > 0 &&
+    ed.innerHTML.indexOf('Ahora no') > 0 && ed.innerHTML.indexOf('Volver a la venta') < 0);
+  m.conInputs(['1.100', '900']);
+  await (m.api.guardarEditorCostos());
+  const wb = m.escrituras.find(x => x.id === 'b');
+  t('  guarda igual: el costo cambiado con su precio, y el otro confirmado', p.costo === 1100 && p.precio === 1650 &&
+    wb && Object.keys(wb.campos).join() === 'costoActualizadoEn');
+  t('  pero no toca una venta abierta: no es de ahí', venta[0].precio === 1500 && venta[0].costo === 1000 && m.repintados.length === 0);
+  t('  y lo dice claro: cuántos cambiaron y cuántos se confirmaron',
+    m.avisos.indexOf('success: Listo: 1 costo cambiado, con su precio nuevo, y 1 confirmado sin cambios.') >= 0, m.avisos);
+  t('  queda en el historial de dónde vino', m.historial[0].indexOf('Costos revisados desde Inicio del día: 1 cambiado, 1 confirmado') === 0);
+  t('  y avisa a la campana (y con ella al Inicio): lo revisado deja de avisar', campana === 1);
+}
+{
   const p = { id: 'a', nombre: 'Almendra', costo: 1000, porcentaje: 50, precio: 1500, costoActualizadoEn: hace(40) };
   const m = armar({ productos: [p] });
   m.api.abrirEditorCostos([{ producto: p, fecha: hace(40), dias: 40 }], 'min');

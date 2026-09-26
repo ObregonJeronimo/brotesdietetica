@@ -120,11 +120,13 @@ async function avisoCostosViejos(items, ctx) {
 }
 
 /* ------------------------------------------------------------ EL EDITOR */
-let _costosEditor = null;   /* { filas: [{ producto, fecha, dias }], ctx: 'min' | 'may' } */
+let _costosEditor = null;   /* { filas: [{ producto, fecha, dias }], ctx: 'min' | 'may' | 'inicio' } */
 
+/* ctx 'inicio': desde Inicio del día (admin-inicio.js), sin una venta abierta atrás. */
 function abrirEditorCostos(viejos, ctx) {
   cerrarEditorCostos();
-  _costosEditor = { filas: viejos, ctx: ctx === 'may' ? 'may' : 'min' };
+  const inicio = ctx === 'inicio';
+  _costosEditor = { filas: viejos, ctx: ctx === 'may' ? 'may' : (inicio ? 'inicio' : 'min') };
   const ov = document.createElement('div');
   /* dlg-overlay: así el Escape de admin-atajos.js no cierra la venta de atrás. */
   ov.className = 'dlg-overlay';
@@ -133,7 +135,7 @@ function abrirEditorCostos(viejos, ctx) {
   ov.innerHTML =
     '<div class="dlg-box costos-box" role="dialog" aria-modal="true" aria-labelledby="costosTit">' +
       '<div class="dlg-cab"><span class="dlg-ico"><i class="bi bi-pencil-square"></i></span>' +
-        '<h3 id="costosTit">Modificar costos</h3></div>' +
+        '<h3 id="costosTit">' + (inicio ? 'Revisar costos' : 'Modificar costos') + '</h3></div>' +
       '<div class="dlg-msg">' +
         '<p class="dlg-linea">Poné el costo de hoy. Si alguno sigue igual, dejalo como está: al guardar queda ' +
           'confirmado con la fecha de hoy. El precio se recalcula con el mismo porcentaje de siempre.</p>' +
@@ -147,7 +149,7 @@ function abrirEditorCostos(viejos, ctx) {
           '</div>').join('') +
       '</div>' +
       '<div class="dlg-pie">' +
-        '<button type="button" class="btn btn-secondary" id="costosVolver">Volver a la venta</button>' +
+        '<button type="button" class="btn btn-secondary" id="costosVolver">' + (inicio ? 'Ahora no' : 'Volver a la venta') + '</button>' +
         '<button type="button" class="btn btn-primary" id="costosGuardar"><i class="bi bi-check-lg"></i> Guardar costos</button>' +
       '</div>' +
     '</div>';
@@ -222,17 +224,28 @@ async function guardarEditorCostos() {
   /* El MISMO objeto de allProducts: la venta y la tabla lo tienen en la mano. */
   locales.forEach(l => Object.assign(l.p, l.campos));
   const cambiados = cambios.filter(c => c.cambio).map(c => c.p);
-  _refrescarItemsDeVenta(ed.ctx, cambiados);
+  const inicio = ed.ctx === 'inicio';
+  /* Desde Inicio del día no hay una venta abierta que actualizar. */
+  if (!inicio) _refrescarItemsDeVenta(ed.ctx, cambiados);
   if (typeof logAction === 'function') {
-    logAction('editar', 'Costos al vender: ' + cambiados.length + ' cambiado' + (cambiados.length === 1 ? '' : 's') +
+    logAction('editar', (inicio ? 'Costos revisados desde Inicio del día: ' : 'Costos al vender: ') +
+      cambiados.length + ' cambiado' + (cambiados.length === 1 ? '' : 's') +
       ', ' + (cambios.length - cambiados.length) + ' confirmado' + (cambios.length - cambiados.length === 1 ? '' : 's'),
       cambios.map(c => _costoNombre(c.p) + (c.cambio ? ' -> ' + _costoPesos(c.nuevo) : ' (sigue igual)')).join(' | ').slice(0, 900));
   }
   if (typeof filterTable === 'function') filterTable();
   cerrarEditorCostos();
-  showAdminToast(cambiados.length
-    ? 'Costos guardados. Los precios de la venta se actualizaron: revisá el total y registrala.'
-    : 'Costos confirmados. Ya podés registrar la venta.', 'success');
+  const confirmados = cambios.length - cambiados.length;
+  showAdminToast(inicio
+    ? 'Listo: ' + (cambiados.length
+        ? cambiados.length + (cambiados.length === 1 ? ' costo cambiado, con su precio nuevo' : ' costos cambiados, con su precio nuevo') +
+          (confirmados ? ', y ' + confirmados + (confirmados === 1 ? ' confirmado' : ' confirmados') + ' sin cambios' : '')
+        : confirmados + (confirmados === 1 ? ' costo confirmado' : ' costos confirmados') + ' con la fecha de hoy') + '.'
+    : (cambiados.length
+      ? 'Costos guardados. Los precios de la venta se actualizaron: revisá el total y registrala.'
+      : 'Costos confirmados. Ya podés registrar la venta.'), 'success');
+  /* La campana y el Inicio del día: lo revisado deja de avisar. */
+  if (typeof _refrescarAlertas === 'function') _refrescarAlertas(false);
 }
 
 /* Los renglones de la venta abierta toman el costo nuevo, y el precio nuevo salvo en
