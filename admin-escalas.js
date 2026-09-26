@@ -169,11 +169,12 @@ function repartirStock(escalas, cobra, gramos, disponible) {
    o de menos (negativo) que si todo saliera de la bolsa de la escala que se cobra, y
    lo que se vende por debajo de lo que costó. Sin el costo de alguna, la diferencia
    no se puede calcular y queda en null. */
-function mezclaDe(reparto, cobra, ctx, dsc) {
+function mezclaDe(reparto, cobra, ctx, dsc, precioKg) {
   const otras = reparto.partes.filter(x => x.escala !== cobra);
   if (!otras.length) return null;
   const costo = e => Number(e.producto.costo || 0);
-  const precio = precioFinalKg(cobra, ctx, dsc);
+  /* precioKg: el que se cobra de verdad, si no es el de la lista (el de un pedido). */
+  const precio = precioKg != null ? Number(precioKg) : precioFinalKg(cobra, ctx, dsc);
   const sinCosto = [cobra].concat(otras.map(x => x.escala)).filter(e => !(costo(e) > 0));
   const diferencia = sinCosto.length ? null
     : otras.reduce((s, x) => s + Math.round((costo(cobra) - costo(x.escala)) * x.gramos / 1000), 0);
@@ -187,50 +188,137 @@ function _escNombre(e) {
     ? nombreDeGrupo(principalDeVariante(e.producto, _escProds())) : (e.producto.nombre || '');
 }
 
-function mensajeLlevandoMas(lm, ctx, dsc) {
-  return _escNombre(lm.cobra) + ': ' + _escPeso(lm.gramos) + ' a precio de la escala de ' + lm.cobra.etiqueta +
-    ' (' + _escPlata(precioFinalKg(lm.cobra, ctx, dsc)) + ' el kilo) salen ' + _escPlata(lm.total) + '.' + _ESC_NL + _ESC_NL +
-    'Llevando ' + _escPeso(lm.mejor.gramos) + ', a precio de la escala de ' + lm.mejor.escala.etiqueta +
-    ' (' + _escPlata(precioFinalKg(lm.mejor.escala, ctx, dsc)) + ' el kilo), paga ' + _escPlata(lm.mejor.total) +
-    ': ' + _escPlata(lm.total - lm.mejor.total) + ' menos.';
+/* LOS AVISOS los lee el que atiende, que no tiene por qué saber qué es una "escala": se
+   habla de bolsas, de lo que costó cada una y de cuánto se gana. Antes decían "Mezcla de
+   stock" y "En contra: ganás $300 menos que si todo saliera de la bolsa de 2 kg", y no se
+   entendían (pedido del comercio, 26/09/2026). Las líneas que empiezan con [!], [x] o [+]
+   salen en un recuadro de color: ver _dlgTexto en admin-dialogo.js. */
+
+/* "1 kg", "1 kg y 3 kg", "1 kg, 3 kg y 5 kg". */
+function _escY(lista) {
+  return lista.length < 2 ? (lista[0] || '') : lista.slice(0, -1).join(', ') + ' y ' + lista[lista.length - 1];
+}
+/* "la bolsa de 1 kg" o "las bolsas de 1 kg y 3 kg", sin repetir. */
+function _escBolsas(escalas) {
+  const et = [];
+  escalas.forEach(e => { if (et.indexOf(e.etiqueta) < 0) et.push(e.etiqueta); });
+  return (et.length === 1 ? 'la bolsa de ' : 'las bolsas de ') + _escY(et);
+}
+function _escMayus(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+/* "el precio de la bolsa de 2 kg", con "mayorista" y el descuento si los hay. */
+function _precioDeBolsaTxt(e, ctx, dsc) {
+  const d = dsc != null ? Number(dsc) : descuentoEscala(e, ctx);
+  return 'el precio' + (ctx === 'may' ? ' mayorista' : '') + ' de la bolsa de ' + e.etiqueta +
+    (d > 0 ? ' con el ' + d + '% de descuento' : '');
 }
 
-function mensajeMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan) {
+function mensajeLlevandoMas(lm, ctx, dsc) {
+  return 'Estás vendiendo ' + _escPeso(lm.gramos) + ' de ' + _escNombre(lm.cobra) + ' a ' +
+    _escPlata(precioFinalKg(lm.cobra, ctx, dsc)) + ' el kilo, que es ' + _precioDeBolsaTxt(lm.cobra, ctx, dsc) +
+    ': son ' + _escPlata(lm.total) + '.' + _ESC_NL + _ESC_NL +
+    '[+] Si lleva ' + _escPeso(lm.mejor.gramos) + ', paga menos: ' + _escPlata(precioFinalKg(lm.mejor.escala, ctx, dsc)) +
+    ' el kilo, que es ' + _precioDeBolsaTxt(lm.mejor.escala, ctx, dsc) + '. Son ' + _escPlata(lm.mejor.total) +
+    ': se lleva más y paga ' + _escPlata(lm.total - lm.mejor.total) + ' menos.' + _ESC_NL + _ESC_NL +
+    'Podés ofrecérselo al cliente.';
+}
+
+/* El aviso de cuando la bolsa de la escala que se cobra no alcanza y se completa con
+   otras: { mensaje, opts } para pedirConfirmacion. Dice qué se vende y a qué precio, de
+   qué bolsa sale cada parte y lo que costó cada una, y cuánto se gana así contra lo que
+   se ganaría si todo saliera de la bolsa que se cobra. La plata, con las cuentas de la
+   venta: cada renglón se redondea, como en subtotalItem.
+   `o`: precioKg si se cobra otro precio que el de la lista (el de un pedido);
+   pedido para cuando se pasa un pedido a venta, con todoDeCobra si el pedido lo trae
+   todo de la bolsa que se cobra. */
+function avisoMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan, o) {
+  const op = o || {};
   const L = [];
-  L.push(_escNombre(cobra) + ': ' + _escPeso(gramos) + ' a precio de la escala de ' + cobra.etiqueta +
-    ' (' + _escPlata(precioFinalKg(cobra, ctx, dsc)) + ' el kilo).');
-  L.push(quedan > 0
-    ? 'De la bolsa de ' + cobra.etiqueta + ' quedan ' + _escPeso(quedan) + ': el resto sale de otra bolsa.'
-    : 'De la bolsa de ' + cobra.etiqueta + ' no queda stock: sale de otra bolsa.');
-  L.push('');
+  const costo = e => Number(e.producto.costo || 0);
+  const pk = op.precioKg != null ? Number(op.precioKg) : precioFinalKg(cobra, ctx, dsc);
+  const peso = _escPeso(gramos);
+  const bolsa = 'la bolsa de ' + cobra.etiqueta;
+  const otras = mz.otras.map(x => x.escala);
   /* De la bolsa que se cobra se lista lo que hay de verdad: lo que falta va aparte, al
      final. Antes decía "1 kg de la bolsa de 2 kg" de una bolsa vacía (chequeo del 25/09). */
-  reparto.partes.forEach(x => {
-    const gramos = x.escala === cobra ? x.gramos - (reparto.falta || 0) : x.gramos;
-    if (gramos <= 0) return;
-    const c = Number(x.escala.producto.costo || 0);
-    L.push('• ' + _escPeso(gramos) + ' de la bolsa de ' + x.escala.etiqueta +
-      (c > 0 ? ' (costo ' + _escPlata(c) + ' el kilo)' : ' (sin costo cargado)'));
-  });
+  const lista = reparto.partes
+    .map(x => ({ escala: x.escala, gramos: x.escala === cobra ? x.gramos - (reparto.falta || 0) : x.gramos }))
+    .filter(x => x.gramos > 0);
+
+  L.push((op.pedido ? 'El pedido lleva ' : 'Estás vendiendo ') + peso + ' de ' + _escNombre(cobra) + ' a ' +
+    _escPlata(pk) + ' el kilo' + (op.precioKg != null ? '.' : ', que es ' + _precioDeBolsaTxt(cobra, ctx, dsc) + '.'));
   L.push('');
-  if (mz.diferencia === null) {
-    L.push('No se puede calcular cuánto se gana: falta el costo de la bolsa de ' + mz.sinCosto.map(e => e.etiqueta).join(' y de la de ') + '.');
-  } else if (mz.diferencia > 0) {
-    L.push('A favor: ganás ' + _escPlata(mz.diferencia) + ' más que si todo saliera de la bolsa de ' + cobra.etiqueta + '.');
-  } else if (mz.diferencia < 0) {
-    L.push('En contra: ganás ' + _escPlata(-mz.diferencia) + ' menos que si todo saliera de la bolsa de ' + cobra.etiqueta + '.');
-  } else {
-    L.push('Da lo mismo: las bolsas costaron igual.');
-  }
-  mz.bajoCosto.forEach(b => {
-    L.push('Ojo: lo que sale de la bolsa de ' + b.escala.etiqueta + ' (' + _escPeso(b.gramos) +
-      ') costó más de lo que se cobra: se pierden ' + _escPlata(b.perdida) + '.');
+  L.push(quedan > 0
+    ? 'Pero en ' + bolsa + ' quedan solo ' + _escPeso(quedan) + ', así que se saca de ' + (lista.length === 2 ? 'las dos bolsas:' : 'estas bolsas:')
+    : 'Pero ' + bolsa + ' no tiene stock, así que ' + (lista.length === 1 ? 'todo sale de la bolsa de ' + lista[0].escala.etiqueta + ':' : 'sale de estas bolsas:'));
+  lista.forEach(x => {
+    const c = costo(x.escala);
+    L.push('• ' + _escPeso(x.gramos) + ' de la bolsa de ' + x.escala.etiqueta +
+      (c > 0 ? ', que te costó ' + _escPlata(c) + ' el kilo' : ', que no tiene cargado lo que costó'));
   });
   if (reparto.falta > 0) {
-    L.push('No alcanza ni sumando las otras bolsas: la de ' + cobra.etiqueta + ' queda con ' +
-      _escPeso(reparto.falta) + ' en negativo.');
+    L.push('');
+    L.push('[!] Y ni así alcanza: faltan ' + _escPeso(reparto.falta) + '. Se descuentan de ' + bolsa + ', que queda con el stock en negativo.');
   }
-  return L.join(_ESC_NL);
+
+  L.push('');
+  const cobrado = reparto.partes.reduce((s, x) => s + Math.round(pk * x.gramos / 1000), 0);
+  let gana = null, ganaria = null, costoTotal = null;
+  if (mz.diferencia !== null) {
+    costoTotal = reparto.partes.reduce((s, x) => s + Math.round(costo(x.escala) * x.gramos / 1000), 0);
+    gana = cobrado - costoTotal;
+    ganaria = gana - mz.diferencia;
+  }
+  /* Contra la bolsa que se cobra. Si no está en la lista (no tiene stock), con lo que
+     costó: si no, no aparece en ningún lado. */
+  const contra = ' que la de ' + cobra.etiqueta +
+    (lista.some(x => x.escala === cobra) ? '' : ', que te costó ' + _escPlata(costo(cobra)) + ' el kilo');
+  if (gana === null) {
+    L.push('[!] No se puede calcular cuánto ganás: falta cargar lo que costó ' + _escBolsas(mz.sinCosto) + '. Se carga en Productos.');
+  } else if (gana <= 0) {
+    L.push('[x] Ojo: así ' + (gana < 0
+      ? 'perdés ' + _escPlata(-gana) + '. Lo que vendés te costó ' + _escPlata(costoTotal) + ' y lo cobrás ' + _escPlata(cobrado) + '.'
+      : 'no ganás nada. Lo que vendés te costó ' + _escPlata(costoTotal) + ', lo mismo que cobrás.'));
+  } else if (mz.diferencia < 0) {
+    const caras = otras.filter(e => costo(e) > costo(cobra));
+    L.push('[!] ' + _escMayus(_escBolsas(caras)) + (caras.length === 1 ? ' te salió más cara' : ' te salieron más caras') + contra +
+      '. Por eso ganás ' + _escPlata(-mz.diferencia) + ' menos: ' + _escPlata(gana) + ' en vez de ' + _escPlata(ganaria) + '.');
+    if (!mz.bajoCosto.length) L.push('Igual ganás plata, solo que menos.');
+  } else if (mz.diferencia > 0) {
+    const baratas = otras.filter(e => costo(e) < costo(cobra));
+    L.push('[+] ' + _escMayus(_escBolsas(baratas)) + (baratas.length === 1 ? ' te salió más barata' : ' te salieron más baratas') + contra +
+      '. Por eso ganás ' + _escPlata(mz.diferencia) + ' más: ' + _escPlata(gana) + ' en vez de ' + _escPlata(ganaria) + '.');
+  } else {
+    L.push('[+] ' + (otras.length === 1 ? 'Las dos bolsas te costaron' : 'Todas estas bolsas te costaron') +
+      ' lo mismo el kilo, así que ganás lo mismo: ' + _escPlata(gana) + '.');
+  }
+  /* Una parte vendida por debajo de lo que costó se dice aunque en total se gane. */
+  if (gana === null || gana > 0) {
+    mz.bajoCosto.forEach(b => L.push('[x] Ojo: la bolsa de ' + b.escala.etiqueta + ' te costó ' + _escPlata(costo(b.escala)) +
+      ' el kilo, más de lo que cobrás (' + _escPlata(pk) + ' el kilo). Con ' + _escPeso(b.gramos) + ' de esa bolsa perdés ' + _escPlata(b.perdida) + '.'));
+  }
+
+  const malo = gana === null || gana <= 0 || mz.diferencia < 0 || mz.bajoCosto.length > 0 || reparto.falta > 0;
+  const deOtras = _escBolsas(otras);
+  L.push('');
+  if (op.pedido) {
+    L.push('¿Sacás lo que falta de ' + deOtras + '?' + (op.todoDeCobra
+      ? ' Si no, todo se descuenta de ' + bolsa + ', que queda con el stock en negativo.'
+      : ' Si no, se descuenta como vino en el pedido.'));
+  } else {
+    L.push(malo ? '¿Lo vendés igual?' : '¿Lo vendés así?');
+  }
+  return {
+    mensaje: L.join(_ESC_NL),
+    opts: {
+      titulo: quedan > 0 ? 'No alcanza ' + bolsa : _escMayus(bolsa) + ' no tiene stock',
+      icono: malo ? 'bi-exclamation-triangle' : 'bi-info-circle',
+      aceptar: op.pedido ? 'Sí, sacarlo de ' + deOtras : 'Sí, vender',
+      cancelar: op.pedido ? (op.todoDeCobra ? 'No, todo de ' + bolsa : 'No, dejarlo como vino') : 'No, cancelar',
+    },
+  };
+}
+function mensajeMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan, o) {
+  return avisoMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan, o).mensaje;
 }
 
 /* ---------------------------------------------------------------- LA VENTA */
@@ -257,7 +345,10 @@ function disponibleParaVenta(ctx) {
    con la escala que va a tocar según lo que ya hay en la venta más lo nuevo. */
 function opcionesGramosEscalas(escalas, ctx, ya, dsc, disponible) {
   const disp = disponible || disponibleParaVenta(ctx);
-  const precios = escalas.map((e, i) => (i ? 'desde ' : '') + e.etiqueta + ': ' + _escPlata(precioFinalKg(e, ctx, dsc))).join(' · ') + ' el kilo';
+  /* "Menos de 3 kg: $8.000 el kilo · 3 kg o más: $7.200 el kilo". Antes decía "1 kg:
+     $8.000 · desde 3 kg: $7.200", y no quedaba claro hasta dónde valía cada precio. */
+  const precios = escalas.map((e, i) => (i ? e.etiqueta + ' o más' : 'Menos de ' + escalas[1].etiqueta) + ': ' +
+    _escPlata(precioFinalKg(e, ctx, dsc)) + ' el kilo').join(' · ');
   const hay = escalas.reduce((s, e) => s + disp(e), 0) - ya;
   const antes = ya > 0 ? escalaPara(escalas, ya) : null;
   return {
@@ -269,7 +360,7 @@ function opcionesGramosEscalas(escalas, ctx, ya, dsc, disponible) {
       const pk = precioFinalKg(e, ctx, dsc);
       return {
         total: Math.round(pk * g / 1000),
-        nota: 'Escala de ' + e.etiqueta + ': ' + _escPlata(pk) + ' el kilo.' +
+        nota: 'Se cobra el precio de la bolsa de ' + e.etiqueta + ': ' + _escPlata(pk) + ' el kilo.' +
           (antes && antes !== e ? ' Lo que ya estaba en la venta pasa a este precio.' : ''),
       };
     },
@@ -303,8 +394,8 @@ async function fijarGranelVenta(escalas, total, ctx, opts) {
       titulo: 'Llevando más, paga menos',
       icono: 'bi-arrow-down-circle',
       opciones: [
-        { valor: 'igual', texto: 'Cobrar ' + _escPeso(gramos) + ' (' + _escPlata(lm.total) + ')', principal: true },
-        { valor: 'mas', texto: 'Cambiar a ' + _escPeso(lm.mejor.gramos) + ' (' + _escPlata(lm.mejor.total) + ')' },
+        { valor: 'igual', texto: 'Vender ' + _escPeso(gramos) + ' (' + _escPlata(lm.total) + ')', principal: true },
+        { valor: 'mas', texto: 'Vender ' + _escPeso(lm.mejor.gramos) + ' (' + _escPlata(lm.mejor.total) + ')' },
       ],
     });
     if (r === null) return 'cancelar';
@@ -314,10 +405,8 @@ async function fijarGranelVenta(escalas, total, ctx, opts) {
   const reparto = repartirStock(escalas, cobra, gramos, disp);
   const mz = mezclaDe(reparto, cobra, ctx, dsc);
   if (mz && typeof pedirConfirmacion === 'function') {
-    const ok = await pedirConfirmacion(mensajeMezcla(reparto, cobra, mz, gramos, ctx, dsc, disp(cobra)), {
-      titulo: 'Mezcla de stock', icono: 'bi-shuffle', aceptar: 'Vender así', cancelar: 'Cancelar',
-    });
-    if (!ok) return 'cancelar';
+    const av = avisoMezcla(reparto, cobra, mz, gramos, ctx, dsc, disp(cobra));
+    if (!await pedirConfirmacion(av.mensaje, av.opts)) return 'cancelar';
   }
   aplicarGranelVenta(escalas, cobra, reparto.partes, ctx, dsc);
   return 'hecho';
@@ -409,7 +498,7 @@ function vistaItemsVenta(items) {
 }
 
 function detalleLineaGranel(cobra, lineas, escalas) {
-  const txt = 'Escala de ' + cobra.etiqueta;
+  const txt = 'Precio de la bolsa de ' + cobra.etiqueta;
   if (lineas.length === 1 && lineas[0].id === cobra.id) return txt;
   return txt + ' · sale ' + lineas.map(x => {
     const e = escalas.find(y => y.id === x.id);
@@ -544,14 +633,15 @@ async function repartirGranelDeVenta(ctx) {
     const cobra = (e0 && g.escalas.find(e => e.id === e0.id)) || escalaPara(g.escalas, total);
     const precio = Number(g.lineas[0].precio || 0);
     const dsc = Number(g.lineas[0].descuento || 0);
+    /* Lo que se cobra el kilo es lo del pedido (la cuenta de precioConDsc), no la lista. */
+    const pk = Math.round(precio * (1 - dsc / 100));
     const disp = disponibleParaVenta(ctx);
     const reparto = repartirStock(g.escalas, cobra, total, disp);
-    const mz = mezclaDe(reparto, cobra, ctx, dsc);
+    const mz = mezclaDe(reparto, cobra, ctx, dsc, pk);
     if (mz && typeof pedirConfirmacion === 'function') {
-      const ok = await pedirConfirmacion(mensajeMezcla(reparto, cobra, mz, total, ctx, dsc, disp(cobra)), {
-        titulo: 'Mezcla de stock', icono: 'bi-shuffle', aceptar: 'Repartir así', cancelar: 'Dejarlo como vino',
-      });
-      if (!ok) continue;
+      const av = avisoMezcla(reparto, cobra, mz, total, ctx, dsc, disp(cobra),
+        { precioKg: pk, pedido: true, todoDeCobra: g.lineas.every(x => x.id === cobra.id) });
+      if (!await pedirConfirmacion(av.mensaje, av.opts)) continue;
     }
     aplicarGranelVenta(g.escalas, cobra, reparto.partes, ctx, dsc);
     lineasDeEscalas(_escLista(ctx), g.escalas).forEach(x => { x.precio = precio; });
@@ -586,13 +676,14 @@ function mezclaDePedido(items) {
       const u = esc.find(e => e.id === i.id);
       return { i: i, u: u, costo: u ? Number(u.producto.costo || 0) : 0 };
     });
-    let txt = _escNombre(cobra) + ': se cobró a precio de la escala de ' + cobra.etiqueta + ', y ' +
+    let txt = _escNombre(cobra) + ': se cobró el precio de la bolsa de ' + cobra.etiqueta + ', pero ' +
       partes.map(x => _escPeso(Number(x.i.cantidad || 0)) + ' salen de la bolsa de ' + (x.u ? x.u.etiqueta : '?')).join(' y ') + '.';
     const cT = Number(cobra.producto.costo || 0);
     if (cT > 0 && partes.every(x => x.costo > 0)) {
       const dif = partes.reduce((s, x) => s + Math.round((cT - x.costo) * Number(x.i.cantidad || 0) / 1000), 0);
-      if (dif > 0) txt += ' A favor: se gana ' + _escPlata(dif) + ' más.';
-      else if (dif < 0) txt += ' En contra: se gana ' + _escPlata(-dif) + ' menos.';
+      const una = partes.length === 1;
+      if (dif > 0) txt += (una ? ' Esa bolsa te salió más barata: ' : ' Por lo que costó cada bolsa, ') + 'ganás ' + _escPlata(dif) + ' más.';
+      else if (dif < 0) txt += (una ? ' Esa bolsa te salió más cara: ' : ' Por lo que costó cada bolsa, ') + 'ganás ' + _escPlata(-dif) + ' menos.';
     }
     textos.push(txt);
   });

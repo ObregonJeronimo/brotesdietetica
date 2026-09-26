@@ -174,11 +174,24 @@ function _dlgEsc(s) {
 
 /* Los mensajes vienen con saltos de línea (muchos arman una lista de productos).
    Se respetan como párrafos, y las líneas que empiezan con "-" o "·" quedan
-   indentadas para que se lean como la lista que son. */
+   indentadas para que se lean como la lista que son. Las que empiezan con [!], [x] o
+   [+] van en un recuadro de color -atención, pérdida, a favor-: lo que importa de un
+   aviso con cuentas, para que no se pierda entre ellas (ver admin-escalas.js). */
+const _DLG_RESALTA = {
+  '!': { clase: 'atencion', icono: 'bi-exclamation-triangle-fill' },
+  x: { clase: 'perdida', icono: 'bi-x-octagon-fill' },
+  '+': { clase: 'bien', icono: 'bi-check-circle-fill' },
+};
 function _dlgTexto(msg) {
   return String(msg == null ? '' : msg).split('\n').map(l => {
     const t = l.trim();
     if (!t) return '<div class="dlg-vacio"></div>';
+    const r = /^\[([!x+])\]\s*/.exec(t);
+    if (r) {
+      const e = _DLG_RESALTA[r[1]];
+      return '<p class="dlg-linea dlg-resalta ' + e.clase + '"><i class="bi ' + e.icono + '"></i><span>' +
+        _dlgEsc(t.slice(r[0].length)) + '</span></p>';
+    }
     const esItem = /^[-•·]/.test(t);
     return '<p class="dlg-linea' + (esItem ? ' item' : '') + '">' + _dlgEsc(esItem ? t.replace(/^[-•·]\s*/, '') : t) + '</p>';
   }).join('');

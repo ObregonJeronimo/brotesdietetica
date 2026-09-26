@@ -416,6 +416,11 @@
         .dlg-linea.item{padding-left:0.9rem;position:relative;color:var(--text-dim);font-size:0.86rem;margin-bottom:0.15rem}
         .dlg-linea.item:before{content:'•';position:absolute;left:0;color:var(--text-dim)}
         .dlg-vacio{height:0.6rem}
+        .dlg-resalta{display:flex;gap:0.6rem;align-items:flex-start;padding:0.65rem 0.8rem;border-radius:10px;border:1px solid;margin:0 0 0.45rem}
+        .dlg-resalta i{flex:0 0 auto;margin-top:0.12rem}
+        .dlg-resalta.atencion{background:rgba(237,184,51,0.1);border-color:rgba(237,184,51,0.4);color:#F2CC6B}
+        .dlg-resalta.perdida{background:rgba(229,69,69,0.1);border-color:rgba(229,69,69,0.45);color:#F59A9A}
+        .dlg-resalta.bien{background:rgba(95,168,122,0.12);border-color:rgba(95,168,122,0.4);color:#8FCBA3}
         .dlg-pie{display:flex;gap:0.7rem;margin-top:1.35rem}
         .dlg-pie .btn{flex:1 1 auto;width:auto;padding:0.7rem 1rem}
         .dlg-pie-opciones{flex-wrap:wrap}
@@ -3963,7 +3968,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                        le dice nada. Ver mezclaDePedido en admin-escalas.js. */
                     var _mzPed=(typeof mezclaDePedido==='function')?mezclaDePedido(p.items):null;
                     if(_mzPed){
-                        cards+='<span style="background:rgba(95,168,122,0.14);color:#8FCBA3;border:1px solid rgba(95,168,122,0.35);border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="'+esc(_mzPed)+'"><i class="bi bi-shuffle"></i> Mezcla</span>';
+                        cards+='<span style="background:rgba(95,168,122,0.14);color:#8FCBA3;border:1px solid rgba(95,168,122,0.35);border-radius:4px;font-size:0.65rem;padding:1px 5px;font-weight:700" title="'+esc(_mzPed)+'"><i class="bi bi-shuffle"></i> Otra bolsa</span>';
                     }
                     cards+='</div>';
                     cards+='<div style="font-size:0.8rem;font-weight:600;color:var(--text-main);margin:2px 0">'+esc(p.clienteWeb||p.cliente||'-')+'</div>';

@@ -179,9 +179,12 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     const lmMay = ctx.llevandoMas(esc, 2900, 'may');
     t('en la mayorista con los precios mayoristas (2,9 × 6.500 contra 3 × 5.850)', !!lmMay && lmMay.total === 18850 && lmMay.mejor.total === 17550);
     const msg = ctx.mensajeLlevandoMas(lm, 'min');
-    t('el aviso dice las dos cuentas y la diferencia',
-      msg.indexOf('2,9 kg a precio de la escala de 1 kg ($8.000 el kilo) salen $23.200') >= 0 &&
-      msg.indexOf('Llevando 3 kg') >= 0 && msg.indexOf('paga $21.600: $1.600 menos') >= 0);
+    t('el aviso dice las dos cuentas y la diferencia, sin hablar de "escalas" (26/09)',
+      msg.indexOf('Estás vendiendo 2,9 kg de Yerba Mate a $8.000 el kilo, que es el precio de la bolsa de 1 kg: son $23.200.') === 0 &&
+      msg.indexOf('[+] Si lleva 3 kg, paga menos: $7.200 el kilo, que es el precio de la bolsa de 3 kg. Son $21.600: se lleva más y paga $1.600 menos.') > 0 &&
+      msg.indexOf('Podés ofrecérselo al cliente.') > 0 && msg.indexOf('scala') < 0, msg);
+    t('  en la mayorista dice que es el precio mayorista',
+      ctx.mensajeLlevandoMas(lmMay, 'may').indexOf('a $6.500 el kilo, que es el precio mayorista de la bolsa de 1 kg: son $18.850.') > 0);
   }
 
   /* ======================================================= DE QUÉ BOLSA SALE */
@@ -228,20 +231,81 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     const mzS = sinCosto.mezclaDe(sinCosto.repartirStock(escS, escS[0], 700), escS[0], 'min');
     t('sin el costo de una bolsa no inventa la diferencia', mzS.diferencia === null && mzS.sinCosto.map(e => e.id).join() === 'y3');
 
+    /* El aviso con palabras simples (pedido del 26/09: "Mezcla de stock" con "En contra:
+       ganás $300 menos que si todo saliera de la bolsa de 2 kg" no se entendía). */
     const msg = ctx.mensajeMezcla(rep, esc[0], mz, 700, 'min', null, 200);
-    t('el aviso: cuánto, a qué precio, de qué bolsas y la diferencia',
-      msg.indexOf('Yerba Mate: 700 g a precio de la escala de 1 kg ($8.000 el kilo).') === 0 &&
-      msg.indexOf('De la bolsa de 1 kg quedan 200 g') > 0 &&
-      msg.indexOf('• 200 g de la bolsa de 1 kg (costo $5.000 el kilo)') > 0 &&
-      msg.indexOf('• 500 g de la bolsa de 3 kg (costo $4.500 el kilo)') > 0 &&
-      msg.indexOf('A favor: ganás $250 más que si todo saliera de la bolsa de 1 kg.') > 0);
-    t('  en contra lo dice así', ctx.mensajeMezcla(rep2, esc[2], mz2, 11000, 'min', null, 10000).indexOf('En contra: ganás $750 menos') > 0);
+    t('el aviso: qué se vende y a qué precio, de qué bolsa sale cada parte y lo que costó, sin "escala"',
+      msg.indexOf('Estás vendiendo 700 g de Yerba Mate a $8.000 el kilo, que es el precio de la bolsa de 1 kg.') === 0 &&
+      msg.indexOf('Pero en la bolsa de 1 kg quedan solo 200 g, así que se saca de las dos bolsas:') > 0 &&
+      msg.indexOf('• 200 g de la bolsa de 1 kg, que te costó $5.000 el kilo') > 0 &&
+      msg.indexOf('• 500 g de la bolsa de 3 kg, que te costó $4.500 el kilo') > 0 && msg.indexOf('scala') < 0, msg);
+    t('  y la plata, resaltada: lo que se gana así contra si todo saliera de la bolsa que se cobra (5.600 − 3.250 y 5.600 − 3.500)',
+      msg.indexOf('[+] La bolsa de 3 kg te salió más barata que la de 1 kg. Por eso ganás $250 más: $2.350 en vez de $2.100.') > 0 &&
+      /¿Lo vendés así\?$/.test(msg), msg);
+    const msg2 = ctx.mensajeMezcla(rep2, esc[2], mz2, 11000, 'min', null, 10000);
+    t('  si se gana menos lo dice, y que igual se gana (66.000 − 42.000 y 66.000 − 41.250)',
+      msg2.indexOf('[!] La bolsa de 3 kg te salió más cara que la de 5 kg. Por eso ganás $750 menos: $24.000 en vez de $24.750.') > 0 &&
+      msg2.indexOf('Igual ganás plata, solo que menos.') > 0 && /¿Lo vendés igual\?$/.test(msg2), msg2);
     const repFalta = ctx.repartirStock(esc, esc[0], 20000);
     const msgFalta = ctx.mensajeMezcla(repFalta, esc[0], ctx.mezclaDe(repFalta, esc[0], 'min'), 20000, 'min', null, 200);
-    t('  y si ni sumando alcanza, cuánto falta', msgFalta.indexOf('No alcanza ni sumando las otras bolsas: la de 1 kg queda con 7,5 kg en negativo.') > 0);
+    t('  y si ni sumando alcanza, cuánto falta y de qué bolsa se descuenta',
+      msgFalta.indexOf('[!] Y ni así alcanza: faltan 7,5 kg. Se descuentan de la bolsa de 1 kg, que queda con el stock en negativo.') > 0, msgFalta);
     t('  sin sumarle el faltante a la bolsa que se cobra (tiene 200 g)', msgFalta.indexOf('• 200 g de la bolsa de 1 kg') > 0 && msgFalta.indexOf('• 7,7 kg') < 0);
-    t('  sin stock en la bolsa que se cobra, lo dice', ctx.mensajeMezcla(ctx.repartirStock(esc, esc[0], 700, e => (e.id === 'y1' ? 0 : 5000)), esc[0], mz, 700, 'min', null, 0)
-      .indexOf('De la bolsa de 1 kg no queda stock') > 0);
+    const repV = ctx.repartirStock(esc, esc[0], 700, e => (e.id === 'y1' ? 0 : 5000));
+    const mzV = ctx.mezclaDe(repV, esc[0], 'min');
+    const msgV = ctx.mensajeMezcla(repV, esc[0], mzV, 700, 'min', null, 0);
+    t('  sin stock en la bolsa que se cobra, lo dice, y dice lo que costó (no está en la lista)',
+      msgV.indexOf('Pero la bolsa de 1 kg no tiene stock, así que todo sale de la bolsa de 3 kg:') > 0 &&
+      msgV.indexOf('[+] La bolsa de 3 kg te salió más barata que la de 1 kg, que te costó $5.000 el kilo. Por eso ganás $350 más: $2.450 en vez de $2.100.') > 0, msgV);
+
+    /* El título dice qué pasa, y los botones qué hacen. */
+    const av2 = ctx.avisoMezcla(rep2, esc[2], mz2, 11000, 'min', null, 10000);
+    t('el título: "No alcanza la bolsa de 5 kg", con el ícono de atención si se gana menos; "Sí, vender" / "No, cancelar"',
+      av2.opts.titulo === 'No alcanza la bolsa de 5 kg' && av2.opts.icono === 'bi-exclamation-triangle' &&
+      av2.opts.aceptar === 'Sí, vender' && av2.opts.cancelar === 'No, cancelar' && av2.mensaje === msg2);
+    const avV = ctx.avisoMezcla(repV, esc[0], mzV, 700, 'min', null, 0);
+    t('  vacía: "La bolsa de 1 kg no tiene stock"; si se gana más, el ícono de información',
+      avV.opts.titulo === 'La bolsa de 1 kg no tiene stock' && avV.opts.icono === 'bi-info-circle');
+
+    /* Vender una parte por debajo de lo que costó, y perder en total. */
+    const repC = caro.repartirStock(escC, escC[2], 11000);
+    const msgC = caro.mensajeMezcla(repC, escC[2], mzC, 11000, 'min', null, 10000);
+    t('una parte por debajo de lo que costó: en rojo, aunque en total se gane (y sin "igual ganás plata")',
+      msgC.indexOf('[!] La bolsa de 3 kg te salió más cara que la de 5 kg. Por eso ganás $2.750 menos: $22.000 en vez de $24.750.') > 0 &&
+      msgC.indexOf('[x] Ojo: la bolsa de 3 kg te costó $6.500 el kilo, más de lo que cobrás ($6.000 el kilo). Con 1 kg de esa bolsa perdés $500.') > 0 &&
+      msgC.indexOf('Igual ganás plata') < 0, msgC);
+    const ruina = armar({ productos: catalogo().map(p => (p.id === 'y3' ? Object.assign(p, { costo: 40000 }) : p)) }).ctx;
+    const escR = ruina.escalasDe(ruina.allProducts.find(p => p.id === 'y3'));
+    const repR = ruina.repartirStock(escR, escR[2], 11000);
+    const msgR = ruina.mensajeMezcla(repR, escR[2], ruina.mezclaDe(repR, escR[2], 'min'), 11000, 'min', null, 10000);
+    t('  y si en total se pierde, cuánto: lo que costó contra lo que se cobra (37.500 + 40.000 contra 66.000)',
+      msgR.indexOf('[x] Ojo: así perdés $11.500. Lo que vendés te costó $77.500 y lo cobrás $66.000.') > 0 &&
+      msgR.indexOf('te salió más cara') < 0 && /¿Lo vendés igual\?$/.test(msgR), msgR);
+    const msgS = sinCosto.mensajeMezcla(sinCosto.repartirStock(escS, escS[0], 700), escS[0], mzS, 700, 'min', null, 200);
+    t('sin el costo de una bolsa, qué falta cargar y dónde',
+      msgS.indexOf('• 500 g de la bolsa de 3 kg, que no tiene cargado lo que costó') > 0 &&
+      msgS.indexOf('[!] No se puede calcular cuánto ganás: falta cargar lo que costó la bolsa de 3 kg. Se carga en Productos.') > 0, msgS);
+    const igual = armar({ productos: catalogo().map(p => (p.id === 'y3' ? Object.assign(p, { costo: 5000 }) : p)) }).ctx;
+    const escI = igual.escalasDe(igual.allProducts.find(p => p.id === 'y1'));
+    const repI = igual.repartirStock(escI, escI[0], 700);
+    const avI = igual.avisoMezcla(repI, escI[0], igual.mezclaDe(repI, escI[0], 'min'), 700, 'min', null, 200);
+    t('si las bolsas costaron lo mismo, lo dice, y se gana lo mismo', avI.mensaje.indexOf('[+] Las dos bolsas te costaron lo mismo el kilo, así que ganás lo mismo: $2.100.') > 0 &&
+      avI.opts.icono === 'bi-info-circle', avI.mensaje);
+    const msgMay = ctx.mensajeMezcla(ctx.repartirStock(esc, esc[2], 11000), esc[2], ctx.mezclaDe(ctx.repartirStock(esc, esc[2], 11000), esc[2], 'may'), 11000, 'may', null, 10000);
+    t('en la mayorista: "el precio mayorista de la bolsa de 5 kg"', msgMay.indexOf('a $4.900 el kilo, que es el precio mayorista de la bolsa de 5 kg.') > 0, msgMay);
+
+    /* El recuadro de color: [!], [x] y [+] en admin-dialogo.js. */
+    const dlg = { createElement: () => { let s = ''; return { set textContent(v) { s = String(v); },
+      get innerHTML() { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); } }; } };
+    const dlgTexto = new Function('document', dialogo.slice(dialogo.indexOf('function _dlgEsc(')) + '\nreturn _dlgTexto;')(dlg);
+    const hDlg = dlgTexto('Hola\n[!] Ganás <menos>\n[x] Perdés\n[+] Ganás más\n• un item\n[?] no es marca');
+    t('el diálogo pone [!], [x] y [+] en un recuadro de color con su ícono, escapado',
+      hDlg.indexOf('<p class="dlg-linea dlg-resalta atencion"><i class="bi bi-exclamation-triangle-fill"></i><span>Ganás &lt;menos&gt;</span></p>') > 0 &&
+      hDlg.indexOf('<p class="dlg-linea dlg-resalta perdida"><i class="bi bi-x-octagon-fill"></i><span>Perdés</span></p>') > 0 &&
+      hDlg.indexOf('<p class="dlg-linea dlg-resalta bien"><i class="bi bi-check-circle-fill"></i><span>Ganás más</span></p>') > 0, hDlg);
+    t('  y el resto como siempre', hDlg.indexOf('<p class="dlg-linea">Hola</p>') === 0 && hDlg.indexOf('<p class="dlg-linea item">un item</p>') > 0 &&
+      hDlg.indexOf('<p class="dlg-linea">[?] no es marca</p>') > 0);
+    t('  con su CSS', /\.dlg-resalta\.atencion\{/.test(html) && /\.dlg-resalta\.perdida\{/.test(html) && /\.dlg-resalta\.bien\{/.test(html));
   }
 
   /* ================================================================ LA VENTA */
@@ -253,12 +317,14 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
       r === 'hecho' && renglones(w.ctx.ventaItems) === 'y1:200@8000/c5000 y3:500@8000/c4500');
     t('  con el nombre del producto, no el de la bolsa', w.ctx.ventaItems.every(i => i.nombre === 'Yerba Mate'));
     t('  marcados con la escala que se cobró', w.ctx.ventaItems.every(i => i.escala === '1 kg' && i.escalaId === 'y1'));
-    t('  avisó la mezcla antes', w.confirmaciones.length === 1 && w.confirmaciones[0].op.titulo === 'Mezcla de stock');
+    t('  avisó antes: "No alcanza la bolsa de 1 kg"', w.confirmaciones.length === 1 && w.confirmaciones[0].op.titulo === 'No alcanza la bolsa de 1 kg' &&
+      w.confirmaciones[0].op.aceptar === 'Sí, vender' && w.confirmaciones[0].msg.indexOf('Estás vendiendo 700 g de Yerba Mate') === 0);
     const op = w.gramosPedidos[0].op;
-    t('el diálogo de gramos muestra el precio de cada escala y el stock de todas',
-      op.nombre === 'Yerba Mate' && op.detalle === '1 kg: $8.000 · desde 3 kg: $7.200 · desde 5 kg: $6.000 el kilo' && op.stock === 12500);
+    t('el diálogo de gramos muestra hasta dónde vale cada precio y el stock de todas',
+      op.nombre === 'Yerba Mate' && op.detalle === 'Menos de 3 kg: $8.000 el kilo · 3 kg o más: $7.200 el kilo · 5 kg o más: $6.000 el kilo' &&
+      op.stock === 12500, op.detalle);
     const q = op.cotizar(3100);
-    t('  y el total en vivo con la escala que va a tocar', q.total === 22320 && q.nota === 'Escala de 3 kg: $7.200 el kilo.');
+    t('  y el total en vivo con el precio de la bolsa que va a tocar', q.total === 22320 && q.nota === 'Se cobra el precio de la bolsa de 3 kg: $7.200 el kilo.', q.nota);
   }
   {
     const w = armar({ gramos: 1000, ventaItems: [{ id: 'nuez', nombre: 'Nueces', precio: 18000, costo: 9000, cantidad: 250, tipoVenta: 'peso' },
@@ -295,14 +361,14 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     const w = armar({ gramos: 2900, opcion: 'igual' });
     await w.ctx.agregarGranelVenta(b(w.ctx, 'y1'), 'min');
     const pq = w.preguntas[0];
-    t('2,9 kg pregunta, con las dos cuentas en los botones', !!pq && pq.op.opciones.map(x => x.texto).join(' / ') === 'Cobrar 2,9 kg ($23.200) / Cambiar a 3 kg ($21.600)' &&
+    t('2,9 kg pregunta, con las dos cuentas en los botones', !!pq && pq.op.opciones.map(x => x.texto).join(' / ') === 'Vender 2,9 kg ($23.200) / Vender 3 kg ($21.600)' &&
       pq.op.opciones[0].principal === true);
-    t('  "Cobrar 2,9 kg": queda al precio de la regla', w.ctx.ventaItems.reduce((s, i) => s + i.cantidad, 0) === 2900 && w.ctx.ventaItems.every(i => i.precio === 8000));
+    t('  "Vender 2,9 kg": queda al precio de la regla', w.ctx.ventaItems.reduce((s, i) => s + i.cantidad, 0) === 2900 && w.ctx.ventaItems.every(i => i.precio === 8000));
   }
   {
     const w = armar({ gramos: 2900, opcion: 'mas' });
     await w.ctx.agregarGranelVenta(b(w.ctx, 'y1'), 'min');
-    t('"Cambiar a 3 kg": 3 kg a $7.200, de la bolsa de 3 kg y la de 5 kg', renglones(w.ctx.ventaItems) === 'y3:2300@7200/c4500 y5:700@7200/c3750');
+    t('"Vender 3 kg": 3 kg a $7.200, de la bolsa de 3 kg y la de 5 kg', renglones(w.ctx.ventaItems) === 'y3:2300@7200/c4500 y5:700@7200/c3750');
   }
   {
     const w = armar({ gramos: 2900, opcion: null });
@@ -345,7 +411,7 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     t('los renglones de la yerba se dibujan en una línea', v.length === 2 && v[0].id === 'nuez' && v[1].id === 'y1' && v[1].cantidad === 701);
     t('  con la suma de los subtotales de verdad (sin redondear dos veces)',
       v[1].__sub === w.ctx.subtotalItem(items[1]) + w.ctx.subtotalItem(items[2]));
-    t('  y de qué bolsas sale', v[1].__detalle === 'Escala de 1 kg · sale 200 g de la bolsa de 1 kg y 501 g de la bolsa de 3 kg');
+    t('  y de qué bolsas sale', v[1].__detalle === 'Precio de la bolsa de 1 kg · sale 200 g de la bolsa de 1 kg y 501 g de la bolsa de 3 kg', v[1].__detalle);
     t('  los renglones de verdad no se tocan', items.length === 3 && items[2].cantidad === 501);
     const sinEscalas = [items[0]];
     t('una venta sin escalas se dibuja como siempre (la misma lista, sin copiarla)', w.ctx.vistaItemsVenta(sinEscalas) === sinEscalas);
@@ -353,9 +419,9 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
       { id: 'y5', nombre: 'Yerba Mate', precio: 7200, costo: 3750, cantidad: 700, tipoVenta: 'peso' }];
     const vc = w.ctx.vistaItemsVenta(cargada);
     t('una venta guardada (sin la marca de la escala) se junta igual y deduce la escala', vc.length === 1 && vc[0].id === 'y3' &&
-      vc[0].__detalle === 'Escala de 3 kg · sale 2,3 kg de la bolsa de 3 kg y 700 g de la bolsa de 5 kg');
+      vc[0].__detalle === 'Precio de la bolsa de 3 kg · sale 2,3 kg de la bolsa de 3 kg y 700 g de la bolsa de 5 kg');
     const una = w.ctx.vistaItemsVenta([{ id: 'y1', nombre: 'Yerba Mate', precio: 8000, cantidad: 300, tipoVenta: 'peso', escalaId: 'y1' }]);
-    t('con un solo renglón de su bolsa, solo la escala', una[0].__detalle === 'Escala de 1 kg');
+    t('con un solo renglón de su bolsa, solo de qué bolsa es el precio', una[0].__detalle === 'Precio de la bolsa de 1 kg');
   }
 
   console.log('\n-- cambiar, sacar y descontar la línea --');
@@ -435,14 +501,18 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     const web = [{ id: 'y3', nombre: 'Yerba Mate', cantidad: 2300, precio: 7200, escala: '3 kg', escalaId: 'y3' },
       { id: 'y5', nombre: 'Yerba Mate', cantidad: 700, precio: 7200, escala: '3 kg', escalaId: 'y3' }];
     t('un pedido web que sacó de otra bolsa: qué, de dónde y la plata (con el costo de cada bolsa)',
-      w.ctx.mezclaDePedido(web) === 'Yerba Mate: se cobró a precio de la escala de 3 kg, y 700 g salen de la bolsa de 5 kg. A favor: se gana $525 más.',
+      w.ctx.mezclaDePedido(web) === 'Yerba Mate: se cobró el precio de la bolsa de 3 kg, pero 700 g salen de la bolsa de 5 kg. Esa bolsa te salió más barata: ganás $525 más.',
       w.ctx.mezclaDePedido(web));
     const contra = [{ id: 'y1', nombre: 'Yerba Mate', cantidad: 1000, precio: 6000, escala: '5 kg', escalaId: 'y5' }];
-    t('  en contra también (1 kg de la bolsa de 1 kg cobrado a precio de 5 kg)', /En contra: se gana \$1\.250 menos\./.test(w.ctx.mezclaDePedido(contra) || ''));
+    t('  en contra también (1 kg de la bolsa de 1 kg cobrado a precio de 5 kg)', /Esa bolsa te salió más cara: ganás \$1\.250 menos\.$/.test(w.ctx.mezclaDePedido(contra) || ''));
+    const dos = [{ id: 'y5', cantidad: 1000, escalaId: 'y5' }, { id: 'y1', cantidad: 500, escalaId: 'y5' }, { id: 'y3', cantidad: 500, escalaId: 'y5' }];
+    t('  de dos bolsas: por lo que costó cada una (500 × −1.250 + 500 × −750)',
+      w.ctx.mezclaDePedido(dos) === 'Yerba Mate: se cobró el precio de la bolsa de 5 kg, pero 500 g salen de la bolsa de 1 kg y 500 g salen de la bolsa de 3 kg. Por lo que costó cada bolsa, ganás $1.000 menos.',
+      w.ctx.mezclaDePedido(dos));
     t('sin mezcla no avisa', w.ctx.mezclaDePedido([{ id: 'y3', cantidad: 3000, escalaId: 'y3' }]) === null);
     t('  ni en un pedido sin granel', w.ctx.mezclaDePedido([{ id: 'nuez', cantidad: 250 }]) === null && w.ctx.mezclaDePedido(undefined) === null);
-    t('el tablero de pedidos lo muestra como "Mezcla"', /var _mzPed=\(typeof mezclaDePedido==='function'\)\?mezclaDePedido\(p\.items\):null;/.test(html) &&
-      html.indexOf('<i class="bi bi-shuffle"></i> Mezcla</span>') > 0);
+    t('el tablero de pedidos lo muestra como "Otra bolsa"', /var _mzPed=\(typeof mezclaDePedido==='function'\)\?mezclaDePedido\(p\.items\):null;/.test(html) &&
+      html.indexOf('<i class="bi bi-shuffle"></i> Otra bolsa</span>') > 0);
   }
 
   /* ========================================================= LOS GANCHOS */
@@ -591,7 +661,7 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
       { id: 'y3', nombre: '<img src=x onerror=alert(1)>', escala: 'x" onmouseover="y', escalaId: 'y3', cantidad: 2300 },
       { id: 'y5', nombre: 'lo que sea', escalaId: 'y3', cantidad: 700 }]);
     t('el aviso de Mezcla del tablero usa los nombres del catálogo, no lo que manda el cliente', !!txt &&
-      txt.indexOf('Yerba Mate: se cobró a precio de la escala de 3 kg, y 700 g salen de la bolsa de 5 kg.') === 0 &&
+      txt.indexOf('Yerba Mate: se cobró el precio de la bolsa de 3 kg, pero 700 g salen de la bolsa de 5 kg.') === 0 &&
       txt.indexOf('<img') < 0 && txt.indexOf('onmouseover') < 0, txt);
     t('  y un escalaId que no es del grupo no arma mezcla', ctx.mezclaDePedido([{ id: 'nuez', escalaId: 'y3', cantidad: 100 },
       { id: 'y5', escalaId: 'nuez', cantidad: 100 }]) === null);
@@ -665,7 +735,27 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     await w.ctx.repartirGranelDeVenta('min');
     t('al pasar a venta un pedido que no descontó stock, el granel se reparte por bolsa al precio del pedido',
       renglones(w.ctx.ventaItems) === 'y3:2300@7000/c4500 y5:700@7000/c3750', renglones(w.ctx.ventaItems));
-    t('  con el aviso de la mezcla, como en el mostrador', w.confirmaciones.length === 1 && w.confirmaciones[0].op.titulo === 'Mezcla de stock');
+    const cf = w.confirmaciones[0];
+    t('  con el aviso, como en el mostrador, con el precio del pedido ($7.000, no los $7.200 de la lista)',
+      w.confirmaciones.length === 1 && cf.op.titulo === 'No alcanza la bolsa de 3 kg' &&
+      cf.msg.indexOf('El pedido lleva 3 kg de Yerba Mate a $7.000 el kilo.') === 0 &&
+      cf.msg.indexOf('Por eso ganás $525 más: $8.025 en vez de $7.500.') > 0, cf.msg);
+    t('  y pregunta de dónde sacar lo que falta: "Sí, sacarlo de la bolsa de 5 kg" / "No, todo de la bolsa de 3 kg"',
+      cf.msg.indexOf('¿Sacás lo que falta de la bolsa de 5 kg? Si no, todo se descuenta de la bolsa de 3 kg, que queda con el stock en negativo.') > 0 &&
+      cf.op.aceptar === 'Sí, sacarlo de la bolsa de 5 kg' && cf.op.cancelar === 'No, todo de la bolsa de 3 kg');
+    {
+      /* Lo que se pierde se mide contra el precio del pedido: la bolsa de 5 kg costó $3.750
+         y el pedido cobra $3.500 (la lista, $7.200). */
+      const wb = armar({ ventaItems: [{ id: 'y3', nombre: 'Yerba Mate', precio: 3500, costo: 4500, cantidad: 3000, descuento: 0, tipoVenta: 'peso', escala: '3 kg', escalaId: 'y3' }] });
+      await wb.ctx.repartirGranelDeVenta('min');
+      t('  lo que se pierde se mide contra el precio del pedido, no el de la lista (10.350 + 2.625 contra 10.500)',
+        wb.confirmaciones[0].msg.indexOf('[x] Ojo: así perdés $2.475. Lo que vendés te costó $12.975 y lo cobrás $10.500.') > 0, wb.confirmaciones[0].msg);
+      const escP = wb.ctx.escalasDe(b(wb.ctx, 'y1'));
+      const repP = wb.ctx.repartirStock(escP, escP[1], 3000);
+      const bajo = wb.ctx.mezclaDe(repP, escP[1], 'min', 0, 3500).bajoCosto;
+      t('  y lo vendido por debajo del costo también (700 g × $250)', bajo.length === 1 && bajo[0].escala.id === 'y5' && bajo[0].perdida === 175 &&
+        wb.ctx.mezclaDe(repP, escP[1], 'min', 0).bajoCosto.length === 0);
+    }
     const w2 = armar({ confirma: false, ventaItems: linea() });
     await w2.ctx.repartirGranelDeVenta('min');
     t('  si no se acepta, queda como vino', renglones(w2.ctx.ventaItems) === 'y3:3000@7000/c4500');
