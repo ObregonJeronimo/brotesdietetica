@@ -128,13 +128,14 @@ function _dscDeLineas(lineas, escalas, ctx) {
 }
 
 /* Si llevando más paga menos, la escala que conviene (la de menor total), o null. */
-function llevandoMas(escalas, gramos, ctx, dsc) {
+function llevandoMas(escalas, gramos, ctx, dsc, maxGramos) {
   if (!escalas || !escalas.length) return null;
   const cobra = escalaPara(escalas, gramos);
   const total = cobroEscala(cobra, gramos, ctx, dsc);
   let mejor = null;
   escalas.forEach(x => {
-    if (x.desde <= gramos) return;
+    /* Llevar más de lo que hay no se ofrece: sin stock no se vende (26/09). */
+    if (x.desde <= gramos || (maxGramos != null && x.desde > maxGramos)) return;
     const t = cobroEscala(x, x.desde, ctx, dsc);
     if (t < total && (!mejor || t < mejor.total)) mejor = { escala: x, gramos: x.desde, total: t };
   });
@@ -255,9 +256,14 @@ function avisoMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan, o) {
     L.push('• ' + _escPeso(x.gramos) + ' de la bolsa de ' + x.escala.etiqueta +
       (c > 0 ? ', que te costó ' + _escPlata(c) + ' el kilo' : ', que no tiene cargado lo que costó'));
   });
+  /* Sin stock suficiente no se vende (26/09): en el mostrador esto no llega (frena antes);
+     un pedido que pide más de lo que hay no se va a poder registrar. */
+  const frena = !(typeof _stockNoAplica === 'function' && _stockNoAplica(ctx));
   if (reparto.falta > 0) {
     L.push('');
-    L.push('[!] Y ni así alcanza: faltan ' + _escPeso(reparto.falta) + '. Se descuentan de ' + bolsa + ', que queda con el stock en negativo.');
+    L.push(frena
+      ? '[x] Y ni así alcanza: faltan ' + _escPeso(reparto.falta) + '. Sin stock suficiente la venta NO se va a poder registrar: bajá la cantidad.'
+      : '[!] Y ni así alcanza: faltan ' + _escPeso(reparto.falta) + '. Se descuentan de ' + bolsa + ', que queda con el stock en negativo.');
   }
 
   L.push('');
@@ -302,7 +308,8 @@ function avisoMezcla(reparto, cobra, mz, gramos, ctx, dsc, quedan, o) {
   L.push('');
   if (op.pedido) {
     L.push('¿Sacás lo que falta de ' + deOtras + '?' + (op.todoDeCobra
-      ? ' Si no, todo se descuenta de ' + bolsa + ', que queda con el stock en negativo.'
+      ? (frena ? ' Si no, la venta no se va a poder registrar: ' + bolsa + ' no tiene stock suficiente.'
+        : ' Si no, todo se descuenta de ' + bolsa + ', que queda con el stock en negativo.')
       : ' Si no, se descuenta como vino en el pedido.'));
   } else {
     L.push(malo ? '¿Lo vendés igual?' : '¿Lo vendés así?');
@@ -349,9 +356,12 @@ function opcionesGramosEscalas(escalas, ctx, ya, dsc, disponible) {
      $8.000 · desde 3 kg: $7.200", y no quedaba claro hasta dónde valía cada precio. */
   const precios = escalas.map((e, i) => (i ? e.etiqueta + ' o más' : 'Menos de ' + escalas[1].etiqueta) + ': ' +
     _escPlata(precioFinalKg(e, ctx, dsc)) + ' el kilo').join(' · ');
-  const hay = escalas.reduce((s, e) => s + disp(e), 0) - ya;
+  const todo = escalas.reduce((s, e) => s + disp(e), 0);
+  const hay = todo - ya;
   const antes = ya > 0 ? escalaPara(escalas, ya) : null;
-  return {
+  /* Sin stock suficiente no se agrega: ver frenoDeGramos en admin-variantes.js. */
+  const frena = !(typeof _stockNoAplica === 'function' && _stockNoAplica(ctx)) && typeof frenoDeGramos === 'function';
+  return Object.assign({
     nombre: _escNombre(escalas[0]),
     detalle: precios + (ya > 0 ? ' · ya hay ' + _escPeso(ya) + ' en la venta' : ''),
     stock: Math.max(0, hay),
@@ -364,7 +374,7 @@ function opcionesGramosEscalas(escalas, ctx, ya, dsc, disponible) {
           (antes && antes !== e ? ' Lo que ya estaba en la venta pasa a este precio.' : ''),
       };
     },
-  };
+  }, frena ? frenoDeGramos(escalas[0].producto, { hay: todo, ya: ya, queda: hay }) : {});
 }
 
 /* Suma gramos de un producto con escalas a la venta. Devuelve 'no' si no tiene
@@ -388,7 +398,16 @@ async function fijarGranelVenta(escalas, total, ctx, opts) {
   const dsc = o.dsc != null ? o.dsc : null;
   let gramos = total;
   let cobra = escalaPara(escalas, gramos);
-  const lm = llevandoMas(escalas, gramos, ctx, dsc);
+  const disp = disponibleParaVenta(ctx);
+  /* Sin stock suficiente no se vende (pedido del comercio, 26/09/2026): si no alcanza ni
+     sumando todas las bolsas, no se agrega. Así llega cambiar los gramos en la línea. */
+  const frena = !(typeof _stockNoAplica === 'function' && _stockNoAplica(ctx));
+  const hay = escalas.reduce((s, e) => s + disp(e), 0);
+  if (frena && gramos > hay) {
+    if (typeof avisarSinStock === 'function') await avisarSinStock(escalas[0].producto, hay, 0, _escNombre(escalas[0]));
+    return 'cancelar';
+  }
+  const lm = llevandoMas(escalas, gramos, ctx, dsc, frena ? hay : null);
   if (lm && typeof pedirOpcion === 'function') {
     const r = await pedirOpcion(mensajeLlevandoMas(lm, ctx, dsc), {
       titulo: 'Llevando más, paga menos',
@@ -401,7 +420,6 @@ async function fijarGranelVenta(escalas, total, ctx, opts) {
     if (r === null) return 'cancelar';
     if (r === 'mas') { gramos = lm.mejor.gramos; cobra = lm.mejor.escala; }
   }
-  const disp = disponibleParaVenta(ctx);
   const reparto = repartirStock(escalas, cobra, gramos, disp);
   const mz = mezclaDe(reparto, cobra, ctx, dsc);
   if (mz && typeof pedirConfirmacion === 'function') {
@@ -482,6 +500,14 @@ function vistaItemsVenta(items) {
     const lineas = lista.filter(x => x && grupoDe.has(x.id) && grupoDe.get(x.id)[0].id === clave);
     const total = lineas.reduce((s, x) => s + Number(x.cantidad || 0), 0);
     const cobra = esc.find(e => e.id === lineas[0].escalaId) || escalaPara(esc, total);
+    /* Si alguna de sus bolsas no alcanza, lo dice la línea del producto: el total contra
+       todas las bolsas (si el total alcanza, cambió el stock desde que se repartió). */
+    let falta = null;
+    if (lineas.some(x => faltaDe.has(x.id))) {
+      const tomado = typeof stockYaTomadoPorVenta === 'function' ? stockYaTomadoPorVenta(ctxV) : {};
+      const hayG = esc.reduce((s, e) => s + Math.max(0, Number(e.producto.stock || 0) + (tomado[e.id] || 0)), 0);
+      falta = total > hayG ? textoFaltaStock({ producto: cobra.producto, hay: hayG }) : 'Cambió el stock de las bolsas: volvé a poner los gramos';
+    }
     out.push({
       id: cobra.id,
       nombre: lineas[0].nombre,
@@ -492,6 +518,7 @@ function vistaItemsVenta(items) {
       tipoVenta: 'peso',
       __sub: lineas.reduce((s, x) => s + subtotalItem(x), 0),
       __detalle: detalleLineaGranel(cobra, lineas, esc),
+      ...(falta ? { __falta: falta } : {}),
     });
   });
   return out;

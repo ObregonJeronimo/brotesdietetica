@@ -974,12 +974,24 @@ la tienda, una fila en la venta— y cada tamaño tiene su costo, su ganancia y 
 - **Etapa 4, migrar los grupos de YERCO:** **no se hace** hasta que el dueño lo pida.
 - **El formulario:** con más de un tamaño, la tabla "Costo y precio de cada bolsa" es el
   único lugar de carga (lo de arriba se esconde).
-- **La venta avisa al vender más de lo que hay en stock**, para cualquier producto.
+- **Sin stock suficiente la venta NO se puede hacer** (26/09), para cualquier producto: ni
+  agregar más de lo que hay (los gramos, una unidad más, la cantidad de la línea) ni
+  registrarla. El aviso dice cuánto hay y que se cargue en Stock con "Agregar stock". El
+  25/09 solo avisaba y dejaba "Registrar igual"; el dueño pidió que no deje.
+- **El aviso de la mezcla de bolsas, con palabras simples** (26/09): "No alcanza la bolsa de
+  2 kg", de qué bolsa sale cada parte y lo que costó, y cuánto se gana ("$1.300 en vez de
+  $1.600") en un recuadro de color. Sin la palabra "escala" en la venta.
 - **Stock: "Agregar stock"** en cada fila suma lo que llegó (el lápiz corrige el total).
 - **Productos: un producto con presentaciones es una fila**, con un panel que muestra cada
   tamaño y "Editar presentaciones".
 
-Está en commits locales, probado en el sandbox; **no se subió**. Pruebas: 2944 en 71 suites.
+Está en commits locales, probado en el sandbox; **no se subió**. Pruebas: 2989 en 71 suites.
+
+**Antes de subirlo, que la clienta cargue el stock.** Con el freno, lo que figura sin stock
+no se puede vender. En producción (lectura del 26/09): de 344 productos visibles, 123 están
+en 0 y 31 en negativo; de los 211 vendidos en los últimos 30 días, 35 hoy están en negativo
+(97 renglones: se vendieron sin stock cargado) y 31 en 0. Esos, sin cargarles stock, van a
+quedar frenados en el mostrador.
 
 **Al subirlo** (solo cuando lo pida el dueño, y con la clienta sin usar el sistema):
 - desplegar las functions `registrarCambioDeCosto` y `descontarStockPedido` (esta cambió: compara

@@ -409,7 +409,7 @@
         .dlg-cab{display:flex;align-items:center;gap:0.7rem;margin-bottom:0.85rem}
         .dlg-cab h3{font-size:1.02rem;font-weight:700;margin:0}
         .dlg-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--accent-bg);color:var(--accent-light);font-size:1.05rem}
-        .dlg-box.peligro .dlg-ico{background:rgba(229,69,69,0.15);color:var(--danger)}
+        .dlg-box.peligro .dlg-ico,.dlg-box.alerta .dlg-ico{background:rgba(229,69,69,0.15);color:var(--danger)}
         .dlg-msg{font-size:0.9rem;line-height:1.55;color:var(--text);max-height:52vh;overflow-y:auto;overflow-x:hidden}
         .dlg-linea{margin:0 0 0.35rem;overflow-wrap:break-word}
         .dlg-linea:last-child{margin-bottom:0}
@@ -528,6 +528,7 @@
         .dlg-peligro{background:var(--danger);color:#fff;border:none}
         .dlg-peligro:hover{filter:brightness(1.08)}
         .dlg-pie .btn:focus-visible{outline:2px solid var(--accent-light);outline-offset:2px}
+        .dlg-pie .btn:disabled{opacity:0.4;cursor:not-allowed;filter:grayscale(0.5)}
         .pz-rapidos{display:flex;gap:0.4rem;flex-wrap:wrap;margin:0.8rem 0 0.6rem}
         .pz-rap{flex:1 1 auto;min-width:64px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:0.82rem;font-weight:600;padding:0.5rem 0.4rem;border-radius:8px;cursor:pointer}
         .pz-rap:hover{border-color:var(--accent);color:var(--accent-light)}
@@ -536,7 +537,7 @@
         .pz-unidad{color:var(--text-dim);font-size:0.85rem;white-space:nowrap}
         .pz-total{display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;min-height:1.6rem;font-size:0.9rem;color:var(--text-dim)}
         .pz-total b{font-size:1.15rem;color:var(--accent-light);font-family:var(--mono)}
-        .pz-aviso{color:#EDB833;font-size:0.78rem;min-height:1rem;margin-top:0.15rem}
+        .pz-aviso{color:#EDB833;font-size:0.78rem;min-height:1rem;margin-top:0.15rem}.pz-aviso.pz-bloqueo{display:flex;gap:0.6rem;align-items:flex-start;color:#F59A9A;background:rgba(229,69,69,0.1);border:1px solid rgba(229,69,69,0.45);border-radius:10px;padding:0.65rem 0.8rem;margin-top:0.55rem;font-size:0.84rem;line-height:1.45}.pz-bloqueo i{flex:0 0 auto;margin-top:0.12rem}.pz-bloqueo p{margin:0}.pz-bloqueo .pz-ayuda{color:var(--text-dim);font-size:0.76rem;margin-top:0.4rem}
         .stock-sin-guardar{display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;background:rgba(237,184,51,0.12);border:1px solid rgba(237,184,51,0.35);color:#EDB833;border-radius:var(--radius);padding:0.7rem 0.9rem;margin-bottom:0.75rem;font-size:0.85rem}
         .stock-sin-guardar[hidden]{display:none}
         .stock-row.sin-guardar{outline:1px solid rgba(237,184,51,0.55)}
@@ -3305,7 +3306,10 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 /* ya se agregaron: las de la otra presentacion, o los renglones del granel */
             } else if(p && esPorPeso(p)){
                 const precioKg = may ? (p.precioMayorista||p.precio||0) : (p.precio||0);
-                const gr = await pedirCantidadPeso(p,{precioKg:precioKg});
+                /* Sin stock suficiente no se vende (pedido del comercio, 26/09/2026): el dialogo
+                   no deja pasar mas de lo que queda. Ver stockParaVenta en admin-variantes.js. */
+                const sp=(typeof stockParaVenta==='function')?stockParaVenta(p,lista,ctx):null;
+                const gr = await pedirCantidadPeso(p,Object.assign({precioKg:precioKg},(sp&&typeof frenoDeGramos==='function')?frenoDeGramos(p,sp):{}));
                 if(gr==null) return;                       /* cancelo */
                 const yaEstaba = lista.find(x=>x.id===id);
                 const antes = yaEstaba ? Number(yaEstaba.cantidad||0) : 0;
@@ -3313,6 +3317,8 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 const it = lista.find(x=>x.id===id);
                 if(it){ it.cantidad = yaEstaba ? (antes+gr) : gr; repintar(); }
             } else {
+                const sp=(p&&typeof stockParaVenta==='function')?stockParaVenta(p,lista,ctx):null;
+                if(sp&&sp.queda<1){await avisarSinStock(p,sp.hay,sp.ya);return;}
                 orig(id);
             }
 

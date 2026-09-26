@@ -25,7 +25,9 @@ let _dlgAbiertos = 0;
 
 /**
  * @param {string} mensaje  Texto principal. Los saltos de línea se respetan.
- * @param {Object} [opts]   { titulo, aceptar, cancelar, peligro, icono }
+ * @param {Object} [opts]   { titulo, aceptar, cancelar, peligro, icono, alerta }
+ *                          alerta: el ícono en rojo, sin volver rojo el botón (un aviso
+ *                          que frena, como "Stock insuficiente", no borra nada).
  * @returns {Promise<boolean>}
  */
 function pedirConfirmacion(mensaje, opts) {
@@ -48,7 +50,7 @@ function pedirConfirmacion(mensaje, opts) {
     _dlgAbiertos++;
 
     ov.innerHTML =
-      '<div class="dlg-box' + (peligro ? ' peligro' : '') + '" role="alertdialog" aria-modal="true" aria-labelledby="dlgTit">' +
+      '<div class="dlg-box' + (peligro ? ' peligro' : '') + (opts.alerta ? ' alerta' : '') + '" role="alertdialog" aria-modal="true" aria-labelledby="dlgTit">' +
         '<div class="dlg-cab">' +
           '<span class="dlg-ico"><i class="bi ' + icono + '"></i></span>' +
           '<h3 id="dlgTit">' + _dlgEsc(titulo) + '</h3>' +
@@ -211,6 +213,11 @@ function _dlgTexto(msg) {
    de cuánto se lleva. Para eso están opts.detalle (la línea de precios, en lugar de
    "$X el kilo"), opts.stock (el de todas sus bolsas) y opts.cotizar(gramos), que
    devuelve { total, nota } para el total en vivo.
+
+   SIN STOCK SUFICIENTE NO SE AGREGA (pedido del comercio, 26/09/2026): con
+   opts.bloquear, si los gramos pasan opts.stock (lo que queda para esta venta) el botón
+   no anda y abajo sale opts.avisoSinStock en rojo, con opts.ayudaSinStock (qué hacer).
+   Sin bloquear -el negocio no descuenta stock- se avisa y se deja, como antes.
    ============================================================================= */
 function pedirCantidadPeso(producto, opts) {
   opts = opts || {};
@@ -218,6 +225,8 @@ function pedirCantidadPeso(producto, opts) {
   const precioKg = Number(opts.precioKg != null ? opts.precioKg : (producto && producto.precio) || 0);
   const stock = Number(opts.stock != null ? opts.stock : (producto && producto.stock) || 0);
   const RAPIDOS = [100, 250, 500, 1000];
+  const bloquear = !!opts.bloquear;
+  const sinStock = g => bloquear && (stock <= 0 || (Number.isFinite(g) && g > stock));
 
   return new Promise(resolve => {
     const ov = document.createElement('div');
@@ -233,7 +242,7 @@ function pedirCantidadPeso(producto, opts) {
           '<p class="dlg-linea"><b>' + _dlgEsc(nombre) + '</b></p>' +
           '<p class="dlg-linea" style="color:var(--text-dim);font-size:0.83rem">' +
             (opts.detalle ? _dlgEsc(opts.detalle) : '$' + precioKg.toLocaleString('es-AR') + ' el kilo') +
-            (stock > 0 ? ' &middot; hay ' + _dlgPeso(stock) : '') + '</p>' +
+            (stock > 0 ? ' &middot; hay ' + _dlgPeso(stock) : (bloquear ? ' &middot; sin stock' : '')) + '</p>' +
           '<div class="pz-rapidos">' +
             RAPIDOS.map(g => '<button type="button" class="pz-rap" data-g="' + g + '">' + _dlgPeso(g) + '</button>').join('') +
           '</div>' +
@@ -271,16 +280,27 @@ function pedirCantidadPeso(producto, opts) {
     function pintar() {
       const g = parseInt(inp.value, 10);
       const ok = Number.isFinite(g) && g > 0;
-      btnOk.disabled = !ok;
+      const frena = sinStock(g);
+      btnOk.disabled = !ok || frena;
       const q = (ok && typeof opts.cotizar === 'function') ? (opts.cotizar(g) || {}) : null;
       const total = q && q.total != null ? q.total : Math.round(precioKg * g / 1000);
       tot.innerHTML = ok
         ? '<span>' + _dlgPeso(g) + '</span><b>$' + Number(total).toLocaleString('es-AR') + '</b>'
         : '';
       nota.textContent = (q && q.nota) || '';
-      /* Se avisa si no alcanza el stock, pero NO se bloquea: en el mostrador el
-         stock puede estar desactualizado y la venta ya ocurrió. */
-      avi.textContent = (ok && stock > 0 && g > stock)
+      if (frena) {
+        /* "STOCK INSUFICIENTE:" en negrita, y el resto como lo pidió el comercio. */
+        const txt = opts.avisoSinStock || _dlgSinStock(stock);
+        const dp = txt.indexOf(':');
+        avi.className = 'pz-aviso pz-bloqueo';
+        avi.innerHTML = '<i class="bi bi-x-octagon-fill"></i><div><p>' +
+          (dp > 0 ? '<b>' + _dlgEsc(txt.slice(0, dp + 1)) + '</b>' + _dlgEsc(txt.slice(dp + 1)) : _dlgEsc(txt)) + '</p>' +
+          (opts.ayudaSinStock ? '<p class="pz-ayuda">' + _dlgEsc(opts.ayudaSinStock) + '</p>' : '') + '</div>';
+        return;
+      }
+      avi.className = 'pz-aviso';
+      /* Sin bloquear (el negocio no descuenta stock) se avisa y se deja. */
+      avi.textContent = (!bloquear && ok && stock > 0 && g > stock)
         ? 'Ojo: en el sistema figuran ' + _dlgPeso(stock) + '. Se puede vender igual.' : '';
     }
 
@@ -289,7 +309,7 @@ function pedirCantidadPeso(producto, opts) {
       else if (e.key === 'Enter') {
         e.preventDefault();
         const g = parseInt(inp.value, 10);
-        if (Number.isFinite(g) && g > 0) cerrar(g);
+        if (Number.isFinite(g) && g > 0 && !sinStock(g)) cerrar(g);
       }
     }
 
@@ -301,14 +321,24 @@ function pedirCantidadPeso(producto, opts) {
     inp.addEventListener('input', pintar);
     btnOk.addEventListener('click', () => {
       const g = parseInt(inp.value, 10);
-      if (Number.isFinite(g) && g > 0) cerrar(g);
+      if (Number.isFinite(g) && g > 0 && !sinStock(g)) cerrar(g);
     });
     ov.querySelector('.dlg-no').addEventListener('click', () => cerrar(null));
     ov.addEventListener('mousedown', e => { if (e.target === ov) cerrar(null); });
     document.addEventListener('keydown', onTecla, true);
+    /* Sin nada de stock el aviso sale de entrada, antes de escribir. */
+    pintar();
 
     setTimeout(() => inp.focus(), 30);
   });
+}
+
+/* El aviso si quien llama no manda el suyo (ver textoStockInsuficiente en
+   admin-variantes.js, que dice además lo que ya está en la venta). */
+function _dlgSinStock(stock) {
+  return stock > 0
+    ? 'STOCK INSUFICIENTE: actualmente tenés en total ' + _dlgPeso(stock) + ' de STOCK RESTANTE, la venta NO se puede realizar debido a que no tenés stock suficiente.'
+    : 'STOCK INSUFICIENTE: no te queda STOCK RESTANTE de este producto, la venta NO se puede realizar debido a que no tenés stock suficiente.';
 }
 
 /* Igual que fmtPeso de admin.html, repetido acá porque este archivo se carga

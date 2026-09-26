@@ -307,13 +307,14 @@ function stockYaTomadoPorVenta(ctx) {
 }
 
 /* VENDER MÁS DE LO QUE HAY. La venta del mostrador nunca miró el stock: se registraba
-   igual y quedaba en negativo sin decir nada (una venta que ya pasó no se frena).
-   Pedido del comercio (25/09/2026): con 1 en stock se vendieron 2 y no avisó. Ahora la
-   línea lo dice mientras se arma la venta, y al registrar se pregunta UNA vez, con todo
-   lo que no alcanza; se puede registrar igual (el stock pudo estar mal cargado).
-   No se pregunta si el negocio no descuenta stock, si la venta sale de un pedido web que
-   ya lo descontó, ni por el granel con escalas: ese avisó al cargarlo, con la mezcla de
-   bolsas, cuál queda en negativo. */
+   igual y quedaba en negativo sin decir nada. Pedido del comercio (25/09/2026): con 1 en
+   stock se vendieron 2 y no avisó; se agregó un aviso, con "Registrar igual". Y al otro
+   día (26/09/2026): "que no me deje vender si no tengo stock suficiente". Ahora NO se
+   puede: ni agregar más de lo que hay -los gramos, una unidad más, la cantidad de la
+   línea-, ni registrar la venta si al guardar no alcanza (con el stock recién leído).
+   Si el stock estaba mal cargado, se carga primero en Stock, con "Agregar stock".
+   No se mira si el negocio no descuenta stock, ni en una venta que sale de un pedido web
+   que ya lo descontó: esa venta no descuenta nada. */
 function _stockNoAplica(ctx) {
   if (typeof DESCONTAR_STOCK !== 'undefined' && !DESCONTAR_STOCK) return true;
   try {
@@ -325,13 +326,14 @@ function _stockNoAplica(ctx) {
   return false;
 }
 /* Los productos de la venta que no alcanzan: { producto, hay, vende }. "Hay" cuenta lo que
-   la venta ya había descontado (una que se edita). */
+   la venta ya había descontado (una que se edita). El granel con escalas también: cada
+   renglón es de una bolsa y descuenta de esa bolsa. */
 function faltantesDeStock(items, ctx) {
   const prods = _varProds();
   const tomado = stockYaTomadoPorVenta(ctx);
   const vende = {};
   (items || []).forEach(it => {
-    if (!it || !it.id || it.escalaId) return;
+    if (!it || !it.id) return;
     vende[it.id] = (vende[it.id] || 0) + Number(it.cantidad || 0);
   });
   return Object.keys(vende).map(id => {
@@ -353,7 +355,45 @@ function _cantStock(p, x) {
 }
 /* Lo que dice la línea de la venta. */
 function textoFaltaStock(f) {
-  return f.hay > 0 ? 'Solo hay ' + _cantStock(f.producto, f.hay) + ' en stock' : 'Sin stock: queda en negativo';
+  return f.hay > 0 ? 'Solo hay ' + _cantStock(f.producto, f.hay) + ' en stock: así no se puede vender' : 'Sin stock: no se puede vender';
+}
+/* Cuánto hay de p para esta venta: su stock más lo que la venta ya había descontado (una
+   que se edita), lo que ya está en la lista y lo que queda para agregar. null si el stock
+   no se mira (_stockNoAplica): entonces no se frena nada. */
+function stockParaVenta(p, lista, ctx) {
+  if (!p || _stockNoAplica(ctx)) return null;
+  const hay = Number(p.stock || 0) + (stockYaTomadoPorVenta(ctx)[p.id] || 0);
+  const ya = (lista || []).reduce((s, it) => s + (it && it.id === p.id ? Number(it.cantidad || 0) : 0), 0);
+  return { hay: hay, ya: ya, queda: hay - ya };
+}
+/* "2,3 kg" o "3 unidades". */
+function _cantConUnidad(p, x) {
+  if (p && p.tipoVenta === 'peso') return typeof fmtPeso === 'function' ? fmtPeso(x) : x + ' g';
+  return x + (x === 1 ? ' unidad' : ' unidades');
+}
+/* El aviso de cuando no alcanza, con el texto que pidió el comercio (26/09/2026). hay: todo
+   el stock que hay; ya: lo que ya está en esta venta. */
+function textoStockInsuficiente(p, hay, ya) {
+  const c = x => _cantConUnidad(p, x);
+  const no = 'la venta NO se puede realizar debido a que no tenés stock suficiente.';
+  if (hay <= 0) return 'STOCK INSUFICIENTE: no te queda STOCK RESTANTE de este producto, ' + no;
+  const total = 'STOCK INSUFICIENTE: actualmente tenés en total ' + c(hay) + ' de STOCK RESTANTE';
+  if (!(ya > 0)) return total + ', ' + no;
+  if (ya >= hay) return total + ' y ya está todo en esta venta: ' + no;
+  return total + ' y en esta venta ya hay ' + c(ya) + ', así que podés agregar hasta ' + c(hay - ya) + '. Con más, ' + no;
+}
+const _AYUDA_SIN_STOCK = 'Si te llegó mercadería y todavía no la cargaste, sumala en Stock con "Agregar stock" y volvé a intentar.';
+/* Lo que necesita el diálogo de gramos para frenar (ver pedirCantidadPeso). */
+function frenoDeGramos(p, sp) {
+  return sp ? { stock: sp.queda, bloquear: true, avisoSinStock: textoStockInsuficiente(p, sp.hay, sp.ya), ayudaSinStock: _AYUDA_SIN_STOCK } : {};
+}
+/* El cartel que frena una unidad de más o una cantidad cambiada en la línea. */
+function avisarSinStock(p, hay, ya, nombre) {
+  const msg = (nombre || _nombreConPresentacion(p)) + _VAR_NL + _VAR_NL + '[x] ' + textoStockInsuficiente(p, hay, ya) +
+    _VAR_NL + _VAR_NL + _AYUDA_SIN_STOCK;
+  return typeof avisar === 'function'
+    ? avisar(msg, { titulo: 'Stock insuficiente', icono: 'bi-x-octagon', aceptar: 'Entendido', alerta: true })
+    : Promise.resolve(true);
 }
 /* El stock de ahora, no el de cuando se abrió el panel: otro puede haber vendido. Sin
    conexión, a los 1,5 segundos sigue con el que ya había. */
@@ -372,19 +412,45 @@ async function _stockFresco(ids) {
 /* true = registrar; false = volver a la venta. */
 async function avisoStockInsuficiente(items, ctx) {
   if (_stockNoAplica(ctx)) return true;
-  const ids = Array.from(new Set((items || []).filter(it => it && it.id && !it.escalaId).map(it => it.id)));
+  const ids = Array.from(new Set((items || []).filter(it => it && it.id).map(it => it.id)));
   if (!ids.length) return true;
   await _stockFresco(ids);
   const faltan = faltantesDeStock(items, ctx);
-  if (!faltan.length || typeof pedirConfirmacion !== 'function') return true;
+  if (!faltan.length) return true;
+  /* No se registra: se dice qué no alcanza y qué hacer, con un solo botón. */
   const lineas = faltan.map(f => '- ' + _nombreConPresentacion(f.producto) + ': ' +
-    (f.hay > 0 ? 'hay ' + _cantStock(f.producto, f.hay) : 'no hay stock') + ' y estás vendiendo ' + _cantStock(f.producto, f.vende) + '.');
-  const msg = (faltan.length === 1 ? 'No alcanza el stock:' : 'No alcanza el stock de estos productos:') + _VAR_NL + _VAR_NL +
+    (f.hay > 0 ? 'tenés ' + _cantConUnidad(f.producto, f.hay) : 'no tenés stock') + ' y estás vendiendo ' + _cantConUnidad(f.producto, f.vende) + '.');
+  const msg = '[x] STOCK INSUFICIENTE: la venta NO se puede realizar debido a que no tenés stock suficiente ' +
+    (faltan.length === 1 ? 'de este producto:' : 'de estos productos:') + _VAR_NL + _VAR_NL +
     lineas.join(_VAR_NL) + _VAR_NL + _VAR_NL +
-    'Si la registrás igual, el stock queda en negativo. Registrala solo si de verdad se vendió (el stock estaba mal cargado); si no, revisá la cantidad.';
-  return pedirConfirmacion(msg, { titulo: 'Stock insuficiente', icono: 'bi-exclamation-triangle', peligro: true,
-    aceptar: 'Registrar igual', cancelar: 'Revisar la venta' });
+    'Bajá la cantidad o sacalo de la venta. ' + _AYUDA_SIN_STOCK;
+  if (typeof avisar === 'function') await avisar(msg, { titulo: 'Stock insuficiente', icono: 'bi-x-octagon', aceptar: 'Entendido', alerta: true });
+  return false;
 }
+
+/* Cambiar la cantidad en la línea de la venta tampoco pasa lo que hay: se vuelve a la de
+   antes y se dice por qué. El granel con escalas lo mira admin-escalas.js
+   (cambiarGramosGranel), que envuelve esto mismo después. */
+(function () {
+  if (typeof window === 'undefined') return;
+  [['updateVentaQty', 'min'], ['updateVentaMayQty', 'may']].forEach(([nombre, ctx]) => {
+    const orig = window[nombre];
+    if (typeof orig !== 'function') return;
+    window[nombre] = async function (id, val) {
+      const lista = ctx === 'may' ? (typeof ventaMayItems !== 'undefined' ? ventaMayItems : []) : (typeof ventaItems !== 'undefined' ? ventaItems : []);
+      const p = _varProds().find(x => x && x.id === id);
+      const sp = p ? stockParaVenta(p, (lista || []).filter(it => it && it.id !== id), ctx) : null;
+      if (sp && Math.max(1, parseInt(val, 10) || 1) > sp.queda) {
+        const repintar = ctx === 'may' ? (typeof renderVentaMayItems === 'function' ? renderVentaMayItems : null)
+                                       : (typeof renderVentaItems === 'function' ? renderVentaItems : null);
+        if (repintar) repintar();
+        await avisarSinStock(p, sp.hay, sp.ya);
+        return;
+      }
+      return orig.apply(this, arguments);
+    };
+  });
+})();
 
 /* Lo que ve el que cobra. Devuelve 'seguir' (agregar la pedida como siempre), 'hecho'
    (se agregó la otra) o 'cancelar' (cerró el aviso sin elegir: no se agrega nada). */
@@ -405,7 +471,10 @@ async function sugerirPresentacion(p, lista, ctx) {
   /* Si lo que falta es una caja cerrada, se dice cuánto salía: lo que se ofrece va a
      precio normal y puede salir más caro (chequeo del 25/09). */
   const caja = esCajaCerrada(p);
+  /* Sin stock no se vende (26/09): no se ofrece agregar la pedida igual. */
+  const frena = !_stockNoAplica(ctx);
   const msg = 'No hay stock de ' + (p.nombreMostrado || p.nombre) + (quedan ? ' (quedan ' + quedan + ').' : '.') +
+    (frena ? ' Sin stock no se puede vender.' : '') +
     (caja ? ' Es una caja cerrada: salía $' + precioDeVentaVariante(p, ctx).toLocaleString('es-AR') + '.' : '') + _VAR_NL + _VAR_NL +
     '¿Agregar ' + s.cantidad + ' de ' + etiquetaVariante(s.variante) + ' en su lugar? Cada una a su precio: $' +
     pu.toLocaleString('es-AR') + ', en total $' + (pu * s.cantidad).toLocaleString('es-AR') + '.';
@@ -414,7 +483,7 @@ async function sugerirPresentacion(p, lista, ctx) {
     icono: 'bi-stack',
     opciones: [
       { valor: 'otra', texto: 'Agregar ' + s.cantidad + ' de ' + etiquetaVariante(s.variante), principal: true },
-      { valor: 'igual', texto: 'Agregar la de ' + etiquetaVariante(p) + ' igual' },
+      frena ? { valor: 'no', texto: 'Cancelar' } : { valor: 'igual', texto: 'Agregar la de ' + etiquetaVariante(p) + ' igual' },
     ],
   });
   if (r === 'igual') return 'seguir';

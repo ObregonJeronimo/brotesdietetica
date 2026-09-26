@@ -288,14 +288,22 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('si acepta, se agregan las de la otra presentación', r === 'hecho' && w.agregados.join() === 'min:mani80,min:mani80');
     const q = w.preguntas[0];
     t('  la pregunta dice cuántas, de cuál y cuánto sale', !!q && q.msg.indexOf('¿Agregar 2 de 80 g') >= 0 && q.msg.indexOf('$2.400') > 0);
-    t('  con dos botones: la otra, o la pedida igual',
-      q.op.opciones.map(x => x.valor).join() === 'otra,igual' && q.op.opciones[0].principal === true &&
-      q.op.opciones[1].texto === 'Agregar la de 160 g igual');
+    t('  sin stock no se vende (26/09): la otra, o cancelar; no "agregar la pedida igual"',
+      q.op.opciones.map(x => x.valor).join() === 'otra,no' && q.op.opciones[0].principal === true &&
+      q.op.opciones[1].texto === 'Cancelar' && q.msg.indexOf('No hay stock de Maní x 160 g. Sin stock no se puede vender.') === 0, q.msg);
+  }
+  {
+    const w = armar({ respuesta: 'no' });
+    const r = await w.ctx.sugerirPresentacion(buscar(w.ctx.allProducts, 'mani160'), [], 'min');
+    t('"Cancelar" no agrega nada', r === 'cancelar' && w.agregados.length === 0);
   }
   {
     const w = armar({ respuesta: 'igual' });
+    w.ctx.DESCONTAR_STOCK = false;
     const r = await w.ctx.sugerirPresentacion(buscar(w.ctx.allProducts, 'mani160'), [], 'min');
-    t('"igual": se agrega la pedida, como siempre', r === 'seguir' && w.agregados.length === 0);
+    const q = w.preguntas[0];
+    t('si el negocio no descuenta stock, como antes: "Agregar la de 160 g igual" agrega la pedida',
+      r === 'seguir' && w.agregados.length === 0 && q.op.opciones.map(x => x.valor).join() === 'otra,igual' && q.msg.indexOf('Sin stock no se puede vender') < 0);
   }
   {
     const w = armar({ respuesta: null });
