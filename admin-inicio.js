@@ -7,10 +7,12 @@
 
    1) Cómo fue ayer: cuánto se vendió, en cuántas ventas, la ganancia y contra el
       mismo día de la semana anterior.
-   2) Lo que SE VENDE y está sin stock. Con el freno de stock (26/09) eso no se
-      puede vender en el mostrador. Primero lo que más se vende.
+   2) Lo que SE VENDE y está sin stock (en 0: el negativo no se muestra). Con el
+      freno de stock (26/09) eso no se puede vender en el mostrador. Primero lo que
+      más se vende.
    3) Costos viejos (COSTO_VIEJO_DIAS, admin-costos.js) de lo que se vende, de a
-      INICIO_TANDA_COSTOS, con el mismo editor que sale al vender.
+      INICIO_TANDA_COSTOS, con el mismo editor que sale al vender. Desde acá solo
+      sale de la lista el costo que se cambia (o se marca "Sigue igual").
    4) Lo que se está por terminar: al ritmo del último mes, no llega a una semana.
 
    QUÉ ES "SE VENDE": que tuvo ventas en los últimos INICIO_DIAS días. Hay cientos

@@ -60,8 +60,8 @@ t('ya no re-abre a ciegas',
   !/clientesAuthData=snap\.docs\.map\(d=>\(\{uid:d\.id,\.\.\.d\.data\(\)\}\)\);\s*\n\s*showClienteSelect\(\);/.test(ADMIN));
 t('la lista de la venta hace preventDefault en su mousedown',
   /list\.onmousedown=function\(e\)\{ e\.preventDefault\(\); \};\s*\n\s*list\.classList\.add\('open'\);/.test(ADMIN));
-t('son DOS listas con preventDefault (venta y pedido)',
-  (ADMIN.match(/list\.onmousedown=function\(e\)\{ e\.preventDefault\(\); \};/g) || []).length === 2,
+t('son TRES listas con preventDefault (venta, pedido y, desde el 26/09, la mayorista)',
+  (ADMIN.match(/list\.onmousedown=function\(e\)\{ e\.preventDefault\(\); \};/g) || []).length === 3,
   (ADMIN.match(/list\.onmousedown=function\(e\)\{ e\.preventDefault\(\); \};/g) || []).length + ' listas');
 t('el cierre al tocar afuera es pointerdown en captura',
   /document\.addEventListener\('pointerdown',function\(e\)\{var list=document\.getElementById\('clienteSelectList'\)[\s\S]*?\},true\);/.test(ADMIN));

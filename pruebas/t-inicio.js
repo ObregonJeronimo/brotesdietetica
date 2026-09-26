@@ -321,6 +321,8 @@ console.log('\n-- el panel --');
     html.indexOf('<a class="sidebar-item" onclick="switchSection(\'products\')">') > 0 &&
     (html.match(/class="sidebar-item active"/g) || []).length === 1);
   t('  switchSection la dibuja al entrar', html.indexOf("if(sec==='inicio'&&typeof entrarAInicio==='function')entrarAInicio();") > 0);
+  t('  y al entrar a Productos se vuelve a medir el recuadro de proveedores (oculto mide cero y escondía "Ver todas")',
+    html.indexOf("if(sec==='products'&&typeof renderListasPanel==='function')renderListasPanel();") > 0);
   const iAl = html.indexOf('<script src="admin-alertas.js">'), iCos = html.indexOf('<script src="admin-costos.js">'),
     iMod = html.indexOf('<script src="admin-inicio.js">');
   t('  el módulo carga después de la campana y de los costos (los usa)', iMod > iAl && iMod > iCos && iAl > 0 && iCos > 0);

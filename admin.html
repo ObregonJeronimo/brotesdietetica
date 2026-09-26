@@ -429,6 +429,16 @@
         .costos-nom{flex:1;min-width:0;overflow-wrap:break-word}
         .costos-sub{font-size:0.76rem;color:var(--text-dim);margin-top:2px}
         .costos-input{width:120px;flex:0 0 auto;text-align:right}
+/* === Clientes del local en la venta (admin-clientes.js) === */
+.cli-nuevo{color:var(--accent-light);font-weight:600;border-bottom:1px solid var(--border)}
+.cli-nuevo i{margin-right:4px}
+.cli-num{font-family:var(--mono);color:var(--accent-light);font-size:0.72rem}
+.cli-origen{display:inline-flex;align-items:center;gap:3px;font-size:0.68rem;font-weight:700;padding:0 6px;border-radius:999px}
+.cli-origen.local{background:var(--accent-bg);color:var(--accent-light)}
+.cli-origen.web{background:rgba(167,139,250,0.15);color:#b9a4fb}
+.cli-vacio{padding:0.5rem 0.8rem;color:var(--text-dim);font-size:0.8rem}
+.cli-promos{display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text-dim);margin:0.2rem 0 1rem;cursor:pointer}
+.cli-promos input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
 .costos-igual{flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:0.78rem;color:var(--text-dim);white-space:nowrap;cursor:pointer}
 .costos-igual input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
 @media(max-width:520px){.costos-fila{flex-wrap:wrap}.costos-nom{flex-basis:100%}}
@@ -858,8 +868,8 @@
         <div class="sidebar-section">
             <div class="sidebar-rotulo">Tienda online</div>
             <a class="sidebar-item" id="sidebarPedidos" onclick="switchSection('pedidos')"><i class="bi bi-bag-check"></i><span>Pedidos</span></a>
-            <a class="sidebar-item" onclick="switchSection('clientes')"><i class="bi bi-people"></i><span>Clientes</span></a>
-            <a class="sidebar-item" onclick="switchSection('clientesAuth')"><i class="bi bi-person-check"></i><span>Clientes Auth</span></a>
+            <a class="sidebar-item" onclick="switchSection('clientes')" title="Los que se cargan en el panel: no necesitan entrar a la página"><i class="bi bi-people"></i><span>Clientes del local</span></a>
+            <a class="sidebar-item" onclick="switchSection('clientesAuth')" title="Los que entraron con Google a la tienda"><i class="bi bi-person-check"></i><span>Clientes de la web</span></a>
             <a class="sidebar-item" onclick="switchSection('resenas')"><i class="bi bi-star"></i><span>Reseñas</span></a>
             <a class="sidebar-item" onclick="switchSection('cupones')"><i class="bi bi-ticket-perforated"></i><span>Cupones</span></a>
         </div>
@@ -1281,7 +1291,7 @@
       </div>
     </div></div>
     <div class="modal-overlay" id="facturaModal"><div class="modal-box" style="max-width:600px;background:#fff;color:#111"><div class="fac-cab"><div class="fac-cab-top"><h3>Factura</h3><button class="modal-close" onclick="closeFacturaModal()" style="color:#666"><i class="bi bi-x-lg"></i></button></div><div class="fac-acciones"><label class="fac-campo"><span>QR de rese&ntilde;a</span><!-- Solo elige si el ticket lleva el QR. printFactura lo lee al apretar cualquiera     de los tres botones; los valores nuevo/recurrente no se tocan porque son los     que compara el codigo. Antes tenia un onchange que imprimia al cambiarlo, y     cada toque gastaba una etiqueta. --><select id="facturaTypeSelect" title="Si el ticket lleva el QR para dejar rese&ntilde;a"><option value="nuevo">Incluir el QR</option><option value="recurrente">Sin QR</option></select></label><div class="fac-botones"><button class="btn btn-sm btn-primary" onclick="printFactura('a4')" title="Hoja A4"><i class="bi bi-printer"></i> A4</button><button class="btn btn-sm btn-secondary" onclick="printFactura('etiqueta')" style="color:#333;background:#f0f0f0;border:1px solid #ccc" title="Etiqueta adhesiva grande del local"><i class="bi bi-tag"></i> Mostrador</button><button class="btn btn-sm btn-secondary" onclick="printFactura('termica')" style="color:#333;background:#f0f0f0;border:1px solid #ccc" title="T&eacute;rmica de rollo continuo"><i class="bi bi-receipt"></i> Pedido web</button></div></div><p class="fac-ayuda">El QR lleva al cliente a la p&aacute;gina para dejar su opini&oacute;n sobre la compra. Conviene incluirlo cuando el cliente compra por primera vez.</p></div><div id="facturaContent" style="padding:2rem;font-family:'DM Mono',monospace;font-size:0.9rem;line-height:1.6"></div></div></div>
-    <div class="modal-overlay" id="clienteModal"><div class="modal-box" style="max-width:480px"><div class="modal-header"><h3 id="clienteModalTitle">Nuevo Cliente</h3><button class="modal-close" onclick="closeClienteModal()"><i class="bi bi-x-lg"></i></button></div><form id="clienteForm" onsubmit="saveCliente(event)"><div class="form-group"><label>Nombre *</label><input type="text" class="form-input" id="cNombre" required></div><div class="form-row"><div class="form-group"><label>DNI / CUIT</label><input type="text" class="form-input" id="cIdentificacion"></div><div class="form-group"><label>Telefono</label><input type="text" class="form-input" id="cTelefono"></div></div><div class="form-group"><label>Email</label><input type="email" class="form-input" id="cEmail"></div><div class="form-group"><label>Direccion</label><input type="text" class="form-input" id="cDireccion" placeholder="Calle, numero, barrio..."></div><div class="form-actions"><button type="button" class="btn btn-secondary" onclick="closeClienteModal()">Cancelar</button><button type="submit" class="btn btn-primary" id="saveClienteBtn"><i class="bi bi-check-lg"></i> Guardar</button></div></form></div></div>
+    <div class="modal-overlay" id="clienteModal"><div class="modal-box" style="max-width:480px"><div class="modal-header"><h3 id="clienteModalTitle">Nuevo Cliente</h3><button class="modal-close" onclick="closeClienteModal()"><i class="bi bi-x-lg"></i></button></div><form id="clienteForm" onsubmit="saveCliente(event)"><div class="form-group"><label>Nombre *</label><input type="text" class="form-input" id="cNombre" required></div><div class="form-row"><div class="form-group"><label>DNI / CUIT</label><input type="text" class="form-input" id="cIdentificacion"></div><div class="form-group"><label>Telefono</label><input type="text" class="form-input" id="cTelefono"></div></div><div class="form-group"><label>Email</label><input type="email" class="form-input" id="cEmail"></div><div class="form-group"><label>Direccion</label><input type="text" class="form-input" id="cDireccion" placeholder="Calle, numero, barrio..."></div><label class="cli-promos"><input type="checkbox" id="cPromos"> Quiere recibir novedades y promociones por WhatsApp</label><div class="form-actions"><button type="button" class="btn btn-secondary" onclick="closeClienteModal()">Cancelar</button><button type="submit" class="btn btn-primary" id="saveClienteBtn"><i class="bi bi-check-lg"></i> Guardar</button></div></form></div></div>
     <!-- Ficha de cliente. Antes era solo el historial de ventas; ahora arriba va
          la cuenta corriente, que es lo unico de la ficha sobre lo que hay algo que
          hacer: plata facturada que todavia no se cobro. -->
@@ -1605,7 +1615,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         _initAuth();
         function logout(){auth.signOut();}
         function toggleSidebarVentas(){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(!sub)return;const open=sub.classList.toggle('open');if(chev)chev.style.transform=open?'rotate(90deg)':'rotate(0deg)';}
-        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='inicio'&&typeof entrarAInicio==='function')entrarAInicio();if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')entrarACaja();if(sec==='config'){loadAdmins();/* Son 9 lecturas y la tarjeta vacia no dice nada. */if(typeof verContadores==='function')verContadores();/* Los dos admins trabajan a la vez y este formulario se llenaba UNA sola vez, al iniciar sesion. El que dejaba la pestana abierta desde la manana entraba a Configuracion, tocaba una sola casilla y al Guardar escribia TODOS los campos con los valores viejos que tenia en pantalla: le revertia al otro el precio de envio recien cambiado (y el atajo, que se guarda con .set del mapa cargado al login). Ahora el formulario se relee de la base cada vez que se entra a la seccion. */loadPedidosCfgEditor();loadAtajos();if(typeof renderTicketCfg==='function')renderTicketCfg();}if(sec==='stats')loadStats();if(sec==='proveedores')loadProveedores();if(sec==='depuracion'&&typeof loadDepuracion==='function')loadDepuracion();document.getElementById('adminSidebar').classList.remove('open');}
+        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='inicio'&&typeof entrarAInicio==='function')entrarAInicio();/* El recuadro de proveedores mide su alto para ofrecer 'Ver todas', y oculto mide cero: desde que se entra por Inicio del dia, se dibujaba con Productos escondido y las pastillas quedaban recortadas sin el boton. Se vuelve a medir al entrar. */if(sec==='products'&&typeof renderListasPanel==='function')renderListasPanel();if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')entrarACaja();if(sec==='config'){loadAdmins();/* Son 9 lecturas y la tarjeta vacia no dice nada. */if(typeof verContadores==='function')verContadores();/* Los dos admins trabajan a la vez y este formulario se llenaba UNA sola vez, al iniciar sesion. El que dejaba la pestana abierta desde la manana entraba a Configuracion, tocaba una sola casilla y al Guardar escribia TODOS los campos con los valores viejos que tenia en pantalla: le revertia al otro el precio de envio recien cambiado (y el atajo, que se guarda con .set del mapa cargado al login). Ahora el formulario se relee de la base cada vez que se entra a la seccion. */loadPedidosCfgEditor();loadAtajos();if(typeof renderTicketCfg==='function')renderTicketCfg();}if(sec==='stats')loadStats();if(sec==='proveedores')loadProveedores();if(sec==='depuracion'&&typeof loadDepuracion==='function')loadDepuracion();document.getElementById('adminSidebar').classList.remove('open');}
         /* Visor de imagen. Se abre desde la miniatura de la tabla y no deja tocar nada
            de atras hasta cerrarlo: el fondo tapa la pantalla completa, asi que un click
            afuera cae en el propio fondo y cierra, en vez de apretar el boton que estaba
@@ -4706,6 +4716,9 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                            entregado sin venta se quedaba sin ninguna forma de facturarse.
                            Lo unico que tiene que esconderlo es que YA tenga una venta. */
                         convBtn.style.display=(!yaConvertido)?'inline-flex':'none';
+                        /* El ticket del pedido (admin-ticket-pedido.js): solo en uno ya guardado. */
+                        const _tpBtn=document.getElementById('imprimirPedidoBtn');
+                        if(_tpBtn)_tpBtn.style.display='inline-flex';
                         /* Un pedido web trae clienteAuthUid y puede no tener clienteId si ese
                            cliente nunca se sincronizo a la coleccion clientes. Pidiendo solo
                            clienteId, esos pedidos no se podian convertir NUNCA: el boton
@@ -4720,6 +4733,8 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                 document.getElementById('savePedidoBtn').innerHTML='<i class="bi bi-check-lg"></i> Guardar pedido';
                 const convBtn=document.getElementById('convertirVentaBtn');
                 if(convBtn)convBtn.style.display='none';
+                const _tpBtn=document.getElementById('imprimirPedidoBtn');
+                if(_tpBtn)_tpBtn.style.display='none';
             }
             if(!allProducts.length)loadProducts();
             if(!allClientes.length)loadClientes();
@@ -4906,11 +4921,13 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
         // Selector cliente para pedidos
         function showPedClienteSelect(){
             const list=document.getElementById('pedClienteSelectList');
-            const q=(document.getElementById('pedCliente').value||'').toLowerCase();
-            let items=[...allClientes];
-            if(q)items=items.filter(cl=>(cl.nombre||'').toLowerCase().includes(q));
-            if(!items.length){list.classList.remove('open');return;}
-            list.innerHTML=items.map(cl=>'<div class="cliente-select-item" onmousedown="pickPedCliente(\''+cl.id+'\',\''+cl.nombre.replace(/'/g,"\\'")+'\')"><span>'+cl.nombre+'</span>'+(cl.telefono?'<small>'+cl.telefono+'</small>':'')+'</div>').join('');
+            const escrito=document.getElementById('pedCliente').value||'';
+            /* Los del local (el pedido guarda el cliente de esa coleccion), con "Agregar cliente
+               nuevo" arriba (admin-clientes.js). Antes el nombre iba sin escapar adentro del
+               onmousedown, y un nombre con comillas rompia la lista. */
+            if(typeof cargarClientesDelLocal==='function')cargarClientesDelLocal(()=>{if(document.activeElement===document.getElementById('pedCliente'))showPedClienteSelect();});
+            if(typeof pintarListaClientes!=='function'){list.classList.remove('open');return;}
+            pintarListaClientes(list,clientesParaElegir(escrito,{soloLocal:true}),escrito,cl=>pickPedCliente(cl.id,cl.nombre),'pedido');
             /* Mismo patron que el selector de la venta: tocar el scrollbar no desenfoca. */
             list.onmousedown=function(e){ e.preventDefault(); };
             list.classList.add('open');
@@ -4921,7 +4938,9 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
 
         // Abrir modal de nuevo cliente y volver al pedido
         let _clienteDesde=null;
-        function openNuevoClienteDesde(desde){_clienteDesde=desde;openClienteModal();}
+        /* Desde el buscador de una venta o un pedido: abre la ficha con lo que se escribio como
+           nombre, y al guardar queda elegido (saveCliente). */
+        function openNuevoClienteDesde(desde,nombre){_clienteDesde=desde;openClienteModal();const n=document.getElementById('cNombre');if(n){if(nombre)n.value=nombre;setTimeout(()=>{n.focus();},30);}}
 
         async function loadClientes(){try{const snap=await db.collection('clientes').orderBy('nombre').get();allClientes=snap.docs.map(d=>({id:d.id,...d.data(),ventasCount:0,ventasTotal:0}));/* Acotado a los ultimos 12 meses. Antes leia TODA la coleccion ventas cada vez
                que se abria Clientes, solo para sumar cuanto gasto cada uno: con tres años de
@@ -4941,14 +4960,17 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             if(id){
                 document.getElementById('clienteModalTitle').textContent='Editar Cliente';
                 const cl=allClientes.find(x=>x.id===id);
-                if(cl){document.getElementById('cNombre').value=cl.nombre||'';document.getElementById('cIdentificacion').value=cl.identificacion||'';document.getElementById('cTelefono').value=cl.telefono||'';document.getElementById('cEmail').value=cl.email||'';document.getElementById('cDireccion').value=cl.direccion||'';}
+                if(cl){document.getElementById('cNombre').value=cl.nombre||'';document.getElementById('cIdentificacion').value=cl.identificacion||'';document.getElementById('cTelefono').value=cl.telefono||'';document.getElementById('cEmail').value=cl.email||'';document.getElementById('cDireccion').value=cl.direccion||'';const _cp=document.getElementById('cPromos');if(_cp)_cp.checked=cl.aceptaPromos===true;}
             }else{
                 document.getElementById('clienteModalTitle').textContent='Nuevo Cliente';
             }
             const modal=document.getElementById('clienteModal');
             /* Si se abre desde el modal de pedido/venta, subir z-index para que quede por encima */
-            if(_clienteDesde==='pedido'||_clienteDesde==='venta'){
-                modal.style.zIndex='2000';
+            if(_clienteDesde==='pedido'||_clienteDesde==='venta'||_clienteDesde==='ventaMay'){
+                /* 300: arriba de la venta (200) y de su lista de clientes (210), y ABAJO de
+                   los dialogos (400 y mas). Con 2000 el aviso de "cliente repetido" quedaba
+                   escondido detras, y el boton Guardar trabado. */
+                modal.style.zIndex='300';
             }else{
                 modal.style.zIndex='';
             }
@@ -4970,15 +4992,26 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                     identificacion:document.getElementById('cIdentificacion').value.trim()||null,
                     telefono:document.getElementById('cTelefono').value.trim()||null,
                     email:document.getElementById('cEmail').value.trim()||null,
-                    direccion:document.getElementById('cDireccion').value.trim()||null
+                    direccion:document.getElementById('cDireccion').value.trim()||null,
+                    /* Si quiere recibir novedades por WhatsApp (26/09): lo que se junta para
+                       "captar clientela" se usa solo con su permiso (ley 25.326). */
+                    aceptaPromos:!!(document.getElementById('cPromos')&&document.getElementById('cPromos').checked)
                 };
+                /* En el mostrador es facil cargar dos veces al mismo: mismo telefono o DNI. */
+                if(!editingClienteId&&typeof clienteRepetido==='function'){
+                    const _rep=clienteRepetido(data);
+                    if(_rep&&!(await pedirConfirmacion('Ya hay un cliente con ese '+(data.telefono&&_rep.telefono&&String(_rep.telefono).replace(/\D/g,'')===String(data.telefono).replace(/\D/g,'')?'teléfono':'DNI')+': "'+_rep.nombre+'".\n\n¿Lo guardo igual, como otro cliente?',{titulo:'Cliente repetido',aceptar:'Guardar igual',cancelar:'Volver'}))){
+                        btn.disabled=false;btn.innerHTML='<i class="bi bi-check-lg"></i> Guardar';
+                        return;
+                    }
+                }
                 let nuevoId=editingClienteId;
                 if(editingClienteId){
                     await db.collection('clientes').doc(editingClienteId).update(data);
                     logAction('editar','Cliente editado: '+data.nombre,'');
                     showAdminToast('Cliente actualizado','success');
                 }else{
-                    const ref=await db.collection('clientes').add(data);
+                    const ref=await db.collection('clientes').add(Object.assign({creadoEn:firebase.firestore.FieldValue.serverTimestamp(),origen:'local'},data));
                     nuevoId=ref.id;
                     logAction('crear','Cliente creado: '+data.nombre,'');
                     showAdminToast('Cliente creado','success');
@@ -4991,6 +5024,8 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                         pickPedCliente(nuevoId,data.nombre);
                     }else if(_clienteDesde==='venta'){
                         pickCliente(nuevoId,data.nombre);
+                    }else if(_clienteDesde==='ventaMay'){
+                        pickVentaMayCliente(nuevoId,data.nombre);
                     }
                 }
                 _clienteDesde=null;
@@ -5224,8 +5259,10 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
         /* Selector de cliente en modal venta */
         function showClienteSelect(){
             const list=document.getElementById('clienteSelectList');
-            const q=(document.getElementById('ventaCliente').value||'').toLowerCase();
-            /* Solo Clientes Auth */
+            const escrito=document.getElementById('ventaCliente').value||'';
+            /* Los de la web (clientesAuth) y, desde el 26/09, tambien los del local (clientes).
+               Antes solo los de la web: el cliente que se cargaba en el local no se podia
+               elegir al venderle (ver admin-clientes.js). */
             if(!clientesAuthData.length){
                 db.collection('clientesAuth').get().then(snap=>{
                     clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));
@@ -5236,23 +5273,9 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                     if(document.activeElement===document.getElementById('ventaCliente'))showClienteSelect();
                 }).catch(()=>{});
             }
-            let items=[];
-            (clientesAuthData||[]).forEach(cl=>{
-                const nombre=((cl.nombre||'')+' '+(cl.apellido||'')).trim();
-                if(nombre)items.push({id:'auth:'+cl.uid,nombre:nombre,telefono:cl.telefono||'',email:cl.email||'',clienteId:cl.clienteId||null,tipo:'auth'});
-            });
-            if(q&&q!=='consumidor final')items=items.filter(cl=>(cl.nombre||'').toLowerCase().includes(q)||(cl.telefono||'').includes(q)||(cl.email||'').toLowerCase().includes(q));
-            if(!items.length){list.classList.remove('open');return;}
-            list.innerHTML='';
-            items.forEach(function(cl){
-                var d=document.createElement('div');
-                d.className='cliente-select-item';
-                var idStr=cl.clienteId?'<span style="font-family:var(--mono);color:var(--accent-light);font-size:0.72rem">#'+esc(cl.clienteId)+'</span> ':'';
-                var sub=cl.tipo==='auth'?'<i class="bi bi-person-check" style="color:#a78bfa"></i> '+esc(cl.email||cl.telefono||''):'';
-                d.innerHTML='<span>'+idStr+esc(cl.nombre)+'</span>'+(sub?'<small>'+sub+'</small>':'');
-                d.addEventListener('mousedown',function(){pickCliente(cl.id,cl.nombre);});
-                list.appendChild(d);
-            });
+            if(typeof cargarClientesDelLocal==='function')cargarClientesDelLocal(()=>{if(document.activeElement===document.getElementById('ventaCliente'))showClienteSelect();});
+            if(typeof pintarListaClientes!=='function'){list.classList.remove('open');return;}
+            pintarListaClientes(list,clientesParaElegir(escrito),escrito,cl=>pickCliente(cl.id,cl.nombre),'venta');
             /* preventDefault en el mousedown de la LISTA: al tocar el scrollbar o un hueco
                el input no pierde el foco, asi que la lista no se cierra a mitad de scroll.
                Los items tienen su propio listener y se siguen eligiendo igual. */
@@ -7202,15 +7225,18 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
 
         /* Cliente search para ventasMay */
         function showVentaMayClienteSelect(){
-            const q=(document.getElementById('ventaMayCliente').value||'').toLowerCase();
+            const escrito=document.getElementById('ventaMayCliente').value||'';
             const list=document.getElementById('ventaMayClienteList');
-            ventaMayClienteSelected=false;
-            document.getElementById('ventaMayClienteId').value='';
-            if(!clientesAuthData.length){db.collection('clientesAuth').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));showVentaMayClienteSelect();}).catch(()=>{});return;}
-            let res=[];
-            (clientesAuthData||[]).filter(c=>{const n=((c.nombre||'')+' '+(c.apellido||'')).trim();return !q||n.toLowerCase().includes(q)||(c.telefono||'').includes(q)||(c.email||'').toLowerCase().includes(q);}).slice(0,8).forEach(c=>{const n=((c.nombre||'')+' '+(c.apellido||'')).trim();if(n)res.push({id:'auth:'+c.uid,nombre:n,sub:c.email||'',clienteId:c.clienteId||null,tipo:'auth'});});
-            if(!res.length){list.innerHTML='<div style="padding:0.5rem;color:var(--text-dim);font-size:0.82rem">Sin resultados</div>';list.classList.add('open');return;}
-            list.innerHTML='';res.forEach(function(cl){var d=document.createElement('div');d.className='cliente-select-item';var idStr=cl.clienteId?'<span style="font-family:var(--mono);color:var(--accent-light);font-size:0.72rem">#'+esc(cl.clienteId)+'</span> ':'';var sub=cl.tipo==='auth'?'<i class="bi bi-person-check" style="color:#a78bfa"></i> '+esc(cl.sub):'';d.innerHTML='<span>'+idStr+esc(cl.nombre)+'</span>'+(sub?'<small>'+sub+'</small>':'');d.addEventListener('mousedown',function(){pickVentaMayCliente(cl.id,cl.nombre);});list.appendChild(d);});
+            /* El cliente elegido lo borra ESCRIBIR (el oninput del campo), no esto: esta funcion
+               tambien corre al enfocar, y con solo volver a tocar el campo la venta se guardaba
+               sin el cliente que se habia elegido. */
+            const enfocado=()=>document.activeElement===document.getElementById('ventaMayCliente')&&!ventaMayClienteSelected;
+            if(!clientesAuthData.length){db.collection('clientesAuth').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));if(enfocado())showVentaMayClienteSelect();}).catch(()=>{});}
+            if(typeof cargarClientesDelLocal==='function')cargarClientesDelLocal(()=>{if(enfocado())showVentaMayClienteSelect();});
+            if(typeof pintarListaClientes!=='function'){list.classList.remove('open');return;}
+            /* Los del local y los de la web, con "Agregar cliente nuevo" (admin-clientes.js). */
+            pintarListaClientes(list,clientesParaElegir(escrito),escrito,cl=>pickVentaMayCliente(cl.id,cl.nombre),'ventaMay');
+            list.onmousedown=function(e){ e.preventDefault(); };
             list.classList.add('open');
         }
         function pickVentaMayCliente(id,nombre){document.getElementById('ventaMayCliente').value=nombre;document.getElementById('ventaMayClienteId').value=id;ventaMayClienteSelected=true;document.getElementById('ventaMayClienteList').classList.remove('open');}
@@ -7832,6 +7858,8 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <script src="admin-atajos.js"></script>
     <script src="admin-etiquetas.js"></script>
 <script src="admin-ticket.js"></script>
+<script src="admin-ticket-pedido.js"></script>
+<script src="admin-clientes.js"></script>
     <script src="admin-lector.js"></script>
     <script src="admin-selector.js"></script>
 <script src="admin-depuracion.js"></script>
@@ -8352,6 +8380,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
           <div class="venta-pie">
             <div class="form-actions" style="margin-top:0">
               <button class="btn btn-secondary" onclick="closePedidoModal()">Cancelar</button>
+              <button class="btn btn-secondary" id="imprimirPedidoBtn" style="display:none" onclick="imprimirTicketPedido()" title="El ticket para darle al cliente cuando retira el pedido"><i class="bi bi-printer"></i> Imprimir ticket del pedido</button>
               <button class="btn btn-sm btn-convertir-venta" id="convertirVentaBtn" style="display:none" onclick="convertirPedidoEnVentaDesdeModal()"><i class="bi bi-cart-check"></i> Convertir a venta</button>
               <button class="btn btn-primary" onclick="savePedidoDesdeModal()" id="savePedidoBtn"><i class="bi bi-check-lg"></i> Guardar pedido</button>
             </div>
