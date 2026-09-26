@@ -110,16 +110,18 @@ function _iniOtrasBolsas(p, prods) {
   return escalasDe(p, prods).filter(e => e.id !== p.id && Number((e.producto && e.producto.stock) || 0) > 0);
 }
 
-/* Lo publicado con stock en 0 o menos. `lista`: lo que se vendió en el último mes y
-   hoy no se puede vender. `bolsas`: bolsas vacías de un granel que sigue teniendo en
-   otra. `quietos`: los que tampoco se vendieron. Sin ventas leídas (vendido null) no
-   se sabe qué se vende, y van todos a `lista`. */
+/* Lo publicado con stock en 0. `lista`: lo que se vendió en el último mes y hoy no
+   se puede vender. `bolsas`: bolsas vacías de un granel que sigue teniendo en otra.
+   `quietos`: los que tampoco se vendieron. Sin ventas leídas (vendido null) no se sabe qué
+   se vende, y van todos a `lista`.
+   EL NEGATIVO NO APARECE (pedido del dueño, 26/09): con el freno de stock ya no se puede
+   vender lo que no hay, así que un negativo es un resto de antes, no algo del día. */
 function sinStockQueSeVende(prods, vendido) {
   const lista = [], bolsas = [];
   let quietos = 0;
   (prods || []).filter(_iniALaVenta).forEach(p => {
     const s = Number(p.stock || 0);
-    if (s > 0) return;
+    if (s !== 0) return;
     const v = vendido ? vendido[p.id] : null;
     if (vendido && !v) { quietos++; return; }
     const fila = { p: p, stock: s, v: v || null };
@@ -305,10 +307,10 @@ function _iniBotonesStock(p) {
 
 const _iniVendidoTxt = v => (v ? v.veces + _iniS(v.veces, ' venta', ' ventas') + ' en el último mes' : '');
 
-function _iniFila(nombre, sub, dato, datoSub, acciones, neg) {
+function _iniFila(nombre, sub, dato, datoSub, acciones) {
   return '<div class="ini-fila">' +
     '<div class="ini-fila-nom"><b>' + _iniEsc(nombre) + '</b>' + (sub ? '<small>' + _iniEsc(sub) + '</small>' : '') + '</div>' +
-    '<div class="ini-fila-dato' + (neg ? ' neg' : '') + '">' + _iniEsc(dato) + (datoSub ? '<small>' + _iniEsc(datoSub) + '</small>' : '') + '</div>' +
+    '<div class="ini-fila-dato">' + _iniEsc(dato) + (datoSub ? '<small>' + _iniEsc(datoSub) + '</small>' : '') + '</div>' +
     '<div class="ini-fila-acc">' + (acciones || '') + '</div>' +
   '</div>';
 }
@@ -371,7 +373,7 @@ function _iniHtmlSinStock(s, conVentas) {
         const o = f.otras[0];
         return _iniFila(_iniNombre(f.p), _iniVendidoTxt(f.v), 'En stock: ' + _iniCant(f.p, f.stock),
           'se vende de la bolsa de ' + o.etiqueta + ' (' + _iniCant(o.producto, o.producto.stock) + '), con aviso de mezcla',
-          _iniBotonesStock(f.p), false);
+          _iniBotonesStock(f.p));
       }).join('')
     : '';
   const quietos = s.quietos
@@ -390,7 +392,7 @@ function _iniHtmlSinStock(s, conVentas) {
   }
   const todas = _iniAbierto.stock ? s.lista : s.lista.slice(0, INICIO_FILAS);
   const filas = todas.map(f => _iniFila(_iniNombre(f.p), _iniVendidoTxt(f.v), 'En stock: ' + _iniCant(f.p, f.stock),
-    f.stock < 0 ? 'se vendió sin tenerlo cargado' : '', _iniBotonesStock(f.p), f.stock < 0)).join('');
+    '', _iniBotonesStock(f.p))).join('');
   const verTodo = n > INICIO_FILAS
     ? '<button type="button" class="ini-link" data-ini="todo" data-cual="stock">' + (_iniAbierto.stock ? 'Ver menos' : 'Ver los ' + n) + '</button>' : '';
   const titulo = conVentas
@@ -424,14 +426,14 @@ function _iniHtmlCostos(c) {
   const n = c.viejos.length, t = c.tanda.length;
   const filas = c.tanda.map(x => _iniFila(_iniNombre(x.producto), _iniVendidoTxt(x.v),
     'Costo: ' + _iniPlata(x.producto.costo) + (_iniPeso(x.producto) ? ' el kilo' : ''),
-    'sin revisar hace ' + x.dias + ' días', '', false)).join('');
+    'sin revisar hace ' + x.dias + ' días', '')).join('');
   const boton = '<button type="button" class="btn btn-primary btn-sm" data-ini="costos"><i class="bi bi-pencil-square"></i> ' +
     (t === 1 ? 'Revisar este costo' : 'Revisar estos ' + t + ' costos') + '</button>';
-  const sigue = n > t ? '<span>Después aparecen los ' + (n - t) + ' que siguen.</span>' : '';
+  const sigue = n > t ? '<span>Son los ' + t + ' que más se venden; hay ' + (n - t) + ' más.</span>' : '';
   return _iniAviso('aviso', 'bi-clock-history',
     _iniNum(n) + _iniS(n, ' producto que se vende tiene', ' productos que se venden tienen') + ' el costo viejo',
     'Hace más de un mes que no se revisa su costo. Si el proveedor aumentó y no se cargó, se venden con el precio viejo ' +
-    'y ganás menos de lo que parece. Al tocar el botón ponés el costo de hoy; si alguno sigue igual, lo dejás como está y queda confirmado.',
+    'y ganás menos de lo que parece. Tocá el botón y poné el costo nuevo en los que aumentaron: esos salen de la lista. Los que no cambies siguen acá.',
     filas, boton + sigue + hoyTxt + quietos);
 }
 
@@ -442,7 +444,7 @@ function _iniHtmlTerminar(lista) {
   const filas = todas.map(x => _iniFila(_iniNombre(x.p), _iniVendidoTxt(x.v),
     'Quedan ' + _iniCant(x.p, x.stock),
     x.dias < 1 ? 'no llega a un día' : 'alcanza para unos ' + Math.max(1, Math.round(x.dias)) + _iniS(Math.max(1, Math.round(x.dias)), ' día', ' días'),
-    _iniBotonesStock(x.p), false)).join('');
+    _iniBotonesStock(x.p))).join('');
   const verTodo = n > INICIO_FILAS
     ? '<button type="button" class="ini-link" data-ini="todo" data-cual="terminar">' + (_iniAbierto.terminar ? 'Ver menos' : 'Ver los ' + n) + '</button>' : '';
   return _iniAviso('aviso', 'bi-hourglass-split',

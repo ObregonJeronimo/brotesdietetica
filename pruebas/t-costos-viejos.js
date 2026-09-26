@@ -53,7 +53,7 @@ function armar(opts) {
   const historial = [];
   const repintados = [];
   const elementos = {};
-  const inputs = [];
+  const inputs = [], casillas = [];
   const ctx = {
     console, Date, Math, Number, String, Object, Array, Set, isNaN, Promise,
     setTimeout: () => 0,
@@ -89,7 +89,7 @@ function armar(opts) {
           addEventListener: () => {},
           querySelector: sel => (sel === '.costos-input' ? inputs[0] || null
             : { addEventListener: () => {}, focus: () => {}, select: () => {}, disabled: false, innerHTML: '' }),
-          querySelectorAll: sel => (sel === '.costos-input' ? inputs : []),
+          querySelectorAll: sel => (sel === '.costos-input' ? inputs : sel === '.costos-sigue' ? casillas : []),
           remove: () => { delete elementos[el.id]; },
         };
         return el;
@@ -111,7 +111,12 @@ function armar(opts) {
     valores.forEach((v, i) => inputs.push({ value: String(v), getAttribute: () => String(i),
       addEventListener: () => {}, focus: () => {}, select: () => {} }));
   };
-  return { ctx, api: ctx.__api, escrituras, avisos, historial, repintados, elementos, conInputs };
+  /* Las casillas "Sigue igual" del editor abierto desde Inicio del día. */
+  const conCasillas = tildadas => {
+    casillas.length = 0;
+    tildadas.forEach((v, i) => casillas.push({ checked: !!v, getAttribute: () => String(i) }));
+  };
+  return { ctx, api: ctx.__api, escrituras, avisos, historial, repintados, elementos, conInputs, conCasillas };
 }
 
 (async () => {
@@ -236,16 +241,50 @@ console.log('\n-- el editor de costos --');
   const ed = m.elementos.costosEditor;
   t('desde Inicio del día el editor dice "Revisar costos" y "Ahora no", no "Volver a la venta"', ed && ed.innerHTML.indexOf('Revisar costos') > 0 &&
     ed.innerHTML.indexOf('Ahora no') > 0 && ed.innerHTML.indexOf('Volver a la venta') < 0);
+  t('  con la casilla "Sigue igual" en cada fila, sin tildar', ed.innerHTML.split('class="costos-sigue"').length === 3 &&
+    ed.innerHTML.indexOf('checked') < 0);
   m.conInputs(['1.100', '900']);
+  m.conCasillas([false, false]);
+  await (m.api.guardarEditorCostos());
+  t('  guarda SOLO el costo que cambió, con su precio (pedido del dueño, 26/09)', p.costo === 1100 && p.precio === 1650 &&
+    m.escrituras.length === 1 && m.escrituras[0].id === 'a');
+  t('  el que no cambió NO se toca: sigue viejo, y sigue en la lista', !m.escrituras.find(x => x.id === 'b') &&
+    q.costoActualizadoEn.getTime() === hace(35).getTime());
+  t('  no toca una venta abierta: no es de ahí', venta[0].precio === 1500 && venta[0].costo === 1000 && m.repintados.length === 0);
+  t('  y lo dice claro: cuántos cambiaron y que el resto sigue en la lista',
+    m.avisos.indexOf('success: Listo: 1 costo cambiado, con su precio nuevo. El que no cambiaste sigue en la lista.') >= 0, m.avisos);
+  t('  queda en el historial de dónde vino', m.historial[0].indexOf('Costos revisados desde Inicio del día: 1 cambiado, 0 confirmados') === 0);
+  t('  y avisa a la campana (y con ella al Inicio): lo cambiado deja de avisar', campana === 1);
+}
+{
+  /* "Sigue igual" tildado: se confirma sin cambiar el costo, y deja de avisar un mes. */
+  const p = { id: 'a', nombre: 'Almendra', costo: 1000, porcentaje: 50, precio: 1500, costoActualizadoEn: hace(40) };
+  const q = { id: 'b', nombre: 'Banana', costo: 900, porcentaje: 40, precio: 1260, costoActualizadoEn: hace(35) };
+  const r = { id: 'c', nombre: 'Coco', costo: 700, porcentaje: 40, precio: 980, costoActualizadoEn: hace(33) };
+  const m = armar({ productos: [p, q, r] });
+  m.api.abrirEditorCostos([p, q, r].map(x => ({ producto: x, fecha: x.costoActualizadoEn, dias: 40 })), 'inicio');
+  m.conInputs(['1000', '900', '700']);
+  m.conCasillas([false, true, false]);
   await (m.api.guardarEditorCostos());
   const wb = m.escrituras.find(x => x.id === 'b');
-  t('  guarda igual: el costo cambiado con su precio, y el otro confirmado', p.costo === 1100 && p.precio === 1650 &&
-    wb && Object.keys(wb.campos).join() === 'costoActualizadoEn');
-  t('  pero no toca una venta abierta: no es de ahí', venta[0].precio === 1500 && venta[0].costo === 1000 && m.repintados.length === 0);
-  t('  y lo dice claro: cuántos cambiaron y cuántos se confirmaron',
-    m.avisos.indexOf('success: Listo: 1 costo cambiado, con su precio nuevo, y 1 confirmado sin cambios.') >= 0, m.avisos);
-  t('  queda en el historial de dónde vino', m.historial[0].indexOf('Costos revisados desde Inicio del día: 1 cambiado, 1 confirmado') === 0);
-  t('  y avisa a la campana (y con ella al Inicio): lo revisado deja de avisar', campana === 1);
+  t('"Sigue igual" tildado: se confirma solo la fecha, sin tocar el costo', m.escrituras.length === 1 && wb &&
+    Object.keys(wb.campos).join() === 'costoActualizadoEn' && q.costo === 900);
+  t('  los otros dos, sin tocar', p.costoActualizadoEn.getTime() === hace(40).getTime() && r.costoActualizadoEn.getTime() === hace(33).getTime());
+  t('  y el aviso lo dice', m.avisos.indexOf('success: Listo: 1 marcado como "sigue igual". Los 2 que no cambiaste siguen en la lista.') >= 0, m.avisos);
+  const m2 = armar({ productos: [Object.assign({}, p)] });
+  m2.api.abrirEditorCostos([{ producto: m2.ctx.allProducts[0], fecha: hace(40), dias: 40 }], 'inicio');
+  m2.conInputs(['1000']);
+  m2.conCasillas([false]);
+  await (m2.api.guardarEditorCostos());
+  t('sin cambiar nada no se escribe nada, y se dice', m2.escrituras.length === 0 && !m2.elementos.costosEditor &&
+    m2.avisos.indexOf('info: No cambiaste ningún costo: siguen todos en la lista.') >= 0, m2.avisos);
+  const m3 = armar({ productos: [Object.assign({}, p), Object.assign({}, q)] });
+  m3.api.abrirEditorCostos(m3.ctx.allProducts.map(x => ({ producto: x, fecha: hace(40), dias: 40 })), 'min');
+  m3.conInputs(['1000', '900']);
+  m3.conCasillas([false, false]);
+  await (m3.api.guardarEditorCostos());
+  t('al VENDER sigue como antes: lo que no cambió se confirma (si no, el aviso volvería en la próxima venta)',
+    m3.escrituras.length === 2 && m3.escrituras.every(x => Object.keys(x.campos).join() === 'costoActualizadoEn'));
 }
 {
   const p = { id: 'a', nombre: 'Almendra', costo: 1000, porcentaje: 50, precio: 1500, costoActualizadoEn: hace(40) };
