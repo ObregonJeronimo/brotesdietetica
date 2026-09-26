@@ -1434,6 +1434,28 @@ quedar frenados en el mostrador.
    uno, como `vistaItemsVenta` en la venta ("Maní Pelado 2 kg $3.200"), sumando los
    subtotales de cada renglón para que el total no cambie. Probarlo con la impresora.
 
+### N) Pedidos del 26/09 en el panel, e "Inicio del día" (experimental) · **HECHO EN EL SANDBOX, SIN SUBIR** (26/09/2026)
+
+- **Productos:** las listas de proveedores detrás del botón "Ver listas de proveedores"
+  (abierto de entrada), en un recuadro y con buscador. La elegida ya no salta al principio:
+  siempre en orden alfabético, solo marcada.
+- **Etiquetas:** el botón de la ficha imprime la HOJA A4 llena (24, 14, 40 o 65 por hoja,
+  hasta 5 hojas, con o sin precio). Antes era una sola etiqueta y el resto de la hoja se perdía.
+- **Caja:** un ingreso o egreso se puede **deshacer** mientras la caja está abierta. No se
+  borra: queda tachado con "DESHECHO", quién y cuándo, y deja de contar (cierre, planilla y PDF).
+- **Inicio del día (EXPERIMENTAL, a pedido del dueño para ver qué sale):** una sección nueva,
+  la primera al entrar, pensada para la dueña (`admin-inicio.js`). Muestra cómo fue ayer
+  (neto, ventas, ganancia, contra el mismo día de la semana anterior, lo más vendido), lo que
+  **se vende y está sin stock** (con "Agregar stock" ahí mismo; una bolsa vacía de un granel
+  que tiene otra va aparte), los **costos viejos de lo que se vende**, de a 10 y con el mismo
+  editor que sale al vender, lo que **se está por terminar** al ritmo del último mes y la caja
+  abierta de otro día. Lee las ventas de 30 días una vez por día (~250 lecturas en producción).
+  **El aviso de costos depende del backfill de `costoActualizadoEn`**: sin fechas dice que no
+  se sabe (no dice "al día"). Falta que el dueño la mire y decida si queda, qué se saca y qué
+  se agrega.
+
+Pruebas: 3392 en 82 suites.
+
 ---
 
 ## 2. Decisiones tuyas
