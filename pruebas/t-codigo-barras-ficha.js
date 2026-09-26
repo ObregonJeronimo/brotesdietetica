@@ -71,7 +71,7 @@ function ficha(campos) {
     etiquetaFormato: null   /* lo define el archivo */
   };
   sb.window = sb;
-  sb.window.open = () => { est.abrio++; return { document: { write() {}, close() {} }, focus() {}, print() {} }; };
+  sb.window.open = () => { est.abrio++; return { document: { write(h) { est.html = (est.html || '') + h; }, close() {} }, focus() {}, print() {} }; };
   sb.globalThis = sb;
   vm.createContext(sb);
   vm.runInContext(ETQ, sb, { filename: 'admin-etiquetas.js' });
@@ -117,8 +117,15 @@ t('dibuja un simbolo', F.svg().indexOf('<svg') > 0);
 t('con los digitos del envase', F.svg().indexOf(BARRAS_DE_VERDAD.slice(1, 7)) > 0);
 t('y NO los del codigo interno', F.svg().indexOf(DERIVADO_DEL_INTERNO) < 0);
 t('se puede imprimir', F.boton() === '');
-imprimir(F);
-t('imprimir abre la ventana', F.est.abrio === 1);
+/* La ficha imprime la HOJA llena (pedido del comercio, 26/09/2026): antes una sola
+   etiqueta termica, que en la impresora comun era una etiqueta en toda la hoja. El
+   dialogo que elige la hoja es DOM; aca se prueba lo que imprime. */
+fnDe('imprimirHojaEtiquetas', F.sb)(fnDe('_prodDelFormulario', F.sb)(), { formatoId: 'a4-3x8', hojas: 1, precio: false });
+t('imprimir abre la ventana con la hoja entera: 24 etiquetas en la de 24 por hoja', F.est.abrio === 1 &&
+  (String(F.est.html || '').match(/class="etq"/g) || []).length === 24, (String(F.est.html || '').match(/class="etq"/g) || []).length);
+t('  con el codigo de barras del envase', String(F.est.html || '').indexOf(BARRAS_DE_VERDAD.slice(1, 7)) > 0);
+const cuenta = fnDe('etiquetasDeHojas', F.sb);
+t('  dos hojas de 65 son 130; y no mas de 5 hojas por vez', (cuenta('a4-5x13', 2) || {}).copias === 130 && (cuenta('a4-3x8', 99) || {}).hojas === 5);
 
 grupo('Cargarlo CAMBIA el dibujo (era el bug: no cambiaba)');
 F = ficha({ pCodigo: '002022', pNombre: 'producto prueba', pCodigoBarras: '' });

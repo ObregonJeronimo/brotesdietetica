@@ -487,10 +487,11 @@ function refrescarBarrasProducto() {
   if (btn) btn.style.display = '';
 }
 
-/* Imprime UNA etiqueta, con el mismo motor que la impresion en tanda: si el
-   simbolo sale bien aca, sale bien alla. Usa el formato termico chico, que es el
-   que tiene sentido para una sola. */
-function imprimirEtiquetaProducto() {
+/* El boton de la ficha: revisa el codigo de barras, pregunta la hoja y cuantas
+   (pedirHojaEtiquetas) e imprime la hoja llena (imprimirHojaEtiquetas). Antes
+   imprimia UNA etiqueta con el formato termico, que en una impresora comun era una
+   sola etiqueta en toda la hoja. */
+async function imprimirEtiquetaProducto() {
   const p = _prodDelFormulario();
   const ean = codigoBarrasDe(p);
   if (!ean) {
@@ -501,19 +502,119 @@ function imprimirEtiquetaProducto() {
     if (typeof showAdminToast === 'function') showAdminToast('Ese codigo de barras no cierra: el ultimo digito no es el que le corresponde. Revisalo contra el envase.', 'error');
     return;
   }
-  const f = Object.assign({}, etiquetaFormato('ter-58x40'), { continuo: true, separacion: 0 });
-  const cuerpo = etiquetaDocumento([{ producto: p, copias: 1 }], f,
-    { precio: Number(p.precio) > 0, codigo: true, barras: true });
+  const o = await pedirHojaEtiquetas(p);
+  if (!o) return;
+  try { localStorage.setItem(ETQ_HOJA_FICHA_KEY, o.formatoId); } catch (e) { /* sin guardar: queda la de siempre */ }
+  imprimirHojaEtiquetas(p, o);
+}
+
+/* IMPRIMIR DESDE LA FICHA: UNA HOJA LLENA. Pedido del comercio (26/09/2026): el boton
+   imprimia UNA etiqueta con el formato del rollo termico, y en la impresora comun salia
+   una sola etiqueta en toda la hoja. Ahora se elige la hoja (las planchas A4 de la
+   seccion Etiquetas) y cuantas, y sale la hoja entera con el codigo de barras de este
+   producto. La hoja elegida se recuerda para la proxima. */
+const ETQ_HOJA_FICHA_KEY = 'brotesEtqHojaFicha';
+const ETQ_HOJAS_MAX = 5;
+function _etqHojasA4() { return ETQ_FORMATOS.filter(f => f.hoja === 'A4' && f.id !== 'custom'); }
+function _etqHojaFichaGuardada() {
+  let id = 'a4-3x8';
+  try { id = localStorage.getItem(ETQ_HOJA_FICHA_KEY) || id; } catch (e) { /* la de siempre */ }
+  return _etqHojasA4().some(f => f.id === id) ? id : 'a4-3x8';
+}
+/* Cuantas etiquetas salen: las que entran en la hoja, por la cantidad de hojas. */
+function etiquetasDeHojas(formatoId, hojas) {
+  const f = etiquetaFormato(formatoId);
+  const n = Math.max(1, Math.min(ETQ_HOJAS_MAX, parseInt(hojas, 10) || 1));
+  return { formato: f, hojas: n, porHoja: Math.max(1, f.columnas * f.filas), copias: Math.max(1, f.columnas * f.filas) * n };
+}
+
+/* El dialogo: que hoja, cuantas y si va el precio. Devuelve { formatoId, hojas, precio }
+   o null si se cancela. Con la forma de los otros dialogos del panel. */
+function pedirHojaEtiquetas(p) {
+  return new Promise(resolve => {
+    const hojas = _etqHojasA4();
+    const guardada = _etqHojaFichaGuardada();
+    const conPrecio = Number(p.precio) > 0;
+    const ov = document.createElement('div');
+    ov.className = 'dlg-overlay';
+    const abiertos = (typeof _dlgAbiertos === 'number') ? _dlgAbiertos : 0;
+    ov.style.zIndex = String(400 + abiertos);
+    if (typeof _dlgAbiertos === 'number') _dlgAbiertos++;
+    ov.innerHTML =
+      '<div class="dlg-box" role="dialog" aria-modal="true">' +
+        '<div class="dlg-cab"><span class="dlg-ico"><i class="bi bi-printer"></i></span><h3>Imprimir etiquetas</h3></div>' +
+        '<div class="dlg-msg">' +
+          '<p class="dlg-linea"><b>' + esc(p.nombreMostrado || p.nombre || '') + '</b></p>' +
+          '<p class="dlg-linea" style="color:var(--text-dim);font-size:0.83rem">Sale la hoja entera con el código de barras de este producto.</p>' +
+          '<label class="etqh-campo"><span>Hoja</span><select class="form-input etqh-hoja">' +
+            hojas.map(f => '<option value="' + f.id + '"' + (f.id === guardada ? ' selected' : '') + '>' + esc(f.nombre) + '</option>').join('') +
+          '</select></label>' +
+          '<label class="etqh-campo"><span>Cuántas hojas</span><input type="number" class="form-input etqh-n" min="1" max="' + ETQ_HOJAS_MAX + '" step="1" value="1" inputmode="numeric"></label>' +
+          (conPrecio ? '<label class="etqh-check"><input type="checkbox" class="etqh-precio" checked> Con el precio ($' +
+            Number(p.precio).toLocaleString('es-AR') + (p.tipoVenta === 'peso' ? ' el kilo' : '') + ')</label>' : '') +
+          '<div class="etqh-resumen" aria-live="polite"></div>' +
+        '</div>' +
+        '<div class="dlg-pie">' +
+          '<button type="button" class="btn btn-secondary dlg-no">Cancelar</button>' +
+          '<button type="button" class="btn btn-primary dlg-si"><i class="bi bi-printer"></i> Imprimir</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    const sel = ov.querySelector('.etqh-hoja');
+    const n = ov.querySelector('.etqh-n');
+    const pre = ov.querySelector('.etqh-precio');
+    const res = ov.querySelector('.etqh-resumen');
+    let cerrado = false;
+    const leer = () => ({ formatoId: sel.value, hojas: etiquetasDeHojas(sel.value, n.value).hojas, precio: !!(pre && pre.checked) });
+    const pintar = () => {
+      const c = etiquetasDeHojas(sel.value, n.value);
+      res.textContent = 'Van a salir ' + c.copias + ' etiquetas: ' + (c.hojas === 1 ? '1 hoja completa.' : c.hojas + ' hojas completas.');
+    };
+    const cerrar = v => {
+      if (cerrado) return;
+      cerrado = true;
+      if (typeof _dlgAbiertos === 'number') _dlgAbiertos = Math.max(0, _dlgAbiertos - 1);
+      document.removeEventListener('keydown', onTecla, true);
+      ov.remove();
+      resolve(v);
+    };
+    function onTecla(e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cerrar(null); }
+      else if (e.key === 'Enter') {
+        /* El Enter de la pistola no imprime nada (ver enterDeRafaga, admin-lector.js). */
+        if (typeof enterDeRafaga === 'function' && enterDeRafaga(e)) { e.preventDefault(); return; }
+        e.preventDefault();
+        cerrar(leer());
+      }
+    }
+    sel.addEventListener('change', pintar);
+    n.addEventListener('input', pintar);
+    ov.querySelector('.dlg-si').addEventListener('click', () => cerrar(leer()));
+    ov.querySelector('.dlg-no').addEventListener('click', () => cerrar(null));
+    ov.addEventListener('mousedown', e => { if (e.target === ov) cerrar(null); });
+    document.addEventListener('keydown', onTecla, true);
+    pintar();
+    setTimeout(() => { const b = ov.querySelector('.dlg-si'); if (b) b.focus(); }, 30);
+  });
+}
+
+/* La hoja entera, con el mismo motor que la impresion en tanda: si el simbolo sale bien
+   en la ficha, sale bien aca. */
+function imprimirHojaEtiquetas(p, o) {
+  const c = etiquetasDeHojas(o && o.formatoId, o && o.hojas);
+  const f = c.formato;
+  const cuerpo = etiquetaDocumento([{ producto: p, copias: c.copias }], f, { precio: !!(o && o.precio), barras: true });
   if (!cuerpo) { if (typeof showAdminToast === 'function') showAdminToast('No se pudo armar la etiqueta', 'error'); return; }
-  const win = window.open('', '_blank', 'width=520,height=620');
+  const win = window.open('', '_blank', 'width=900,height=700');
   if (!win) { if (typeof showAdminToast === 'function') showAdminToast('El navegador bloqueo la ventana de impresion', 'error'); return; }
-  win.document.write('<html><head><title>Etiqueta</title><style>' +
+  win.document.write('<html><head><title>Etiquetas</title><style>' +
     etiquetaEstilos(f) + '</style></head><body>' + cuerpo + '</body></html>');
   win.document.close();
   win.focus();
   setTimeout(function () { win.print(); }, 350);
   if (typeof logAction === 'function') {
-    logAction('imprimir', 'Etiqueta de "' + (p.nombreMostrado || p.nombre || p.codigo) + '"', 'Una etiqueta, ' + f.nombre);
+    logAction('imprimir', 'Etiquetas de "' + (p.nombreMostrado || p.nombre || p.codigo) + '"',
+      c.copias + ' etiquetas (' + c.hojas + (c.hojas === 1 ? ' hoja' : ' hojas') + '), ' + f.nombre);
   }
 }
 
@@ -789,6 +890,9 @@ function etiquetasImprimir() {
 if (typeof window !== 'undefined') {
   window.refrescarBarrasProducto = refrescarBarrasProducto;
   window.imprimirEtiquetaProducto = imprimirEtiquetaProducto;
+  window.imprimirHojaEtiquetas = imprimirHojaEtiquetas;
+  window.pedirHojaEtiquetas = pedirHojaEtiquetas;
+  window.etiquetasDeHojas = etiquetasDeHojas;
   window.etiquetaCodigoDe = etiquetaCodigoDe;
   window.codigoBarrasDe = codigoBarrasDe;
   window.codigoBarrasCierra = codigoBarrasCierra;

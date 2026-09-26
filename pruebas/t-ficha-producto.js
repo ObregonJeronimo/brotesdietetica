@@ -90,9 +90,10 @@ t('no repite los digitos: el SVG ya los dibuja',
 
 console.log('\nImprimir una sola etiqueta');
 const imp=etq.slice(etq.indexOf('function imprimirEtiquetaProducto'), etq.indexOf('function openEtiquetasModal'));
-t('arma el documento con etiquetaDocumento, como la impresion en tanda', /etiquetaDocumento\(\[\{ producto: p, copias: 1 \}\]/.test(imp));
-t('usa un formato termico', /etiquetaFormato\('ter-58x40'\)/.test(imp));
-t('en modo continuo, para no hacer cortar la guillotina de mas', /continuo: true/.test(imp));
+t('arma el documento con etiquetaDocumento, como la impresion en tanda', /etiquetaDocumento\(\[\{ producto: p, copias: c\.copias \}\]/.test(imp));
+t('llena la hoja A4 elegida: las que entran por la cantidad de hojas (26/09)', /_etqHojasA4\(\)/.test(imp) &&
+  /copias: Math\.max\(1, f\.columnas \* f\.filas\) \* n/.test(imp));
+t('  y antes pregunta que hoja, cuantas y si va el precio', /const o = await pedirHojaEtiquetas\(p\);/.test(imp));
 t('avisa si el producto no tiene codigo de barras en vez de imprimir en blanco', /no tiene codigo de barras cargado/.test(imp));
 t('avisa si el navegador bloquea la ventana', /bloqueo la ventana de impresion/.test(imp));
 t('y deja rastro en el historial', /logAction\('imprimir'/.test(imp));

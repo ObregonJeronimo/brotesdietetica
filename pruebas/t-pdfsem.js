@@ -187,6 +187,13 @@ t('loadListas no toca el filtro de listas', cargar.indexOf('filterLista')<0);
 t('  ni cae en la primera lista', cargar.indexOf('listasData[0]')<0);
 t('el filtro tampoco se recuerda entre visitas', !src.includes('brotesListaActiva'));
 t('pero filtrar a mano sigue andando', /function filtrarPorLista\(id\)\{[\s\S]{0,220}sel\.value=id/.test(src));
+/* Pedido del comercio (26/09/2026): el boton "Ver listas de proveedores", abierto de
+   entrada, con un recuadro y un buscador; y la elegida se queda en su lugar. */
+t('las listas estan detras de "Ver listas de proveedores", abierto de entrada', src.indexOf('id="listasVerBtn" class="listas-ver" aria-expanded="true"') > 0 &&
+  /id="listasCaja" class="listas-caja">/.test(src) && src.indexOf('function toggleListasProveedores()') > 0);
+t('  con un buscador de proveedores', src.indexOf('id="listasBuscar" placeholder="Buscar proveedor..."') > 0 && src.indexOf('function filtrarListasProveedores(v)') > 0);
+t('la elegida NO salta al principio: siempre en orden alfabetico', src.indexOf('if(a.id===filtroActual)return -1') < 0 &&
+  /const ordenadas=listasData\.slice\(\)\.sort\(\(a,b\)=>String\(a\.nombre\|\|''\)\.localeCompare/.test(src));
 t('  y se puede volver a ver todo', /data-id=""[\s\S]{0,120}Quitar el filtro/.test(src));
 
 console.log('\nEl boton del PDF Semanal se saco (pedido del comercio, 24/09)');

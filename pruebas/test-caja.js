@@ -47,6 +47,31 @@ chk('desglose tarjeta', t.porMedio.tarjeta, 30000);
 chk('desglose cuenta corriente', t.porMedio.cuenta_corriente, 5000);
 
 /* ---------- El envio SI entra al cajon ---------- */
+/* ---------- Deshacer un ingreso o egreso (pedido del comercio, 26/09/2026) ---------- */
+console.log('\\nCaso 1b - un movimiento deshecho no cuenta');
+cajaActual = { montoInicial: 20000, estado: 'abierta' };
+cajaVentas = [ { total: 10000, envio: 0, medioPago: 'Efectivo' } ];
+cajaMovs = [
+  { tipo: 'ingreso', monto: 2000 },
+  { tipo: 'egreso',  monto: 8000, anulado: true },
+  { tipo: 'ingreso', monto: 5000, anulado: true }
+];
+t = calcularTotalesCaja();
+chk('ni el egreso ni el ingreso deshechos cuentan: 20000 + 10000 + 2000', t.esperado, 32000);
+chk('  los ingresos son solo los vivos', t.ingresos, 2000);
+chk('  los egresos tambien', t.egresos, 0);
+const filaD = _filaMovimiento({ docId: 'm1', tipo: 'egreso', monto: 8000, concepto: 'x', anulado: true, anuladoPor: 'a@b.c' }, true);
+chk('la fila deshecha se ve tachada, con el cartel y sin botones', filaD.indexOf('<s>') > 0 && filaD.indexOf('DESHECHO') > 0 &&
+  filaD.indexOf('openMovModalEdit') < 0 && filaD.indexOf('deshacerMovimiento') < 0, true);
+const filaV = _filaMovimiento({ docId: 'm2', tipo: 'ingreso', monto: 2000, concepto: 'x' }, true);
+chk('  la viva tiene editar y deshacer', filaV.indexOf('openMovModalEdit') > 0 && filaV.indexOf("deshacerMovimiento('m2')") > 0, true);
+chk('  y en una caja cerrada, ninguno de los dos', _filaMovimiento({ docId: 'm3', tipo: 'ingreso', monto: 1 }, false).indexOf('<button') < 0, true);
+chk('deshacer marca el movimiento (no lo borra): anulado, quien y cuando',
+  SRC_CAJA.indexOf('anulado: true,') > 0 && SRC_CAJA.indexOf('anuladoPor: quien,') > 0 && SRC_CAJA.indexOf(".collection('movimientos').doc(movId).delete") < 0, true);
+const _dm = SRC_CAJA.slice(SRC_CAJA.indexOf('async function deshacerMovimiento'), SRC_CAJA.indexOf('async function deshacerMovimiento') + 2600);
+chk('  solo con la caja abierta, y revisando que nadie la haya cerrado', _dm.indexOf("cajaActual.estado !== 'abierta'") > 0 &&
+  _dm.indexOf("_snapCaja.data().estado !== 'abierta'") > _dm.indexOf("cajaActual.estado !== 'abierta'"), true);
+
 console.log('\\nCaso 2 - venta con envio cobrado en efectivo');
 cajaActual = { montoInicial: 0, estado: 'abierta' };
 cajaVentas = [ { total: 12000, envio: 2000, medioPago: 'Efectivo' } ];

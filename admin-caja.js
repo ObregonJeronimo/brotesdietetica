@@ -295,8 +295,10 @@ function calcularTotalesCaja() {
     bruto += t;
     envio += Number(v.envio || 0);
   });
-  const ingresos = cajaMovs.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + Number(m.monto || 0), 0);
-  const egresos  = cajaMovs.filter(m => m.tipo === 'egreso').reduce((s, m) => s + Number(m.monto || 0), 0);
+  /* Lo deshecho no cuenta (ver deshacerMovimiento). */
+  const vivos = cajaMovs.filter(m => m.anulado !== true);
+  const ingresos = vivos.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + Number(m.monto || 0), 0);
+  const egresos  = vivos.filter(m => m.tipo === 'egreso').reduce((s, m) => s + Number(m.monto || 0), 0);
   /* SOLO efectivo: lo demás no pasó por el cajón */
   const esperado = Number((cajaActual && cajaActual.montoInicial) || 0) + porMedio.efectivo + ingresos - egresos;
   return { porMedio, porTipo, bruto, envio, ingresos, egresos, esperado, count: cajaVentas.length };
@@ -399,18 +401,34 @@ function _badgeEditado(m) {
 function _filaMovimiento(m, editable) {
   const esIng = m.tipo === 'ingreso';
   const etq = (CAJA_CONCEPTOS[m.tipo] && CAJA_CONCEPTOS[m.tipo][m.concepto]) || m.concepto || '-';
-  return '<tr>' +
+  /* Deshecho: se ve tachado y sin botones; ya no cuenta en la caja. */
+  const deshecho = m.anulado === true;
+  const monto = (esIng ? '+ ' : '− ') + _pesos(m.monto);
+  return '<tr' + (deshecho ? ' class="mov-deshecho"' : '') + '>' +
     '<td style="white-space:nowrap;color:var(--text-dim);font-size:0.8rem;padding:0.5rem 0.6rem">' + _hora(m.fecha) + '</td>' +
-    '<td style="padding:0.5rem 0.6rem"><span style="font-weight:600">' + esc(etq) + '</span>' + _badgeEditado(m) + '</td>' +
+    '<td style="padding:0.5rem 0.6rem"><span style="font-weight:600">' + esc(etq) + '</span>' + _badgeEditado(m) + _badgeDeshecho(m) + '</td>' +
     '<td style="color:var(--text-dim);font-size:0.85rem;padding:0.5rem 0.6rem">' + esc(m.detalle || '') + '</td>' +
-    '<td style="text-align:right;white-space:nowrap;font-weight:700;padding:0.5rem 0.6rem;color:' + (esIng ? '#5FA87A' : '#e54545') + '">' +
-      (esIng ? '+ ' : '− ') + _pesos(m.monto) + '</td>' +
+    '<td style="text-align:right;white-space:nowrap;font-weight:700;padding:0.5rem 0.6rem;color:' + (deshecho ? 'var(--text-dim)' : (esIng ? '#5FA87A' : '#e54545')) + '">' +
+      (deshecho ? '<s>' + monto + '</s>' : monto) + '</td>' +
     (editable
-      ? '<td style="text-align:right;white-space:nowrap;padding:0.5rem 0.6rem">' +
+      ? '<td style="text-align:right;white-space:nowrap;padding:0.5rem 0.6rem">' + (deshecho ? '' :
+          /* Uno al lado del otro: .btn-icon es flex y solos se apilaban. */
+          '<span style="display:inline-flex;gap:4px">' +
           '<button class="btn-icon" title="Editar este movimiento" onclick="openMovModalEdit(\'' + _attr(m.docId) + '\')">' +
-          '<i class="bi bi-pencil"></i></button></td>'
+          '<i class="bi bi-pencil"></i></button>' +
+          '<button class="btn-icon" title="Deshacer este movimiento" onclick="deshacerMovimiento(\'' + _attr(m.docId) + '\')">' +
+          '<i class="bi bi-arrow-counterclockwise"></i></button></span>') + '</td>'
       : '') +
   '</tr>';
+}
+
+/* El cartel de deshecho: quien y cuando, como el de editado. */
+function _badgeDeshecho(m) {
+  if (m.anulado !== true) return '';
+  const partes = [];
+  if (m.anuladoPor) partes.push('por ' + m.anuladoPor);
+  if (m.anuladoEn && m.anuladoEn.seconds) partes.push('el ' + _fechaHora(m.anuladoEn));
+  return ' <span class="badge-deshecho" title="' + _attr('Deshecho ' + partes.join(' ') + '. Ya no cuenta en la caja.') + '">DESHECHO</span>';
 }
 
 function renderMovimientos() {
@@ -989,6 +1007,52 @@ function openMovModalEdit(movId) {
 
 function closeMovModal() { document.getElementById('movModal').classList.remove('show'); }
 
+/* DESHACER UN INGRESO O EGRESO. Pedido del comercio (26/09/2026): un movimiento cargado
+   por error no se podia sacar. Sigue sin borrarse -un movimiento que desaparece es plata
+   que no se puede rastrear-: queda en la lista tachado, con "DESHECHO", quien y cuando,
+   y deja de contar en la caja. Solo con la caja abierta, igual que editar: cerrada, sus
+   totales ya quedaron congelados. */
+async function deshacerMovimiento(movId) {
+  const m = cajaMovs.find(x => x.docId === movId);
+  if (!m) { showAdminToast('No se encontró ese movimiento', 'error'); return; }
+  if (m.anulado === true) { showAdminToast('Ese movimiento ya estaba deshecho', 'info'); return; }
+  if (!cajaActual || cajaActual.estado !== 'abierta') {
+    showAdminToast('Solo se pueden deshacer los movimientos de la caja abierta', 'error');
+    return;
+  }
+  const esIng = m.tipo === 'ingreso';
+  const etq = (CAJA_CONCEPTOS[m.tipo] && CAJA_CONCEPTOS[m.tipo][m.concepto]) || m.concepto || '-';
+  const ok = await pedirConfirmacion(
+    '¿Deshacer este ' + (esIng ? 'ingreso' : 'egreso') + '?\n\n' +
+    (esIng ? '+ ' : '− ') + _pesos(m.monto) + ' · ' + etq + (m.detalle ? ': ' + m.detalle : '') + '\n\n' +
+    'Deja de contar en la caja. Queda en la lista, tachado, con quién lo deshizo y cuándo.',
+    { titulo: 'Deshacer ' + (esIng ? 'ingreso' : 'egreso'), aceptar: 'Sí, deshacer', cancelar: 'No', icono: 'bi-arrow-counterclockwise' });
+  if (!ok) return;
+  try {
+    /* Como al cargar uno: si otro la cerró en el medio, no se toca. */
+    const _snapCaja = await db.collection('cajas').doc(cajaActual.docId).get();
+    if (!_snapCaja.exists || _snapCaja.data().estado !== 'abierta') {
+      showAdminToast('Esta caja ya la cerró alguien más. No se deshizo nada.', 'error');
+      await loadCaja();
+      return;
+    }
+    const quien = (auth.currentUser && auth.currentUser.email) || '-';
+    await db.collection('cajas').doc(cajaActual.docId).collection('movimientos').doc(movId).update({
+      anulado: true,
+      anuladoPor: quien,
+      anuladoEn: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    if (typeof logAction === 'function')
+      logAction('anular', 'Caja #' + cajaActual.numero + ': ' + (esIng ? 'ingreso' : 'egreso') + ' deshecho',
+        _pesos(m.monto) + ' | ' + etq + ' | ' + (m.detalle || ''));
+    showAdminToast((esIng ? 'Ingreso' : 'Egreso') + ' deshecho: ya no cuenta en la caja', 'success');
+    await cargarDatosCaja(cajaActual.docId);
+    renderCaja();
+  } catch (e) {
+    showAdminToast('No se pudo deshacer: ' + e.message, 'error');
+  }
+}
+
 async function guardarMovimiento() {
   if (!cajaActual) { showAdminToast('No hay caja abierta', 'error'); return; }
   const monto = montoAR(document.getElementById('movMonto').value);
@@ -1430,9 +1494,9 @@ function buildArqueoHTML(d) {
     const signo = m.tipo === 'ingreso' ? '+ ' : '− ';
     return '<tr>' +
       '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + _hora(m.fecha) + '</td>' +
-      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(etq) + (m.editado ? ' <b>(editado)</b>' : '') + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(etq) + (m.editado ? ' <b>(editado)</b>' : '') + (m.anulado ? ' <b>(deshecho, no cuenta)</b>' : '') + '</td>' +
       '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(m.detalle || '') + '</td>' +
-      '<td style="padding:3px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">' + signo + _pesos(m.monto) + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">' + (m.anulado ? '<s>' + signo + _pesos(m.monto) + '</s>' : signo + _pesos(m.monto)) + '</td>' +
     '</tr>';
   }).join('') : '<tr><td colspan="4" style="padding:6px 4px;color:#777">Sin movimientos.</td></tr>';
 
@@ -1607,7 +1671,8 @@ function _exportarArqueoCSV() {
   push('Envíos cobrados', c.ventasEnvio || 0); push('');
   push('MOVIMIENTOS'); push('Hora', 'Tipo', 'Concepto', 'Detalle', 'Monto');
   d.movs.forEach(m => push(_hora(m.fecha), m.tipo, (CAJA_CONCEPTOS[m.tipo] && CAJA_CONCEPTOS[m.tipo][m.concepto]) || m.concepto || '',
-    (m.detalle || '') + (m.editado ? ' [editado]' : ''), (m.tipo === 'egreso' ? -1 : 1) * Number(m.monto || 0)));
+    (m.detalle || '') + (m.editado ? ' [editado]' : '') + (m.anulado ? ' [deshecho: era ' + _pesos(m.monto) + ', no cuenta]' : ''),
+    m.anulado ? 0 : (m.tipo === 'egreso' ? -1 : 1) * Number(m.monto || 0)));
   push('');
   push('VENTAS'); push('Hora', 'Número', 'Cliente', 'Medio', 'Total');
   d.ventas.forEach(v => {
@@ -1722,8 +1787,8 @@ function _exportarArqueoPDF() {
     d.movs.map(m => [
       _hora(m.fecha),
       (CAJA_CONCEPTOS[m.tipo] && CAJA_CONCEPTOS[m.tipo][m.concepto]) || m.concepto || '-',
-      (m.detalle || '') + (m.editado ? ' (editado)' : ''),
-      (m.tipo === 'ingreso' ? '+ ' : '- ') + _pesos(m.monto)
+      (m.detalle || '') + (m.editado ? ' (editado)' : '') + (m.anulado ? ' (deshecho, no cuenta)' : ''),
+      (m.anulado ? 'deshecho ' : '') + (m.tipo === 'ingreso' ? '+ ' : '- ') + _pesos(m.monto)
     ]));
 
   titulo('Ventas (' + d.ventas.length + ')');
