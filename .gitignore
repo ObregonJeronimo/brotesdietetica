@@ -34,3 +34,10 @@ DUDAS-CARGA-PRODUCTOS.txt
 migracion/*.json
 migracion/*.csv
 migracion/*.txt
+
+# Excepcion: lista1.txt NO se regenera con dump.js. Es la transcripcion a mano de
+# las 16 fotos del reporte del sistema viejo, y de ahi salieron los 373 precios que
+# faltaban (§1-bis I). Si se pierde, se pierden 16 fotos de tipeo. No expone nada:
+# son codigos internos -los que el propio comercio imprime en sus etiquetas- y
+# precios de VENTA, que ya estan publicos en la tienda. Ningun costo.
+!migracion/lista1.txt

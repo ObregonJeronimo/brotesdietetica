@@ -42,12 +42,18 @@ t('lo encuentra exacto', L.buscarPorCodigo('7790001234567').id==='A');
 t('y al otro tambien', L.buscarPorCodigo('7790009999999').id==='E');
 t('uno que no existe no devuelve nada', L.buscarPorCodigo('7790000000000')===null);
 
-console.log('\nPor codigo INTERNO (el de las etiquetas del comercio) — lo que faltaba');
-t('encuentra 000685', L.buscarPorCodigo('000685').id==='A');
-t('encuentra 000686, que NO tiene codigo de barras', L.buscarPorCodigo('000686').id==='B');
-t('encuentra 000320', L.buscarPorCodigo('000320').id==='C');
-t('no le molestan los espacios', L.buscarPorCodigo('  000685  ').id==='A');
-t('no distingue mayusculas', L.buscarPorCodigo('P-0001').id==='E');
+/* CAMBIO DE REGLA (21/09/2026, pedido del duenio): la pistola escanea SOLO el
+   codigo de barras. El codigo interno es un identificador para BUSCAR
+   escribiendo, no una etiqueta escaneable: lo que el local envasa lo arma y lo
+   entrega en el momento, asi que no lleva etiqueta pegada. Antes el lector
+   miraba los dos campos y dos productos con el mismo numero en campos
+   distintos se tapaban entre si: paso con "57" y "000057", las dos arvejas. */
+console.log('\nPor codigo INTERNO: ya NO se escanea');
+t('000685 no se encuentra aunque exista', L.buscarPorCodigo('000685')===null);
+t('000686 tampoco, aunque no tenga codigo de barras', L.buscarPorCodigo('000686')===null);
+t('000320 tampoco', L.buscarPorCodigo('000320')===null);
+t('ni con espacios alrededor', L.buscarPorCodigo('  000685  ')===null);
+t('ni el P-0001', L.buscarPorCodigo('P-0001')===null);
 
 console.log('\nEXACTO: nada de coincidencias parciales');
 t('"320" NO agarra "000320"', L.buscarPorCodigo('320')===null);
@@ -63,15 +69,20 @@ t('null no matchea con ""', L.coincidenciasCodigo('').length===0);
 t('un producto sin codigoBarras no aparece por eso', !L.coincidenciasCodigo('000686').some(p=>p.id!=='B'));
 
 console.log('\nAmbiguo: con dos o mas NO se elige, para no cobrar otra cosa');
-const DOS=[{id:'X',nombre:'UNO',codigo:'111',codigoBarras:null},{id:'Y',nombre:'DOS',codigo:'111',codigoBarras:null}];
+/* El duplicado que importa ahora es el del codigo de BARRAS: es el unico campo
+   que mira la pistola. */
+const DOS=[{id:'X',nombre:'UNO',codigo:'000111',codigoBarras:'111'},{id:'Y',nombre:'DOS',codigo:'000222',codigoBarras:'111'}];
 const L2=F(DOS);
-t('dos productos con el mismo codigo -> no devuelve ninguno', L2.buscarPorCodigo('111')===null);
-t('pero los reporta a los dos', L2.coincidenciasCodigo('111').length===2);
+t('dos productos con el mismo codigo de barras -> no devuelve ninguno', L2.buscarPorCodigo('111')===null);
+t('pero los reporta a los dos', L2.coincidenciasCodigo('111').length===2);   /* dos codigos de BARRAS iguales: sigue siendo ambiguo */
 const CRUZ=[{id:'X',nombre:'UNO',codigo:'7790001234567',codigoBarras:null},
             {id:'Y',nombre:'DOS',codigo:'000001',codigoBarras:'7790001234567'}];
 const L3=F(CRUZ);
-t('el codigo interno de uno igual al de barras de otro tambien es ambiguo', L3.buscarPorCodigo('7790001234567')===null);
-t('y se ven los dos', L3.coincidenciasCodigo('7790001234567').length===2);
+/* Desde que el lector mira SOLO el codigo de barras, este cruce dejo de ser
+   ambiguo: el interno de X no compite, asi que gana el unico que lo tiene de
+   barras. Es justamente lo que se buscaba al acotar la busqueda. */
+t('el interno de uno igual al de barras de otro YA NO compite', L3.buscarPorCodigo('7790001234567').id==='Y');
+t('y coincide uno solo', L3.coincidenciasCodigo('7790001234567').length===1);
 
 console.log('\nSin catalogo cargado no explota');
 t('allProducts undefined', F(undefined).buscarPorCodigo('000685')===null);

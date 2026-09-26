@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Banco del ticket térmico</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  body{margin:0;padding:1.2rem;background:#0d1117;color:#e6edf3;font:14px/1.5 system-ui,sans-serif}
+  h1{font-size:1.05rem;margin:0 0 .3rem}
+  .sub{color:#8b949e;font-size:.82rem;margin-bottom:1rem;max-width:760px;line-height:1.6}
+  .fila{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start}
+  .caja{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:1rem;min-width:300px}
+  .caja h2{font-size:.85rem;margin:0 0 .7rem;color:#8b949e;text-transform:uppercase;letter-spacing:.05em}
+  button{background:#238636;border:1px solid #2ea043;color:#fff;border-radius:6px;padding:.45rem .8rem;cursor:pointer;font-size:.83rem;margin:0 .3rem .4rem 0}
+  button.gris{background:#21262d;border-color:#30363d;color:#e6edf3}
+  iframe{background:#fff;border:1px solid #30363d;border-radius:6px;width:340px;height:420px}
+  #log{font-family:ui-monospace,Consolas,monospace;font-size:.76rem;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:.6rem;height:190px;overflow:auto;width:420px;white-space:pre-wrap}
+  .ok{color:#3fb950}.mal{color:#f85149}.info{color:#58a6ff}
+</style>
+</head>
+<body>
+<h1>Banco del ticket térmico</h1>
+<p class="sub">
+  Monta los archivos <b>reales</b> —<code>admin-ticket.js</code>, <code>admin-dialogo.js</code>,
+  <code>admin-lector.js</code>— y los estilos del panel, sacados de <code>/admin</code> en vivo.
+  No hay copias: si el panel cambia, esto cambia. Sirve para ver el papel a tamaño real y para
+  comprobar a mano lo único que no se puede comprobar leyendo código: que el Enter que dispara
+  una pistola apoyada sobre el gatillo <b>no</b> conteste la pregunta del ticket.
+</p>
+
+<div class="fila">
+  <div class="caja">
+    <h2>El papel</h2>
+    <button onclick="ver('80')">80 mm</button>
+    <button onclick="ver('58')">58 mm</button>
+    <button class="gris" onclick="ver('80',{pie:'CUIT 20-12345678-9\nManuel de Falla, Córdoba'})">con pie largo</button>
+    <div style="margin-top:.6rem"><iframe id="papel"></iframe></div>
+  </div>
+
+  <div class="caja">
+    <h2>La pregunta</h2>
+    <button onclick="abrir()">Abrir "¿Imprimir ticket?"</button><br>
+    <button class="gris" onclick="disparar(true)">Enter de la PISTOLA (ráfaga)</button>
+    <button class="gris" onclick="disparar(false)">Enter de una PERSONA</button><br>
+    <button class="gris" onclick="flecha('ArrowLeft')">←</button>
+    <button class="gris" onclick="flecha('ArrowRight')">→</button>
+    <button class="gris" onclick="flecha('Escape')">Esc</button>
+    <button class="gris" onclick="flecha('Tab')">Tab</button>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+/* --- el panel de mentira que necesitan los modulos reales ------------------ */
+let TOASTS = [];
+function showAdminToast(m, k){ TOASTS.push(m); log((k==='error'?'aviso: ':'aviso: ')+m, 'info'); }
+function logAction(){}
+function switchSection(s){ log('iria a la seccion: '+s, 'info'); }
+const NEGOCIO = { nombre: 'Brotes Dietética' };
+/* config/ticket, ya configurado: es el caso normal del mostrador */
+const db = { collection: () => ({ doc: () => ({
+  get: () => Promise.resolve({ exists:true, data:()=>({ancho:'80',rollo:'continuo',pie:'¡Gracias por su compra!',despuesDeVender:'preguntar',configurado:true}) }),
+  set: () => Promise.resolve()
+})})};
+
+const VENTA = {
+  numero: 19, fecha: new Date(), medioPago: 'Efectivo', medioPagoKey: 'efectivo',
+  subtotalProductos: 12708, descuentoPct: 3.93, descuentoMonto: 500, total: 12208, pagoCon: 15000,
+  items: [
+    { nombre: 'Almendras tostadas', precio: 32830, cantidad: 250, tipoVenta: 'peso', subtotal: 8208 },
+    { nombre: 'Yerba Playadito 500g', precio: 4000, cantidad: 1, tipoVenta: 'unidad', subtotal: 4000 },
+    { nombre: 'Nuez mariposa', precio: 50000, cantidad: 10, tipoVenta: 'peso', subtotal: 500 }
+  ]
+};
+
+function log(t, c){ const d=document.getElementById('log'); d.innerHTML += '<span class="'+(c||'')+'">'+t+'</span>\n'; d.scrollTop=1e9; }
+
+function ver(ancho, extra){
+  const html = ticketDocumento(VENTA, Object.assign({ancho:ancho}, extra||{}));
+  const f = document.getElementById('papel');
+  f.style.width = (ancho==='58'?260:340)+'px';
+  f.srcdoc = html;
+  log('papel de '+ancho+' mm dibujado ('+html.length+' bytes)', 'ok');
+}
+
+let PROM = null;
+function abrir(){
+  TOASTS = [];
+  log('--- se abre la pregunta ---', 'info');
+  PROM = preguntarImprimirTicket(VENTA);
+  PROM.then(r => log(r ? 'RESULTADO: imprimio' : 'RESULTADO: no imprimio', r?'mal':'ok'));
+  setTimeout(()=>{
+    const f = document.activeElement;
+    log('foco en: '+(f && f.className ? f.className : '(nada)') + ' -> "'+(f?f.textContent:'')+'"',
+        f && f.classList && f.classList.contains('dlg-si') ? 'ok' : 'mal');
+  }, 120);
+}
+
+/* Un Enter como lo manda cada uno. La rafaga se arma tecleando digitos con 10 ms
+   de separacion, que es lo que hace un lector USB de verdad; la persona, con 150. */
+function disparar(rafaga){
+  const gap = rafaga ? 10 : 150;
+  let ts = performance.now();
+  for (const ch of '7790001234567'){ tecla(ch, ts); ts += gap; }
+  tecla('Enter', ts);
+  log((rafaga?'PISTOLA':'PERSONA')+': Enter enviado', 'info');
+}
+function tecla(key, ts){
+  const e = new KeyboardEvent('keydown', {key, bubbles:true, cancelable:true});
+  Object.defineProperty(e, 'timeStamp', {value: ts});
+  document.dispatchEvent(e);
+}
+function flecha(key){ document.dispatchEvent(new KeyboardEvent('keydown', {key, bubbles:true, cancelable:true})); log('tecla '+key, 'info'); }
+
+/* --- los estilos del panel en vivo, para que el dialogo se vea como se ve --- */
+fetch('/admin').then(r=>r.text()).then(t=>{
+  const st = t.match(/<style[\s\S]*?<\/style>/gi) || [];
+  document.head.insertAdjacentHTML('beforeend', st.join('\n'));
+  log('estilos de /admin montados ('+st.length+' bloques)', 'ok');
+  ver('80');
+}).catch(e=>log('no se pudieron traer los estilos: '+e.message, 'mal'));
+</script>
+<script src="/admin-dialogo.js"></script>
+<script src="/admin-lector.js"></script>
+<script src="/admin-ticket.js"></script>
+</body>
+</html>

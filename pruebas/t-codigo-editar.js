@@ -83,7 +83,9 @@ function armar(productos) {
        envoltorio no toca). Se replica aca para que el aviso en vivo sepa cual es el
        producto que se esta editando y no se acuse a si mismo de duplicado. */
     'let editingId=null;\n' +
-    ['normCodigo', 'sugerirCodigoProducto', 'validarCodigoProducto', '_pintarEstadoCodigo']
+    /* _mismoCodigo lo usa validarCodigoProducto para el chequeo cruzado contra el
+       codigo de barras de otro producto: sin el, la validacion revienta aca. */
+    ['normCodigo', '_mismoCodigo', 'sugerirCodigoProducto', 'validarCodigoProducto', '_pintarEstadoCodigo']
       .map(cuerpo).join('\n') +
     '\n' + envoltorio() +
     '\nreturn {abrir:function(id){editingId=id||null;return openModal(id);},' +

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Banco del modal Nueva Venta</title>
+<!--
+  BANCO DEL MODAL NUEVA VENTA
+
+  Dos cosas que solo se ven en un navegador de verdad: el desplegable de cliente
+  -que es puro foco, mousedown y pointerdown- y el descuento en $ / %.
+
+  NO HAY UNA COPIA DEL PANEL. El modal, los estilos y LAS FUNCIONES se sacan de
+  /admin en el momento: las funciones se extraen por nombre del <script> de
+  admin.html y se evaluan tal cual. Si mañana cambia el panel, este banco cambia
+  con él; no puede quedar probando una versión vieja. (YERCO resuelve esto con
+  _test-admin.html, que es una copia entera del panel; acá se prefirió el patrón
+  de pruebas/deudas-local.html, que no se desincroniza.)
+
+  El Firestore es de mentira y en memoria: no se escribe en ningún lado.
+
+  Se abre con:  npm run dev  ->  http://localhost:5173/pruebas/venta-banco.html
+-->
+<style>
+  body{margin:0;background:#12151b;color:#e8edf4;
+       font:14px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:1.4rem}
+  .envoltorio{max-width:1250px;margin:0 auto}
+  h1{font-size:1.3rem;margin:0 0 .2rem}
+  h2{font-size:.8rem;margin:0 0 .6rem;color:#7fd3a2;text-transform:uppercase;letter-spacing:.6px}
+  .cartel{background:rgba(78,167,116,.12);border:1px solid #4ea774;border-radius:9px;
+          padding:.7rem .9rem;margin:.9rem 0 1.2rem;font-size:.86rem}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start}
+  @media(max-width:1000px){.cols{grid-template-columns:1fr}}
+  .caja{background:#1a1f27;border:1px solid #2c3543;border-radius:11px;padding:1rem 1.1rem;margin-bottom:1rem}
+  .bt{background:#212832;color:#e8edf4;border:1px solid #2c3543;border-radius:7px;
+      padding:.42rem .8rem;font:inherit;font-size:.85rem;cursor:pointer;margin:0 .35rem .4rem 0}
+  .bt:hover{border-color:#4ea774}
+  .bt.p{background:#4ea774;border-color:#4ea774;color:#0d1116;font-weight:600}
+  pre{margin:0;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;max-height:65vh;overflow:auto}
+  .ok{color:#7fd3a2}.mal{color:#ff8b8b;font-weight:700}.dim{color:#8b95a4}
+  #montaje{margin-top:1rem;border-top:1px solid #2c3543;padding-top:1rem}
+</style>
+</head>
+<body>
+<div class="envoltorio">
+  <h1>Banco del modal Nueva Venta</h1>
+  <div class="cartel">
+    Las funciones se extraen de <b>/admin</b> en vivo y se ejecutan tal cual. Base de
+    mentira en memoria. Los escenarios usan eventos de verdad — foco, <code>mousedown</code>,
+    <code>pointerdown</code> — no lecturas de código.
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="caja">
+        <h2>Correr</h2>
+        <button class="bt p" onclick="correrTodo()">Correr todos los escenarios</button>
+        <button class="bt" onclick="soloDropdown()">Solo el desplegable</button>
+        <button class="bt" onclick="soloDescuento()">Solo el descuento</button>
+        <button class="bt" onclick="prepararManual()">Dejarlo listo para probar a mano</button>
+      </div>
+      <div class="caja"><h2>Resultado</h2><pre id="log"></pre></div>
+    </div>
+    <div class="caja"><h2>Estado</h2><pre id="estado"></pre></div>
+  </div>
+
+  <div id="montaje"><h2>El modal de verdad</h2><div id="modalHueco"></div></div>
+</div>
+
+<script>
+/* ===================== LO QUE EL MODAL DA POR SENTADO ===================== */
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showAdminToast(m,t){anotar((t==='error'?'aviso ERROR: ':'aviso: ')+m);}
+function nroVta(n){return String(n||0).padStart(4,'0');}
+function hoyAR(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function loadClientes(){}
+function filterVentaProducts(){}
+function renderVentaInsumosUsados(){}
+function refreshVentaInsumosSelect(){}
+
+/* Estado del panel que tocan las funciones de la venta */
+var ventaItems=[], ventaClienteSelected=false, ventaTipoEntrega='retiro';
+var clientesAuthData=[], allClientes=[], allProducts=[], insumosData=[], ventaInsumosUsados=[];
+var ventasData=[], editingVentaId=null;
+var ENVIO_PRECIO=2000, ENVIO_GRATIS_DESDE=Infinity;   /* Brotes no hace envios */
+window._pedidoCuponVenta=null; window._pedidoEnvioVenta=null;
+
+/* Firestore de mentira: solo clientesAuth, y con demora a pedido para poder
+   probar que la carga tardia NO re-abre una lista ya cerrada. */
+var DEMORA_CLIENTES=0, _resolverClientes=null;
+const db={collection:(n)=>({
+  get:()=> new Promise(function(ok){
+    const snap={docs:(n==='clientesAuth'?CLIENTES_FALSOS:[]).map(c=>({id:c.uid,data:()=>c}))};
+    if(DEMORA_CLIENTES==='a mano'){_resolverClientes=function(){ok(snap);};return;}
+    setTimeout(function(){ok(snap);},DEMORA_CLIENTES);
+  }),
+  orderBy:function(){return this;}
+})};
+const CLIENTES_FALSOS=[
+  {uid:'u1',nombre:'Ana',apellido:'Gomez',email:'ana@local',telefono:'3510000001',clienteId:'C-1'},
+  {uid:'u2',nombre:'Beto',apellido:'Diaz',email:'beto@local',telefono:'3510000002',clienteId:null},
+  {uid:'u3',nombre:'Carla',apellido:'Ruiz',email:'carla@local',telefono:'3510000003',clienteId:'C-3'}
+];
+
+/* ================= LAS FUNCIONES REALES, SACADAS DE /admin ================= */
+const NECESARIAS=['esPorPeso','tipoVentaDe','precioConDsc','subtotalItem','costoItem',
+  'calcularTotalesVenta','_ventaSubtotalItems','_syncDescuentoInputs','onChangeDescuento',
+  'onChangeDescuentoMonto','renderVentaItems','setVentaItemDsc','updateVentaQty',
+  'removeVentaItem','showClienteSelect','onBlurClienteVenta','pickCliente'];
+
+function cuerpo(src,nombre){
+  const i=src.indexOf('function '+nombre+'(');
+  if(i<0)return null;
+  let prof=0,k=src.indexOf('{',i);
+  for(let j=k;j<src.length;j++){ if(src[j]==='{')prof++; else if(src[j]==='}'){prof--; if(!prof){k=j;break;}} }
+  return src.slice(i,k+1);
+}
+
+async function montar(){
+  const txt=await (await fetch('/admin')).text();
+  const doc=new DOMParser().parseFromString(txt,'text/html');
+  doc.querySelectorAll('style').forEach(st=>{const c=document.createElement('style');c.textContent=st.textContent;document.head.appendChild(c);});
+  const modal=doc.getElementById('ventaModal');
+  if(!modal){anotar('no encontre #ventaModal en /admin','mal');return;}
+  modal.classList.add('show');
+  document.getElementById('modalHueco').appendChild(modal);
+  const ic=document.createElement('link');ic.rel='stylesheet';
+  ic.href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
+  document.head.appendChild(ic);
+
+  /* El <script> grande del panel, del que se sacan las funciones por nombre */
+  let fuente='';
+  doc.querySelectorAll('script').forEach(sc=>{ if(!sc.src) fuente+=sc.textContent+'\n'; });
+  window.__FUENTE=fuente;
+  let codigo='',faltan=[];
+  NECESARIAS.forEach(n=>{ const c=cuerpo(fuente,n); if(c) codigo+=c+'\n'; else faltan.push(n); });
+  /* El cierre al tocar afuera no es una funcion con nombre: es una sentencia suelta. */
+  const lst=fuente.match(/document\.addEventListener\('pointerdown',function\(e\)\{var list=document\.getElementById\('clienteSelectList'\)[\s\S]*?,true\);/);
+  if(lst) codigo+=lst[0]+'\n'; else faltan.push("listener pointerdown de cierre");
+  (0,eval)(codigo);
+  window.__faltan=faltan;
+  anotar('Modal y '+(NECESARIAS.length-faltan.filter(f=>NECESARIAS.includes(f)).length)+' funciones traidas de /admin'+
+         (faltan.length?'  ·  NO SE ENCONTRARON: '+faltan.join(', '):''), faltan.length?'mal':'ok');
+  pintarEstado();
+}
+
+/* ============================== ESCENARIOS ============================== */
+let ok=0,mal=0;
+function chk(nombre,cond,detalle){
+  if(cond){ok++;anotar('OK    '+nombre+(detalle?'   ('+detalle+')':''),'ok');}
+  else{mal++;anotar('FALLA '+nombre+(detalle?'   ('+detalle+')':''),'mal');}
+}
+const $=id=>document.getElementById(id);
+const dormir=ms=>new Promise(r=>setTimeout(r,ms));
+
+function evento(el,tipo,opts){
+  const E=(tipo.indexOf('pointer')===0)?PointerEvent:MouseEvent;
+  const e=new E(tipo,Object.assign({bubbles:true,cancelable:true},opts||{}));
+  el.dispatchEvent(e);
+  return e;
+}
+
+function sembrarItems(cuales){
+  ventaItems=cuales;
+  window._pedidoCuponVenta=null;
+  editingVentaId=null;
+  renderVentaItems();
+  pintarEstado();
+}
+
+async function soloDropdown(){
+  anotar('\n===== EL DESPLEGABLE DE CLIENTE =====');
+  clientesAuthData=CLIENTES_FALSOS.slice();
+  DEMORA_CLIENTES=0;
+  ventaClienteSelected=false;
+  $('ventaCliente').value=''; $('ventaClienteId').value='';
+  const inp=$('ventaCliente'), list=$('clienteSelectList');
+
+  inp.focus(); showClienteSelect();
+  chk('se abre con items', list.classList.contains('open') && list.children.length===3,
+      list.children.length+' items');
+
+  evento(inp,'pointerdown');
+  chk('tocar el INPUT no la cierra', list.classList.contains('open'));
+
+  evento(list,'pointerdown');
+  chk('tocar la LISTA (scrollbar) no la cierra', list.classList.contains('open'));
+
+  const md=evento(list,'mousedown');
+  chk('el mousedown de la lista hace preventDefault', md.defaultPrevented);
+  chk('y el input conserva el foco', document.activeElement===inp);
+
+  evento($('ventaMedio'),'pointerdown');
+  chk('tocar AFUERA la cierra', !list.classList.contains('open'));
+  chk('y sin cliente elegido queda Consumidor Final',
+      $('ventaCliente').value==='Consumidor Final' && ventaClienteSelected===true,
+      $('ventaCliente').value);
+
+  /* elegir un item */
+  ventaClienteSelected=false; $('ventaCliente').value=''; inp.focus(); showClienteSelect();
+  evento(list.children[1],'mousedown');
+  chk('elegir un item lo carga y cierra',
+      !list.classList.contains('open') && $('ventaCliente').value==='Beto Diaz' && $('ventaClienteId').value==='auth:u2',
+      $('ventaCliente').value+' / '+$('ventaClienteId').value);
+
+  /* LA REGRESION: la carga async no puede re-abrir una lista ya cerrada */
+  clientesAuthData=[]; DEMORA_CLIENTES='a mano'; _resolverClientes=null;
+  ventaClienteSelected=false; $('ventaCliente').value=''; inp.focus();
+  showClienteSelect();
+  chk('sin clientes todavia, la lista no se abrio', !list.classList.contains('open'));
+  inp.blur(); list.classList.remove('open');
+  if(_resolverClientes)_resolverClientes();
+  await dormir(60);
+  chk('cuando llega la carga, NO re-abre la lista cerrada', !list.classList.contains('open'));
+
+  /* y si el foco sigue puesto, si abre */
+  clientesAuthData=[]; DEMORA_CLIENTES='a mano'; _resolverClientes=null;
+  inp.focus(); $('ventaCliente').value='';
+  showClienteSelect();
+  if(_resolverClientes)_resolverClientes();
+  await dormir(60);
+  chk('con el foco puesto si abre cuando llega', list.classList.contains('open'));
+  list.classList.remove('open'); inp.blur();
+  DEMORA_CLIENTES=0; clientesAuthData=CLIENTES_FALSOS.slice();
+  resumen();
+}
+
+function soloDescuento(){
+  anotar('\n===== EL DESCUENTO EN $ Y EN % =====');
+  const pct=$('ventaDescuentoPct'), mon=$('ventaDescuentoMonto');
+  chk('existe el campo $', !!mon);
+  if(!mon){resumen();return;}
+
+  /* Caso de YERCO: subtotal 3600 */
+  sembrarItems([{id:'p1',nombre:'Yerba',precio:1200,costo:600,cantidad:3,descuento:0,tipoVenta:'unidad'}]);
+  chk('subtotal de unidad', _ventaSubtotalItems()===3600, '$'+_ventaSubtotalItems());
+  mon.value='500'; onChangeDescuentoMonto();
+  chk('$500 sobre 3600 da 13,89%', Number(pct.value)===13.89, pct.value+'%');
+  chk('y el descuento guardado son $500 exactos', calcularTotalesVenta().descuentoMonto===500,
+      '$'+calcularTotalesVenta().descuentoMonto);
+  pct.value='25'; onChangeDescuento();
+  chk('25% da $900', Number(mon.value)===900, '$'+mon.value);
+  mon.value='999999'; onChangeDescuentoMonto();
+  chk('un monto mayor al subtotal se topea', Number(pct.value)===100 && calcularTotalesVenta().descuentoMonto===3600,
+      pct.value+'% / $'+calcularTotalesVenta().descuentoMonto);
+  mon.value='-50'; onChangeDescuentoMonto();
+  chk('un monto negativo queda en 0', Number(pct.value)===0);
+
+  /* LO PROPIO DE BROTES: a granel el precio es POR KILO y la cantidad en GRAMOS.
+     Con la formula de YERCO (precio*cantidad) el subtotal daria 2.250.000 y el
+     $500 saldria 0,02% en vez de 22,22%. */
+  sembrarItems([{id:'p2',nombre:'Nuez pecan',precio:4500,costo:2000,cantidad:500,descuento:0,tipoVenta:'peso'}]);
+  chk('500 g a $4.500 el kilo son $2.250', _ventaSubtotalItems()===2250, '$'+_ventaSubtotalItems());
+  mon.value='500'; onChangeDescuentoMonto();
+  chk('a granel, $500 da 22,22% y no 0,02%', Number(pct.value)===22.22, pct.value+'%');
+  chk('y el descuento sigue siendo $500', calcularTotalesVenta().descuentoMonto===500,
+      '$'+calcularTotalesVenta().descuentoMonto);
+
+  /* el % manda: es lo que se guarda */
+  pct.value='10'; onChangeDescuento();
+  chk('el % escrito a mano manda sobre el $', Number(mon.value)===225 && calcularTotalesVenta().descuentoPct===10,
+      '$'+mon.value);
+
+  /* mezcla de unidad y granel */
+  sembrarItems([
+    {id:'p1',nombre:'Yerba',precio:1200,costo:600,cantidad:3,descuento:0,tipoVenta:'unidad'},
+    {id:'p2',nombre:'Nuez pecan',precio:4500,costo:2000,cantidad:500,descuento:0,tipoVenta:'peso'}
+  ]);
+  chk('mezcla: 3600 + 2250 = 5850', _ventaSubtotalItems()===5850, '$'+_ventaSubtotalItems());
+  mon.value='585'; onChangeDescuentoMonto();
+  chk('$585 sobre 5850 da 10%', Number(pct.value)===10, pct.value+'%');
+
+  /* el render sincroniza el $ cuando no se esta tipeando */
+  pct.value='20'; renderVentaItems();
+  chk('renderVentaItems deja el $ al dia', Number(mon.value)===1170, '$'+mon.value);
+  mon.focus(); mon.value='777'; renderVentaItems();
+  chk('pero NO lo pisa mientras se tipea adentro', mon.value==='777', mon.value);
+  mon.blur();
+
+  /* sin items no puede quedar el numero de la venta anterior */
+  sembrarItems([]);
+  chk('sin items el campo $ vuelve a 0', Number(mon.value)===0, '$'+mon.value);
+  resumen();
+}
+
+async function correrTodo(){ ok=0;mal=0;$('log').innerHTML=''; await soloDropdown(); soloDescuento(); }
+
+function resumen(){
+  anotar('\n'+ok+' pasaron, '+mal+' fallaron', mal?'mal':'ok');
+  pintarEstado();
+}
+
+function prepararManual(){
+  clientesAuthData=CLIENTES_FALSOS.slice(); DEMORA_CLIENTES=400;
+  sembrarItems([
+    {id:'p1',nombre:'Yerba',precio:1200,costo:600,cantidad:3,descuento:0,tipoVenta:'unidad'},
+    {id:'p2',nombre:'Nuez pecan',precio:4500,costo:2000,cantidad:500,descuento:0,tipoVenta:'peso'}
+  ]);
+  anotar('Listo: subtotal $5.850. Tocá el campo Cliente, escribí, probá el scrollbar y tocá afuera.');
+}
+
+function pintarEstado(){
+  const t=(typeof calcularTotalesVenta==='function')?calcularTotalesVenta():null;
+  $('estado').textContent=
+    'items: '+ventaItems.length+'\n'+
+    ventaItems.map(i=>'  '+i.nombre+'  '+i.cantidad+(i.tipoVenta==='peso'?' g':' u')+'  $'+i.precio+(i.tipoVenta==='peso'?'/kg':'')).join('\n')+
+    (t?('\n\nsubtotal        $'+t.subtotal+
+        '\ndescuentoPct    '+t.descuentoPct+'%'+
+        '\ndescuentoMonto  $'+t.descuentoMonto+
+        '\nenvio           $'+t.envio+
+        '\nTOTAL           $'+t.total):'')+
+    '\n\ncliente: '+($('ventaCliente')?$('ventaCliente').value:'-')+
+    '  (elegido: '+ventaClienteSelected+')';
+}
+
+function anotar(msg,clase){
+  const l=$('log');
+  l.innerHTML+='<div class="'+(clase||'')+'">'+esc(msg)+'</div>';
+  l.scrollTop=l.scrollHeight;
+}
+
+montar();
+</script>
+</body>
+</html>

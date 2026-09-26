@@ -22,10 +22,79 @@
 const LECTOR_GAP_MAX = 40;    /* ms entre teclas para considerarlo una máquina */
 const LECTOR_LARGO_MIN = 4;   /* menos que esto es un tipeo suelto, no un código */
 
+/* =============================================================================
+   NO TODAS LAS PISTOLAS MANDAN ENTER
+   =============================================================================
+   Medido el 21/09 con el lector de otra PC (pruebas/lector-diagnostico.html):
+   trece dígitos, 16 ms entre cada uno -o sea rafaga de sobra- y DESPUES NADA.
+   Esa pistola no tiene configurado el sufijo Enter, y como el codigo solo se
+   procesaba dentro del `if (e.key === 'Enter')`, no funcionaba absolutamente
+   nada: ni vender, ni la ficha, ni el cartel de codigo desconocido. En silencio,
+   ademas, que es lo peor: el cajero escanea y no pasa nada.
+
+   Cada local compra la pistola que consigue y vienen configuradas distinto de
+   fabrica, asi que esto se resuelve del lado del panel: si venian teclas en
+   rafaga y despues SE HACE SILENCIO, eso ya fue una maquina, haya Enter o no.
+
+   SIN TERMINADOR SE PIDE MAS: seis digitos o mas, y solo digitos. No hay Enter
+   que confirme, asi que no se arriesga con codigos que traigan letras -esos que
+   configuren el sufijo- ni con tipeos cortos.
+
+   Con una pistola que SI manda Enter no cambia nada: el Enter llega a los 16 ms,
+   mucho antes de los 60, y lo primero que hace es cancelar este temporizador. */
+const LECTOR_SILENCIO_MS = 60;
+const LECTOR_LARGO_SIN_FIN = 6;
+
 let _lecBuf = '';
+let _lecTeclas = '';   /* lo mismo, pero con lo que el navegador ESCRIBIO: ver _lecChar */
 let _lecUltima = 0;
 let _lecRafaga = false;
 let _lecCodigoPendiente = null;
+let _lecTimer = null;
+let _lecDonde = null;
+
+/* EL CARACTER, SACADO DE LA TECLA FISICA.
+
+   `e.code` es la tecla que se apreto en el teclado -Digit7-, y no depende de la
+   distribucion configurada en Windows; `e.key` es lo que esa tecla PRODUCE con
+   la distribucion actual. Una pistola configurada con otra distribucion manda
+   los digitos correctos como scancodes, pero el navegador los traduce a otra
+   cosa y el codigo leido sale mal. Para los digitos, que es de lo que esta hecho
+   un codigo de barras, `e.code` es la fuente correcta.
+
+   Con Shift apretado no se usa: ahi Digit7 puede ser "/" o "&" a proposito. */
+function _lecChar(e) {
+  const c = e.code || '';
+  if (!e.shiftKey) {
+    if (/^Digit[0-9]$/.test(c)) return c.slice(5);
+    if (/^Numpad[0-9]$/.test(c)) return c.slice(6);
+  }
+  return (typeof e.key === 'string' && e.key.length === 1) ? e.key : '';
+}
+
+function _lecCancelarSilencio() {
+  if (_lecTimer) { clearTimeout(_lecTimer); _lecTimer = null; }
+}
+function _lecReset() {
+  _lecBuf = ''; _lecTeclas = ''; _lecRafaga = false; _lecDonde = null;
+  _lecCancelarSilencio();
+}
+function _lecProgramarSilencio(target) {
+  _lecCancelarSilencio();
+  if (!_lecRafaga) return;
+  _lecDonde = target;
+  _lecTimer = setTimeout(_lecCerrarPorSilencio, LECTOR_SILENCIO_MS);
+}
+function _lecCerrarPorSilencio() {
+  _lecTimer = null;
+  const cod = _lecBuf, tecleado = _lecTeclas, donde = _lecDonde;
+  _lecBuf = ''; _lecTeclas = ''; _lecRafaga = false; _lecDonde = null;
+  if (cod.length < LECTOR_LARGO_SIN_FIN) return;
+  if (!/^[0-9]+$/.test(cod)) return;
+  _enterUno = 0;
+  _limpiarCampo(donde, tecleado);
+  procesarCodigoLeido(cod);
+}
 
 /* Capture phase: tiene que correr antes que cualquier otro handler para poder
    frenar el Enter, que si no dispara el submit del formulario que esté abierto. */
@@ -37,33 +106,64 @@ document.addEventListener('keydown', function (e) {
      cualquier otro handler de la pagina y en CADA tecla del panel, asi que una
      excepcion aca ensuciaba la consola de errores constantemente.
      Visto en produccion: "Cannot read properties of undefined (reading 'length')". */
-  if (typeof e.key !== 'string') { _lecBuf = ''; _lecRafaga = false; return; }
+  if (typeof e.key !== 'string') { _lecReset(); return; }
   const t = e.timeStamp;
   const gap = t - _lecUltima;
   _lecUltima = t;
 
-  if (e.key === 'Enter') {
+  /* EL TERMINADOR PUEDE SER ENTER O TAB. Hay pistolas configuradas con Tab de
+     sufijo; antes ese Tab cortaba la rafaga y el codigo se perdia. Tab SOLO
+     cierra si hay una rafaga en curso: si no, es la tecla de navegar el
+     formulario y tiene que seguir haciendo lo suyo. */
+  if (e.key === 'Enter' || (e.key === 'Tab' && _lecRafaga)) {
+    _lecCancelarSilencio();
     const cod = _lecBuf;
-    _lecBuf = '';
+    const tecleado = _lecTeclas;
+    _lecBuf = ''; _lecTeclas = ''; _lecDonde = null;
     const eraRafaga = _lecRafaga;
     _lecRafaga = false;
     if (eraRafaga && cod.length >= LECTOR_LARGO_MIN && gap <= LECTOR_GAP_MAX) {
+      /* Queda MARCADO EL EVENTO, no una variable con la hora. Abajo se hace
+         stopPropagation(), que corta la propagacion al nodo siguiente pero NO a
+         los otros handlers de document: un dialogo abierto recibe este mismo
+         Enter y hasta ahora no tenia forma de saber que lo mando una maquina.
+         Con la marca encima del evento la respuesta es exacta y no depende de
+         medir tiempos dos veces. Ver enterDeRafaga(). */
+      e._lecRafaga = true;
       e.preventDefault();
       e.stopPropagation();
       _enterUno = 0;            /* el Enter de la pistola no cuenta para cerrar */
-      _limpiarCampo(e.target, cod);
+      _limpiarCampo(e.target, tecleado);
       procesarCodigoLeido(cod);
-    } else {
+    } else if (e.key === 'Enter') {
       /* Enter de una persona: puede ser el de cerrar la venta. */
       _enterHumano(e);
     }
     return;
   }
   _enterUno = 0;   /* cualquier otra tecla corta la seguidilla de Enters */
-  if (e.key.length !== 1) { _lecBuf = ''; _lecRafaga = false; return; }
-  if (gap > LECTOR_GAP_MAX) { _lecBuf = e.key; _lecRafaga = false; }
-  else { _lecBuf += e.key; _lecRafaga = _lecBuf.length >= 2; }
+
+  /* TECLA MANTENIDA APRETADA. Windows la repite cada ~30 ms, que es una rafaga
+     metronomica perfecta: dejar el 0 apretado en una cantidad entraba como si
+     fuera un escaneo. El navegador las marca con e.repeat. */
+  const ch = _lecChar(e);
+  if (!ch || e.repeat) { _lecReset(); return; }
+
+  if (gap > LECTOR_GAP_MAX) { _lecBuf = ch; _lecTeclas = e.key; _lecRafaga = false; }
+  else { _lecBuf += ch; _lecTeclas += e.key; _lecRafaga = _lecBuf.length >= 2; }
+  _lecProgramarSilencio(e.target);
 }, true);
+
+/* LA UNICA PARTE DEL PANEL QUE SABE QUIEN APRETO ENTER.
+
+   Un lector USB es un teclado: su Enter llega igual que el de una persona. La
+   diferencia se calculo arriba -la rafaga- y queda marcada sobre el evento. Lo
+   exporta para que un dialogo pueda negarse a que lo conteste la pistola: si el
+   lector queda apoyado sobre el gatillo, "¿Imprimir ticket?" no puede
+   responderse solo, y "¿Eliminar la venta?" mucho menos. */
+function enterDeRafaga(e) {
+  return !!(e && e._lecRafaga);
+}
 
 /* Si el foco estaba en un campo, el código ya se escribió ahí. Se borra para que
    no quede pegado adelante de lo que la persona escriba después. */
@@ -186,7 +286,12 @@ function coincidenciasCodigo(cod) {
   if (typeof allProducts === 'undefined' || !Array.isArray(allProducts)) return [];
   const c = _normCod(cod);
   if (!c) return [];
-  return allProducts.filter(p => _normCod(p.codigoBarras) === c || _normCod(p.codigo) === c);
+  /* SOLO el codigo de barras. El codigo interno es un identificador para BUSCAR
+     -se escribe, se ordena la tabla por el- y no una etiqueta escaneable: lo que el
+     local envasa se arma y se entrega en el momento, asi que no lleva etiqueta.
+     Mientras el lector miraba los dos campos, dos productos con el mismo numero en
+     campos distintos se tapaban entre si: paso con "57" y "000057". */
+  return allProducts.filter(p => _normCod(p.codigoBarras) === c);
 }
 
 /* Solo devuelve producto si hay UNO. Con dos o mas no se elige por el operador:
@@ -218,6 +323,20 @@ function productoConCodigoBarras(cod, exceptoId) {
 }
 
 function procesarCodigoLeido(cod) {
+  /* CON UN DIALOGO ENCIMA NO SE ESCANEA. Los dialogos de admin-dialogo.js
+     -cuantos gramos lleva, ¿imprimir el ticket?, cualquier confirmacion- no son
+     .modal-overlay, asi que ninguno de los chequeos de abajo los ve. Sin esto una
+     pistola apoyada sobre el gatillo seguia de largo por debajo de la pregunta:
+     abria una venta nueva DETRAS del dialogo, o le cargaba productos a una venta
+     que la persona todavia no habia terminado de confirmar. Se responde lo que
+     esta en pantalla y se sigue. */
+  if (document.querySelector('.dlg-overlay')) {
+    if (typeof showAdminToast === 'function') {
+      showAdminToast('Respondé lo que está en pantalla antes de escanear.', 'error');
+    }
+    return;
+  }
+
   /* Editando un producto, escanear ES cargarle el código. Es la forma natural de
      darle de alta a uno nuevo sin tener que tipear trece dígitos. */
   const campo = document.getElementById('pCodigoBarras');
@@ -233,6 +352,10 @@ function procesarCodigoLeido(cod) {
       return;
     }
     campo.value = cod;
+    /* Poner .value a mano NO dispara el evento input, asi que el preview del
+       codigo de barras se quedaba con el dibujo anterior: se escaneaba el envase,
+       el campo mostraba el codigo nuevo y el simbolo de abajo seguia siendo otro. */
+    if (typeof refrescarBarrasProducto === 'function') refrescarBarrasProducto();
     showAdminToast('Código cargado', 'success');
     return;
   }
@@ -295,18 +418,43 @@ function procesarCodigoLeido(cod) {
     return;
   }
 
-  /* Fuera de una venta, escanear es consultar: abre la ficha del producto. */
-  if (prod) {
-    switchSection('products');
-    openModal(prod.id);
-    /* Un depurado no sale en Productos: sin este aviso se editaba y se guardaba sin
-       saber que seguia escondido. */
-    if (prod.depurado === true) {
-      showAdminToast('"' + (prod.nombreMostrado || prod.nombre) + '" está depurado: no aparece en la tienda ni en las listas. ' +
-        'Se restaura desde Depuración de productos.', 'info');
-    }
+  if (!prod) { openAsignarCodigo(cod, 'ficha'); return; }
+
+  /* Sin ningun modal abierto, el escaneo hace lo que corresponde a DONDE esta
+     parado el cajero, que es lo que evita el paso de mas:
+       en Ventas    -> abre una venta nueva con el producto ya cargado
+       en Productos -> abre su ficha
+       en cualquier otra seccion no se adivina: se pregunta. */
+  const _sec = (document.querySelector('.section-content.active') || {}).id || '';
+  if (_sec === 'sec-ventas') { _venderEscaneado(prod); return; }
+  if (_sec === 'sec-products') { _fichaEscaneada(prod); return; }
+  if (typeof pedirConfirmacion === 'function') {
+    pedirConfirmacion('"' + (prod.nombreMostrado || prod.nombre) + '"', {
+      titulo: 'Producto escaneado',
+      aceptar: 'Cargarlo en una venta',
+      cancelar: 'Ver su ficha',
+      icono: 'bi-upc-scan'
+    }).then(function (vender) { if (vender) _venderEscaneado(prod); else _fichaEscaneada(prod); });
   } else {
-    openAsignarCodigo(cod, 'ficha');
+    _fichaEscaneada(prod);
+  }
+}
+
+/* Escanear parado en Ventas: si no hay una venta abierta, se abre. Antes habia que
+   tocar V primero, y con la pistola en la mano ese paso es el que se olvida. */
+function _venderEscaneado(prod) {
+  if (!_modalAbierto('ventaModal') && typeof openVentaModal === 'function') openVentaModal();
+  _agregarYAvisar(prod, addVentaItem, () => _cantEnVenta('min', prod.id));
+}
+
+function _fichaEscaneada(prod) {
+  switchSection('products');
+  openModal(prod.id);
+  /* Un depurado no sale en Productos: sin este aviso se editaba y se guardaba sin
+     saber que seguia escondido. */
+  if (prod.depurado === true) {
+    showAdminToast('"' + (prod.nombreMostrado || prod.nombre) + '" está depurado: no aparece en la tienda ni en las listas. ' +
+      'Se restaura desde Depuración de productos.', 'info');
   }
 }
 
@@ -381,27 +529,82 @@ function closeAsignarCodigo() {
    Ahora se abre la ficha de producto nuevo con el codigo de barras ya puesto y un
    codigo interno sugerido. Al guardarlo, se escanea otra vez y entra a la venta:
    una lectura mas, y ningun camino raro que mantener. */
+/* A donde vuelve el producto recien creado. Lo guarda crearProductoConCodigo() y
+   lo consume saveProduct() cuando la ficha se guarda bien. */
+let _lecDestinoNuevo = null;
+function lectorDestinoNuevo() { return _lecDestinoNuevo; }
+function lectorLimpiarDestinoNuevo() { _lecDestinoNuevo = null; }
+
+/* Los modales que pueden quedar ABAJO de la ficha: son los tres desde los que se
+   escanea con algo a medio cargar. */
+const LECTOR_MODALES_BASE = ['ventaModal', 'ventaMayModal', 'compraModal'];
+
 function crearProductoConCodigo() {
   const pend = _lecCodigoPendiente;
   const cod = pend ? pend.cod : '';
+  const destino = pend ? pend.destino : '';
   closeAsignarCodigo();
-  if (typeof switchSection === 'function') switchSection('products');
+
+  /* QUE HAY ABIERTO DEBAJO. Escanear un codigo desconocido en el medio de una
+     venta y elegir "crearlo" abria la ficha DETRAS de la venta: todos los
+     .modal-overlay comparten z-index 200 y desempata el orden del HTML, donde
+     productModal esta ANTES que ventaModal. La ficha quedaba tapada y no se
+     podia usar; parecia que el boton no hacia nada. */
+  const debajo = LECTOR_MODALES_BASE.filter(_modalAbierto);
+
+  /* Y con una venta abierta NO se cambia de seccion: al cerrar la ficha hay que
+     volver a la venta que sigue ahi, no quedar parado en Productos con la venta
+     flotando encima. */
+  if (!debajo.length && typeof switchSection === 'function') switchSection('products');
+
   if (typeof openModal !== 'function') {
     if (typeof showAdminToast === 'function') showAdminToast('No se pudo abrir la ficha del producto', 'error');
     return;
   }
   openModal();
+
+  const ficha = document.getElementById('productModal');
+  if (ficha) ficha.style.zIndex = debajo.length ? '260' : '';
+
   const campo = document.getElementById('pCodigoBarras');
-  if (campo && cod) campo.value = cod;
+  if (campo && cod) {
+    campo.value = cod;
+    if (typeof refrescarBarrasProducto === 'function') refrescarBarrasProducto();
+  }
   const cInterno = document.getElementById('pCodigo');
   if (cInterno && !cInterno.value && typeof sugerirCodigoProducto === 'function') {
     cInterno.value = sugerirCodigoProducto();
     if (typeof _pintarEstadoCodigo === 'function') _pintarEstadoCodigo();
   }
+
+  /* Si habia una venta abierta, el producto nuevo entra solo cuando se guarde:
+     era el paso de mas -guardar, cerrar, volver a escanear- justo con la pistola
+     en la mano y un cliente esperando. */
+  _lecDestinoNuevo = debajo.length ? destino : null;
+
   const nom = document.getElementById('pNombre');
   if (nom) setTimeout(function () { nom.focus(); }, 80);
   if (typeof showAdminToast === 'function') {
-    showAdminToast('Cargá el producto y guardalo. Después escanealo otra vez y entra a la venta.', 'info');
+    showAdminToast(_lecDestinoNuevo
+      ? 'Cargá el producto y guardalo: entra solo a la ' + (destino === 'compra' ? 'compra' : 'venta') + '.'
+      : 'Cargá el producto y guardalo. Después escanealo otra vez y entra a la venta.', 'info');
+  }
+}
+
+/* Lo llama saveProduct() con el id del producto recien creado. Se le pasa el
+   destino que se capturo ANTES de cerrar la ficha, porque cerrarla lo limpia. */
+function lectorAgregarProductoNuevo(id, destino) {
+  _lecDestinoNuevo = null;
+  if (!id || !destino) return;
+  const p = (typeof allProducts !== 'undefined' && Array.isArray(allProducts))
+    ? allProducts.find(x => x.id === id) : null;
+  if (!p) return;
+  if (destino === 'venta' && _modalAbierto('ventaModal')) {
+    _agregarYAvisar(p, addVentaItem, () => _cantEnVenta('min', id));
+  } else if (destino === 'ventaMay' && _modalAbierto('ventaMayModal')) {
+    _agregarYAvisar(p, addVentaMayItem, () => _cantEnVenta('may', id));
+  } else if (destino === 'compra' && _modalAbierto('compraModal')) {
+    if (typeof compraEscanear === 'function') compraEscanear(p);
   }
 }
 

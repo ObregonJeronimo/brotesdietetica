@@ -128,7 +128,10 @@ t('y no molesta con un aviso', p.estado.avisos.length===0);
 
 console.log('\nEl Enter de la PISTOLA nunca cierra la venta');
 t('al detectar la rafaga se resetea la cuenta', /_enterUno = 0;\s*\/\* el Enter de la pistola/.test(lector));
-t('y solo el Enter humano llega al atajo', /\} else \{\s*\/\* Enter de una persona[\s\S]{0,120}_enterHumano\(e\);/.test(lector));
+t('y solo el Enter humano llega al atajo', /\} else if \(e\.key === .Enter.\) \{\s*\/\* Enter de una persona[\s\S]{0,120}_enterHumano\(e\);/.test(lector));
+/* El Tab de una pistola con ese sufijo cierra la lectura, pero NO puede
+   cerrar la venta: el doble Enter es del Enter. */
+t('y el Tab de sufijo no llega al atajo', !/_enterHumano\(e\);[\s\S]{0,80}Tab/.test(lector));
 t('cualquier otra tecla corta la seguidilla', /_enterUno = 0;\s*\/\* cualquier otra tecla/.test(lector));
 
 console.log('\nLa ventana de tiempo');

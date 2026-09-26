@@ -1,6 +1,6 @@
 # Brotes Dietética — estado y pendientes
 
-> Actualizado: 07/09/2026.
+> Actualizado: 18/09/2026.
 > No se publica: `.vercelignore` excluye todos los `*.md`.
 
 **El software está terminado.** Lo que falta para entregar no es programar: es cargar
@@ -9,10 +9,10 @@ el negocio adentro y probarlo una vez de punta a punta.
 | | |
 |---|---|
 | Código | terminado, desplegado, producción al día |
-| Pruebas | 1518 en 50 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
+| Pruebas | 1875 en 55 suites (`npm test`) + 55 contra las reglas de verdad (`npm run test:reglas`) |
 | Panel | 20 secciones cargando sin un solo error de consola |
 | Infraestructura | reglas de Firestore y Storage, índices, 10 Cloud Functions, bot de Telegram |
-| **Datos** | **1484 productos, 28 listas, 30 categorías.** Los 611 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A) |
+| **Datos** | **1488 productos, 28 listas, 30 categorías.** Los 615 del catálogo original + los 873 de FRUTICOR-TODOS, migrados de YERCO el 07/09 (§1-bis A). **Ninguno en $0**: los 373 que faltaban se cargaron el 08/09 (§1-bis I) |
 | Último deploy | al día. Vercel despliega solo con `git push origin main`; las functions y las reglas no cambiaron desde el 27/08 |
 
 **Del 28/08 al 04/09 entraron 27 commits**, casi todos de Thiago: compras con lector de
@@ -21,6 +21,191 @@ la derecha, límite de stock bajo separado para envasado y suelto, exportaciones
 arreglos de seguridad en el borrado de archivos, y el Brandbook 2025 (paleta, tipografías y
 logos). De acá salieron el rediseño de la barra de listas de proveedores y el arreglo de
 sus contadores (§3, tanda 7).
+
+
+## 0. LO QUE SIGUE, EN ORDEN (al 21/09/2026)
+
+Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
+
+1. **Lectores de otras marcas** (§1-bis H) — ya no está bloqueado. Llegó la captura del
+   lector de otra PC (22/09) y **no era la velocidad**: 13 dígitos a 16 ms —el umbral son
+   40— y **ningún Enter**. Esa pistola no tiene sufijo configurado, y el panel solo
+   procesaba el código dentro del `if (e.key === 'Enter')`, así que en esa PC no andaba
+   nada, en silencio. Resuelto el 22/09: **cierre por silencio**, **Tab también como
+   terminador** y **`e.code` en vez de `e.key`** para los dígitos. Lo que sigue acá es
+   medir un lector más lento que 40 ms, si alguna vez aparece uno: hoy las dos pistolas
+   medidas dan 16 ms, así que bajar el umbral sería programar contra algo que no se vio.
+2. **Cargar los códigos de barras.** Hoy `codigoBarras` está cargado en **1 solo producto
+   de 1.312**: el único escaneo que funciona es el de las etiquetas que imprime el local,
+   que llevan el código interno. El lector ya busca en los dos campos y la validación
+   cruzada ya está puesta (21/09), así que se pueden cargar sin miedo a choques.
+3. **Ticket térmico después de la venta** (`SPEC-ROLES-TICKET.md` §B) — ✅ **HECHO** (21/09).
+   - ✅ **El papel** (`admin-ticket.js`): `ticketDocumento(venta, cfg)` arma el
+     comprobante con lo que quedó **guardado** en la venta -reimprimir una de marzo da el
+     mismo papel que salió en marzo-, a granel muestra kg y `/kg`, el vuelto sale solo en
+     efectivo, y el ancho 58/80 mm cambia el cuerpo de la letra.
+     `pruebas/t-ticket.js`, 27 asertos.
+   - ✅ **El diálogo** "¿Imprimir ticket?": sale al cerrar el modal de venta, con
+     `Imprimir` enfocado -la venta se cierra con un Enter y el ticket sale con otro-,
+     ←→ para elegir, `Esc` = no imprimir, y el foco no se escapa con Tab.
+     **El Enter de la pistola NO lo contesta**: `admin-lector.js` ahora marca el evento
+     cuando el Enter lo mandó una ráfaga (`enterDeRafaga()`) y `admin-dialogo.js` se
+     niega a resolver con ése. Vale para **todos** los diálogos del panel, no solo el
+     ticket: un lector apoyado sobre el gatillo tampoco puede contestar "¿Eliminar?".
+     Y con un diálogo abierto, escanear ya no sigue de largo por debajo.
+   - ✅ **Configuración → Impresión**: ancho (58/80), tipo de rollo, pie y qué hacer
+     después de cada venta (preguntar / directo / no). Con el aviso de frente y con esas
+     palabras: el navegador **no elige la impresora**, eso lo hace el cuadro de Windows;
+     para que no aparezca en cada venta hay que dejar la térmica como predeterminada y
+     abrir Chrome con `--kiosk-printing`, que es un paso de instalación en el local.
+   - ✅ **Reimprimir** desde la lista de ventas (botón *Ticket* en cada venta), con los
+     precios de **esa** venta y `logAction('imprimir', ...)`.
+   - Pruebas: `pruebas/t-ticket-dialogo.js`, 39 asertos (17 de ellos fallan contra el
+     commit anterior). Banco para verlo a mano: `pruebas/ticket-banco.html`.
+   - **Pendiente chico**: el ticket no muestra vuelto en las ventas nuevas porque la
+     venta no guarda **con cuánto paga** el cliente; el papel ya lo sabe imprimir si el
+     campo aparece. Y el ticket sale en la venta minorista, no en la mayorista.
+4. **Roles por empleado** (`SPEC-ROLES-TICKET.md` §A): tocan reglas, una Cloud Function y
+   las 17 secciones. Después del ticket.
+5. **Decidir qué pasa con la sección Etiquetas** (queda abierto desde el 21/09). La
+   ficha del producto ya NO usa el código interno como código de barras, pero la
+   sección **Etiquetas** sigue imprimiendo la etiqueta del local, que es un EAN-13
+   derivado del código interno con prefijo `2`. No es lo mismo: es para ponerle una
+   etiqueta escaneable a lo que **no trae ninguna** -lo que el local envasa-. Si se
+   saca, hay dos consecuencias y conviene decidirlas a mano:
+   - los **1.311 productos sin código de barras** se quedan sin etiqueta imprimible;
+   - las etiquetas **ya pegadas en las bolsas** dejan de escanear, porque el lector las
+     decodifica con `etiquetaProductoDe()`.
+6. **Limpiar los 4 nombres repetidos que quedan en producción** (medido el 21/09).
+   Dentro de la MISMA lista, o sea que casi seguro sobra uno: `PRODUCTO PRUEBA`
+   (002022 y 002023, los de la prueba del dueño), y en FRUTICOR-TODOS
+   `CACAO AMARGO CALIDAD EXTRA X 1 KG` (000093 y 001224),
+   `CHIPS DE CHOCOLATE SEMIAMARGO X 500 GR` (001168 y 000112) y
+   `AVENA INSTANTANEA X 5 KG` (000764 y 000059). Hay que mirar cuál tiene stock y
+   ventas antes de borrar. El de dos listas distintas -`CANELONES`- se deja: es
+   legítimo. El informe de repetidos del panel los muestra.
+7. **34 productos del reporte viejo que Brotes no tiene** (§1-bis I).
+8. **Poner una alerta de presupuesto de USD 5** en Google Cloud → Facturación. Firebase
+   está en Blaze, **sin tope y sin ninguna alerta**.
+9. **Revisar en qué plan está Vercel.** Hobby es *non-commercial only* y Brotes vende.
+10. **Que el agrupamiento de gramajes ande** (§1-bis C): los datos están, el código no.
+11. **Portar a YERCO** lo de §6. **YERCO se toca desde su propia sesión, no desde acá.**
+
+### Para el chat DEFT (repo base y alta de clientes con banderas)
+
+- **El panel no guarda quién carga cada producto.** No existe `creadoPor` ni `usuario` en
+  los 1.312 documentos de `productos`; se buscó uno por uno. Por eso, para separar lo que
+  cargó el comercio de lo que cargamos nosotros, hubo que deducirlo por el rango de
+  código. El `historial` sí registra el mail de cada acción, pero eso obliga a un cruce.
+  En el repo base, `creadoPor` en el producto tiene que venir de fábrica.
+- **Ningún archivo compartido con YERCO es idéntico**, ni siquiera los de mismo tamaño.
+  El análisis completo (qué módulo va a bandera, qué es dato del cliente, y por qué
+  conviene que la base sea Brotes) está en la conversación del 18/09.
+- **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
+  defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
+
+### Hecho el 22/09
+
+- **La pistola de otra PC no hacía funcionar nada** y el motivo no era el esperado: no
+  manda **Enter**. Medido con `pruebas/lector-diagnostico.html`. Tres cambios en
+  `admin-lector.js`, los tres aditivos —con una pistola que sí manda Enter no cambia
+  absolutamente nada—:
+  - **Cierre por silencio**: si venían teclas en ráfaga y después pasan 60 ms sin nada,
+    eso ya fue una máquina. Sin terminador se exige más —**6 dígitos y solo dígitos**—
+    porque no hay Enter que confirme.
+  - **Tab también cierra la lectura**, que es el otro sufijo común. Solo si hay ráfaga
+    en curso: un Tab suelto sigue navegando el formulario.
+  - **`e.code` en vez de `e.key`** para los dígitos: es la tecla **física**, no depende de
+    la distribución de teclado de Windows. Con Shift no se usa, porque ahí el símbolo es
+    a propósito.
+  Trampa cubierta: una **tecla mantenida** apretada se repite cada ~30 ms —una ráfaga
+  metronómica perfecta— y entraría como escaneo; se descarta con `e.repeat`.
+  `pruebas/t-lector-sin-enter.js`, 22 asertos, con la captura real tecla por tecla.
+  Verificado además con eventos de teclado **reales** en el navegador.
+- El **diagnóstico** ahora registra las teclas con Ctrl/Alt en vez de tirarlas (una
+  pistola en otra distribución era invisible para él, igual que para el panel), muestra
+  **con qué termina** la lectura y entiende el cierre por silencio.
+
+### Pendiente para Deft
+
+- **Calibración del lector en el panel** (Configuración → Lector): escanear una vez y que
+  el panel **mida y guarde** el perfil de esa pistola —velocidad, terminador, prefijo— en
+  `config/lector`. Es lo que ya hace `lector-diagnostico.html`, movido adentro y
+  guardado. Deja de ser heurística y pasa a ser un paso de instalación de 20 segundos
+  por cliente, con resultado visible. Conviene guardar **también el prefijo**: es el
+  mismo trabajo y abre el modo exacto para quien configure la pistola bien.
+- **Los códigos de sufijo Enter de los modelos comunes**, en el manual de puesta en
+  marcha. Aunque el panel tolere que no venga, configurar la pistola sigue siendo lo más
+  confiable y es gratis.
+
+### Hecho el 21/09
+
+- **Dos productos podían tener el mismo nombre interno** y el panel no decía nada
+  (lo encontró el dueño cargando uno desde una venta). Quedaban dos fichas para lo
+  mismo -dos precios, dos stocks, dos lugares donde tocar cuando cambia el costo- y el
+  buscador del modal de venta busca **por nombre**, así que en el mostrador salen dos
+  renglones idénticos y se elige a ciegas.
+  **No se bloquea a secas**, porque medido en producción (solo lectura, 1.313 productos)
+  hay 5 grupos repetidos: 4 en la misma lista y 1 entre listas distintas -CANELONES-,
+  que es legítimo, porque al mismo producto se le puede comprar a dos proveedores.
+  Entonces: **misma lista** no se guarda y se dice con cuál choca; **otra lista** se
+  pregunta y se puede seguir; y el que **ya venía repetido** se guarda avisando, porque
+  si no los tres que hoy están repetidos (CACAO AMARGO, CHIPS DE CHOCOLATE, AVENA
+  INSTANTANEA) no se podrían ni editar para corregirles el precio. Renombrar uno
+  *sobre* otro que ya existe sí se bloquea.
+  Además avisa **en vivo** debajo del campo, como ya hacía el código. Mismo criterio
+  que el informe de repetidos (`claveProducto`), así los dos dicen lo mismo.
+  `pruebas/t-nombre-repetido.js`, 39 asertos.
+  **Quedan 4 repetidos en producción para limpiar a mano** (ver punto 6).
+- **Crear un producto en el medio de una venta abre la ficha DETRÁS de la venta**
+  (lo probó el dueño escaneando de verdad). Todos los `.modal-overlay` comparten
+  `z-index: 200`, así que desempata el orden del HTML, y ahí `productModal` está
+  **antes** que `ventaModal`: la venta pinta encima y parecía que el botón no hacía
+  nada. Ahora la ficha se **levanta** cuando se abre sobre una venta, una venta
+  mayorista o una compra; **no se cambia de sección** -al cerrarla se vuelve a la venta,
+  que sigue ahí-; y al guardar, **el producto entra solo** a lo que estaba abierto, sin
+  el paso de volver a escanear. `closeModal()` devuelve la ficha a su nivel y olvida el
+  destino, por si se canceló.
+  `pruebas/t-crear-desde-venta.js`, 27 asertos (18 fallan contra el commit anterior).
+  Banco: `pruebas/capas-banco.html`, que le pregunta al navegador cuál de los dos
+  modales está adelante -antes: la venta; ahora: la ficha-.
+- **El preview de la ficha mostraba el código interno como si fuera el código de
+  barras.** Un producto con código `002022` y el campo de barras vacío dibujaba el
+  símbolo `2000000020228` -el EAN que el sistema deriva del interno-, así que los 1.311
+  productos sin código de barras aparentaban tener uno; y al cargar el de verdad el
+  dibujo **no cambiaba**, porque dependía del otro campo. Ahora el símbolo sale de
+  `codigoBarras` y de nada más (`codigoBarrasDe()`): sin él se ven **trece ceros** y no
+  se puede imprimir. Se redibuja al escribirlo, al escanear el envase con la ficha
+  abierta y al abrir la ficha. Un código cuyo verificador no cierra se ve pero tampoco
+  se deja imprimir, porque ninguna pistola lo lee.
+  **No hubo que tocar ningún dato**: el preview se calcula, no se guarda, así que el
+  arreglo vale para los 1.312 productos de una vez.
+  `pruebas/t-codigo-barras-ficha.js`, 38 asertos (30 fallan contra el commit anterior).
+  Banco: `pruebas/codigo-barras-banco.html`.
+- **Ticket térmico, completo** (`admin-ticket.js`): el papel, la pregunta después de
+  cobrar, Configuración → Impresión y el reimprimir desde la lista de ventas. Ver el
+  punto 3 de arriba. De paso quedó arreglado algo que era del panel entero y no del
+  ticket: **la pistola podía contestar cualquier diálogo**. El Enter de una ráfaga llega
+  a la página igual que el de una persona, y `stopPropagation()` no frena a los otros
+  handlers del mismo `document`; ahora el lector marca el evento y el diálogo se niega.
+- **Datos, en producción** (solo lista `FRUTICOR-TODOS`, 720 documentos, con respaldo):
+  656 productos al **65% de ganancia** mínima -578 con precio recalculado, y **78 con
+  costo $0 a los que NO se les tocó el precio**, porque el reporte viejo traía precio de
+  venta y no costo-, y **468 ocultados** por tener código mayor a `000684`, que es donde
+  termina el reporte de Zoo Logic. Los **168 códigos propios** que viven en esa lista y
+  los **35 que cargó el comercio** quedaron intactos.
+- **La Arveja duplicada**: `57` y `000057` eran el mismo producto; el stock pasó al
+  `000057` y el otro se borró.
+- **Merge con origin**: las dos ramas venían de `de24553` (07/09). Se tomó origin como
+  base y se re-aplicaron encima los cambios locales.
+
+---
+
+**Costos, medido el 14/09:** hoy **$0**. El gasto escala con las visitas a la tienda, porque
+cada visita baja el catálogo entero (~1.500 lecturas, con caché de 3 minutos). Límite gratis:
+50.000 lecturas/día; el peor día del mes fueron 50.505. Estimado: ~80 visitas/día ≈ USD 1/mes,
+~300 ≈ USD 6, ~1.000 ≈ USD 20. Si alguna vez pasa las ~100 visitas diarias, el arreglo barato
+es servir el catálogo desde **un solo documento** en vez de 1.491.
 
 ---
 
@@ -768,9 +953,10 @@ entra** al carrito y avisa por que; el que tiene precio **sigue entrando**.
 
 `t-sin-precio.js`: 27 asertos, 13 fallan contra `ddc1dfe`.
 
-**Lo que sigue siendo del dueño:** cargar los precios que faltan. Son 197 visibles; salen del
-panel filtrando por lista (`FRUTICOR 1` tiene 79 y `OTRO` 77). Mientras tanto la tienda los
-muestra como "Consultar precio", que es honesto y no regala nada.
+**Los precios que faltaban se cargaron el 08/09** desde las fotos del reporte del sistema
+viejo: ver §1-bis I. Hoy **no queda ningún producto en $0**, así que el aviso "Consultar
+precio" no se dibuja en ninguna pantalla — pero la guarda queda, que es lo que importa: si
+mañana alguien carga un producto sin precio, no se puede llevar.
 
 ---
 
@@ -961,7 +1147,235 @@ son kilos o bultos, así que la cantidad y el costo van a mano"*.
 **Queda por mirar:** si en producción ya entró alguna compra así. Se revisa comparando las
 compras de productos a granel cargadas desde un remito contra el papel.
 
-### K) Variantes: presentaciones, escalas de granel y cajas cerradas · **HECHO EN EL SANDBOX, SIN SUBIR** (25/09/2026)
+### I) Los 373 productos que quedaron en $0 ya tienen precio · **HECHO** (08/09/2026)
+
+El arreglo de §G tapó el agujero —un producto sin precio no se puede llevar— pero dejaba
+**373 productos del catálogo original invisibles como "Consultar precio"**. El dueño pasó
+las **16 páginas** del reporte *Stock valorizado* del sistema viejo (Zoo Logic Dragonfish)
+**en fotos**, y de ahí salieron los precios.
+
+**Por qué se pudo emparejar por código, y no a ojo.** Los códigos del reporte
+(`000001`–`000684`) son los **mismos** que los de Brotes. Donde Brotes **ya** tenía precio
+cargado se pudo cotejar: de **231 cotejables, 165 dan exacto**. Los 66 que difieren **no son
+errores de lectura sino subas de precio**, y se nota porque son *sistemáticas* —las 6
+Milanesas Sojitas todas en +28 %, las chalitas en +9 %—, cosa que un error de transcripción
+no hace. Esa es la prueba de que la transcripción de las fotos sirve.
+
+**El costo no está en el reporte y se deduce.** El margen de la casa es **65 % sobre el
+costo**, así que `costo = precio / 1,65`. Tampoco es una creencia: de los **82 productos que
+ya tenían costo y precio cargados, 79 están exactamente en 1,65** —la mediana, el p25 y el
+p75 son los tres 1,65—.
+
+**El granel no se convierte.** A granel Brotes guarda el precio **POR KILO** y el reporte ya
+viene así: de **70 productos a granel cotejables, 63 dan exacto**. Por eso el script no
+divide por nada y **no aplica la trampa del x1000 de §5**. De los 373 cargados, **129 son a
+granel**.
+
+**Las filas a $1,05 se descartan**: es el relleno que usa el sistema viejo para las filas sin
+precio real, no un precio de un peso.
+
+| | antes | después |
+|---|---|---|
+| catálogo original en $0 | **373** | **0** |
+| visibles en la tienda en $0 | 190 | **0** |
+
+**Medido releyendo los documentos de la base, no contando lo que se mandó:** los **373 de 373**
+quedaron con `precio`, `costo` y `porcentaje 65` correctos, **0 fallaron**. Antes de escribir,
+el script guardó los valores previos de los 373 documentos en `respaldo-precios.json`.
+
+Los cinco controles que corren antes de escribir —y que abortan si alguno da distinto de 0—:
+precio inválido, costo inválido o mayor o igual al precio, **pisar un precio ya cargado**,
+margen que no dé 1,65, y precio fuera de $100–$200.000. Los cinco dieron **0**.
+
+Dónde estaban: **206 en `OTRO`**, 93 en `FRUTICOR 1`, 32 en `MARTIN F.S`, 13 en `NATURA` y el
+resto repartido en 10 listas más.
+
+El script es `migracion/precios.js` (`--dry` no escribe nada y deja `informe-precios.txt`;
+`--escribir` aplica). Los precios transcritos viven en `migracion/lista1.txt` como
+`codigo|precio`, **644 filas con precio real**.
+
+**Lo que queda decidir (es del dueño).** El reporte trae **37 códigos que no existen en
+ninguna lista de Brotes** —contados contra el catálogo entero y **normalizando los ceros de
+adelante**, porque hay productos cargados como `272` y `00295`—. Tres no son productos
+—`000001`, `000148 Envios` y `000407 Saldo`—, así que son **34 productos reales del negocio
+que no están cargados**. No se pueden crear solos: en Brotes **categoría y lista son
+obligatorias** y el reporte no las trae. Hay que decidir a qué categoría y a qué lista van
+antes de subirlos.
+
+---
+
+### J) FRUTICOR 1 fundida contra FRUTICOR-TODOS · **HECHO** (09/09/2026)
+
+**Lo pedido:** que `FRUTICOR 1` desaparezca, que **no quede ningún producto repetido**, y
+que **no se pierdan los códigos** —es con lo que buscan en el mostrador en vez de tipear el
+nombre—. `FRUTICOR-TODOS` es la lista de Fruticor completa y **no cambia**.
+
+**Por qué sobrevive el de FRUTICOR-TODOS pero con los datos del de FRUTICOR 1.** Medido
+sobre los 52 nombres repetidos, el patrón era siempre el mismo: el de FRUTICOR-TODOS estaba
+**oculto**, con el stock redondo que traía de YERCO (8 kg, 10 kg, 25 kg) y **con el precio de
+YERCO**; el de FRUTICOR 1 estaba **visible**, con el stock real y el precio de este negocio.
+Borrar el de FRUTICOR 1 sin más habría dejado el bicarbonato a **$2.600 en vez de $4.100** y
+con 8 kg que no existen. Así que el documento que queda es el de FRUTICOR-TODOS —nombre, foto
+y lista de Fruticor— y **recibe del otro el código, el precio, el costo, el stock, la
+visibilidad y la categoría**.
+
+| | antes | después |
+|---|---|---|
+| FRUTICOR 1 | 188 productos | **0, lista borrada** |
+| FRUTICOR-TODOS | 883 | **883** (no entra ni sale ninguno) |
+| OTRO | 208 | 236 |
+| productos | 1491 | **1331** |
+
+**160 fusiones y 28 mudanzas a `OTRO`.** Los 28 **no son de Fruticor** —tés Tucangua,
+tostadas Molinos del Bosque, mieles Paneles del Mistol, goma xántica, espirulina— y por eso
+no entran a FRUTICOR-TODOS; se mudan enteros, con su código.
+
+**Medido releyendo la base:** 160 de 160 fusiones correctas (código y precio pasados, el
+viejo borrado), 0 fallaron, 28 de 28 mudados, **0 códigos repetidos**, **0 códigos que
+choquen ignorando los ceros de adelante**, 0 sin código, 0 en $0.
+
+**Verificado abriendo la tienda:** `OREGANO EXTRA x 1 Kg` quedó en $9.150 con 420 g —los
+datos del `000336 Oregano`—, `PAPRIKA x 1Kg` en $17.900 con 660 g, y `Lenteja turca` con
+**7,5 kg** (5 kg + 2,5 kg sumados, porque el negocio la había recreado a mano). **0 nombres
+repetidos** en las 952 que dibuja la tienda.
+
+#### Las tres trampas del emparejamiento de nombres
+
+YERCO escribe `MIJO PELADO x 5 kg` y el negocio `Mijo Pelado`. Cada versión del comparador
+falló distinto, y las tres se vieron sólo mirando qué movía:
+
+1. **Pedir 2 palabras en común** decía que `Oregano` no estaba en FRUTICOR-TODOS. Es una
+   sola palabra: nunca podía llegar a dos. Daba **148 productos perdidos** que sí estaban.
+2. **Sacar la medida sólo cuando viene con x delante** dejaba fuera `Mermelada De Higo
+   C/Stevia **330Gr**`, que allá es `MERMELADA DE HIGO C/STEVIA x 330 gr` —el mismo
+   producto—. Y exigir marcas que del otro lado no existen (`CACHAFAZ`) rompía el resto.
+3. **Una sola palabra en común no alcanza** si enfrente el nombre dice tres cosas más:
+   `Fibras` caía en `SALUTARIS FIBRA VEGETAL incaico x 250g` —granel a $7.420 el kilo contra
+   un envase de 250 g a $23.400—, `Miel Paneles Del Mistol` en `GALLETA -ORGANICA- CACAO Y
+   MIEL` y `Mango Trozado Congelado` en `MERMELADA DE MANGO`.
+
+Y el desempate entre varios candidatos **no puede ser el precio solo**: `Lentejas` ($4.724)
+se iba a `LENTEJA TURCA x 1 kg` ($5.200) en vez de a la lenteja común, y encima la turca ya
+tenía su propio producto. Gana el que **agrega menos palabras**, y recién después el precio.
+
+#### Lo que apareció de paso
+
+El personal estaba **recreando a mano productos que ya existían**, con el código mal tipeado
+—`272` por `000272`, `00295` por `000295`—, porque al buscar el código correcto no
+aparecía. El catálogo usa **6 dígitos con ceros adelante**. Se normalizaron los 4 que
+quedaban fuera de formato. **Falta que el buscador del panel encuentre `000272` cuando se
+tipea `272`**, que es lo que evita que vuelva a pasar.
+
+
+---
+
+### K) La pantalla de Productos, como la queria el duenio · **HECHO** (17/09/2026)
+
+Cuatro pedidos sobre `Productos`, más uno de la ficha:
+
+1. **Al entrar no queda ninguna lista seleccionada.** Antes se restauraba la última usada y
+   el catálogo aparecía recortado a un proveedor sin que nadie lo pidiera: el total de
+   arriba no coincidía con lo de abajo y parecía que faltaban productos.
+2. **La lista que se clickea ya no se va al primer lugar.** Saltaba al principio y las
+   demás se corrían, así que la que uno acababa de mirar no estaba donde la había dejado.
+   Ahora el orden es **alfabético fijo**.
+3. **Se ven todas las listas de una.** El "Ver todas" pedía dos clics para llegar a una del
+   fondo, y el primero no filtraba nada. Se sacó el colapso entero.
+4. **Casilla "No mostrar ocultos", tildada por defecto**, en lugar del desplegable de
+   visibilidad. Destildarla muestra también los ocultos, en el mismo orden alfabético.
+   **Se perdió el filtro "solo ocultos"** que tenía el desplegable; nadie lo pidió.
+5. **Los campos de la ficha del producto** vienen con el borde pintado del color del foco
+   al **45%**, para que se vea dónde se escribe sin hacer clic antes. Un cliente no
+   encontraba los campos. Acotado a `#productForm`: el resto del panel no cambia.
+
+Verificado abriendo la página y ejecutando las funciones reales con datos de prueba: 4 de 4
+pastillas sin recorte ni botón, orden idéntico después de clickear, la casilla filtra y
+deja de filtrar, `#pNombre` en `rgba(95,168,122,0.45)` y `#searchInput` sin tocar, sin
+errores de consola. Commit `b8bd5ff`.
+
+---
+
+### L) Entrar a Caja después de vender tardaba · **ARREGLADO Y MEDIDO** (18/09/2026)
+
+**Lo reportado:** con la caja abierta, venden tocando **V** parados en Productos, y *"tarda
+en cargar la venta en la caja"*.
+
+#### Lo medido ANTES de tocar nada
+
+Contra la base real, leyendo y sin escribir. Tres vueltas seguidas, en ms:
+
+| etapa | v1 | v2 | v3 | lo que trae |
+|---|---|---|---|---|
+| `config/cajaConfig` | 90 | 65 | 91 | **no existe el documento** |
+| `config/cajaEstado` | 68 | 75 | 67 | el puntero a la caja abierta |
+| `cajas/<id>` | 83 | 66 | 89 | la caja |
+| `cargarDatosCaja()` (3 en paralelo) | 117 | 116 | 90 | 22 ventas + 0 may. + 3 movimientos |
+| `cargarVentasSueltas()` (2 en paralelo) | 93 | 112 | 92 | las 22 del día |
+| historial (`limit 120`) | 75 | 88 | 75 | 11 cajas |
+| **total** | **527** | **521** | **504** | |
+
+**El tamaño no era el problema.** En toda la base hay 159 ventas, 11 cajas y 0 mayoristas;
+el día más cargado fueron 22 ventas. Cada consulta tarda entre 65 y 117 ms **porque es una
+ida y vuelta**, no por lo que trae. El problema era que salían **en seis tandas, una atrás
+de la otra**, y que `switchSection('caja')` rehacía las seis **en cada visita**.
+
+Para medirlo en el navegador -y para poder repetirlo- quedó `pruebas/caja-banco.html`:
+carga `admin-caja.js` tal cual, trae la sección de `/admin` en vivo, y le pone a cada
+consulta la demora medida arriba. Se abre con `npm run dev`.
+
+#### Lo que se cambió
+
+1. **Las nueve consultas, en tres tandas.** De las seis, solo tres dependían de la anterior:
+   la config, el puntero y el historial no se necesitan entre sí; la caja necesita el
+   puntero; y las cinco del final necesitan la caja. `cargarDatosCaja()` y
+   `cargarVentasSueltas()` se esperaban una a la otra sin motivo.
+2. **Volver a entrar no consulta nada.** `switchSection('caja')` ahora llama a
+   `entrarACaja()`: si ya hay datos cargados de hace menos de 5 minutos, dibuja con lo que
+   hay en memoria y **relee por detrás**; si son más viejos, espera la lectura como antes,
+   porque dibujar plata de hace cuatro horas es mentirle a alguien que está contando. Una
+   sola relectura a la vez, aunque se entre y salga diez veces.
+3. **`saveVenta` le avisa a la Caja** (`cajaRegistrarVenta()`): la venta recién escrita se
+   suma a `cajaVentas` y se redibuja, sin consultar. No se cuenta dos veces -se chequea el
+   `docId`-, no entra si es de otra caja, y la mayorista hace lo mismo.
+
+#### Lo medido DESPUÉS, con el mismo banco y la misma demora
+
+| | antes | después |
+|---|---|---|
+| entrar por primera vez | 572 ms (6 tandas) | **282 ms (3 tandas)** |
+| vender y entrar a la Caja | 565 ms | **1 ms** |
+| entrar de nuevo sin cambiar nada | 564 ms | **2 ms** |
+
+Las nueve consultas siguen siendo nueve: no se sacó ninguna lectura, se sacó la espera.
+El dibujado tarda 1 ms.
+
+**Verificado abriendo la página**: la sección dibujada por `renderCaja()` con la venta
+recién hecha ya adentro (Ventas (23)), el arqueo cuadrando -efectivo + tarjeta = bruto, y
+esperado = fondo + efectivo + ingresos − egresos-, las 10 cajas del historial en su tabla,
+**cero errores de consola**, y el historial **sin parpadear** durante la relectura de atrás
+(muestreado cada 20 ms: ninguna muestra en blanco).
+
+`pruebas/t-caja-entrar.js` (39 asertos) afirma todo eso contra el fuente real: cuenta las
+tandas **por el momento en que sale cada consulta**, no por milisegundos, así que no depende
+de lo rápida que esté la máquina. **Contra el commit anterior fallan 25 de 39** (6 tandas:
+1+1+1+3+2+1, y no existen ni `entrarACaja()` ni `cajaRegistrarVenta()`); los 14 que pasan son
+los que cuidan que no se haya perdido nada: las mismas nueve consultas, la pantalla dibujada,
+el resumen del historial.
+
+**El precio de dibujar primero y leer después:** si alguien **edita o borra una venta**
+desde la sección Ventas y entra a la Caja, el primer dibujado muestra el número viejo y la
+relectura de atrás lo corrige medio segundo después. Se corrige solo, y no se tocó ninguno
+de esos dos caminos para no meter mano en más lugares de un panel que está vendiendo. Si
+alguna vez molesta, el arreglo es una línea: `_cajaCargadaEn = 0` al editar y al borrar.
+
+**Lo que sigue abierto:** `config/cajaConfig` **no existe** en la base, así que la Caja usa
+los valores por defecto (tolerancia $500, exige motivo si difiere, arqueo no ciego). Es una
+ida y vuelta por carga para traer un documento que no está. No se tocó: crearlo es escribir
+en producción, y eso se avisa antes.
+
+---
+
+### M) Variantes: presentaciones, escalas de granel y cajas cerradas · **HECHO EN EL SANDBOX, SIN SUBIR** (25/09/2026)
 
 Pedido del comercio (24/09): un producto que viene en varios tamaños es UNO —una tarjeta en
 la tienda, una fila en la venta— y cada tamaño tiene su costo, su ganancia y su stock.
@@ -1012,6 +1426,8 @@ quedar frenados en el mostrador.
 3. **Un granel que sale de dos bolsas puede diferir en $1 del total.** Cada renglón se
    redondea por separado (precio × gramos de su bolsa), y la suma puede diferir en $1 del
    total que vio el cliente o el diálogo de gramos.
+
+---
 
 ## 2. Decisiones tuyas
 

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Banco del código de barras en la ficha</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  body{margin:0;padding:1.2rem;background:#0d1117;color:#e6edf3;font:14px/1.55 system-ui,sans-serif}
+  h1{font-size:1.05rem;margin:0 0 .3rem}
+  .sub{color:#8b949e;font-size:.82rem;max-width:780px;margin-bottom:1rem}
+  button.b{background:#238636;border:1px solid #2ea043;color:#fff;border-radius:6px;padding:.45rem .8rem;cursor:pointer;font-size:.83rem;margin:0 .3rem .4rem 0}
+  button.b.gris{background:#21262d;border-color:#30363d;color:#e6edf3}
+  #montaje{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:1rem;max-width:720px;margin-bottom:1rem}
+  #log{font-family:ui-monospace,Consolas,monospace;font-size:.76rem;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:.6rem;max-width:720px;white-space:pre-wrap}
+  .ok{color:#3fb950}.mal{color:#f85149}
+</style>
+</head>
+<body>
+<h1>Banco del código de barras en la ficha</h1>
+<p class="sub">
+  Monta el bloque de <b>Identificación</b> de la ficha de producto y
+  <code>admin-etiquetas.js</code>, los dos sacados de <code>/admin</code> en vivo.
+  El caso es el de la captura del dueño: código interno <b>002022</b>, sin código de barras.
+  Antes ahí abajo aparecía el símbolo <b>2000000020228</b>, que es el que el sistema deriva
+  del código interno, no el del producto.
+</p>
+
+<div>
+  <button class="b" onclick="caso('')">Sin código de barras</button>
+  <button class="b" onclick="caso('8414775016005')">Con 8414775016005</button>
+  <button class="b gris" onclick="caso('8414775016009')">Con uno mal tipeado</button>
+  <button class="b gris" onclick="caso('036000291452')">Con un UPC de 12</button>
+</div>
+
+<div id="montaje">montando…</div>
+<div id="log"></div>
+
+<script>
+let esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function showAdminToast(m){ log('aviso: '+m, 'mal'); }
+function logAction(){}
+function log(t,c){ const d=document.getElementById('log'); d.innerHTML+='<span class="'+(c||'')+'">'+t+'</span>\n'; }
+
+function caso(cb){
+  document.getElementById('log').innerHTML='';
+  document.getElementById('pCodigo').value='002022';
+  document.getElementById('pNombre').value='producto prueba';
+  document.getElementById('pCodigoBarras').value=cb;
+  refrescarBarrasProducto();
+  const svg=document.getElementById('pBarrasSvg').innerHTML;
+  const btn=document.getElementById('btnImprimirEtqProd');
+  log('codigo de barras del campo: '+(cb||'(vacio)'));
+  log('dibuja un simbolo: '+(svg.indexOf('<svg')>=0), svg.indexOf('<svg')>=0 ? 'ok':'ok');
+  log('muestra 0000000000000: '+(svg.indexOf('0000000000000')>=0));
+  log('muestra el derivado del interno (2000000020228): '+(svg.indexOf('2000000020228')>=0),
+      svg.indexOf('2000000020228')>=0 ? 'mal':'ok');
+  log('se puede imprimir: '+(getComputedStyle(btn).display!=='none'));
+  const av=document.getElementById('pBarrasAviso');
+  if(av && av.textContent) log('aviso: '+av.textContent, 'mal');
+}
+
+/* El bloque real de la ficha y los estilos reales, de /admin en vivo. */
+fetch('/admin').then(r=>r.text()).then(t=>{
+  const doc = new DOMParser().parseFromString(t, 'text/html');
+  doc.querySelectorAll('style').forEach(s => document.head.appendChild(s.cloneNode(true)));
+  const sec = doc.querySelector('#pCodigo').closest('.precio-section');
+  const m = document.getElementById('montaje');
+  m.innerHTML = '';
+  m.appendChild(sec.cloneNode(true));
+  const s = document.createElement('script');
+  s.src = '/admin-etiquetas.js';
+  s.onload = () => { log('admin-etiquetas.js cargado', 'ok'); caso(''); };
+  document.body.appendChild(s);
+}).catch(e=>log('no se pudo montar: '+e.message,'mal'));
+</script>
+</body>
+</html>
