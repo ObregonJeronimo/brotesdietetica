@@ -606,7 +606,7 @@
         .vprod-chip.bajo{background:rgba(237,184,51,0.18);color:#EDB833}
         .vprod-chip.cero{background:rgba(229,69,69,0.18);color:#e54545}
         .vprod-chip.neutro{background:var(--bg-input);color:var(--text-dim)}.venta-prod-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s}.venta-prod-item:hover{background:var(--accent-bg)}
-        .venta-items{max-height:200px;overflow-y:auto}.venta-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);font-size:0.82rem}.vi-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vi-price{color:var(--text-dim);font-family:var(--mono);min-width:65px;text-align:right}.vi-sub{color:var(--accent-light);font-family:var(--mono);min-width:75px;text-align:right;font-weight:600}.vi-qty{width:50px;padding:3px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);text-align:center;font-size:0.82rem}.vi-remove{background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.9rem}
+        .venta-items{max-height:200px;overflow-y:auto}.venta-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);font-size:0.82rem}.vi-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vi-price{color:var(--text-dim);font-family:var(--mono);min-width:65px;text-align:right}.vi-sub{color:var(--accent-light);font-family:var(--mono);min-width:75px;text-align:right;font-weight:600}.vi-qty{width:50px;padding:3px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);text-align:center;font-size:0.82rem}.vi-qty.vi-qty-peso{width:78px}.vi-remove{background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.9rem}
         .venta-total-row{display:flex;justify-content:space-between;align-items:center;padding:0.75rem 0;font-size:1.1rem;font-weight:700}.venta-total-val{font-family:var(--mono);color:var(--accent-light);font-size:1.3rem}
         .entrega-toggle{display:flex;gap:6px}.entrega-btn{flex:1;padding:0.6rem 0.8rem;background:var(--bg-input);border:1.5px solid var(--border);color:var(--text-dim);border-radius:var(--radius);cursor:pointer;font-size:0.88rem;font-weight:500;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:0.45rem}.entrega-btn:hover{border-color:var(--accent-light);color:var(--text-main)}/* --accent-dark se usa SOLO aca y no estaba definida: una variable CSS que no
            existe invalida la declaracion, asi que el boton SELECCIONADO se quedaba sin
@@ -3365,7 +3365,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                     '<button onclick="toggleVtaDsc(\''+i.id+'\')" style="background:none;border:1px solid var(--border);color:#e6a817;border-radius:4px;padding:1px 5px;cursor:pointer;font-size:0.75rem;font-weight:700" title="Descuento individual">%</button>'+
                     dscInput+
                     (esPorPeso(i)?'':'<span style="color:var(--text-dim)">x</span>')+
-                    '<input class="vi-qty" type="number" value="'+i.cantidad+'" min="1" step="'+(esPorPeso(i)?'50':'1')+'" onchange="updateVentaQty(\''+i.id+'\',this.value)">'+(esPorPeso(i)?'<span style="color:var(--text-dim);font-size:0.76rem">g</span>':'')+
+                    '<input class="vi-qty'+(esPorPeso(i)?' vi-qty-peso':'')+'" type="number" value="'+i.cantidad+'" min="1" step="'+(esPorPeso(i)?'50':'1')+'" onchange="updateVentaQty(\''+i.id+'\',this.value)">'+(esPorPeso(i)?'<span style="color:var(--text-dim);font-size:0.76rem">g</span>':'')+
                     '<span class="vi-sub">$'+sub.toLocaleString('es-AR')+'</span>'+
                     '<button class="vi-remove" onclick="removeVentaItem(\''+i.id+'\')"><i class="bi bi-x"></i></button>'+
                     (i.__detalle?'<span class="vi-escala">'+esc(i.__detalle)+'</span>':'')+(i.__falta?'<span class="vi-falta"><i class="bi bi-exclamation-triangle"></i> '+esc(i.__falta)+'</span>':'')+
@@ -4521,7 +4521,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                     '<button onclick="togglePedDsc(\''+i.id+'\')" style="background:none;border:1px solid var(--border);color:#e6a817;border-radius:4px;padding:1px 5px;cursor:pointer;font-size:0.75rem;font-weight:700" title="Descuento individual">%</button>'+
                     dscInput+
                     (esPorPeso(i)?'':'<span style="color:var(--text-dim)">x</span>')+
-                    '<input class="vi-qty" type="number" value="'+i.cantidad+'" min="1" onchange="updatePedQty(\''+i.id+'\',this.value)">'+
+                    '<input class="vi-qty'+(esPorPeso(i)?' vi-qty-peso':'')+'" type="number" value="'+i.cantidad+'" min="1" onchange="updatePedQty(\''+i.id+'\',this.value)">'+
                     '<span class="vi-sub">$'+sub.toLocaleString('es-AR')+'</span>'+
                     '<button class="vi-remove" onclick="removePedItem(\''+i.id+'\')"><i class="bi bi-x"></i></button>'+
                     '</div>';
@@ -6749,7 +6749,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                     '<button onclick="toggleMayDsc(\''+i.id+'\')" style="background:none;border:1px solid var(--border);color:#e6a817;border-radius:4px;padding:1px 5px;cursor:pointer;font-size:0.75rem;font-weight:700" title="Descuento individual">%</button>'+
                     dscInput+
                     (esPorPeso(i)?'':'<span style="color:var(--text-dim)">x</span>')+
-                    '<input class="vi-qty" type="number" value="'+i.cantidad+'" min="1" step="'+(esPorPeso(i)?'50':'1')+'" onchange="updateVentaMayQty(\''+i.id+'\',this.value)">'+(esPorPeso(i)?'<span style="color:var(--text-dim);font-size:0.76rem">g</span>':'')+
+                    '<input class="vi-qty'+(esPorPeso(i)?' vi-qty-peso':'')+'" type="number" value="'+i.cantidad+'" min="1" step="'+(esPorPeso(i)?'50':'1')+'" onchange="updateVentaMayQty(\''+i.id+'\',this.value)">'+(esPorPeso(i)?'<span style="color:var(--text-dim);font-size:0.76rem">g</span>':'')+
                     '<span class="vi-sub">$'+sub.toLocaleString('es-AR')+'</span>'+
                     '<button class="vi-remove" onclick="removeVentaMayItem(\''+i.id+'\')"><i class="bi bi-x"></i></button>'+
                     (i.__detalle?'<span class="vi-escala">'+esc(i.__detalle)+'</span>':'')+(i.__falta?'<span class="vi-falta"><i class="bi bi-exclamation-triangle"></i> '+esc(i.__falta)+'</span>':'')+
