@@ -2431,7 +2431,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const el=document.getElementById('pNombre');
             const ayuda=document.getElementById('pNombreAyuda');
             if(!el||!ayuda)return;
-            const n=claveProducto(el.value);
+            const n=claveProducto(typeof nombreQueSeGuarda==='function'?nombreQueSeGuarda(el.value):el.value);
             if(!n){ ayuda.textContent=''; return; }
             const lista=document.getElementById('pLista')?.value||'';
             const otros=(allProducts||[]).filter(p=>p.id!==editingId&&claveProducto(p.nombre)===n);
@@ -2616,7 +2616,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             /* El nombre interno tampoco se repite dentro de la misma lista. Se valida
                ACA, antes de subir la imagen, por el mismo motivo que los codigos. */
             const _nomCampo=document.getElementById('pNombre');
-            const _chkNom=await validarNombreProducto(_nomCampo?.value, _listaVal, editingId, _nomCampo?.dataset.original||'');
+            /* En una variante nueva, el nombre con el que se guarda (ver nombreQueSeGuarda en admin-variantes.js). */const _chkNom=await validarNombreProducto((typeof nombreQueSeGuarda==='function'?nombreQueSeGuarda(_nomCampo?.value):_nomCampo?.value), _listaVal, editingId, _nomCampo?.dataset.original||'');
             if(_chkNom.error){showAdminToast(_chkNom.error,'error');if(_nomCampo)_nomCampo.focus();return;}
             if(_chkNom.confirmar&&!await pedirConfirmacion(_chkNom.confirmar,{titulo:'Nombre repetido',aceptar:'Guardar igual',cancelar:'Volver',icono:'bi-files'})){if(_nomCampo)_nomCampo.focus();return;}
             if(_chkNom.aviso)showAdminToast(_chkNom.aviso,'info');

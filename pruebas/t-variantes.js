@@ -549,6 +549,26 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('una nueva sin costo no', w.ctx.faltaPresentacionDeVariante() === true && /Poné el costo de la bolsa de 3 kg/.test(w.avisos.join()));
   }
 
+  {
+    /* La regla de Jero (21/09): el nombre interno no se repite en la misma lista. Las filas
+       nuevas se crean directo, sin validarNombreProducto: lo revisa faltaPresentacionDeVariante. */
+    const w = armar();
+    vm.runInContext(cuerpo(html, 'claveProducto'), w.ctx);
+    w.ctx.openModal();
+    w.ctx.allProducts.find(p => p.id === 'chia').lista = 'L1';
+    w.porId.pNombre.value = 'Chía';
+    w.porId.pLista.value = 'L1';
+    w.porId.pGramaje.value = '500 g';
+    w.porId.pCosto.value = '3000';
+    w.ctx.varFilaAgregar();
+    w.ctx.varFilaCambio(0, 'tam', '250 g');
+    w.ctx.varFilaCambio(0, 'costoIn', '1500');
+    t('una fila nueva cuyo nombre ya está en la lista no se crea ("Chía x 250 g" ya existe en esa lista)', w.ctx.faltaPresentacionDeVariante() === true &&
+      /En esta lista ya hay un producto llamado "Chía x 250 g"/.test(w.avisos.join()), w.avisos.join(' | '));
+    w.porId.pLista.value = 'L2';
+    t('  en otra lista, sí (puede ser de otro proveedor)', w.ctx.faltaPresentacionDeVariante() === false);
+  }
+
   console.log('\n-- el formulario: al guardar --');
   {
     const w = armar({ tipo: 'peso' });
@@ -703,6 +723,10 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('guardar sin su presentación no deja', w.ctx.faltaPresentacionDeVariante() === true && /error: Poné la presentación/.test(w.avisos.join()));
     w.porId.pGramaje.value = '160 g';
     t('  con la presentación, sí', w.ctx.faltaPresentacionDeVariante() === false);
+    t('el nombre que se revisa por repetido es el que se guarda ("Maní x 160 g"), no el del campo, que es el del principal',
+      w.ctx.nombreQueSeGuarda('Maní') === 'Maní x 160 g' && w.ctx.nombreQueSeGuarda(' Maní salado ') === 'Maní salado');
+    t('  y admin.html lo usa al guardar y en el aviso en vivo', html.indexOf("validarNombreProducto((typeof nombreQueSeGuarda==='function'?nombreQueSeGuarda(_nomCampo?.value):_nomCampo?.value)") > 0 &&
+      html.indexOf("const n=claveProducto(typeof nombreQueSeGuarda==='function'?nombreQueSeGuarda(el.value):el.value);") > 0);
     const d = w.ctx.datosDeVarianteNueva({ nombre: 'Maní', gramaje: '160 g' });
     t('queda enganchada al principal', d.gramajePadreId === 'mani80');
     t('  y con el nombre precargado se le suma la presentación', d.nombre === 'Maní x 160 g');

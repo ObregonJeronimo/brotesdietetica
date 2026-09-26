@@ -1171,6 +1171,9 @@ function datosCajaCerrada(data, id) {
   /* La primera fila de la tabla es este producto: lo que se escribe arriba la sigue. */
   const g = document.getElementById('pGramaje');
   if (g) g.addEventListener('input', () => {
+    /* En una variante nueva, el tamaño cambia el nombre con el que se guarda: el aviso de
+       nombre repetido de admin.html (_pintarEstadoNombre) se vuelve a mirar. */
+    if (window._varianteDeNueva && typeof _pintarEstadoNombre === 'function') _pintarEstadoNombre();
     const t = document.getElementById('pVarTam');
     if (t && document.activeElement !== t) {
       const p = _tamPartes(g.value, _varEsPeso());
@@ -1256,6 +1259,21 @@ function faltaPresentacionDeVariante() {
     if (vistos.has(c.unidad + c.valor)) { aviso('Hay dos del mismo tamaño: ' + f.tam + '.'); foco(i, '.vfe-tam input'); return true; }
     vistos.add(c.unidad + c.valor);
     if (!f.id && !(_varMonto(f.costoIn) > 0)) { aviso('Poné el costo de la ' + que + ' de ' + f.tam + '.'); foco(i, '.vfe-costo input'); return true; }
+    /* El nombre que va a tener no puede estar ya en la lista: dos fichas con el mismo
+       nombre son dos precios y dos stocks para lo mismo (la regla de validarNombreProducto
+       en admin.html). Las filas nuevas se crean directo, sin pasar por esa validación. */
+    if (!f.id && typeof claveProducto === 'function') {
+      const nb = String((n && n.value) || '').trim();
+      const nom = _nombreConTam(baseDeNombre(nb) || nb, String(f.tam).trim());
+      const lista = String((document.getElementById('pLista') || {}).value || '');
+      const choca = _varProds().find(x => x && String(x.lista || '') === lista && claveProducto(x.nombre) === claveProducto(nom));
+      if (choca) {
+        aviso('En esta lista ya hay un producto llamado "' + (choca.nombreMostrado || choca.nombre) + '"' + (choca.codigo ? ' (código ' + choca.codigo + ')' : '') +
+          '. Si es el mismo, no lo cargues de nuevo: enganchalo con "Asociar uno existente" desde la tabla de Productos.');
+        foco(i, '.vfe-tam input');
+        return true;
+      }
+    }
     if (!peso && f.caja && !((Number(f.pctMay) || 0) > 0)) {
       aviso('La caja cerrada de ' + f.tam + ' se cobra al precio mayorista: poné su % mayorista (con 0 se vendería al costo).');
       foco(i, '.vfe-pctmay input');
@@ -1274,6 +1292,18 @@ function datosDeVarianteNueva(data) {
   const base = window._varianteNombreBase;
   if (base && data.nombre === base && data.gramaje) data.nombre = _nombreConTam(base, data.gramaje);
   return data;
+}
+/* El nombre con el que se va a guardar: en una variante nueva con el nombre precargado,
+   el de datosDeVarianteNueva ("Maní" y "160 g" dan "Maní x 160 g"). El chequeo de nombre
+   repetido de admin.html (validarNombreProducto, de Jero, 21/09) tiene que mirar ESE: con
+   el del campo chocaba con su principal, que se llama igual, y no dejaba crear la
+   variante (al traer sus cambios, 26/09). */
+function nombreQueSeGuarda(nombre) {
+  const n = String(nombre == null ? '' : nombre).trim();
+  const base = window._varianteNombreBase;
+  const g = document.getElementById('pGramaje');
+  const gram = g ? String(g.value || '').trim() : '';
+  return (window._varianteDeNueva && base && n === base && gram) ? _nombreConTam(base, gram) : n;
 }
 
 /* Crea las filas nuevas y guarda las que se tocaron. El producto ya está guardado:
