@@ -120,7 +120,7 @@ function _iniOtrasBolsas(p, prods) {
    EL NEGATIVO NO APARECE (pedido del dueño, 26/09). Ojo: el mostrador ya no vende sin
    stock, pero un pedido WEB todavía puede dejarlo en negativo (descontarStockPedido
    descuenta aunque no alcance). Ese producto queda sin stock para el mostrador y acá
-   no se ve; la campana sí lo cuenta. */
+   no se ve; la campana sí lo cuenta. El dueño lo decidió así sabiéndolo (26/09). */
 function sinStockQueSeVende(prods, vendido) {
   const lista = [], bolsas = [];
   let quietos = 0;

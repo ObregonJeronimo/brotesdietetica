@@ -1453,7 +1453,7 @@ quedar frenados en el mostrador.
   **El aviso de costos depende del backfill de `costoActualizadoEn`**: sin fechas dice que no
   se sabe (no dice "al día"). El dueño la vio y le gustó; pidió dos ajustes, ya hechos: **el
   stock negativo no aparece** (ojo: el mostrador ya no vende sin stock, pero un pedido web todavía puede
-  dejarlo en negativo; esos no se ven en Inicio. **Decisión pendiente del dueño**), y en "Revisar costos" **solo
+  dejarlo en negativo; esos no se ven. **Decidido por el dueño el 26/09: quedan ocultos**), y en "Revisar costos" **solo
   sale de la lista el costo que se cambia** (o el que se tilda "Sigue igual"); al vender el
   editor sigue confirmando todo.
 - **Ticket del pedido:** "Imprimir ticket del pedido" en la ventana del pedido
