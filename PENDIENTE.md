@@ -1375,7 +1375,7 @@ en producción, y eso se avisa antes.
 
 ---
 
-### M) Variantes: presentaciones, escalas de granel y cajas cerradas · **HECHO EN EL SANDBOX, SIN SUBIR** (25/09/2026)
+### M) Variantes: presentaciones, escalas de granel y cajas cerradas · **SUBIDO A PRODUCCIÓN el 27/09/2026** (hecho el 25/09)
 
 Pedido del comercio (24/09): un producto que viene en varios tamaños es UNO —una tarjeta en
 la tienda, una fila en la venta— y cada tamaño tiene su costo, su ganancia y su stock.
@@ -1413,6 +1413,27 @@ quedar frenados en el mostrador.
 - backfill de `costoActualizadoEn` para el momento de la subida;
 - si se decide el pendiente 1 de abajo, desplegar también las reglas.
 
+**Subido el 27/09/2026**, con la clienta sin usar el sistema (lo pidió el dueño):
+- push a `main` hasta `1ddf88e` (M, N y los arreglos de la revisión del 27/09). Vercel publicó y se
+  comprobó que sirve los mismos archivos que el repo (panel, módulos, `app.min.js`, estilos);
+- functions: `descontarStockPedido` actualizada y `registrarCambioDeCosto` creada (southamerica-east1),
+  sin errores en sus logs;
+- `costoActualizadoEn` cargado en los 1316 productos (27/09, 18:46; solo ese campo, probado primero
+  en uno). Los avisos de costo viejo empiezan a salir desde el 27/10 en los que no cambien de costo;
+- la tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesión en el panel);
+- las reglas no cambiaron: el pendiente 1 de abajo sigue sin decidir.
+
+**Lo que falta después de subir:**
+- **avisarle a la clienta del freno de stock**: el 27/09 había 154 de los 344 productos a la venta sin
+  stock (123 en 0 y 31 en negativo). Esos no se pueden vender en el mostrador hasta cargarles stock con
+  "Agregar stock";
+- probar el ticket del pedido en la impresora térmica;
+- las ventas viejas guardadas como envío sin cargo (el default de antes) siguen diciendo "Envío" en la
+  lista y en el ticket hasta que se editan: si se quieren pasar todas a retiro, es un cambio de datos
+  para decidir con la clienta;
+- **la migración (etapa 4)**: antes, hablar con la clienta. Hasta entonces el sistema anda con los
+  productos como están (no se agrupan solos).
+
 **Pendientes (anotados el 25/09/2026):**
 
 1. **Los pedidos telefónicos no se pueden crear desde el panel.** `firestore.rules` solo deja
@@ -1434,7 +1455,7 @@ quedar frenados en el mostrador.
    uno, como `vistaItemsVenta` en la venta ("Maní Pelado 2 kg $3.200"), sumando los
    subtotales de cada renglón para que el total no cambie. Probarlo con la impresora.
 
-### N) Pedidos del 26/09 en el panel, e "Inicio del día" (experimental) · **HECHO EN EL SANDBOX, SIN SUBIR** (26/09/2026)
+### N) Pedidos del 26/09 en el panel, e "Inicio del día" (experimental) · **SUBIDO A PRODUCCIÓN el 27/09/2026** (hecho el 26-27/09)
 
 - **Productos:** las listas de proveedores detrás del botón "Ver listas de proveedores"
   (abierto de entrada), en un recuadro y con buscador. La elegida ya no salta al principio:
@@ -1450,7 +1471,7 @@ quedar frenados en el mostrador.
   que tiene otra va aparte), los **costos viejos de lo que se vende**, de a 10 y con el mismo
   editor que sale al vender, lo que **se está por terminar** al ritmo del último mes y la caja
   abierta de otro día. Lee las ventas de 30 días una vez por día (~250 lecturas en producción).
-  **El aviso de costos depende del backfill de `costoActualizadoEn`**: sin fechas dice que no
+  **El aviso de costos depende del backfill de `costoActualizadoEn`** (hecho al subir, el 27/09): sin fechas dice que no
   se sabe (no dice "al día"). El dueño la vio y le gustó; pidió dos ajustes, ya hechos: **el
   stock negativo no aparece** (ojo: el mostrador ya no vende sin stock, pero un pedido web todavía puede
   dejarlo en negativo; esos no se ven. **Decidido por el dueño el 26/09: quedan ocultos**), y en "Revisar costos" **solo
