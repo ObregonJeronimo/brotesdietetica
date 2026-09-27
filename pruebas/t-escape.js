@@ -95,5 +95,29 @@ t('el panel del desplegable es .selb-panel y se esconde con hidden',
   /panel\.className = 'selb-panel'/.test(selector) && /panel\.hidden = true/.test(selector));
 t('atajos mira si el panel se ve, no solo si no está hidden', /offsetParent !== null/.test(atajos));
 
+console.log('\n-- las teclas no andan con una ventana abierta encima (revisión del 27/09) --');
+{
+  /* La ventana de costos se abre desde Productos o el Centro de avisos sin un modal atrás:
+     las teclas cambiaban de sección o abrían una venta escondida detrás. */
+  const llamados = [];
+  let escucha = null;
+  const estado = { dialogo: true };
+  const document = {
+    addEventListener: (tipo, fn) => { if (tipo === 'keydown') escucha = fn; },
+    getElementById: () => null,
+    querySelector: sel => (sel.split(',').map(s => s.trim()).some(s => s === '.dlg-overlay' && estado.dialogo) ? {} : null),
+    querySelectorAll: () => [],
+  };
+  const ctx = { document, window: {}, setTimeout, clearTimeout, console };
+  vm.runInNewContext(atajos, ctx);
+  ctx.openAtajosAyuda = () => llamados.push('ayuda');
+  const tecla = k => ({ key: k, target: { tagName: 'BUTTON' }, ctrlKey: false, altKey: false, metaKey: false, preventDefault() {} });
+  escucha(tecla('?'));
+  t('con la ventana de costos abierta y el foco en un botón, "?" no abre nada detrás', llamados.length === 0);
+  estado.dialogo = false;
+  escucha(tecla('?'));
+  t('  cerrada, sí', llamados.join() === 'ayuda');
+}
+
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

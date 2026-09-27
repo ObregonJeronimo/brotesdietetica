@@ -96,11 +96,15 @@ function _iniCant(x, n) {
    misma venta, pero cada bolsa tiene su propio id y cuenta una vez. */
 function vendidoPorProducto(ventas) {
   const out = {};
-  (ventas || []).forEach(v => {
+  (ventas || []).forEach((v, k) => {
     const vistos = new Set();
+    /* En qué ventas salió (enVentas): para contar las de un producto con bolsas sin repetir
+       la venta que sacó de dos (costosParaRevisar; revisión del 27/09). */
+    const venta = (v && (v.docId || v.id)) || ('#' + k);
     ((v && v.items) || []).forEach(i => {
       if (!i || !i.id) return;
-      const x = out[i.id] || (out[i.id] = { veces: 0, cantidad: 0, monto: 0 });
+      const x = out[i.id] || (out[i.id] = { veces: 0, cantidad: 0, monto: 0, enVentas: new Set() });
+      x.enVentas.add(venta);
       if (!vistos.has(i.id)) { x.veces++; vistos.add(i.id); }
       x.cantidad += Number(i.cantidad || 0);
       x.monto += (i.subtotal != null) ? Number(i.subtotal || 0)
@@ -159,13 +163,18 @@ function costosParaRevisar(prods, vendido, ahora) {
   const hoyDia = _iniDia(hoy);
   const aLaVenta = (prods || []).filter(_iniALaVenta);
   /* El producto de cada uno: el id del principal, como principalDeVariante (el suyo si
-     no es una variante), y en cuántas ventas salió el producto. */
+     no es una variante), y en qué ventas salió el producto: cada venta una vez, aunque haya
+     sacado de dos bolsas (sumando las bolsas se contaba dos veces y el producto pasaba
+     adelante de otros que se venden más; revisión del 27/09). */
   const ids = new Set((prods || []).map(p => p && p.id));
   const grupo = p => (p.gramajePadreId && ids.has(p.gramajePadreId) ? p.gramajePadreId : p.id);
   const ventasGrupo = {};
   if (vendido) aLaVenta.forEach(p => {
     const v = vendido[p.id];
-    if (v) ventasGrupo[grupo(p)] = (ventasGrupo[grupo(p)] || 0) + v.veces;
+    if (!v) return;
+    const s = ventasGrupo[grupo(p)] || (ventasGrupo[grupo(p)] = new Set());
+    if (v.enVentas) v.enVentas.forEach(x => s.add(x));
+    else for (let k = 0; k < v.veces; k++) s.add(p.id + '#' + k);
   });
   const viejos = [];
   let sinFecha = 0, quietos = 0, revisadosHoy = 0;
@@ -181,7 +190,7 @@ function costosParaRevisar(prods, vendido, ahora) {
     viejos.push({ producto: p, fecha: f, dias: dias, v: (vendido && vendido[p.id]) || null, grupo: g });
   });
   /* Primero el producto que más se vende (y el más viejo); sus bolsas, juntas. */
-  const veces = x => ventasGrupo[x.grupo] || 0;
+  const veces = x => (ventasGrupo[x.grupo] ? ventasGrupo[x.grupo].size : 0);
   const masViejo = {};
   viejos.forEach(x => { masViejo[x.grupo] = Math.max(masViejo[x.grupo] || 0, x.dias); });
   viejos.sort((a, b) => (veces(b) - veces(a)) || (masViejo[b.grupo] - masViejo[a.grupo]) ||
@@ -480,7 +489,9 @@ function _iniHtmlCostos(c) {
   }
   const n = c.viejos.length, t = c.tanda.length;
   const filas = c.tanda.map(x => _iniFila(_iniNombre(x.producto), _iniVendidoTxt(x.v),
-    'Costo: ' + _iniPlata(x.producto.costo) + (_iniPeso(x.producto) ? ' el kilo' : ''),
+    /* En una bolsa, lo de la bolsa: la ventana que abre "Revisar" la pide así (revisión del 27/09). */
+    'Costo: ' + (typeof costoActualTxt === 'function' ? costoActualTxt(x.producto)
+      : _iniPlata(x.producto.costo) + (_iniPeso(x.producto) ? ' el kilo' : '')),
     'sin revisar hace ' + x.dias + ' días', '')).join('');
   const boton = '<button type="button" class="btn btn-primary btn-sm" data-ini="costos"><i class="bi bi-pencil-square"></i> ' +
     (t === 1 ? 'Revisar este costo' : 'Revisar estos ' + t + ' costos') + '</button>';

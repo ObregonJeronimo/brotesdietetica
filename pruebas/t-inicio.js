@@ -230,6 +230,55 @@ console.log('\n-- costos viejos de lo que se vende --');
   t('  sin bolsas, el nombre de siempre', h.indexOf('<b>Alfajor</b>') > 0);
 }
 
+{
+  /* Revisión del 27/09, #15: una venta que sacó de dos bolsas cuenta una vez. */
+  const prods = [
+    { id: 'g1', nombre: 'Granola', tipoVenta: 'peso', gramaje: '1 kg', stock: 5000, costo: 1000, precio: 2000, costoActualizadoEn: hace(60) },
+    { id: 'g3', nombre: 'Granola x 3 kg', tipoVenta: 'peso', gramaje: '3 kg', gramajePadreId: 'g1', stock: 5000, costo: 900, precio: 1800, costoActualizadoEn: hace(60) },
+  ];
+  for (let i = 0; i < 9; i++) prods.push({ id: 's' + i, nombre: 'S' + i, stock: 5, costo: 100, precio: 200, costoActualizadoEn: hace(45) });
+  const ventasX = [];
+  for (let k = 0; k < 4; k++) ventasX.push({ docId: 'gv' + k, items: [it('g1', 700, 2000, 1000, 'peso'), it('g3', 2300, 2000, 900, 'peso')] });
+  for (let i = 0; i < 9; i++) for (let k = 0; k < 6; k++) ventasX.push({ docId: 's' + i + 'v' + k, items: [it('s' + i, 1, 200, 100)] });
+  const { ctx } = armar({ productos: prods });
+  const ids = ctx.costosParaRevisar(prods, ctx.vendidoPorProducto(ventasX), AHORA).viejos.map(x => x.producto.id);
+  t('un granel vendido en 4 ventas, cada una de dos bolsas, cuenta 4 (no 8): va después de los de 6 ventas',
+    ids.indexOf('g1') === 9 && ids.indexOf('g3') === 10, ids.join());
+}
+{
+  /* #3 y #4: el nombre con el tamaño. */
+  const prods = [
+    { id: 'p1', nombre: 'Mani Pelado', nombreMostrado: 'Mani Pelado Premium', gramaje: '1 kg', tipoVenta: 'peso' },
+    { id: 'p2', nombre: 'Mani Pelado x 2 kg', gramaje: '2 kg', tipoVenta: 'peso', gramajePadreId: 'p1' },
+    { id: 'h1', nombre: 'Harina x 25 Kg', gramaje: '25kg', tipoVenta: 'peso' },
+    { id: 'h5', nombre: 'Harina x 5 Kg', gramaje: '5kg', tipoVenta: 'peso', gramajePadreId: 'h1' },
+    { id: 'n1', nombre: 'Nuez', nombreMostrado: 'Nuez mariposa', tipoVenta: 'peso' },
+    { id: 'n2', nombre: 'Nuez x 2 kg', gramaje: '2 kg', tipoVenta: 'peso', gramajePadreId: 'n1' },
+  ];
+  const m = armar({ productos: prods });
+  const nom = id => m.run('_iniNombre(allProducts.find(p => p.id === "' + id + '"))');
+  t('con bolsas va el nombre interno, como las otras: "Mani Pelado x 1 kg" (no "Mani Pelado Premium x 1 kg")',
+    nom('p1') === 'Mani Pelado x 1 kg' && nom('p2') === 'Mani Pelado x 2 kg', [nom('p1'), nom('p2')]);
+  t('  el tamaño escrito de otra forma no se repite: "Harina x 25 Kg" con gramaje "25kg"', nom('h1') === 'Harina x 25 Kg' && nom('h5') === 'Harina x 5 Kg',
+    [nom('h1'), nom('h5')]);
+  t('  sin tamaño no se agrega nada: "Nuez", no "Nuez x Nuez mariposa"', nom('n1') === 'Nuez' &&
+    m.run('_nombreConPresentacion(allProducts.find(p => p.id === "n1"))') === 'Nuez');
+  t('  sin bolsas, el nombre público de siempre', m.run('_iniNombre({ id: "z", nombre: "Alfajor", nombreMostrado: "Alfajor de maicena" })') === 'Alfajor de maicena');
+}
+{
+  /* #2: la tarjeta de costos dice el costo como lo pide la ventana: en una bolsa, lo de la bolsa. */
+  const prods = [
+    { id: 'n1', nombre: 'Nuez', tipoVenta: 'peso', gramaje: '1 kg', stock: 3000, costo: 1000, precio: 2000, costoActualizadoEn: hace(60) },
+    { id: 'n2', nombre: 'Nuez x 2 kg', tipoVenta: 'peso', gramaje: '2 kg', gramajePadreId: 'n1', stock: 2000, costo: 800, precio: 1600, costoActualizadoEn: hace(60) },
+  ];
+  const r = armar({ productos: prods, ventas: [{ docId: 'w1', fecha: hace(2, 11), items: [it('n1', 1000, 2000, 1000, 'peso')], total: 2000 }] });
+  r.run('_iniListo = true;');
+  await r.ctx.refrescarInicio(false);
+  const h = r.cuerpoIni.innerHTML;
+  t('la tarjeta de costos dice lo de la bolsa, como lo pide la ventana: "$1.600 la bolsa ($800 el kilo)"',
+    h.indexOf('Costo: $1.600 la bolsa ($800 el kilo)') > 0 && h.indexOf('Costo: $1.000 la bolsa') > 0);
+}
+
 /* ================================================= POR TERMINARSE */
 console.log('\n-- lo que se está por terminar --');
 {

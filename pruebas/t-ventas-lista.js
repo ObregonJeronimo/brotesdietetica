@@ -106,6 +106,15 @@ console.log('\n-- el panel --');
     .every(id => html.split('id="' + id + '"').length === 2));
   t('  y el buscador sigue en un .search-box (el atajo "/" lo busca ahí)', /<div class="search-box campo-destacado"><i class="bi bi-search"><\/i><input type="text" placeholder="Buscar por cliente, número o medio de pago\.\.\." id="ventaSearch"/.test(html));
 }
+{
+  /* Revisión del 27/09, #8: con los envíos apagados, editar una venta vieja guardada como envío
+     sin cargo (lo hacía el default de antes) la pasa a retiro; una con envío cobrado queda. */
+  const min = html.indexOf("if(typeof HACE_ENVIOS!=='undefined'&&HACE_ENVIOS===false&&ventaTipoEntrega==='envio'&&!(Number(v.envio)>0))ventaTipoEntrega='retiro';");
+  const may = html.indexOf("if(typeof HACE_ENVIOS!=='undefined'&&HACE_ENVIOS===false&&ventaMayTipoEntrega==='envio'&&!(Number(v.envio)>0))ventaMayTipoEntrega='retiro';");
+  t('editar una venta vieja con los envíos apagados: envío sin cargo pasa a retiro (minorista)', min > 0 &&
+    min > html.indexOf("ventaTipoEntrega=v.tipoEntrega||'envio';") && min < html.indexOf('ventaClienteSelected=true;', min));
+  t('  y en la mayorista, antes de marcar el botón', may > 0 && may < html.indexOf("#ventaMayModal .entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaMayTipoEntrega))", may));
+}
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

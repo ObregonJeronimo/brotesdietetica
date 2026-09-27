@@ -130,11 +130,14 @@ function _ayudaCajaHtml() {
     '<i class="bi bi-question-circle"></i></span>';
 }
 /* El "?" del redondeo de las bolsas (pedido del dueño, 27/09). La bolsa se muestra desde el
-   costo del kilo, que se guarda sin centavos: a veces sale $1 de más o de menos. Lo más
-   importante para la dueña: que NO se pierde plata. Por eso va primero. */
-const _AYUDA_REDONDEO = 'NO SE PIERDE DINERO. A veces la bolsa muestra $1 más o $1 menos de lo que cargaste: es solo un redondeo. ' +
-  'El sistema guarda el costo del kilo sin centavos y calcula la bolsa a partir de ese kilo. Por ejemplo: la bolsa de 3 kg a $2.000 ' +
-  'da $666,67 el kilo; se guarda $667, y la bolsa se ve como $2.001. Los precios se siguen calculando con tu mismo porcentaje de ganancia.';
+   costo del kilo, que se guarda sin centavos: a veces sale unos pesos de más o de menos. Lo
+   más importante para la dueña: que NO se pierde plata. Por eso va primero. La diferencia
+   es de hasta medio peso por kilo: $1 en una bolsa de 3 kg, $12 en una de 25 kg (decía
+   "$1" y en las grandes no era cierto; revisión del 27/09). */
+const _AYUDA_REDONDEO = 'NO SE PIERDE DINERO. Es solo un redondeo: el sistema guarda el costo del kilo sin centavos y calcula la ' +
+  'bolsa a partir de ese kilo. Por ejemplo: la bolsa de 3 kg a $2.000 da $666,67 el kilo; se guarda $667 y la bolsa se ve como $2.001. ' +
+  'En las bolsas grandes la diferencia puede ser de algunos pesos (hasta $12 en una de 25 kg), pero siempre son centavos por kilo, ' +
+  'y los precios se siguen calculando con tu mismo porcentaje de ganancia.';
 /* La pregunta, con el "?" adelante; el cartel se abre hacia la derecha, más ancho, y hacia
    abajo (o hacia arriba, al pie del panel de la tabla). El cartelito de siempre se abre
    arriba y a la izquierda, y así quedaba cortado arriba de una ventana que scrollea o al
@@ -142,7 +145,7 @@ const _AYUDA_REDONDEO = 'NO SE PIERDE DINERO. A veces la bolsa muestra $1 más o
 function ayudaRedondeoLineaHtml(haciaArriba) {
   return '<p class="ayuda-linea"><span class="ayuda-tip der ancho' + (haciaArriba ? '' : ' abajo') + '" tabindex="0" role="img" aria-label="' +
     _varAttr(_AYUDA_REDONDEO) + '" data-tip="' + _varAttr(_AYUDA_REDONDEO) + '"><i class="bi bi-question-circle"></i></span>' +
-    ' ¿Por qué a veces la bolsa muestra $1 de más o de menos?</p>';
+    ' ¿Por qué a veces la bolsa muestra unos pesos de más o de menos?</p>';
 }
 
 /* La casilla de una fila. El "?" va afuera del label: adentro, tocarlo marcaría la casilla. */
@@ -373,11 +376,23 @@ function faltantesDeStock(items, ctx) {
 /* "Maní RC x 80 g": con presentaciones, cuál es, con la misma forma que el nombre de las
    otras (_nombreConTam: "Maní RC x 160 g", "Alfajor x12"). Antes iba entre paréntesis, y
    "Maní Pelado (1 kg)" al lado de "Maní Pelado x 2 kg" parecían dos formas distintas
-   (chequeo del dueño, 26/09). El nombre interno, el mismo que se ve en la línea de la
-   venta (el público puede ser otro: "Maní recubierto de chocolate"); o el que se pase. */
+   (chequeo del dueño, 26/09). Sin presentaciones, el nombre que se pase (o el interno).
+   Revisión del 27/09:
+   - Con presentaciones va SIEMPRE el nombre interno, el de la línea de la venta: las otras
+     no tienen nombre público, y con el del principal ("Maní Pelado Premium x 1 kg" arriba
+     de "Maní Pelado x 2 kg") parecían dos productos.
+   - El tamaño se agrega solo si el nombre no lo dice ya, comparando lo que miden y no el
+     texto: "Harina x 25 Kg" con gramaje "25kg" salía "Harina x 25 Kg x 25kg".
+   - Sin gramaje ni tamaño en el nombre no se agrega nada: etiquetaVariante devuelve el
+     nombre, y salía "Nuez x Nuez mariposa". */
 function _nombreConPresentacion(p, nombre) {
-  const n = nombre != null ? String(nombre) : (p.nombre || p.nombreMostrado || '');
-  const e = tieneVariantes(p, _varProds()) ? String(etiquetaVariante(p) || '') : '';
+  if (!tieneVariantes(p, _varProds())) return nombre != null ? String(nombre) : (p.nombre || p.nombreMostrado || '');
+  const n = p.nombre || p.nombreMostrado || '';
+  const c = contenidoDeVariante(p);
+  if (!p.gramaje && !c) return n;
+  const dice = c ? contenidoDeVariante({ nombre: n }) : null;
+  if (dice && dice.valor === c.valor && dice.unidad === c.unidad) return n;
+  const e = String(etiquetaVariante(p) || '');
   return e && n.toLowerCase().indexOf(e.toLowerCase()) < 0 ? _nombreConTam(n, e) : n;
 }
 /* Los gramos de la bolsa, si es una bolsa de un granel con otras (una variante por peso
@@ -393,6 +408,11 @@ function gramosDeBolsa(p, productos) {
   const c = contenidoDeVariante(p);
   return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
 }
+/* El costo de la bolsa desde el del kilo, y al revés: UNA sola cuenta para la ventana de
+   costos y la tabla, la misma del formulario (costo × gramos / 1000). Con dos cuentas
+   distintas, la tabla y la ventana que abre mostraban $1 de diferencia (revisión del 27/09). */
+function costoDeBolsa(costoKilo, gramos) { return Math.round(Number(costoKilo || 0) * gramos / 1000); }
+function kiloDeBolsa(costoBolsa, gramos) { return Math.round(Number(costoBolsa || 0) * 1000 / gramos); }
 /* Lo que dice la línea de la venta. */
 function textoFaltaStock(f) {
   return f.hay > 0 ? 'Solo hay ' + _cantConUnidad(f.producto, f.hay) + ' en stock: así no se puede vender' : 'Sin stock: no se puede vender';
@@ -1536,14 +1556,14 @@ function panelPresentacionesHtml(p) {
    bolsa (como se carga en el formulario) y abajo el kilo. Tocarla abre la ventana de costos
    con todas las del producto: se cambia el costo y el precio sale solo, con su porcentaje. */
 function _costoCeldaHtml(p, m) {
-  const costo = Math.round(Number(m.costo || 0));
+  const costo = Number(m.costo || 0);
   const g = gramosDeBolsa(m);
   const pesos = n => '$' + Math.round(n).toLocaleString('es-AR');
   const lapiz = ' <i class="bi bi-pencil"></i>';
   const dentro = !(costo > 0)
     ? '<span class="var-costo-falta">Sin costo' + lapiz + '</span>'
     : g
-      ? '<span><b>' + pesos(costo * g / 1000) + '</b> <small>la bolsa</small>' + lapiz + '</span>' +
+      ? '<span><b>' + pesos(costoDeBolsa(costo, g)) + '</b> <small>la bolsa</small>' + lapiz + '</span>' +
         (g !== 1000 ? '<small>' + pesos(costo) + ' el kilo</small>' : '')
       : '<span><b>' + pesos(costo) + '</b>' + (m.tipoVenta === 'peso' ? ' <small>el kilo</small>' : '') + lapiz + '</span>';
   return '<button type="button" class="var-costo-btn" onclick="cambiarCostosDeGrupo(\'' + _varAttr(p.id) + '\', \'' + _varAttr(m.id) + '\')"' +

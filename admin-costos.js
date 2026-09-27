@@ -89,19 +89,50 @@ const _costoLeer = v => Math.round(Number(typeof montoAR === 'function' ? montoA
    $2.000 la bolsa de 3 kg se guarda como $667 el kilo (y vuelve como $2.001: el kilo va
    en pesos enteros). gramosDeBolsa está en admin-variantes.js. */
 const _costoGramos = p => (typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p) : null);
-const _costoEscrito = (p, g) => Math.round(Number((p && p.costo) || 0) * (g ? g / 1000 : 1));
-const _costoGuardado = (n, g) => (g ? Math.round(n * 1000 / g) : n);
+/* Con g hay admin-variantes.js (gramosDeBolsa), y con él costoDeBolsa y kiloDeBolsa. */
+const _costoEscrito = (p, g) => (g ? costoDeBolsa(p && p.costo, g) : Math.round(Number((p && p.costo) || 0)));
+const _costoGuardado = (n, g) => (g ? kiloDeBolsa(n, g) : n);
+
+/* El costo por kilo que se guardaría con lo escrito en una fila. Si es lo mismo que se
+   mostró, el que ya tiene: la cuenta de la bolsa al kilo y de vuelta no es exacta (una bolsa
+   de 500 g a $3.001 el kilo se muestra $1.501, que vuelve como $3.002), y una fila sin tocar
+   se guardaba como cambio, con precio nuevo (revisión del 27/09). */
+function _costoDeFila(fila, mostrado, escrito) {
+  const p = fila && fila.producto;
+  return escrito === mostrado ? Math.round(Number((p && p.costo) || 0)) : _costoGuardado(escrito, _costoGramos(p));
+}
+
+/* El costo como se carga: en una bolsa, lo de la bolsa (y el kilo entre paréntesis); si no,
+   por kilo o por unidad. Lo usan el aviso al vender, la ventana y el Centro de avisos: el
+   aviso decía "$4.500 el kilo", la ventana que abre pedía la bolsa, y escribiendo ahí el
+   kilo el costo quedaba en un tercio (revisión del 27/09). */
+function costoActualTxt(p) {
+  const g = _costoGramos(p);
+  if (!g) return _costoPesos(p && p.costo) + _costoUnidad(p);
+  return _costoPesos(_costoEscrito(p, g)) + ' la bolsa' + (g !== 1000 ? ' (' + _costoPesos(p.costo) + ' el kilo)' : '');
+}
 
 /* Lo que queda con el costo que se está escribiendo, al lado del campo (pedido del dueño,
-   27/09): como en la tabla de bolsas del formulario (_resFilaVar), el kilo si es una
-   bolsa, el precio y el mayorista. Con la misma cuenta que al guardar (preciosDesdeCosto). */
+   27/09). Revisión del 27/09:
+   - Es lo mismo que muestra la tabla de bolsas del formulario (_resFilaVar, admin-variantes.js),
+     con la caja cerrada (se cobra el mayorista, y eso va primero) y la oferta.
+   - Con el costo de siempre van los precios que ya tiene (pueden estar redondeados a mano),
+     que son los que quedan al guardar; con otro costo, los que se van a calcular
+     (preciosDesdeCosto). Antes mostraba siempre la cuenta, y contradecía al precio real. */
 function _costoVistaHtml(p, costo, gramos) {
   if (!(costo > 0)) return '<span class="costos-falta">Poné el costo.</span>';
-  const r = preciosDesdeCosto(p, costo);
+  const r = costo === Math.round(Number(p.costo || 0))
+    ? { precio: Number(p.precio || 0), precioMayorista: Number(p.precioMayorista || 0) }
+    : preciosDesdeCosto(p, costo);
+  const may = r.precioMayorista || r.precio;
+  if (typeof _resFilaVar === 'function') {
+    const caja = typeof esCajaCerrada === 'function' && esCajaCerrada(p) && r.precioMayorista > 0;
+    return _resFilaVar({ costo: costo, precio: r.precio, may: may }, p.tipoVenta === 'peso', caja, p.descuento);
+  }
   const kg = _costoUnidad(p);
   return (gramos ? '<span>Costo ' + _costoPesos(costo) + ' el kilo</span>' : '') +
     '<span>Precio <b>' + _costoPesos(r.precio) + '</b>' + kg + '</span>' +
-    '<span class="costos-may">Mayorista ' + _costoPesos(r.precioMayorista) + kg + '</span>';
+    '<span class="costos-may">Mayorista ' + _costoPesos(may) + kg + '</span>';
 }
 
 /* La fecha debajo del costo, en el formulario del producto. */
@@ -128,7 +159,7 @@ async function avisoCostosViejos(items, ctx) {
   if (!viejos.length || typeof pedirOpcion !== 'function') return true;
   const NL = String.fromCharCode(10);
   const lista = viejos.slice(0, 10).map(v =>
-    '• ' + _costoNombre(v.producto) + ': ' + _costoPesos(v.producto.costo) + _costoUnidad(v.producto) +
+    '• ' + _costoNombre(v.producto) + ': ' + costoActualTxt(v.producto) +
     ', cambiado el ' + _costoFechaTxt(v.fecha) + ' (' + _costoHace(v.dias) + ')').join(NL);
   const msg = (viejos.length === 1
       ? 'El costo de este producto está desactualizado hace 1 mes o más:'
@@ -148,15 +179,20 @@ async function avisoCostosViejos(items, ctx) {
 }
 
 /* ------------------------------------------------------------ EL EDITOR */
-let _costosEditor = null;   /* { filas: [{ producto, fecha, dias }], ctx: 'min' | 'may' | 'inicio' } */
+/* { filas: [{ producto, fecha, dias }], escritos: [lo que se mostró en cada campo],
+     ctx: 'min' | 'may' | 'inicio' | 'prod', guardando } */
+let _costosEditor = null;
 
-/* ctx 'inicio': desde Inicio del día (admin-inicio.js), sin una venta abierta atrás. */
+/* ctx 'inicio': desde el Centro de avisos (admin-inicio.js); 'prod': desde el panel de bolsas
+   de Productos (admin-variantes.js). Los dos sin una venta abierta atrás. */
 function abrirEditorCostos(viejos, ctx, focoId) {
   cerrarEditorCostos();
   const inicio = ctx === 'inicio', prod = ctx === 'prod';
   /* Desde el Centro de avisos y desde Productos se guarda solo lo que se toca (guardarEditorCostos). */
   const soloTocados = inicio || prod;
-  _costosEditor = { filas: viejos, ctx: ctx === 'may' ? 'may' : (inicio ? 'inicio' : (prod ? 'prod' : 'min')) };
+  /* Lo que se muestra en cada campo: con eso se sabe al guardar si se tocó (_costoDeFila). */
+  const escritos = viejos.map(v => _costoEscrito(v.producto, _costoGramos(v.producto)));
+  _costosEditor = { filas: viejos, escritos: escritos, ctx: ctx === 'may' ? 'may' : (inicio ? 'inicio' : (prod ? 'prod' : 'min')) };
   const hayBolsas = viejos.some(v => _costoGramos(v.producto));
   const ov = document.createElement('div');
   /* dlg-overlay: así el Escape de admin-atajos.js no cierra la venta de atrás. */
@@ -177,24 +213,23 @@ function abrirEditorCostos(viejos, ctx, focoId) {
             : 'Poné el costo de hoy. Si alguno sigue igual, dejalo como está: al guardar queda ' +
               'confirmado con la fecha de hoy.') + ' El precio se recalcula con el mismo porcentaje de siempre.' +
           (hayBolsas ? ' En las bolsas va lo que costó la bolsa entera, como al cargar el producto.' : '') + '</p>' +
-        (hayBolsas && typeof ayudaRedondeoLineaHtml === 'function' ? ayudaRedondeoLineaHtml() : '') +
         viejos.map((v, i) => {
           const p = v.producto, g = _costoGramos(p), nom = _costoEsc(_costoNombre(p));
-          const actual = g
-            ? 'Costo de la bolsa ' + _costoPesos(_costoEscrito(p, g)) + (g !== 1000 ? ' (' + _costoPesos(p.costo) + ' el kilo)' : '')
-            : 'Costo actual ' + _costoPesos(p.costo) + _costoUnidad(p);
           return '<div class="costos-fila">' +
             '<div class="costos-nom"><b>' + nom + '</b>' +
-              '<div class="costos-sub">' + actual + (v.fecha
+              '<div class="costos-sub">Costo actual ' + costoActualTxt(p) + (v.fecha
                 ? ' · cambiado el ' + _costoFechaTxt(v.fecha) + ' (' + _costoHace(v.dias) + ')' : ' · sin fecha de cambio') + '</div></div>' +
             '<input type="text" inputmode="numeric" class="form-input costos-input" data-i="' + i + '" value="' +
-              _costoEscrito(p, g) + '" aria-label="' + (g ? 'Nuevo costo de la bolsa de ' : 'Nuevo costo de ') + nom + '">' +
-            '<div class="costos-vista" data-i="' + i + '" aria-live="polite">' + _costoVistaHtml(p, Math.round(Number(p.costo || 0)), g) + '</div>' +
+              escritos[i] + '" aria-label="' + (g ? 'Nuevo costo de la bolsa de ' : 'Nuevo costo de ') + nom + '">' +
+            '<div class="costos-vista" data-i="' + i + '" aria-live="polite">' + _costoVistaHtml(p, _costoDeFila(v, escritos[i], escritos[i]), g) + '</div>' +
             (soloTocados ? '<label class="costos-igual" title="El proveedor no aumentó: deja de avisar por un mes">' +
               '<input type="checkbox" class="costos-sigue" data-i="' + i + '"> Sigue igual</label>' : '') +
           '</div>';
         }).join('') +
       '</div>' +
+      /* El "?" del redondeo va abajo, afuera de la lista: adentro (que scrollea) el cartel
+         quedaba cortado, sobre todo con una sola bolsa (revisión del 27/09). */
+      (hayBolsas && typeof ayudaRedondeoLineaHtml === 'function' ? ayudaRedondeoLineaHtml(true) : '') +
       '<div class="dlg-pie">' +
         '<button type="button" class="btn btn-secondary" id="costosVolver">' + (inicio ? 'Ahora no' : (prod ? 'Cancelar' : 'Volver a la venta')) + '</button>' +
         '<button type="button" class="btn btn-primary" id="costosGuardar"><i class="bi bi-check-lg"></i> Guardar costos</button>' +
@@ -208,12 +243,11 @@ function abrirEditorCostos(viejos, ctx, focoId) {
   ov.querySelectorAll('.costos-input').forEach(inp => {
     inp.addEventListener('input', () => {
       if (typeof limpiarMonto === 'function') limpiarMonto(inp);
-      /* Cómo queda, mientras se escribe. */
+      /* Cómo queda, mientras se escribe: con la misma cuenta que al guardar. */
       const i = Number(inp.getAttribute('data-i')), fila = viejos[i];
       const vista = ov.querySelector('.costos-vista[data-i="' + i + '"]');
       if (!fila || !vista) return;
-      const g = _costoGramos(fila.producto);
-      vista.innerHTML = _costoVistaHtml(fila.producto, _costoGuardado(_costoLeer(inp.value), g), g);
+      vista.innerHTML = _costoVistaHtml(fila.producto, _costoDeFila(fila, escritos[i], _costoLeer(inp.value)), _costoGramos(fila.producto));
     });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); guardarEditorCostos(); } });
   });
@@ -242,7 +276,9 @@ function cerrarEditorCostos() {
 async function guardarEditorCostos() {
   const ed = _costosEditor;
   const ov = document.getElementById('costosEditor');
-  if (!ed || !ov) return;
+  /* Una sola vez: un segundo Enter mientras se guardaba escribía todo dos veces
+     (revisión del 27/09). */
+  if (!ed || !ov || ed.guardando) return;
   const inicio = ed.ctx === 'inicio', prod = ed.ctx === 'prod';
   /* Desde el Centro de avisos (26/09) y desde el panel de bolsas de Productos (27/09) se
      guarda SOLO lo que se tocó (pedido del dueño): el costo que cambió, o el que se marcó
@@ -256,24 +292,30 @@ async function guardarEditorCostos() {
     const i = Number(inp.getAttribute('data-i'));
     const fila = ed.filas[i];
     if (!fila) continue;
-    /* En una bolsa se escribió lo que costó la bolsa: se guarda por kilo. */
-    const nuevo = _costoGuardado(_costoLeer(inp.value), _costoGramos(fila.producto));
+    /* Tocado es lo escrito distinto de lo que se mostró; en una bolsa, lo escrito es lo que
+       costó la bolsa y se guarda por kilo (_costoDeFila). */
+    const escrito = _costoLeer(inp.value);
+    const mostrado = ed.escritos ? ed.escritos[i] : escrito;
+    const tocado = escrito !== mostrado;
+    const nuevo = _costoDeFila(fila, mostrado, escrito);
     const cambio = nuevo !== Math.round(Number(fila.producto.costo || 0));
     /* Se saltea ANTES de validar: un producto con costo 0 que no se tocó frenaba el guardado
-       de todos los demás. */
-    if (soloTocados && !cambio && !sigueIgual.has(i)) continue;
+       de todos los demás. Lo que se tocó y da el mismo kilo (una bolsa de 5 kg a $10.002 o
+       a $10.000 son $2.000 el kilo) no se saltea: se confirma con la fecha, y se dice. */
+    if (soloTocados && !tocado && !sigueIgual.has(i)) continue;
     if (!(nuevo > 0)) {
-      showAdminToast('Poné un costo válido para "' + _costoNombre(fila.producto) + '"', 'error');
+      showAdminToast('Poné un costo válido para "' + _costoEsc(_costoNombre(fila.producto)) + '"', 'error');
       inp.focus();
       return;
     }
-    cambios.push({ p: fila.producto, nuevo: nuevo, cambio: cambio });
+    cambios.push({ p: fila.producto, nuevo: nuevo, cambio: cambio, redondeo: tocado && !cambio && !sigueIgual.has(i) });
   }
   if (!cambios.length) {
     cerrarEditorCostos();
     showAdminToast(prod ? 'No cambiaste ningún costo.' : 'No cambiaste ningún costo: siguen todos en la lista.', 'info');
     return;
   }
+  ed.guardando = true;
   const btn = ov.querySelector('#costosGuardar');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Guardando...'; }
 
@@ -292,6 +334,7 @@ async function guardarEditorCostos() {
   try {
     await lote.commit();
   } catch (e) {
+    ed.guardando = false;
     showAdminToast('No se pudieron guardar los costos: ' + e.message, 'error');
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar costos'; }
     return;
@@ -308,19 +351,25 @@ async function guardarEditorCostos() {
       cambios.map(c => _costoNombre(c.p) + (c.cambio ? ' -> ' + _costoPesos(c.nuevo) + _costoUnidad(c.p) : ' (sigue igual)')).join(' | ').slice(0, 900));
   }
   if (typeof filterTable === 'function') filterTable();
-  cerrarEditorCostos();
+  /* Si mientras se guardaba se cerró esta ventana y se abrió otra (desde el panel de bolsas,
+     es un clic), la otra queda abierta: antes se cerraba y se perdía lo escrito ahí
+     (revisión del 27/09). */
+  if (_costosEditor === ed) cerrarEditorCostos();
   const confirmados = cambios.length - cambiados.length;
+  const redondeos = cambios.filter(c => c.redondeo).length;
+  const marcados = confirmados - redondeos;
   const quedan = ed.filas.length - cambios.length;
   showAdminToast(soloTocados
     ? 'Listo: ' + [
         cambiados.length ? cambiados.length + (cambiados.length === 1 ? ' costo cambiado, con su precio nuevo' : ' costos cambiados, con su precio nuevo') : '',
-        confirmados ? confirmados + (confirmados === 1 ? ' marcado' : ' marcados') + ' como "sigue igual"' : '',
+        marcados ? marcados + (marcados === 1 ? ' marcado' : ' marcados') + ' como "sigue igual"' : '',
+        redondeos ? redondeos + (redondeos === 1 ? ' quedó igual' : ' quedaron iguales') + ' por el redondeo del kilo' : '',
       ].filter(Boolean).join(' y ') + '.' +
       (inicio && quedan ? ' ' + (quedan === 1 ? 'El que no cambiaste sigue' : 'Los ' + quedan + ' que no cambiaste siguen') + ' en la lista.' : '')
     : (cambiados.length
       ? 'Costos guardados. Los precios de la venta se actualizaron: revisá el total y registrala.'
       : 'Costos confirmados. Ya podés registrar la venta.'), 'success');
-  /* La campana y el Inicio del día: lo revisado deja de avisar. */
+  /* La campana y el Centro de avisos: lo revisado deja de avisar. */
   if (typeof _refrescarAlertas === 'function') _refrescarAlertas(false);
 }
 

@@ -351,16 +351,17 @@ console.log('\n-- el editor de costos --');
   m.api.abrirEditorCostos([b1, b3, suelto].map(p => ({ producto: p, fecha: hace(92), dias: 92 })), 'min');
   const h = m.elementos.costosEditor.innerHTML;
   t('la bolsa de 3 kg pide lo que costó la bolsa: $2.001 ($667 el kilo, con el kilo en pesos enteros)',
-    h.indexOf('value="2001" aria-label="Nuevo costo de la bolsa de Prueba1 x 3 kg"') > 0 && h.indexOf('Costo de la bolsa $2.001 ($667 el kilo) ·') > 0, h);
+    h.indexOf('value="2001" aria-label="Nuevo costo de la bolsa de Prueba1 x 3 kg"') > 0 && h.indexOf('Costo actual $2.001 la bolsa ($667 el kilo) ·') > 0, h);
   t('  la de 1 kg, lo mismo que el kilo, sin repetirlo', h.indexOf('value="2000" aria-label="Nuevo costo de la bolsa de Prueba1 x 1 kg"') > 0 &&
-    h.indexOf('Costo de la bolsa $2.000 ·') > 0);
+    h.indexOf('Costo actual $2.000 la bolsa ·') > 0);
   t('  un granel sin bolsas sigue por kilo', h.indexOf('value="9000" aria-label="Nuevo costo de Almendra"') > 0 && h.indexOf('Costo actual $9.000 el kilo') > 0);
   t('  y lo dice arriba', h.indexOf('En las bolsas va lo que costó la bolsa entera, como al cargar el producto.') > 0);
-  t('  con el "?" del redondeo, que se abre hacia abajo: NO SE PIERDE DINERO', h.indexOf('<p class="ayuda-linea"><span class="ayuda-tip der ancho abajo"') > 0 &&
-    h.indexOf('data-tip="NO SE PIERDE DINERO.') > 0 && h.indexOf('¿Por qué a veces la bolsa muestra $1 de más o de menos?</p>') > 0);
-  t('al lado de cada una, cómo queda: el kilo, el precio y el mayorista', h.indexOf('<div class="costos-vista" data-i="1" aria-live="polite">' +
-    '<span>Costo $667 el kilo</span><span>Precio <b>$967</b> el kilo</span><span class="costos-may">Mayorista $1.000 el kilo</span></div>') > 0, h);
-  t('  el que no es bolsa, sin el kilo aparte', h.indexOf('<div class="costos-vista" data-i="2" aria-live="polite"><span>Precio <b>$13.500</b> el kilo</span>') > 0);
+  t('  con el "?" del redondeo abajo, afuera de la lista (adentro se cortaba), abriéndose hacia arriba: NO SE PIERDE DINERO',
+    h.indexOf('</div></div><p class="ayuda-linea"><span class="ayuda-tip der ancho" tabindex="0"') > 0 &&
+    h.indexOf('data-tip="NO SE PIERDE DINERO.') > 0 && h.indexOf('¿Por qué a veces la bolsa muestra unos pesos de más o de menos?</p><div class="dlg-pie">') > 0, h);
+  t('al lado de cada una, cómo queda: el kilo, el precio y el mayorista, como en la tabla de bolsas', h.indexOf('<div class="costos-vista" data-i="1" aria-live="polite">' +
+    '<span>Costo $667 el kilo</span><span>Precio <b>$967</b> el kilo</span><span class="vfe-may">Mayorista $1.000 el kilo</span></div>') > 0, h);
+  t('  un granel sin bolsas, igual que en el formulario', h.indexOf('<div class="costos-vista" data-i="2" aria-live="polite"><span>Costo $9.000 el kilo</span><span>Precio <b>$13.500</b> el kilo</span>') > 0);
   m.conInputs(['2000', '2.100', '9000']);
   await (m.api.guardarEditorCostos());
   const w3 = m.escrituras.find(x => x.id === 'b3'), w1 = m.escrituras.find(x => x.id === 'b1');
@@ -412,6 +413,108 @@ console.log('\n-- el editor de costos --');
   await (m2.api.guardarEditorCostos());
   t('  sin tocar nada no se escribe nada, y se dice sin hablar de una lista', m2.escrituras.length === 0 &&
     m2.avisos.indexOf('info: No cambiaste ningún costo.') >= 0, m2.avisos);
+}
+{
+  /* Revisión del 27/09, #1: en una bolsa de menos de 1 kg la cuenta de la bolsa al kilo y de
+     vuelta no es exacta, y una fila sin tocar se guardaba como cambio, con precio nuevo. */
+  const mk = () => [
+    { id: 'm1', nombre: 'Maní', gramaje: '1 kg', tipoVenta: 'peso', costo: 3000, porcentaje: 50, porcentajeMayorista: 30, precio: 4500, precioMayorista: 3900, costoActualizadoEn: hace(40) },
+    { id: 'm5', nombre: 'Maní x 500 g', gramaje: '500 g', tipoVenta: 'peso', gramajePadreId: 'm1', costo: 3001, porcentaje: 50, porcentajeMayorista: 30,
+      precio: 4600, precioMayorista: 4000, costoActualizadoEn: hace(40) },
+  ];
+  const m = armar({ productos: mk(), conVariantes: true });
+  m.api.abrirEditorCostos(m.ctx.allProducts.map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'prod');
+  t('la bolsa de 500 g a $3.001 el kilo se muestra como $1.501', m.elementos.costosEditor.innerHTML.indexOf('value="1501"') > 0);
+  m.conInputs(['3000', '1501']);
+  m.conCasillas([false, false]);
+  await (m.api.guardarEditorCostos());
+  t('  sin tocarla no se escribe nada (antes guardaba $3.002 el kilo y recalculaba el precio)', m.escrituras.length === 0 &&
+    m.ctx.allProducts[1].costo === 3001 && m.ctx.allProducts[1].precio === 4600, JSON.stringify(m.escrituras));
+  const m2 = armar({ productos: mk(), conVariantes: true });
+  m2.api.abrirEditorCostos(m2.ctx.allProducts.map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'inicio');
+  m2.conInputs(['3000', '1501']);
+  m2.conCasillas([false, true]);
+  await (m2.api.guardarEditorCostos());
+  t('  con "Sigue igual" solo se confirma la fecha: el costo y el precio redondeado quedan', m2.escrituras.length === 1 &&
+    Object.keys(m2.escrituras[0].campos).join() === 'costoActualizadoEn' && m2.ctx.allProducts[1].precio === 4600 && m2.ctx.allProducts[1].costo === 3001);
+  const venta = [{ id: 'm5', precio: 4600, costo: 3001, cantidad: 500, tipoVenta: 'peso' }];
+  const m3 = armar({ productos: mk(), conVariantes: true, ventaItems: venta });
+  m3.api.abrirEditorCostos(m3.ctx.allProducts.map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'min');
+  m3.conInputs(['3000', '1501']);
+  await (m3.api.guardarEditorCostos());
+  t('  y al vender, confirmar sin tocar no cambia el precio de la venta', m3.escrituras.length === 2 &&
+    m3.escrituras.every(x => Object.keys(x.campos).join() === 'costoActualizadoEn') && venta[0].precio === 4600 && venta[0].costo === 3001);
+}
+{
+  /* #11: en una bolsa grande, lo escrito que da el mismo kilo se confirma, y se dice. */
+  const mk = () => [
+    { id: 'y1', nombre: 'Yerba', gramaje: '1 kg', tipoVenta: 'peso', costo: 2100, porcentaje: 50, precio: 3150, costoActualizadoEn: hace(40) },
+    { id: 'y5', nombre: 'Yerba x 5 kg', gramaje: '5 kg', tipoVenta: 'peso', gramajePadreId: 'y1', costo: 2000, porcentaje: 50, precio: 3000, costoActualizadoEn: hace(40) },
+  ];
+  const m = armar({ productos: mk(), conVariantes: true });
+  m.api.abrirEditorCostos(m.ctx.allProducts.map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'prod');
+  m.conInputs(['2100', '10.002']);
+  m.conCasillas([false, false]);
+  await (m.api.guardarEditorCostos());
+  t('bolsa de 5 kg: $10.002 da el mismo kilo que $10.000; se confirma con la fecha (antes: "No cambiaste ningún costo")',
+    m.escrituras.length === 1 && m.escrituras[0].id === 'y5' && Object.keys(m.escrituras[0].campos).join() === 'costoActualizadoEn', JSON.stringify(m.escrituras));
+  t('  y lo dice', m.avisos.indexOf('success: Listo: 1 quedó igual por el redondeo del kilo.') >= 0, m.avisos);
+}
+{
+  /* #6: se guarda una sola vez, y no se cierra otra ventana abierta mientras tanto. */
+  const mk = () => [{ id: 'a', nombre: 'Almendra', costo: 1000, porcentaje: 50, precio: 1500, costoActualizadoEn: hace(40) },
+    { id: 'b', nombre: 'Banana', costo: 900, porcentaje: 40, precio: 1260, costoActualizadoEn: hace(40) }];
+  const m = armar({ productos: mk() });
+  m.api.abrirEditorCostos([{ producto: m.ctx.allProducts[0], fecha: hace(40), dias: 40 }], 'prod');
+  m.conInputs(['1100']);
+  m.conCasillas([false]);
+  await Promise.all([m.api.guardarEditorCostos(), m.api.guardarEditorCostos()]);
+  t('dos Enter seguidos guardan una sola vez', m.escrituras.length === 1 && m.historial.length === 1 &&
+    m.avisos.filter(a => a.indexOf('success:') === 0).length === 1, JSON.stringify([m.escrituras.length, m.historial.length]));
+  const n = armar({ productos: mk() });
+  n.api.abrirEditorCostos([{ producto: n.ctx.allProducts[0], fecha: hace(40), dias: 40 }], 'prod');
+  n.conInputs(['1100']);
+  n.conCasillas([false]);
+  const guardando = n.api.guardarEditorCostos();
+  n.api.cerrarEditorCostos();
+  n.api.abrirEditorCostos([{ producto: n.ctx.allProducts[1], fecha: hace(40), dias: 40 }], 'prod');
+  await guardando;
+  t('  si mientras guardaba se abrió otra ventana, esa queda abierta', !!n.elementos.costosEditor &&
+    n.elementos.costosEditor.innerHTML.indexOf('Banana') > 0 && n.ctx.allProducts[0].costo === 1100);
+}
+{
+  /* #9 y #10: la vista previa es la de la tabla de bolsas (caja cerrada, oferta) y con el
+     costo de siempre muestra los precios que tiene, no la cuenta. */
+  const caja = { id: 'cx', nombre: 'Alfajor x12', gramaje: 'x12', tipoVenta: 'unidad', cajaCerrada: true, costo: 6000, porcentaje: 60, porcentajeMayorista: 30,
+    precio: 9600, precioMayorista: 7800, descuento: 10, costoActualizadoEn: hace(40) };
+  const alm = { id: 'al', nombre: 'Almendra', tipoVenta: 'unidad', costo: 1234, porcentaje: 50, porcentajeMayorista: 20,
+    precio: 1900, precioMayorista: 1500, costoActualizadoEn: hace(40) };
+  const m = armar({ productos: [caja, alm], conVariantes: true });
+  m.api.abrirEditorCostos([caja, alm].map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'min');
+  const h = m.elementos.costosEditor.innerHTML;
+  t('caja cerrada: primero lo que se cobra (el mayorista), y con la oferta', h.indexOf('<span>Se cobra <b>$7.800</b> (caja cerrada, precio mayorista)</span>') > 0 &&
+    h.indexOf('Con el 10% de descuento: $7.020') > 0, h);
+  t('con el costo de siempre, el precio que tiene (redondeado a $1.900), no la cuenta ($1.851)', h.indexOf('Precio <b>$1.900</b>') > 0 &&
+    h.indexOf('$1.851') < 0);
+}
+{
+  /* #2: el aviso al vender dice el costo como se carga: en una bolsa, lo de la bolsa. */
+  const b1 = { id: 'b1', nombre: 'Prueba1', gramaje: '1 kg', tipoVenta: 'peso', costo: 2000, porcentaje: 45, costoActualizadoEn: hace(92) };
+  const b3 = { id: 'b3', nombre: 'Prueba1 x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', gramajePadreId: 'b1', costo: 667, porcentaje: 45, costoActualizadoEn: hace(92) };
+  let msg = '';
+  const m = armar({ productos: [b1, b3], conVariantes: true, pedirOpcion: async texto => { msg = texto; return 'ignorar'; } });
+  await m.api.avisoCostosViejos([{ id: 'b3' }], 'min');
+  t('el aviso dice "$2.001 la bolsa ($667 el kilo)", como la ventana que abre', msg.indexOf('Prueba1 x 3 kg: $2.001 la bolsa ($667 el kilo), cambiado el') > 0, msg);
+}
+{
+  /* El nombre en el aviso de error va escapado: showAdminToast usa innerHTML. */
+  const p = { id: 'z', nombre: 'Aceite <sin TACC>', costo: 1000, porcentaje: 50, precio: 1500, costoActualizadoEn: hace(40) };
+  const m = armar({ productos: [p] });
+  m.ctx.esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  m.api.abrirEditorCostos([{ producto: p, fecha: hace(40), dias: 40 }], 'min');
+  m.conInputs(['']);
+  await (m.api.guardarEditorCostos());
+  t('un nombre con "<" va escapado en el aviso de error', m.avisos.some(a => a.indexOf('Aceite &lt;sin TACC&gt;') > 0), m.avisos);
 }
 {
   /* Con varios tamaños, "Costo y precio" (con la fecha de arriba) queda escondido: la

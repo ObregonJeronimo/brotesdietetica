@@ -145,7 +145,7 @@ const ids = lista => lista.map(p => p.id + (p.__grupo ? '(' + p.__grupo.miembros
       hm.indexOf('<th>Código</th><th>Costo</th><th>Precio</th>') > 0);
     t('  en las bolsas, al pie, el "?" del redondeo (se abre hacia arriba), que dice primero que NO se pierde dinero',
       hy.indexOf('</tbody></table><p class="ayuda-linea"><span class="ayuda-tip der ancho" tabindex="0"') > 0 &&
-      hy.indexOf('data-tip="NO SE PIERDE DINERO. A veces la bolsa muestra $1') > 0 && hm.indexOf('NO SE PIERDE DINERO') < 0);
+      hy.indexOf('data-tip="NO SE PIERDE DINERO. Es solo un redondeo') > 0 && hm.indexOf('NO SE PIERDE DINERO') < 0);
     t('  la bolsa de 3 kg: lo que costó la bolsa ($13.500) y abajo el kilo', hy.indexOf('<b>$13.500</b> <small>la bolsa</small>') > 0 &&
       hy.indexOf('<small>$4.500 el kilo</small>') > 0, hy);
     t('  la de 1 kg, sin repetir el kilo', hy.indexOf('<b>$5.000</b> <small>la bolsa</small>') > 0 && hy.indexOf('$5.000 el kilo') < 0);
@@ -156,8 +156,20 @@ const ids = lista => lista.map(p => p.id + (p.__grupo ? '(' + p.__grupo.miembros
     w.ctx.cambiarCostosDeGrupo('y1', 'y3');
     t('  con todas las bolsas, desde Productos, y el foco en la que se tocó', abiertos.length === 1 && abiertos[0].ids === 'y1,y3' &&
       abiertos[0].c === 'prod' && abiertos[0].foco === 'y3', JSON.stringify(abiertos));
-    t('  gramosDeBolsa: la de 3 kg sí; un granel suelto o una presentación por unidad, no', w.ctx.gramosDeBolsa(busca('y3')) === 3000 &&
-      w.ctx.gramosDeBolsa(busca('nuez')) === null && w.ctx.gramosDeBolsa(busca('m160')) === null);
+    t('  gramosDeBolsa: la de 3 kg sí; un granel suelto (sin otras bolsas) o una presentación por unidad, no', w.ctx.gramosDeBolsa(busca('y3')) === 3000 &&
+      w.ctx.gramosDeBolsa({ id: 'suelto', tipoVenta: 'peso', gramaje: '1 kg' }) === null && w.ctx.gramosDeBolsa(busca('m160')) === null);
+  }
+  {
+    /* Revisión del 27/09, #12: la columna y la ventana hacen la misma cuenta. */
+    const w = armar();
+    const busca = id => w.ctx.allProducts.find(p => p.id === id);
+    busca('y1').costo = 5000; busca('y3').costo = 666.67;
+    const [, , yerba] = w.ctx.agruparParaTabla(w.ctx.allProducts.filter(p => p.depurado !== true));
+    w.ctx._gruposAbiertos.add('y1');
+    const hy = w.ctx.panelPresentacionesHtml(yerba);
+    t('con el kilo con centavos (de una compra, $666,67), la columna dice $2.000 la bolsa, como la ventana',
+      hy.indexOf('<b>$2.000</b> <small>la bolsa</small>') > 0 && w.ctx.costoDeBolsa(666.67, 3000) === 2000 && w.ctx.kiloDeBolsa(2000, 3000) === 667, hy);
+    t('  700 g a $1.285: $900 en los dos lados (antes, $900 en la tabla y $899 en la ventana)', w.ctx.costoDeBolsa(1285, 700) === 900);
   }
   {
     const w = armar();

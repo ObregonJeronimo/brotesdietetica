@@ -80,7 +80,11 @@ function _enCampo(t) {
   const tag = (t.tagName || '').toLowerCase();
   return tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
 }
-function _hayModal() { return !!document.querySelector('.modal-overlay.show'); }
+/* También una ventana de admin-dialogo.js o la de costos (.dlg-overlay, que se sacan del DOM
+   al cerrarse): la de costos se abre sin un modal atrás desde Productos o el Centro de
+   avisos, y las teclas cambiaban de sección o abrían una venta escondida detrás
+   (revisión del 27/09). */
+function _hayModal() { return !!document.querySelector('.modal-overlay.show, .dlg-overlay'); }
 
 /* Las teclas se comparan en minúscula. Si no, alguien que asigna la tecla con
    Shift apretado se queda con un atajo que no responde nunca: guardaría 'Z' y al

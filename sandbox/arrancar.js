@@ -39,7 +39,20 @@ function libre(puerto) {
   });
 }
 
+/* Con --puerto N (la entrada de la vista previa, .claude/launch.json) es ESE o ninguno: la
+   vista previa abre justo ese puerto, y si el sandbox se corría a otro abría lo que
+   estuviera ahí -el npm run dev de siempre, con /admin de producción- (revisión del 27/09). */
+function puertoFijo() {
+  const i = process.argv.indexOf('--puerto');
+  return i >= 0 ? (Number(process.argv[i + 1]) || 0) : 0;
+}
+
 async function elegirPuerto() {
+  const fijo = puertoFijo();
+  if (fijo) {
+    if (await libre(fijo)) return { puerto: fijo, movido: false };
+    throw new Error('El puerto ' + fijo + ' está ocupado (¿quedó andando npm run dev?). Cerralo y volvé a arrancar el sandbox.');
+  }
   const pedido = Number(process.env.PUERTO_SANDBOX) || 5173;
   for (const p of [pedido, pedido + 1, pedido + 2, pedido + 3]) {
     if (await libre(p)) return { puerto: p, movido: p !== pedido };

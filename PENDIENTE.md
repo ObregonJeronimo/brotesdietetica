@@ -1498,7 +1498,25 @@ quedar frenados en el mostrador.
   porque el kilo se guarda en pesos enteros ($667). Se decidió dejarlo así (27/09): un "?"
   lo explica donde aparece el costo de una bolsa, y dice primero que NO se pierde dinero.
 
-Pruebas: 3556 en 85 suites.
+- **Arreglos de la revisión del 27/09** (15 puntos, todos con su prueba):
+  - la ventana de costos ya no cambia sola el costo de una bolsa de menos de 1 kg que no se
+    tocó (el redondeo de ida y vuelta entre la bolsa y el kilo); lo escrito que da el mismo
+    kilo se confirma con la fecha y se dice ("quedó igual por el redondeo del kilo");
+  - el aviso al vender y el Centro de avisos muestran el costo de la bolsa, como lo pide la
+    ventana ("$2.001 la bolsa ($667 el kilo)");
+  - los nombres no repiten el tamaño ("x 25 Kg x 25kg"), no agregan el nombre público como
+    tamaño, y las bolsas de un producto usan todas el nombre interno;
+  - el "?" dice "unos pesos" (hasta $12 en una bolsa de 25 kg) y en la ventana va abajo;
+  - guardar dos veces seguidas no escribe dos veces, y un guardado no cierra otra ventana;
+  - los atajos de teclado no actúan detrás de una ventana abierta;
+  - con los envíos apagados, editar una venta vieja guardada como envío sin cargo la pasa a
+    retiro (las que cobraron envío quedan como están);
+  - la vista previa muestra la caja cerrada, la oferta y el precio real (el redondeado);
+  - la columna Costo y la ventana hacen la misma cuenta; una venta que sacó de dos bolsas
+    cuenta una vez al ordenar;
+  - el sandbox desde la vista previa no se corre de puerto: si el 5173 está ocupado, no arranca.
+
+Pruebas: 3580 en 85 suites.
 
 ---
 
