@@ -190,15 +190,17 @@ console.log('\n-- costos viejos de lo que se vende --');
   t('  la de 5 kg, revisada hace 5 días, no', ids.indexOf('n5') < 0);
   t('  la cookie suelta no se vendió, pero la caja x12 sí: aparece, y ninguna queda como "no se vendió"', ids.indexOf('c1') >= 0 && c.quietos === 0);
   t('  una abajo de la otra, de la más chica a la más grande; primero el producto que más se vende', ids === 'n1,n2,gal,c1,c12', ids);
-  t('el nombre dice cuál es: "Nuez (1 kg)"; el que ya lo dice queda igual, y sin bolsas no se agrega nada',
-    m.run('_costoNombre(allProducts[0]) + "|" + _costoNombre(allProducts[1]) + "|" + _costoNombre(allProducts[5])') === 'Nuez (1 kg)|Nuez x 2 kg|Galletas');
+  t('el nombre dice cuál es, con la forma de las otras bolsas: "Nuez x 1 kg" como "Nuez x 2 kg"; sin bolsas no se agrega nada',
+    m.run('_costoNombre(allProducts[0]) + "|" + _costoNombre(allProducts[1]) + "|" + _costoNombre(allProducts[5])') === 'Nuez x 1 kg|Nuez x 2 kg|Galletas');
+  t('  la cookie suelta y la caja: "Cookie x1" y "Cookie x12" (no "x x12")',
+    m.run('_iniNombre(allProducts[3]) + "|" + _iniNombre(allProducts[4])') === 'Cookie x1|Cookie x12');
   const r = armar({ productos: prods, ventas: [
     { docId: 'w1', fecha: hace(2, 11), items: [it('n1', 1000, 2000, 1000, 'peso'), it('gal', 1, 900, 400)], total: 2900 },
     { docId: 'w2', fecha: hace(3, 11), items: [it('c12', 1, 9000, 5500)], total: 9000 },
   ] });
   r.run('_iniListo = true;');
   await r.ctx.refrescarInicio(false);
-  const h = r.cuerpoIni.innerHTML, a = h.indexOf('Nuez (1 kg)'), b = h.indexOf('Nuez x 2 kg');
+  const h = r.cuerpoIni.innerHTML, a = h.indexOf('Nuez x 1 kg'), b = h.indexOf('Nuez x 2 kg');
   t('  y en el aviso, una abajo de la otra', a > 0 && b > a && h.indexOf('Nuez x 5 kg') < 0, [a, b]);
 }
 {
@@ -215,6 +217,17 @@ console.log('\n-- costos viejos de lo que se vende --');
   const c = ctx.costosParaRevisar(prods, vendido, AHORA);
   t('la tanda no corta un producto: van 9, y las dos bolsas de la yerba juntas en la próxima', c.tanda.length === 9 &&
     c.viejos.length === 11 && c.viejos[9].producto.id === 'y1' && c.viejos[10].producto.id === 'y3', c.tanda.map(x => x.producto.id));
+}
+
+{
+  /* Los otros avisos también dicen el tamaño (pedido del dueño, 26/09). */
+  const m = armar();
+  m.run('_iniListo = true;');
+  await m.ctx.refrescarInicio(false);
+  const h = m.cuerpoIni.innerHTML;
+  t('sin stock: "Yerba x 1 kg" (la bolsa principal), y la bolsa vacía "Maní x 2 kg"', h.indexOf('<b>Yerba x 1 kg</b>') > 0 &&
+    h.indexOf('<b>Maní x 2 kg</b>') > 0);
+  t('  sin bolsas, el nombre de siempre', h.indexOf('<b>Alfajor</b>') > 0);
 }
 
 /* ================================================= POR TERMINARSE */

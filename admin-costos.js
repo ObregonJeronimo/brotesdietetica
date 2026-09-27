@@ -69,14 +69,12 @@ function preciosDesdeCosto(p, costo) {
   };
 }
 
-/* Con bolsas o presentaciones, cuál es: "Maní Pelado (1 kg)", como en la venta
-   (_nombreConPresentacion, admin-variantes.js). Pedido del dueño (26/09): la bolsa
-   principal salía como "Maní Pelado", sin decir de cuánto. */
+/* Con bolsas o presentaciones, cuál es: "Maní Pelado x 1 kg", como la otra bolsa ("Maní
+   Pelado x 2 kg"; _nombreConPresentacion, admin-variantes.js). Pedido del dueño (26/09):
+   la bolsa principal salía como "Maní Pelado", sin decir de cuánto. */
 const _costoNombre = p => {
   const n = (p && (p.nombreMostrado || p.nombre)) || 'un producto';
-  const e = p && typeof tieneVariantes === 'function' && typeof allProducts !== 'undefined' &&
-    tieneVariantes(p, allProducts) ? etiquetaVariante(p) : '';
-  return e && n.toLowerCase().indexOf(String(e).toLowerCase()) < 0 ? n + ' (' + e + ')' : n;
+  return p && typeof _nombreConPresentacion === 'function' ? _nombreConPresentacion(p, n) : n;
 };
 const _costoPesos = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-AR');
 const _costoFechaTxt = f => (f ? f.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');

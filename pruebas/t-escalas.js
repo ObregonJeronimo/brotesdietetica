@@ -642,7 +642,7 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     const conNombre = catalogo();
     Object.assign(conNombre.find(p => p.id === 'y1'), { nombre: 'Yerba Mate', nombreMostrado: 'Yerba Mate Orgánica de la casa' });
     const w11 = armar({ productos: conNombre });
-    t('con presentaciones dice cuál: "Yerba Mate (1 kg)"', w11.ctx._nombreConPresentacion(b(w11.ctx, 'y1')) === 'Yerba Mate (1 kg)' &&
+    t('con presentaciones dice cuál, con la forma de las otras: "Yerba Mate x 1 kg"', w11.ctx._nombreConPresentacion(b(w11.ctx, 'y1')) === 'Yerba Mate x 1 kg' &&
       w11.ctx._nombreConPresentacion(b(w11.ctx, 'y500')) === 'Yerba Mate x 500 g' && w11.ctx._nombreConPresentacion(b(w11.ctx, 'nuez')) === 'Nueces');
     t('la venta y la mayorista lo miran antes de registrar', html.indexOf("if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaItems,'min')))return;") > 0 &&
       html.indexOf("if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaMayItems,'may')))return;") > 0);

@@ -354,12 +354,15 @@ function faltantesDeStock(items, ctx) {
     return vende[id] > hay ? { producto: p, hay: hay, vende: vende[id] } : null;
   }).filter(Boolean);
 }
-/* "Maní RC (80 g)": con presentaciones, cuál es. El nombre interno, el mismo que se ve en
-   la línea de la venta (el público puede ser otro: "Maní recubierto de chocolate"). */
-function _nombreConPresentacion(p) {
-  const n = p.nombre || p.nombreMostrado || '';
-  const e = tieneVariantes(p, _varProds()) ? etiquetaVariante(p) : '';
-  return e && n.indexOf(e) < 0 ? n + ' (' + e + ')' : n;
+/* "Maní RC x 80 g": con presentaciones, cuál es, con la misma forma que el nombre de las
+   otras (_nombreConTam: "Maní RC x 160 g", "Alfajor x12"). Antes iba entre paréntesis, y
+   "Maní Pelado (1 kg)" al lado de "Maní Pelado x 2 kg" parecían dos formas distintas
+   (chequeo del dueño, 26/09). El nombre interno, el mismo que se ve en la línea de la
+   venta (el público puede ser otro: "Maní recubierto de chocolate"); o el que se pase. */
+function _nombreConPresentacion(p, nombre) {
+  const n = nombre != null ? String(nombre) : (p.nombre || p.nombreMostrado || '');
+  const e = tieneVariantes(p, _varProds()) ? String(etiquetaVariante(p) || '') : '';
+  return e && n.toLowerCase().indexOf(e.toLowerCase()) < 0 ? _nombreConTam(n, e) : n;
 }
 /* Lo que dice la línea de la venta. */
 function textoFaltaStock(f) {

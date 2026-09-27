@@ -1483,10 +1483,12 @@ quedar frenados en el mostrador.
 - **Costos viejos: las bolsas y presentaciones de un producto van juntas** (Centro de
   avisos). Cada una tiene su costo y su fecha; aparecen una abajo de la otra, y también
   la que no se vendió sola en el mes si el producto sí se vende (antes la bolsa de 2 kg
-  del maní no salía nunca). El nombre dice cuál es: "Maní Pelado (1 kg)", también en
-  la ventana de revisar costos al vender.
+  del maní no salía nunca).
+- **El tamaño en el nombre, en todos los avisos del Centro**: "Maní Pelado x 1 kg", con la
+  misma forma que la otra bolsa ("Maní Pelado x 2 kg"). También en la ventana de revisar
+  costos y en los avisos de stock al vender, que decían "Maní Pelado (1 kg)".
 
-Pruebas: 3525 en 85 suites.
+Pruebas: 3528 en 85 suites.
 
 ---
 

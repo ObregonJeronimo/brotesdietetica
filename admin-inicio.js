@@ -48,7 +48,12 @@ const _iniAttr = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const _iniPlata = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-AR');
 const _iniPeso = x => (typeof esPorPeso === 'function' ? esPorPeso(x) : !!(x && x.tipoVenta === 'peso'));
-const _iniNombre = p => (p && (p.nombreMostrado || p.nombre)) || '(sin nombre)';
+/* Con bolsas o presentaciones, dice cuál es: "Maní Pelado x 1 kg", en todos los avisos
+   (pedido del dueño, 26/09; _nombreConPresentacion, admin-variantes.js). */
+const _iniNombre = p => {
+  const n = (p && (p.nombreMostrado || p.nombre)) || '(sin nombre)';
+  return p && typeof _nombreConPresentacion === 'function' ? _nombreConPresentacion(p, n) : n;
+};
 const _iniALaVenta = p => !!p && p.oculto !== true && p.depurado !== true;
 const _iniS = (n, uno, varios) => (n === 1 ? uno : varios);
 
@@ -474,8 +479,7 @@ function _iniHtmlCostos(c) {
       'Todos los productos vendidos en el último mes tienen el costo revisado hace menos de un mes.', '', hoyTxt + quietos);
   }
   const n = c.viejos.length, t = c.tanda.length;
-  const filas = c.tanda.map(x => _iniFila(typeof _costoNombre === 'function' ? _costoNombre(x.producto) : _iniNombre(x.producto),
-    _iniVendidoTxt(x.v),
+  const filas = c.tanda.map(x => _iniFila(_iniNombre(x.producto), _iniVendidoTxt(x.v),
     'Costo: ' + _iniPlata(x.producto.costo) + (_iniPeso(x.producto) ? ' el kilo' : ''),
     'sin revisar hace ' + x.dias + ' días', '')).join('');
   const boton = '<button type="button" class="btn btn-primary btn-sm" data-ini="costos"><i class="bi bi-pencil-square"></i> ' +
