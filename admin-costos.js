@@ -69,7 +69,15 @@ function preciosDesdeCosto(p, costo) {
   };
 }
 
-const _costoNombre = p => (p && (p.nombreMostrado || p.nombre)) || 'un producto';
+/* Con bolsas o presentaciones, cuál es: "Maní Pelado (1 kg)", como en la venta
+   (_nombreConPresentacion, admin-variantes.js). Pedido del dueño (26/09): la bolsa
+   principal salía como "Maní Pelado", sin decir de cuánto. */
+const _costoNombre = p => {
+  const n = (p && (p.nombreMostrado || p.nombre)) || 'un producto';
+  const e = p && typeof tieneVariantes === 'function' && typeof allProducts !== 'undefined' &&
+    tieneVariantes(p, allProducts) ? etiquetaVariante(p) : '';
+  return e && n.toLowerCase().indexOf(String(e).toLowerCase()) < 0 ? n + ' (' + e + ')' : n;
+};
 const _costoPesos = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-AR');
 const _costoFechaTxt = f => (f ? f.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
 const _costoHace = d => (d <= 0 ? 'hoy' : d === 1 ? 'hace 1 día' : 'hace ' + d + ' días');

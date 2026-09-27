@@ -1480,7 +1480,13 @@ quedar frenados en el mostrador.
   Proveedores e Historial. Es solo CSS (`.search-box.campo-destacado`); el de Proveedores
   además pasó a tener lupa, como los demás.
 
-Pruebas: 3518 en 85 suites.
+- **Costos viejos: las bolsas y presentaciones de un producto van juntas** (Centro de
+  avisos). Cada una tiene su costo y su fecha; aparecen una abajo de la otra, y también
+  la que no se vendió sola en el mes si el producto sí se vende (antes la bolsa de 2 kg
+  del maní no salía nunca). El nombre dice cuál es: "Maní Pelado (1 kg)", también en
+  la ventana de revisar costos al vender.
+
+Pruebas: 3525 en 85 suites.
 
 ---
 

@@ -172,6 +172,50 @@ console.log('\n-- costos viejos de lo que se vende --');
   t('de a 10: los 10 que más se venden, y quedan 4', c2.tanda.length === 10 && c2.tanda[0].producto.id === 'p13' &&
     c2.viejos.length === 14, c2.tanda.map(x => x.producto.id));
 }
+{
+  /* Las bolsas y presentaciones de un producto, juntas (pedido del dueño, 26/09). */
+  const prods = [
+    { id: 'n1', nombre: 'Nuez', tipoVenta: 'peso', gramaje: '1 kg', stock: 3000, costo: 1000, precio: 2000, costoActualizadoEn: hace(60) },
+    { id: 'n2', nombre: 'Nuez x 2 kg', tipoVenta: 'peso', gramaje: '2 kg', gramajePadreId: 'n1', stock: 2000, costo: 800, precio: 1600, costoActualizadoEn: hace(60) },
+    { id: 'n5', nombre: 'Nuez x 5 kg', tipoVenta: 'peso', gramaje: '5 kg', gramajePadreId: 'n1', stock: 5000, costo: 700, precio: 1400, costoActualizadoEn: hace(5) },
+    { id: 'c1', nombre: 'Cookie', tipoVenta: 'unidad', gramaje: 'x1', stock: 10, costo: 500, precio: 1000, costoActualizadoEn: hace(40) },
+    { id: 'c12', nombre: 'Cookie x12', tipoVenta: 'unidad', gramaje: 'x12', gramajePadreId: 'c1', stock: 3, costo: 5500, precio: 9000, costoActualizadoEn: hace(45) },
+    { id: 'gal', nombre: 'Galletas', tipoVenta: 'unidad', stock: 3, costo: 400, precio: 900, costoActualizadoEn: hace(35) },
+  ];
+  const vendido = { n1: { veces: 9, cantidad: 9000, monto: 0 }, gal: { veces: 5, cantidad: 5, monto: 0 }, c12: { veces: 1, cantidad: 1, monto: 0 } };
+  const m = armar({ productos: prods });
+  const c = m.ctx.costosParaRevisar(prods, vendido, AHORA);
+  const ids = c.viejos.map(x => x.producto.id).join();
+  t('bolsas juntas: la de 2 kg no se vendió sola, pero la nuez sí, así que aparece', ids.indexOf('n2') >= 0, ids);
+  t('  la de 5 kg, revisada hace 5 días, no', ids.indexOf('n5') < 0);
+  t('  la cookie suelta no se vendió, pero la caja x12 sí: aparece, y ninguna queda como "no se vendió"', ids.indexOf('c1') >= 0 && c.quietos === 0);
+  t('  una abajo de la otra, de la más chica a la más grande; primero el producto que más se vende', ids === 'n1,n2,gal,c1,c12', ids);
+  t('el nombre dice cuál es: "Nuez (1 kg)"; el que ya lo dice queda igual, y sin bolsas no se agrega nada',
+    m.run('_costoNombre(allProducts[0]) + "|" + _costoNombre(allProducts[1]) + "|" + _costoNombre(allProducts[5])') === 'Nuez (1 kg)|Nuez x 2 kg|Galletas');
+  const r = armar({ productos: prods, ventas: [
+    { docId: 'w1', fecha: hace(2, 11), items: [it('n1', 1000, 2000, 1000, 'peso'), it('gal', 1, 900, 400)], total: 2900 },
+    { docId: 'w2', fecha: hace(3, 11), items: [it('c12', 1, 9000, 5500)], total: 9000 },
+  ] });
+  r.run('_iniListo = true;');
+  await r.ctx.refrescarInicio(false);
+  const h = r.cuerpoIni.innerHTML, a = h.indexOf('Nuez (1 kg)'), b = h.indexOf('Nuez x 2 kg');
+  t('  y en el aviso, una abajo de la otra', a > 0 && b > a && h.indexOf('Nuez x 5 kg') < 0, [a, b]);
+}
+{
+  /* La tanda no corta un producto por la mitad. */
+  const { ctx } = armar();
+  const prods = [], vendido = {};
+  for (let i = 0; i < 9; i++) {
+    prods.push({ id: 'p' + i, nombre: 'P' + i, stock: 5, costo: 100, precio: 200, costoActualizadoEn: hace(45) });
+    vendido['p' + i] = { veces: 20 - i, cantidad: 1, monto: 0 };
+  }
+  prods.push({ id: 'y1', nombre: 'Yerba', tipoVenta: 'peso', gramaje: '1 kg', stock: 5000, costo: 100, precio: 200, costoActualizadoEn: hace(45) },
+    { id: 'y3', nombre: 'Yerba x 3 kg', tipoVenta: 'peso', gramaje: '3 kg', gramajePadreId: 'y1', stock: 5000, costo: 100, precio: 200, costoActualizadoEn: hace(45) });
+  vendido.y1 = { veces: 2, cantidad: 1000, monto: 0 };
+  const c = ctx.costosParaRevisar(prods, vendido, AHORA);
+  t('la tanda no corta un producto: van 9, y las dos bolsas de la yerba juntas en la próxima', c.tanda.length === 9 &&
+    c.viejos.length === 11 && c.viejos[9].producto.id === 'y1' && c.viejos[10].producto.id === 'y3', c.tanda.map(x => x.producto.id));
+}
 
 /* ================================================= POR TERMINARSE */
 console.log('\n-- lo que se está por terminar --');

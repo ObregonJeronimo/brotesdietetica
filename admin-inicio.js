@@ -12,7 +12,8 @@
       más se vende.
    3) Costos viejos (COSTO_VIEJO_DIAS, admin-costos.js) de lo que se vende, de a
       INICIO_TANDA_COSTOS, con el mismo editor que sale al vender. Desde acá solo
-      sale de la lista el costo que se cambia (o se marca "Sigue igual").
+      sale de la lista el costo que se cambia (o se marca "Sigue igual"). Las bolsas
+      y presentaciones de un producto van juntas (ver costosParaRevisar).
    4) Lo que se está por terminar: al ritmo del último mes, no llega a una semana.
 
    QUÉ ES "SE VENDE": que tuvo ventas en los últimos INICIO_DIAS días. Hay cientos
@@ -141,25 +142,56 @@ function sinStockQueSeVende(prods, vendido) {
 
 /* Los costos para revisar: de lo que se vende, los que no se tocan hace
    COSTO_VIEJO_DIAS o más, primero lo que más se vende. Uno sin fecha no avisa (la
-   misma regla que al vender, admin-costos.js): se cuenta aparte. */
+   misma regla que al vender, admin-costos.js): se cuenta aparte.
+   LAS BOLSAS Y PRESENTACIONES DE UN PRODUCTO VAN JUNTAS (pedido del dueño, 26/09).
+   Cada una tiene su costo y su fecha, y aparece la que tiene el costo viejo; pero "se
+   vende" se mira en el producto entero: la bolsa de 2 kg sale solo cuando alguien
+   lleva 2 kg, y con el costo viejo no aparecía aunque el maní se venda todos los
+   días. Van una abajo de la otra, de la más chica a la más grande, en la misma tanda. */
 function costosParaRevisar(prods, vendido, ahora) {
   const hoy = ahora || new Date();
   const limite = (typeof COSTO_VIEJO_DIAS === 'number') ? COSTO_VIEJO_DIAS : 30;
   const hoyDia = _iniDia(hoy);
+  const aLaVenta = (prods || []).filter(_iniALaVenta);
+  /* El producto de cada uno: el id del principal, como principalDeVariante (el suyo si
+     no es una variante), y en cuántas ventas salió el producto. */
+  const ids = new Set((prods || []).map(p => p && p.id));
+  const grupo = p => (p.gramajePadreId && ids.has(p.gramajePadreId) ? p.gramajePadreId : p.id);
+  const ventasGrupo = {};
+  if (vendido) aLaVenta.forEach(p => {
+    const v = vendido[p.id];
+    if (v) ventasGrupo[grupo(p)] = (ventasGrupo[grupo(p)] || 0) + v.veces;
+  });
   const viejos = [];
   let sinFecha = 0, quietos = 0, revisadosHoy = 0;
-  (prods || []).filter(_iniALaVenta).forEach(p => {
+  aLaVenta.forEach(p => {
     const f = (typeof fechaDeCosto === 'function') ? fechaDeCosto(p) : null;
-    const v = vendido ? vendido[p.id] : null;
-    if (!f) { if (!vendido || v) sinFecha++; return; }
+    const g = grupo(p);
+    const seVende = !vendido || !!ventasGrupo[g];
+    if (!f) { if (seVende) sinFecha++; return; }
     if (_iniDia(f) === hoyDia) revisadosHoy++;
     const dias = Math.floor((hoy.getTime() - f.getTime()) / _INI_DIA_MS);
     if (dias < limite) return;
-    if (vendido && !v) { quietos++; return; }
-    viejos.push({ producto: p, fecha: f, dias: dias, v: v || null });
+    if (!seVende) { quietos++; return; }
+    viejos.push({ producto: p, fecha: f, dias: dias, v: (vendido && vendido[p.id]) || null, grupo: g });
   });
-  viejos.sort((a, b) => ((b.v ? b.v.veces : 0) - (a.v ? a.v.veces : 0)) || (b.dias - a.dias));
-  return { viejos: viejos, tanda: viejos.slice(0, INICIO_TANDA_COSTOS), sinFecha: sinFecha, quietos: quietos, revisadosHoy: revisadosHoy };
+  /* Primero el producto que más se vende (y el más viejo); sus bolsas, juntas. */
+  const veces = x => ventasGrupo[x.grupo] || 0;
+  const masViejo = {};
+  viejos.forEach(x => { masViejo[x.grupo] = Math.max(masViejo[x.grupo] || 0, x.dias); });
+  viejos.sort((a, b) => (veces(b) - veces(a)) || (masViejo[b.grupo] - masViejo[a.grupo]) ||
+    (a.grupo !== b.grupo ? (a.grupo < b.grupo ? -1 : 1)
+      : (typeof _ordenVariantes === 'function' ? _ordenVariantes(a.producto, b.producto) : 0)));
+  /* De a INICIO_TANDA_COSTOS, sin cortar un producto por la mitad. */
+  const tanda = [];
+  for (let i = 0; i < viejos.length;) {
+    let j = i;
+    while (j < viejos.length && viejos[j].grupo === viejos[i].grupo) j++;
+    if (tanda.length && tanda.length + (j - i) > INICIO_TANDA_COSTOS) break;
+    for (let k = i; k < j; k++) tanda.push(viejos[k]);
+    i = j;
+  }
+  return { viejos: viejos, tanda: tanda, sinFecha: sinFecha, quietos: quietos, revisadosHoy: revisadosHoy };
 }
 
 /* Lo que se está por terminar al ritmo del último mes: le quedan menos de
@@ -442,7 +474,8 @@ function _iniHtmlCostos(c) {
       'Todos los productos vendidos en el último mes tienen el costo revisado hace menos de un mes.', '', hoyTxt + quietos);
   }
   const n = c.viejos.length, t = c.tanda.length;
-  const filas = c.tanda.map(x => _iniFila(_iniNombre(x.producto), _iniVendidoTxt(x.v),
+  const filas = c.tanda.map(x => _iniFila(typeof _costoNombre === 'function' ? _costoNombre(x.producto) : _iniNombre(x.producto),
+    _iniVendidoTxt(x.v),
     'Costo: ' + _iniPlata(x.producto.costo) + (_iniPeso(x.producto) ? ' el kilo' : ''),
     'sin revisar hace ' + x.dias + ' días', '')).join('');
   const boton = '<button type="button" class="btn btn-primary btn-sm" data-ini="costos"><i class="bi bi-pencil-square"></i> ' +
