@@ -18,6 +18,21 @@
         "5174"
       ],
       "port": 5174
+    },
+    {
+      "name": "brotes-sandbox",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "sandbox/con-java.js",
+        "firebase",
+        "emulators:exec",
+        "--only",
+        "firestore,auth,storage,functions",
+        "--project",
+        "demo-brotes",
+        "node sandbox/arrancar.js"
+      ],
+      "port": 5173
     }
   ]
 }
