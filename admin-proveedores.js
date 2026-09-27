@@ -297,9 +297,10 @@ function renderProveedores() {
       '<div class="prov-lado">' +
         /* El buscador va DENTRO de la columna, no arriba de las dos: asi
            arranca a la misma altura que el panel de la derecha. */
-        '<input type="text" class="form-input prov-buscar" id="provBuscarInput" ' +
-          'placeholder="Buscar proveedor..." value="' + esc(_provFiltro) + '" ' +
-          'oninput="provBuscar(this.value)">' +
+        /* Como los otros buscadores del panel: con lupa y bien a la vista (26/09). */
+        '<div class="search-box campo-destacado prov-buscar"><i class="bi bi-search"></i>' +
+          '<input type="text" id="provBuscarInput" placeholder="Buscar proveedor..." value="' + esc(_provFiltro) + '" ' +
+          'oninput="provBuscar(this.value)"></div>' +
         '<div class="prov-cab"><span>Proveedor</span><span>Monto generado</span></div>' +
         '<div class="prov-lista">' + lista + '</div>' +
       '</div>' +

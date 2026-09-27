@@ -1462,8 +1462,8 @@ quedar frenados en el mostrador.
   pago. **Falta probarlo con la impresora térmica.**
 - **Clientes del local en la venta:** el buscador de cliente de la venta (minorista y
   mayorista) muestra también los clientes cargados en el panel, no solo los que entraron con
-  Google, y trae "Agregar cliente nuevo" (`admin-clientes.js`). La ficha guarda si quiere recibir
-  promociones y avisa si ya hay uno con ese teléfono o DNI. En el menú: "Clientes del local"
+  Google, y trae "Agregar cliente nuevo" (`admin-clientes.js`). La ficha avisa si ya hay uno
+  con ese teléfono o DNI (la casilla de promociones se sacó). En el menú: "Clientes del local"
   y "Clientes de la web". Comprar en la TIENDA sin entrar con Google es otra cosa (reglas,
   functions y protección contra abuso): no se hizo.
 - **Ventas con otra cara (experimental):** encabezado, números con íconos, la lista agrupada
@@ -1473,6 +1473,12 @@ quedar frenados en el mostrador.
 - **La venta arranca en Retiro** (minorista y mayorista). En producción los envíos están
   apagados y el botón se esconde, pero cada venta nueva arrancaba igual en "envío": decía
   "Envío GRATIS" y se guardaba como envío. Venía de antes.
+
+- **Los buscadores, bien a la vista** (opción A, elegida por el dueño): más altos, con borde
+  verde y la lupa más grande, en Ventas (minoristas y mayoristas), Pedidos, Clientes del local
+  y de la web, Cupones, Productos (también el de las listas de proveedores), Stock, Insumos,
+  Proveedores e Historial. Es solo CSS (`.search-box.campo-destacado`); el de Proveedores
+  además pasó a tener lupa, como los demás.
 
 Pruebas: 3518 en 85 suites.
 

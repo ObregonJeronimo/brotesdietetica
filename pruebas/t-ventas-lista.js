@@ -104,7 +104,7 @@ console.log('\n-- el panel --');
   t('los números de arriba conservan sus ids (los llena renderResumenVentas)', ['vtStatTotal', 'vtStatTotal$', 'vtStatEnvios', 'vtStatProm',
     'vtStatFiado', 'vtStatPeriodo', 'vtMayStatTotal', 'vtMayStatTotal$', 'vtMayStatProm', 'vtMayStatFiado', 'vtMayStatPeriodo']
     .every(id => html.split('id="' + id + '"').length === 2));
-  t('  y el buscador sigue en un .search-box (el atajo "/" lo busca ahí)', /<div class="search-box"><i class="bi bi-search"><\/i><input type="text" placeholder="Buscar por cliente, número o medio de pago\.\.\." id="ventaSearch"/.test(html));
+  t('  y el buscador sigue en un .search-box (el atajo "/" lo busca ahí)', /<div class="search-box campo-destacado"><i class="bi bi-search"><\/i><input type="text" placeholder="Buscar por cliente, número o medio de pago\.\.\." id="ventaSearch"/.test(html));
 }
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
