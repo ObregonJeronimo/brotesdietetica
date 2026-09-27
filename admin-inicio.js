@@ -1,5 +1,5 @@
 /* =============================================================================
-   INICIO DEL DÍA  —  Brotes Dietética
+   CENTRO DE AVISOS (era "Inicio del día")  —  Brotes Dietética
    =============================================================================
    Pedido del comercio (26/09/2026, EXPERIMENTAL): una sección nueva, la primera
    que se ve al entrar al panel y pensada para la dueña. Lo importante del día en
@@ -488,7 +488,7 @@ function renderInicio() {
   const ahora = new Date();
   const fecha = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
   let h = '<div class="ini-cab"><div>' +
-      '<div class="ini-rotulo">Inicio del día</div>' +
+      '<div class="ini-rotulo">Centro de avisos</div>' +
       '<h2 class="ini-saludo">' + _iniSaludo(ahora.getHours()) + '</h2>' +
       '<p class="ini-hoy">' + _iniEsc(fecha.charAt(0).toUpperCase() + fecha.slice(1)) + '</p></div>' +
     '<button type="button" class="btn btn-secondary ini-revisar" data-ini="revisar"' + (_iniCarga ? ' disabled' : '') + '>' +

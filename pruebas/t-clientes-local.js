@@ -177,8 +177,7 @@ console.log('\n-- el panel --');
   const guardar = cuerpo(html, 'saveCliente');
   t('al guardar queda elegido también en la mayorista', /_clienteDesde==='ventaMay'\)\{\s*pickVentaMayCliente\(nuevoId,data\.nombre\);/.test(guardar));
   t('  con la fecha de alta y que es del local', guardar.indexOf("Object.assign({creadoEn:firebase.firestore.FieldValue.serverTimestamp(),origen:'local'},data)") > 0);
-  t('  con su permiso para promociones (sin tildar de entrada)', guardar.indexOf("aceptaPromos:!!(document.getElementById('cPromos')") > 0 &&
-    /<label class="cli-promos"><input type="checkbox" id="cPromos"> Quiere recibir novedades y promociones por WhatsApp<\/label>/.test(html));
+  t('  sin la casilla de promociones (pedido del dueño, 26/09)', guardar.indexOf('aceptaPromos') < 0 && html.indexOf('id="cPromos"') < 0);
   t('  y si ya hay uno con ese teléfono o DNI, pregunta antes de cargarlo otra vez', guardar.indexOf('clienteRepetido(data)') > 0 &&
     guardar.indexOf("titulo:'Cliente repetido',aceptar:'Guardar igual'") > 0);
   const abrir = cuerpo(html, 'openClienteModal');

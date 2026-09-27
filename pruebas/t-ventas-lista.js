@@ -94,6 +94,8 @@ console.log('\n-- el panel --');
   t('la minorista usa la lista por día', rv.indexOf("vtListaHtml(shown,ventasFiltered,v=>vtFilaHtml(v,'min'))") > 0);
   t('  la mayorista, la misma fila (y la tarjeta vieja ya no está)', cuerpo('renderVentasMay').indexOf("vtFilaHtml(v,'may')") > 0 &&
     html.indexOf('function _ventaMayCardHtml(') < 0);
+  t('la venta (minorista y mayorista) arranca en Retiro (pedido del dueño, 26/09)', cuerpo('openVentaModal').indexOf("ventaTipoEntrega='retiro';") > 0 &&
+    cuerpo('openVentaMayModal').indexOf("ventaMayTipoEntrega='retiro';") > 0 && cuerpo('openVentaModal').indexOf("==='retiro'));") > 0);
   t('el buscador mayorista busca también por medio de pago', cuerpo('filterVentasMay').indexOf("(v.medioPago||'').toLowerCase().includes(q)") > 0);
   t('"Fiado sin cobrar" no cuenta lo ya cobrado', cuerpo('renderResumenVentas').indexOf('_esFiadoImpago(v)') > 0);
   t('un granel de dos bolsas cuenta como un producto (ticketPedidoLineas)', cuerpo('vtFilaHtml').indexOf("ticketPedidoLineas(v.items||[])") > 0);

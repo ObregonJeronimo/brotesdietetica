@@ -253,7 +253,7 @@ console.log('\n-- el editor de costos --');
   t('  no toca una venta abierta: no es de ahí', venta[0].precio === 1500 && venta[0].costo === 1000 && m.repintados.length === 0);
   t('  y lo dice claro: cuántos cambiaron y que el resto sigue en la lista',
     m.avisos.indexOf('success: Listo: 1 costo cambiado, con su precio nuevo. El que no cambiaste sigue en la lista.') >= 0, m.avisos);
-  t('  queda en el historial de dónde vino', m.historial[0].indexOf('Costos revisados desde Inicio del día: 1 cambiado, 0 confirmados') === 0);
+  t('  queda en el historial de dónde vino', m.historial[0].indexOf('Costos revisados desde el Centro de avisos: 1 cambiado, 0 confirmados') === 0);
   t('  y avisa a la campana (y con ella al Inicio): lo cambiado deja de avisar', campana === 1);
 }
 {

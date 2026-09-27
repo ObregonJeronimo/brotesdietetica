@@ -248,7 +248,7 @@ async function guardarEditorCostos() {
   /* Desde Inicio del día no hay una venta abierta que actualizar. */
   if (!inicio) _refrescarItemsDeVenta(ed.ctx, cambiados);
   if (typeof logAction === 'function') {
-    logAction('editar', (inicio ? 'Costos revisados desde Inicio del día: ' : 'Costos al vender: ') +
+    logAction('editar', (inicio ? 'Costos revisados desde el Centro de avisos: ' : 'Costos al vender: ') +
       cambiados.length + ' cambiado' + (cambiados.length === 1 ? '' : 's') +
       ', ' + (cambios.length - cambiados.length) + ' confirmado' + (cambios.length - cambiados.length === 1 ? '' : 's'),
       cambios.map(c => _costoNombre(c.p) + (c.cambio ? ' -> ' + _costoPesos(c.nuevo) : ' (sigue igual)')).join(' | ').slice(0, 900));

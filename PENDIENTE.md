@@ -1443,7 +1443,7 @@ quedar frenados en el mostrador.
   hasta 5 hojas, con o sin precio). Antes era una sola etiqueta y el resto de la hoja se perdía.
 - **Caja:** un ingreso o egreso se puede **deshacer** mientras la caja está abierta. No se
   borra: queda tachado con "DESHECHO", quién y cuándo, y deja de contar (cierre, planilla y PDF).
-- **Inicio del día (EXPERIMENTAL, a pedido del dueño para ver qué sale):** una sección nueva,
+- **Centro de avisos (era "Inicio del día"; EXPERIMENTAL, a pedido del dueño para ver qué sale):** una sección nueva,
   la primera al entrar, pensada para la dueña (`admin-inicio.js`). Muestra cómo fue ayer
   (neto, ventas, ganancia, contra el mismo día de la semana anterior, lo más vendido), lo que
   **se vende y está sin stock** (con "Agregar stock" ahí mismo; una bolsa vacía de un granel
@@ -1470,7 +1470,11 @@ quedar frenados en el mostrador.
   por día con lo cobrado en el día, filas con etiquetas de color, y la ventana de la venta más
   clara. Mismos ids y funciones.
 
-Pruebas: 3483 en 85 suites.
+- **La venta arranca en Retiro** (minorista y mayorista). En producción los envíos están
+  apagados y el botón se esconde, pero cada venta nueva arrancaba igual en "envío": decía
+  "Envío GRATIS" y se guardaba como envío. Venía de antes.
+
+Pruebas: 3518 en 85 suites.
 
 ---
 
