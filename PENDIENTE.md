@@ -1495,9 +1495,10 @@ quedar frenados en el mostrador.
   formulario, y al lado muestra el kilo, el precio y el mayorista que quedan. En la lista
   de productos, el panel de las bolsas tiene la columna Costo: tocarla abre esa ventana con
   todas las bolsas del producto. Ojo: la bolsa de 3 kg cargada a $2.000 se ve como $2.001,
-  porque el kilo se guarda en pesos enteros ($667).
+  porque el kilo se guarda en pesos enteros ($667). Se decidió dejarlo así (27/09): un "?"
+  lo explica donde aparece el costo de una bolsa, y dice primero que NO se pierde dinero.
 
-Pruebas: 3553 en 85 suites.
+Pruebas: 3556 en 85 suites.
 
 ---
 

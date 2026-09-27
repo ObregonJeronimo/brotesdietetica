@@ -141,7 +141,11 @@ const ids = lista => lista.map(p => p.id + (p.__grupo ? '(' + p.__grupo.miembros
     w.ctx._gruposAbiertos.add('y1');
     w.ctx._gruposAbiertos.add('m80');
     const hy = w.ctx.panelPresentacionesHtml(yerba), hm = w.ctx.panelPresentacionesHtml(mani);
-    t('la columna Costo, entre el código y el precio', hy.indexOf('<th>Código</th><th>Costo</th><th>Precio</th>') > 0);
+    t('la columna Costo, entre el código y el precio', hy.indexOf('<th>Código</th><th>Costo</th><th>Precio</th>') > 0 &&
+      hm.indexOf('<th>Código</th><th>Costo</th><th>Precio</th>') > 0);
+    t('  en las bolsas, al pie, el "?" del redondeo (se abre hacia arriba), que dice primero que NO se pierde dinero',
+      hy.indexOf('</tbody></table><p class="ayuda-linea"><span class="ayuda-tip der ancho" tabindex="0"') > 0 &&
+      hy.indexOf('data-tip="NO SE PIERDE DINERO. A veces la bolsa muestra $1') > 0 && hm.indexOf('NO SE PIERDE DINERO') < 0);
     t('  la bolsa de 3 kg: lo que costó la bolsa ($13.500) y abajo el kilo', hy.indexOf('<b>$13.500</b> <small>la bolsa</small>') > 0 &&
       hy.indexOf('<small>$4.500 el kilo</small>') > 0, hy);
     t('  la de 1 kg, sin repetir el kilo', hy.indexOf('<b>$5.000</b> <small>la bolsa</small>') > 0 && hy.indexOf('$5.000 el kilo') < 0);

@@ -177,6 +177,7 @@ function abrirEditorCostos(viejos, ctx, focoId) {
             : 'Poné el costo de hoy. Si alguno sigue igual, dejalo como está: al guardar queda ' +
               'confirmado con la fecha de hoy.') + ' El precio se recalcula con el mismo porcentaje de siempre.' +
           (hayBolsas ? ' En las bolsas va lo que costó la bolsa entera, como al cargar el producto.' : '') + '</p>' +
+        (hayBolsas && typeof ayudaRedondeoLineaHtml === 'function' ? ayudaRedondeoLineaHtml() : '') +
         viejos.map((v, i) => {
           const p = v.producto, g = _costoGramos(p), nom = _costoEsc(_costoNombre(p));
           const actual = g

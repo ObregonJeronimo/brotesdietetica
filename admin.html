@@ -530,6 +530,12 @@
         .ayuda-tip:hover,.ayuda-tip:focus{color:var(--accent-light)}
         .ayuda-tip::after{content:attr(data-tip);position:absolute;right:-4px;bottom:calc(100% + 8px);width:270px;max-width:72vw;padding:0.6rem 0.75rem;border-radius:8px;background:#12161d;border:1px solid var(--accent-dark);color:var(--text);font-size:0.78rem;font-weight:400;line-height:1.45;letter-spacing:normal;text-transform:none;white-space:normal;text-align:left;box-shadow:0 8px 22px rgba(0,0,0,0.5);opacity:0;visibility:hidden;transition:opacity .12s;z-index:40;pointer-events:none}
         .ayuda-tip:hover::after,.ayuda-tip:focus::after{opacity:1;visibility:visible}
+/* Variantes del cartelito (27/09): hacia la derecha, hacia abajo y mas ancho. */
+.ayuda-tip.der::after{right:auto;left:-4px}
+.ayuda-tip.abajo::after{bottom:auto;top:calc(100% + 8px)}
+.ayuda-tip.ancho::after{width:420px}
+.ayuda-linea{display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-dim);margin:0 0 0.6rem}
+.var-panel .ayuda-linea{margin:0.5rem 0 0}
         .vfe-caja input,.caja-lbl input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
         .caja-wrap{margin-top:0.75rem}
         .caja-lbl{display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;color:var(--text);cursor:pointer}

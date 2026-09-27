@@ -129,6 +129,22 @@ function _ayudaCajaHtml() {
   return '<span class="ayuda-tip" tabindex="0" role="img" aria-label="' + _varAttr(_AYUDA_CAJA) + '" data-tip="' + _varAttr(_AYUDA_CAJA) + '">' +
     '<i class="bi bi-question-circle"></i></span>';
 }
+/* El "?" del redondeo de las bolsas (pedido del dueño, 27/09). La bolsa se muestra desde el
+   costo del kilo, que se guarda sin centavos: a veces sale $1 de más o de menos. Lo más
+   importante para la dueña: que NO se pierde plata. Por eso va primero. */
+const _AYUDA_REDONDEO = 'NO SE PIERDE DINERO. A veces la bolsa muestra $1 más o $1 menos de lo que cargaste: es solo un redondeo. ' +
+  'El sistema guarda el costo del kilo sin centavos y calcula la bolsa a partir de ese kilo. Por ejemplo: la bolsa de 3 kg a $2.000 ' +
+  'da $666,67 el kilo; se guarda $667, y la bolsa se ve como $2.001. Los precios se siguen calculando con tu mismo porcentaje de ganancia.';
+/* La pregunta, con el "?" adelante; el cartel se abre hacia la derecha, más ancho, y hacia
+   abajo (o hacia arriba, al pie del panel de la tabla). El cartelito de siempre se abre
+   arriba y a la izquierda, y así quedaba cortado arriba de una ventana que scrollea o al
+   costado de la tabla. La usa también la ventana de costos (admin-costos.js). */
+function ayudaRedondeoLineaHtml(haciaArriba) {
+  return '<p class="ayuda-linea"><span class="ayuda-tip der ancho' + (haciaArriba ? '' : ' abajo') + '" tabindex="0" role="img" aria-label="' +
+    _varAttr(_AYUDA_REDONDEO) + '" data-tip="' + _varAttr(_AYUDA_REDONDEO) + '"><i class="bi bi-question-circle"></i></span>' +
+    ' ¿Por qué a veces la bolsa muestra $1 de más o de menos?</p>';
+}
+
 /* La casilla de una fila. El "?" va afuera del label: adentro, tocarlo marcaría la casilla. */
 function _cajaHtml(marcada, alCambiar) {
   return '<div class="vfe-caja"><label><input type="checkbox"' + (marcada ? ' checked' : '') + ' onchange="' + alCambiar + '">' +
@@ -960,7 +976,8 @@ function _pintarVariantes() {
     if (tit) tit.textContent = peso ? 'Costo y precio de cada bolsa' : 'Costo y precio de cada presentación';
     h = '<p class="var-ayuda">' + (peso
       ? 'Cada bolsa con lo que te costó, su ganancia y su stock. Al vender, el precio sale solo de la cantidad: con 3 kg o más se cobra el de la bolsa de 3 kg.'
-      : 'Cada presentación con su costo, su ganancia y su stock. En la venta y en la tienda se ven como un solo producto.') + '</p>';
+      : 'Cada presentación con su costo, su ganancia y su stock. En la venta y en la tienda se ven como un solo producto.') + '</p>' +
+      (peso ? ayudaRedondeoLineaHtml() : '');
     h += '<div class="var-filas">' + _filaPpalHtml(peso) + filas.map((f, i) => _filaVarHtml(f, i, peso)).join('') + '</div>';
     h += '<button type="button" class="btn btn-secondary btn-sm var-agregar" onclick="varFilaAgregar()"><i class="bi bi-plus-lg"></i> ' +
       (peso ? 'Agregar bolsa' : 'Agregar presentación') + '</button>';
@@ -1511,6 +1528,7 @@ function panelPresentacionesHtml(p) {
       '</span></div>' +
     '<table class="var-tabla"><thead><tr><th>Tamaño</th><th>Código</th><th>Costo</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
       g.miembros.map(fila).join('') + '</tbody></table>' +
+    (g.miembros.some(m => gramosDeBolsa(m)) ? ayudaRedondeoLineaHtml(true) : '') +
   '</div></td></tr>';
 }
 

@@ -356,6 +356,8 @@ console.log('\n-- el editor de costos --');
     h.indexOf('Costo de la bolsa $2.000 ·') > 0);
   t('  un granel sin bolsas sigue por kilo', h.indexOf('value="9000" aria-label="Nuevo costo de Almendra"') > 0 && h.indexOf('Costo actual $9.000 el kilo') > 0);
   t('  y lo dice arriba', h.indexOf('En las bolsas va lo que costó la bolsa entera, como al cargar el producto.') > 0);
+  t('  con el "?" del redondeo, que se abre hacia abajo: NO SE PIERDE DINERO', h.indexOf('<p class="ayuda-linea"><span class="ayuda-tip der ancho abajo"') > 0 &&
+    h.indexOf('data-tip="NO SE PIERDE DINERO.') > 0 && h.indexOf('¿Por qué a veces la bolsa muestra $1 de más o de menos?</p>') > 0);
   t('al lado de cada una, cómo queda: el kilo, el precio y el mayorista', h.indexOf('<div class="costos-vista" data-i="1" aria-live="polite">' +
     '<span>Costo $667 el kilo</span><span>Precio <b>$967</b> el kilo</span><span class="costos-may">Mayorista $1.000 el kilo</span></div>') > 0, h);
   t('  el que no es bolsa, sin el kilo aparte', h.indexOf('<div class="costos-vista" data-i="2" aria-live="polite"><span>Precio <b>$13.500</b> el kilo</span>') > 0);
@@ -401,6 +403,10 @@ console.log('\n-- el editor de costos --');
   m2.api.abrirEditorCostos(m2.ctx.allProducts.map(p => ({ producto: p, fecha: null, dias: null })), 'prod');
   const h2 = m2.elementos.costosEditor.innerHTML;
   t('sin fecha dice "sin fecha de cambio" (no "hace undefined días")', h2.indexOf('sin fecha de cambio') > 0 && h2.indexOf('undefined') < 0);
+  const m3 = armar({ productos: [{ id: 'z', nombre: 'Almendra', tipoVenta: 'peso', costo: 9000, porcentaje: 50, costoActualizadoEn: hace(40) }], conVariantes: true });
+  m3.api.abrirEditorCostos([{ producto: m3.ctx.allProducts[0], fecha: hace(40), dias: 40 }], 'min');
+  t('sin bolsas no aparece el "?" del redondeo', m3.elementos.costosEditor.innerHTML.indexOf('ayuda-linea') < 0);
+  m3.api.cerrarEditorCostos();
   m2.conInputs(['2000', '2001']);
   m2.conCasillas([false, false]);
   await (m2.api.guardarEditorCostos());
