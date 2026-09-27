@@ -283,6 +283,16 @@ console.log('\n-- el editor de costos --');
   m3.conInputs(['1000', '900']);
   m3.conCasillas([false, false]);
   await (m3.api.guardarEditorCostos());
+  /* Revisión del 26/09: un producto con costo 0 que no se toca no frena a los demás. */
+  const cero = { id: 'z', nombre: 'Muestra', costo: 0, porcentaje: 50, precio: 0, costoActualizadoEn: hace(40) };
+  const otro = { id: 'o', nombre: 'Otro', costo: 1000, porcentaje: 50, precio: 1500, costoActualizadoEn: hace(40) };
+  const m4 = armar({ productos: [cero, otro] });
+  m4.api.abrirEditorCostos([cero, otro].map(x => ({ producto: x, fecha: hace(40), dias: 40 })), 'inicio');
+  m4.conInputs(['0', '1200']);
+  m4.conCasillas([false, false]);
+  await (m4.api.guardarEditorCostos());
+  t('desde Inicio, un costo 0 que no se tocó no frena al resto: se guarda el que cambió', m4.escrituras.length === 1 &&
+    m4.escrituras[0].id === 'o' && otro.costo === 1200 && !m4.avisos.some(a => a.indexOf('error:') === 0), m4.avisos);
   t('al VENDER sigue como antes: lo que no cambió se confirma (si no, el aviso volvería en la próxima venta)',
     m3.escrituras.length === 2 && m3.escrituras.every(x => Object.keys(x.campos).join() === 'costoActualizadoEn'));
 }

@@ -111,6 +111,13 @@ console.log('\n-- el papel --');
   const doc = ctx.ticketPedidoDocumento(Object.assign(pedidoWeb(), { ventaId: 'V9' }), {}, { venta: venta });
   t('ya cobrado: dice con qué se pagó y el número de la venta', /Pagado<\/span><span>Transferencia/.test(doc) && doc.indexOf('#000077') > 0);
   t('  y los renglones y el total son los de la venta', doc.indexOf('5 u') > 0 && /TOTAL<\/span><span>\$4\.000/.test(doc) && doc.indexOf('2,000 kg') < 0);
+  /* Revisión del 26/09: descuentoPct lo puede escribir el cliente en un pedido web. */
+  const xss = ctx.ticketPedidoDocumento(Object.assign(pedidoWeb(), { descuentoMonto: 1, descuentoPct: '<img src=x onerror=alert(1)>' }), {});
+  t('el descuento de un pedido web se usa como número: nunca entra texto al papel', xss.indexOf('<img') < 0 && xss.indexOf('onerror') < 0);
+  const envioARetiro = ctx.ticketPedidoDocumento(Object.assign(pedidoWeb(), { tipoEntrega: 'envio', direccion: 'Calle 1' }), {},
+    { venta: Object.assign({}, venta, { tipoEntrega: 'retiro', envio: 0 }) });
+  t('ya cobrado como retiro, dice retiro aunque el pedido era con envío', envioARetiro.indexOf('RETIRO EN EL LOCAL') > 0 &&
+    envioARetiro.indexOf('Calle 1') < 0 && envioARetiro.indexOf('Envío') < 0);
   const conDesc = ctx.ticketPedidoDocumento(pedidoWeb(), {}, { venta: Object.assign({}, venta, { descuentoMonto: 450, descuentoPct: 10 }) });
   t('  con descuento general Y cupón, van los dos', conDesc.indexOf('Descuento (10%)') > 0 && conDesc.indexOf('-$450') > 0 && conDesc.indexOf('Cupón BROTES10') > 0);
 }
@@ -145,6 +152,14 @@ console.log('\n-- el botón --');
   const s = armar({ configurado: true, sucio: true });
   t('con cambios sin guardar pide guardar antes', (await s.ctx.imprimirTicketPedido()) === false && s.impreso.length === 0 &&
     s.avisos.some(a => a.indexOf('cambios sin guardar') > 0));
+  /* Revisión del 26/09: cambiar el cliente o el medio de pago no marcaba pedidoDirty. */
+  const panel = Object.assign(pedidoWeb(), { origen: undefined, clienteId: 'c1', medioPago: 'Efectivo' });
+  const cm = armar({ configurado: true, pedidos: [panel] });
+  cm.ctx.document = { getElementById: id => ({ pedClienteId: { value: 'c1' }, pedMedio: { value: 'Transferencia' } })[id] || null };
+  t('cambiar el medio de pago sin guardar también pide guardar', (await cm.ctx.imprimirTicketPedido()) === false && cm.impreso.length === 0);
+  const dc = armar({ configurado: true });
+  await Promise.all([dc.ctx.imprimirTicketPedido(), dc.ctx.imprimirTicketPedido()]);
+  t('un doble clic imprime UN ticket', dc.impreso.length === 1 && dc.historial.length === 1, dc.impreso.length);
   const n = armar({ configurado: true, editando: null });
   t('un pedido nuevo (sin guardar) no se puede imprimir', (await n.ctx.imprimirTicketPedido()) === false && n.impreso.length === 0);
 }

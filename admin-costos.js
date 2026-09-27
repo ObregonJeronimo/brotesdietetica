@@ -204,13 +204,15 @@ async function guardarEditorCostos() {
     const fila = ed.filas[i];
     if (!fila) continue;
     const nuevo = Math.round(Number(leer(inp.value)) || 0);
+    const cambio = nuevo !== Math.round(Number(fila.producto.costo || 0));
+    /* Se saltea ANTES de validar: un producto con costo 0 que no se tocó frenaba el guardado
+       de todos los demás. */
+    if (inicio && !cambio && !sigueIgual.has(i)) continue;
     if (!(nuevo > 0)) {
       showAdminToast('Poné un costo válido para "' + _costoNombre(fila.producto) + '"', 'error');
       inp.focus();
       return;
     }
-    const cambio = nuevo !== Math.round(Number(fila.producto.costo || 0));
-    if (inicio && !cambio && !sigueIgual.has(i)) continue;
     cambios.push({ p: fila.producto, nuevo: nuevo, cambio: cambio });
   }
   if (!cambios.length) {

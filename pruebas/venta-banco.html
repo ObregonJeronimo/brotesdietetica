@@ -139,6 +139,9 @@ async function montar(){
   const lst=fuente.match(/document\.addEventListener\('pointerdown',function\(e\)\{var list=document\.getElementById\('clienteSelectList'\)[\s\S]*?,true\);/);
   if(lst) codigo+=lst[0]+'\n'; else faltan.push("listener pointerdown de cierre");
   (0,eval)(codigo);
+  /* Desde el 26/09 el buscador arma la lista con admin-clientes.js (clientes del local y
+     de la web, y "Agregar cliente nuevo" arriba). */
+  await new Promise(function(listo){const s=document.createElement('script');s.src='/admin-clientes.js';s.onload=listo;s.onerror=function(){faltan.push('admin-clientes.js');listo();};document.head.appendChild(s);});
   window.__faltan=faltan;
   anotar('Modal y '+(NECESARIAS.length-faltan.filter(f=>NECESARIAS.includes(f)).length)+' funciones traidas de /admin'+
          (faltan.length?'  ·  NO SE ENCONTRARON: '+faltan.join(', '):''), faltan.length?'mal':'ok');
@@ -178,8 +181,8 @@ async function soloDropdown(){
   const inp=$('ventaCliente'), list=$('clienteSelectList');
 
   inp.focus(); showClienteSelect();
-  chk('se abre con items', list.classList.contains('open') && list.children.length===3,
-      list.children.length+' items');
+  chk('se abre con "Agregar cliente nuevo" y los 3 clientes', list.classList.contains('open') && list.children.length===4 &&
+      list.children[0].className.indexOf('cli-nuevo')>=0, list.children.length+' items');
 
   evento(inp,'pointerdown');
   chk('tocar el INPUT no la cierra', list.classList.contains('open'));
@@ -199,23 +202,23 @@ async function soloDropdown(){
 
   /* elegir un item */
   ventaClienteSelected=false; $('ventaCliente').value=''; inp.focus(); showClienteSelect();
-  evento(list.children[1],'mousedown');
+  evento(list.children[2],'mousedown');   /* [0] Agregar cliente nuevo, [1] Ana, [2] Beto */
   chk('elegir un item lo carga y cierra',
       !list.classList.contains('open') && $('ventaCliente').value==='Beto Diaz' && $('ventaClienteId').value==='auth:u2',
       $('ventaCliente').value+' / '+$('ventaClienteId').value);
 
   /* LA REGRESION: la carga async no puede re-abrir una lista ya cerrada */
-  clientesAuthData=[]; DEMORA_CLIENTES='a mano'; _resolverClientes=null;
+  clientesAuthData=[]; DEMORA_CLIENTES='a mano'; _resolverClientes=null; _cliWebLeidos=false;
   ventaClienteSelected=false; $('ventaCliente').value=''; inp.focus();
   showClienteSelect();
-  chk('sin clientes todavia, la lista no se abrio', !list.classList.contains('open'));
+  chk('sin clientes todavia, la lista solo ofrece "Agregar cliente nuevo"', list.children.length===1);
   inp.blur(); list.classList.remove('open');
   if(_resolverClientes)_resolverClientes();
   await dormir(60);
   chk('cuando llega la carga, NO re-abre la lista cerrada', !list.classList.contains('open'));
 
-  /* y si el foco sigue puesto, si abre */
-  clientesAuthData=[]; DEMORA_CLIENTES='a mano'; _resolverClientes=null;
+  /* y si el foco sigue puesto (y la lista abierta), se repinta con los que llegaron */
+  clientesAuthData=[]; DEMORA_CLIENTES='a mano'; _resolverClientes=null; _cliWebLeidos=false;
   inp.focus(); $('ventaCliente').value='';
   showClienteSelect();
   if(_resolverClientes)_resolverClientes();

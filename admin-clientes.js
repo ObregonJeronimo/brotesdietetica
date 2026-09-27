@@ -30,24 +30,49 @@ let _cliLocalLeyendo = null;
 
 const _cliEsc = s => (typeof esc === 'function' ? esc(String(s == null ? '' : s)) : String(s == null ? '' : s));
 /* Sin acentos ni mayúsculas: "jose" encuentra a "José". */
-const _cliClave = s => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const _cliClave = s => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+/* Un solo comparador: localeCompare con opciones arma uno nuevo en cada comparación, y
+   ordenar cientos de clientes en cada tecla se notaba. */
+const _cliOrden = new Intl.Collator('es', { sensitivity: 'base' });
 const _cliDigitos = s => String(s == null ? '' : s).replace(/\D/g, '');
 
 /* Los clientes del local, livianos y una sola vez. Si la sección Clientes ya los cargó
    (con sus números), se usan esos. `alTerminar` corre cuando llegan. */
 function cargarClientesDelLocal(alTerminar) {
-  if (_cliLocalLeidos || (typeof allClientes !== 'undefined' && allClientes.length)) { _cliLocalLeidos = true; return null; }
+  if (_cliLocalLeidos) return null;
   if (_cliLocalLeyendo) return _cliLocalLeyendo;
   _cliLocalLeyendo = db.collection('clientes').orderBy('nombre').get()
     .then(snap => {
-      /* Si mientras tanto la sección Clientes los cargó completos, no se pisan. */
-      if (!allClientes.length) allClientes = snap.docs.map(d => Object.assign({ id: d.id, ventasCount: 0, ventasTotal: 0 }, d.data()));
+      /* Se SUMAN a los que ya haya (los de la sección Clientes con sus números, o uno recién
+         creado): antes, con uno solo en la lista, se tomaba como "ya cargados" y se
+         descartaba lo leído, y el buscador quedaba mostrando solo ese. */
+      const ya = new Set(allClientes.map(c => c && c.id));
+      snap.docs.forEach(d => { if (!ya.has(d.id)) allClientes.push(Object.assign({ id: d.id, ventasCount: 0, ventasTotal: 0 }, d.data())); });
       _cliLocalLeidos = true;
       if (typeof alTerminar === 'function') alTerminar();
     })
     .catch(e => console.warn('clientes del local:', e))
     .then(() => { _cliLocalLeyendo = null; });
   return _cliLocalLeyendo;
+}
+
+/* Los clientes de la web, una sola vez. Antes cada buscador los pedía mientras la lista
+   estuviera vacía: tipeando rápido salían varias lecturas enteras de la colección, y sin
+   clientes web la lectura se repetía sin parar. */
+let _cliWebLeidos = false;
+let _cliWebLeyendo = null;
+function cargarClientesWeb(alTerminar) {
+  if (_cliWebLeidos || (typeof clientesAuthData !== 'undefined' && clientesAuthData.length)) { _cliWebLeidos = true; return null; }
+  if (_cliWebLeyendo) return _cliWebLeyendo;
+  _cliWebLeyendo = db.collection('clientesAuth').get()
+    .then(snap => {
+      clientesAuthData = snap.docs.map(d => Object.assign({ uid: d.id }, d.data()));
+      _cliWebLeidos = true;
+      if (typeof alTerminar === 'function') alTerminar();
+    })
+    .catch(e => console.warn('clientes de la web:', e))
+    .then(() => { _cliWebLeyendo = null; });
+  return _cliWebLeyendo;
 }
 
 /* Los clientes para elegir, del local y de la web, filtrados por lo escrito (nombre,
@@ -73,7 +98,7 @@ function clientesParaElegir(q, o) {
   const filtrados = (!clave || clave === 'consumidor final') ? out : out.filter(cl =>
     cl.buscar.some(b => _cliClave(b).indexOf(clave) >= 0) ||
     (dig.length >= 3 && cl.buscar.some(b => _cliDigitos(b).indexOf(dig) >= 0)));
-  return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  return filtrados.sort((a, b) => _cliOrden.compare(a.nombre, b.nombre));
 }
 
 /* La lista desplegable: "Agregar cliente nuevo" arriba de todo (con lo escrito) y
@@ -81,7 +106,8 @@ function clientesParaElegir(q, o) {
    `desde` ('venta' | 'ventaMay' | 'pedido') para volver a esa pantalla con el nuevo. */
 function pintarListaClientes(list, items, escrito, alElegir, desde) {
   const nombre = String(escrito || '').trim();
-  const conNombre = !!nombre && _cliClave(nombre) !== 'consumidor final';
+  /* Solo si lo escrito tiene letras: un teléfono o un DNI buscado no es un nombre. */
+  const conNombre = !!nombre && /[a-zñáéíóúü]/i.test(nombre) && _cliClave(nombre) !== 'consumidor final';
   list.innerHTML = '';
   const nuevo = document.createElement('div');
   nuevo.className = 'cliente-select-item cli-nuevo';
@@ -126,6 +152,7 @@ function clienteRepetido(data) {
 
 if (typeof window !== 'undefined') {
   window.cargarClientesDelLocal = cargarClientesDelLocal;
+  window.cargarClientesWeb = cargarClientesWeb;
   window.clientesParaElegir = clientesParaElegir;
   window.pintarListaClientes = pintarListaClientes;
   window.clienteRepetido = clienteRepetido;

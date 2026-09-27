@@ -114,6 +114,13 @@ console.log('\n-- la lista --');
   sinNombre.hijos[0].escuchas.mousedown();
   t('  con "Consumidor Final" escrito no lo propone como nombre', sinNombre.hijos[0].innerHTML.indexOf('Consumidor') < 0 &&
     m.abiertos[1] === 'venta|');
+  const num = elemento();
+  m.ctx.pintarListaClientes(num, [], '351 555-9999', () => {}, 'venta');
+  num.hijos[0].escuchas.mousedown();
+  t('si se buscó un número, "Agregar cliente nuevo" no lo pone como nombre', num.hijos[0].innerHTML.indexOf('351') < 0 &&
+    m.abiertos[m.abiertos.length - 1] === 'venta|');
+  const esp = armar({ local: [{ id: 'mj', nombre: 'María  José Ruiz' }], web: [] });
+  t('los espacios de más no cuentan: "maria jose" encuentra a "María  José"', esp.ctx.clientesParaElegir('maria jose').map(c => c.id).join() === 'mj');
   const muchos = [];
   for (let i = 0; i < 70; i++) muchos.push({ id: 'x' + i, nombre: 'Cliente ' + i, tipo: 'local' });
   const larga = elemento();
@@ -138,8 +145,20 @@ console.log('\n-- lectura --');
   t('los del local se leen una vez, livianos (solo la colección)', m.lecturas.join() === 'clientes' && m.ctx.allClientes.length === 1 && avisado === 1);
   await m.ctx.cargarClientesDelLocal(() => { avisado++; });
   t('  y no se vuelven a leer', m.lecturas.length === 1 && avisado === 1);
-  const n = armar();
-  t('si la sección Clientes ya los tiene, no se lee nada', n.ctx.cargarClientesDelLocal() === null && n.lecturas.length === 0);
+  const n = armar({ enBase: [{ id: 'c1', nombre: 'José Pérez' }, { id: 'c2', nombre: 'Ana' }] });
+  await n.ctx.cargarClientesDelLocal();
+  t('si ya hay clientes en la lista, lo leído se SUMA sin repetir', n.ctx.allClientes.length === 2 && n.lecturas.join() === 'clientes');
+  /* Revisión del 26/09: un cliente recién creado ya no tapa la lista. */
+  const r = armar({ local: [{ id: 'nuevo', nombre: 'Recién creado' }], enBase: [{ id: 'c1', nombre: 'José' }, { id: 'c2', nombre: 'Ana' }] });
+  await r.ctx.cargarClientesDelLocal();
+  t('uno recién creado no hace creer que ya están todos: se leen y se suman', r.ctx.allClientes.map(c => c.id).sort().join() === 'c1,c2,nuevo');
+}
+{
+  const w = armar({ web: [] });
+  w.ctx.db.collection = col => ({ get: async () => { w.lecturas.push(col); return { docs: [] }; } });
+  await Promise.all([w.ctx.cargarClientesWeb(), w.ctx.cargarClientesWeb()]);
+  await w.ctx.cargarClientesWeb();
+  t('los de la web se leen UNA vez aunque se pidan seguido, y vacíos no se releen', w.lecturas.join() === 'clientesAuth', w.lecturas);
 }
 
 console.log('\n-- el panel --');
@@ -165,6 +184,19 @@ console.log('\n-- el panel --');
   const abrir = cuerpo(html, 'openClienteModal');
   t('la ficha queda arriba de la venta pero abajo de los diálogos (si no, el aviso quedaba escondido)',
     abrir.indexOf("modal.style.zIndex='300'") > 0 && abrir.indexOf("'2000'") < 0 && abrir.indexOf("_clienteDesde==='ventaMay'") > 0);
+  t('la ficha abierta desde una venta va al final de la página (Escape cierra el último modal del orden de la página)',
+    abrir.indexOf('document.body.appendChild(modal);') > 0);
+  t('el pedido y la mayorista repintan solo con la lista abierta', ped.indexOf("&&list.classList.contains('open'))showPedClienteSelect()") > 0 &&
+    may.indexOf("const enfocado=()=>document.activeElement===document.getElementById('ventaMayCliente')&&list.classList.contains('open');") > 0);
+  t('  y los de la web se piden con cargarClientesWeb (una sola lectura)', sel.indexOf('cargarClientesWeb(_repintar)') > 0 &&
+    may.indexOf('cargarClientesWeb(') > 0 && sel.indexOf("db.collection('clientesAuth')") < 0 && may.indexOf("db.collection('clientesAuth')") < 0);
+  const ficha = cuerpo(html, 'showClienteHist');
+  t('la ficha del cliente trae también sus ventas mayoristas', ficha.indexOf("db.collection('ventasMayoristas').where('clienteId','==',id).get()") > 0 &&
+    ficha.indexOf("_aVenta(d,'ventasMayoristas')") > 0);
+  t('  el fiado se salda en su colección', cuerpo(html, 'confirmarCobroCC').indexOf("db.collection(v._col||'ventas').doc(v.docId)") > 0);
+  t('  borrar el cliente las cuenta, y sincronizar las pasa', cuerpo(html, 'deleteCliente').indexOf("db.collection('ventasMayoristas').where('clienteId','==',id).get()") > 0 &&
+    cuerpo(html, 'confirmarSincronizar').indexOf("db.collection('ventasMayoristas').where('clienteId','==',clienteId).get()") > 0);
+  t('el aviso de repetido dice teléfono solo con la regla de 6 dígitos', guardar.indexOf("const _porTel=_dig(data.telefono).length>=6&&_dig(_rep.telefono)===_dig(data.telefono);") > 0);
   t('el módulo está enganchado y check-admin revisa sus clases', html.indexOf('<script src="admin-clientes.js"></script>') > 0 &&
     leer('check-admin.js').indexOf("'admin-clientes.js'") > 0);
 }

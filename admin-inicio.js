@@ -23,10 +23,11 @@
    sigue vendiendo, con el aviso de mezcla (admin-escalas.js). Va aparte.
 
    LECTURAS: las ventas de los últimos INICIO_DIAS días y el puntero de la caja
-   abierta, una vez por día (o al tocar "Volver a revisar"). Lo demás sale de
-   allProducts, que ya está en memoria. Se repinta solo cuando algo cambia: se
-   engancha a actualizarBadgeAlertas, por donde ya pasa todo cambio de productos,
-   stock y caja (ver _refrescarAlertas en admin.html).
+   abierta, una vez por día y por pestaña (quedan en memoria: recargar la página
+   vuelve a leer, unas 250 lecturas), o al tocar "Volver a revisar". Si la lectura
+   falla, se reintenta sola al minuto. Lo demás sale de allProducts, que ya está en
+   memoria. Se repinta cuando algo cambia: con la campana (actualizarBadgeAlertas,
+   productos, stock a mano y caja) y con cada venta (aplicarStockProductos).
    ============================================================================= */
 
 const INICIO_DIAS = 30;             /* qué cuenta como "se vende" */
@@ -116,8 +117,10 @@ function _iniOtrasBolsas(p, prods) {
    se puede vender. `bolsas`: bolsas vacías de un granel que sigue teniendo en otra.
    `quietos`: los que tampoco se vendieron. Sin ventas leídas (vendido null) no se sabe qué
    se vende, y van todos a `lista`.
-   EL NEGATIVO NO APARECE (pedido del dueño, 26/09): con el freno de stock ya no se puede
-   vender lo que no hay, así que un negativo es un resto de antes, no algo del día. */
+   EL NEGATIVO NO APARECE (pedido del dueño, 26/09). Ojo: el mostrador ya no vende sin
+   stock, pero un pedido WEB todavía puede dejarlo en negativo (descontarStockPedido
+   descuenta aunque no alcance). Ese producto queda sin stock para el mostrador y acá
+   no se ve; la campana sí lo cuenta. */
 function sinStockQueSeVende(prods, vendido) {
   const lista = [], bolsas = [];
   let quietos = 0;
@@ -257,11 +260,18 @@ function resumenDeAyer(ventas, ahora, prods) {
 
 /* ============================ LA LECTURA ============================ */
 
+/* Lo leído sirve si es de hoy. Si la lectura falló, a los 60 segundos se reintenta
+   sola: antes el error quedaba guardado todo el día. */
+function _iniVigente() {
+  const d = _iniDatos;
+  return !!d && d.dia === _iniDia(new Date()) && (!d.error || Date.now() - d.en < 60000);
+}
+
 /* Las ventas del último mes y la caja abierta. Una vez por día: si el panel quedó
    abierto de ayer, al volver a entrar se relee sola. */
 async function _iniCargar(forzar) {
   const dia = _iniDia(new Date());
-  if (!forzar && _iniDatos && _iniDatos.dia === dia) return _iniDatos;
+  if (!forzar && _iniVigente()) return _iniDatos;
   if (_iniCarga) return _iniCarga;
   _iniCarga = (async () => {
     /* Un solo campo en el rango (fecha): no hace falta índice compuesto. */
@@ -270,28 +280,34 @@ async function _iniCargar(forzar) {
       const q = await db.collection(col).where('fecha', '>=', desde).get();
       return q.docs.map(d => Object.assign({ docId: d.id }, d.data()));
     };
+    /* Las tres a la vez. Si falla solo la de mayoristas, las minoristas se muestran igual. */
+    const r = await Promise.all([
+      leer('ventas').catch(e => ({ fallo: e })),
+      leer('ventasMayoristas').catch(e => ({ fallo: e })),
+      Promise.resolve(typeof getCajaAbierta === 'function' ? getCajaAbierta() : null)
+        .catch(e => { console.warn('inicio/caja:', e); return null; }),
+    ]);
     let ventas = null, error = '';
-    try {
-      const r = await Promise.all([leer('ventas'), leer('ventasMayoristas')]);
-      ventas = r[0].concat(r[1]);
-    } catch (e) {
-      error = (e && e.message) || String(e);
-      console.warn('inicio/ventas:', e);
+    if (Array.isArray(r[0])) {
+      if (!Array.isArray(r[1])) console.warn('inicio/ventasMayoristas:', r[1].fallo);
+      ventas = r[0].concat(Array.isArray(r[1]) ? r[1] : []);
+    } else {
+      error = (r[0].fallo && r[0].fallo.message) || String(r[0].fallo);
+      console.warn('inicio/ventas:', r[0].fallo);
     }
-    let caja = null;
-    try { if (typeof getCajaAbierta === 'function') caja = await getCajaAbierta(); }
-    catch (e) { console.warn('inicio/caja:', e); }
-    _iniDatos = { dia: dia, ventas: ventas, caja: caja, error: error };
+    _iniDatos = { dia: dia, ventas: ventas, caja: r[2], error: error, en: Date.now() };
     return _iniDatos;
   })();
   try { return await _iniCarga; } finally { _iniCarga = null; }
 }
 
-/* La caja abierta: la de la sección Caja si ya se cargó (está al día: cerrarla la
-   actualiza), y si no la que se leyó acá. */
+/* La caja abierta: la más nueva entre la de la sección Caja y la que se leyó acá.
+   Antes ganaba siempre la de Caja, y si otro la cerraba desde otra compu el aviso
+   seguía aunque se tocara "Volver a revisar". */
 function _iniCaja() {
-  if (typeof _cajaCargadaEn !== 'undefined' && _cajaCargadaEn && typeof cajaActual !== 'undefined') return cajaActual;
-  return _iniDatos ? _iniDatos.caja : null;
+  const enCaja = typeof _cajaCargadaEn !== 'undefined' && _cajaCargadaEn && typeof cajaActual !== 'undefined';
+  if (!_iniDatos) return enCaja ? cajaActual : null;
+  return (enCaja && _cajaCargadaEn > _iniDatos.en) ? cajaActual : _iniDatos.caja;
 }
 
 /* ============================ EL DIBUJO ============================ */
@@ -479,19 +495,34 @@ function renderInicio() {
       '<i class="bi bi-arrow-clockwise"></i> ' + (_iniCarga ? 'Revisando...' : 'Volver a revisar') + '</button></div>';
   if (!_iniListo) { cont.innerHTML = h + '<p class="ini-cargando">Cargando los productos...</p>'; return; }
 
-  const d = _iniDatos;
+  /* Lo de otro día no sirve (el panel quedó abierto de ayer): se muestra "Revisando" y
+     refrescarInicio lo relee. */
+  const d = (_iniDatos && _iniDatos.dia === _iniDia(ahora)) ? _iniDatos : null;
   const prods = _iniProds();
+  /* Sin productos no hay nada que afirmar: si fallaron, decía "Todo en orden". */
+  if (!prods.length) {
+    cont.innerHTML = h + '<p class="ini-cargando">Todavía no hay productos cargados. Si no aparecen en un momento, recargá la página.</p>';
+    return;
+  }
   const conVentas = !!(d && d.ventas);
   const vendido = conVentas ? vendidoPorProducto(d.ventas) : null;
   const avisos = [];
   const caja = _iniHtmlCaja(_iniCaja());
   if (caja) avisos.push({ nivel: 'critico', html: caja });
+  /* Con "Descontar stock" apagado (Configuración) el stock no se mueve ni frena ventas:
+     un aviso de stock diría algo que no es cierto. */
+  const stockActivo = !(typeof DESCONTAR_STOCK !== 'undefined' && DESCONTAR_STOCK === false);
   if (d) {
-    const s = sinStockQueSeVende(prods, vendido);
-    avisos.push({ nivel: s.lista.length ? 'critico' : (s.bolsas.length ? 'aviso' : 'ok'), html: _iniHtmlSinStock(s, conVentas) });
+    if (stockActivo) {
+      const s = sinStockQueSeVende(prods, vendido);
+      avisos.push({ nivel: s.lista.length ? 'critico' : (s.bolsas.length ? 'aviso' : 'ok'), html: _iniHtmlSinStock(s, conVentas) });
+    } else {
+      avisos.push({ nivel: 'ok', html: _iniAviso('info', 'bi-info-circle-fill', 'Los avisos de stock están apagados',
+        'En Configuración está apagado "Descontar stock automáticamente": el stock no se mueve al vender.', '', '') });
+    }
     const c = costosParaRevisar(prods, vendido, ahora);
     avisos.push({ nivel: c.viejos.length ? 'aviso' : 'ok', html: _iniHtmlCostos(c) });
-    const t = _iniHtmlTerminar(porTerminarse(prods, vendido));
+    const t = stockActivo ? _iniHtmlTerminar(porTerminarse(prods, vendido)) : '';
     if (t) avisos.push({ nivel: 'aviso', html: t });
   }
   const criticos = avisos.filter(a => a.nivel === 'critico').length;
@@ -530,7 +561,7 @@ function _iniClick(e) {
 function verTodoInicio(cual) {
   if (!(cual in _iniAbierto)) return;
   _iniAbierto[cual] = !_iniAbierto[cual];
-  renderInicio();
+  refrescarInicio(false);
 }
 
 /* "Revisar estos 10 costos": el editor de costos de la venta (admin-costos.js), con
@@ -541,14 +572,13 @@ function revisarCostosDeInicio() {
   const d = _iniDatos;
   const vendido = d && d.ventas ? vendidoPorProducto(d.ventas) : null;
   const c = costosParaRevisar(_iniProds(), vendido);
-  if (!c.tanda.length) { renderInicio(); return; }
+  if (!c.tanda.length) { refrescarInicio(false); return; }
   abrirEditorCostos(c.tanda, 'inicio');
 }
 
 async function refrescarInicio(forzar) {
   renderInicio();
-  const hoy = _iniDia(new Date());
-  if (!forzar && _iniDatos && _iniDatos.dia === hoy) return;
+  if (!forzar && _iniVigente()) return;
   const p = _iniCargar(forzar);
   renderInicio();   /* "Revisando..." en el botón */
   await p;
@@ -558,9 +588,22 @@ async function refrescarInicio(forzar) {
 /* switchSection('inicio'). */
 function entrarAInicio() { return refrescarInicio(false); }
 
-/* Todo cambio de productos, stock o caja termina en actualizarBadgeAlertas (la
-   campana): es el único punto donde engancharse para no quedar mostrando algo que ya
-   se resolvió. Al login, además, es la señal de que los productos ya están. */
+/* Vender, editar o borrar una venta mueve el stock con aplicarStockProductos (admin.html)
+   y NO pasa por la campana: sin esto, después de vender parado en Inicio seguía diciendo
+   "Quedan 3 unidades" de lo que se acababa de vender. */
+(function () {
+  if (typeof aplicarStockProductos !== 'function') return;
+  const orig = aplicarStockProductos;
+  window.aplicarStockProductos = async function () {
+    const r = await orig.apply(this, arguments);
+    if (_iniListo && _iniVisible()) refrescarInicio(false);
+    return r;
+  };
+})();
+
+/* Los cambios de productos, stock a mano y caja terminan en actualizarBadgeAlertas (la
+   campana). Al login, además, es la señal de que la carga de productos terminó (si
+   falló, renderInicio lo nota: allProducts vacío). */
 (function () {
   if (typeof actualizarBadgeAlertas !== 'function') return;
   const orig = actualizarBadgeAlertas;

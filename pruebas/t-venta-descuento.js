@@ -54,8 +54,8 @@ t('_ventaSubtotalItems pasa por subtotalItem (no precio*cantidad)',
 t('saveVenta sigue guardando descuentoPct', /descuentoPct:totales\.descuentoPct\|\|0/.test(ADMIN));
 
 grupo('FIX 1 en el selector de cliente');
-t('la carga async solo re-abre si el input sigue enfocado',
-  /if\(document\.activeElement===document\.getElementById\('ventaCliente'\)\)showClienteSelect\(\);/.test(ADMIN));
+t('la carga async solo repinta si el input sigue enfocado Y la lista sigue abierta (al elegir se cierra; el foco queda)',
+  /const _repintar=\(\)=>\{if\(document\.activeElement===document\.getElementById\('ventaCliente'\)&&list\.classList\.contains\('open'\)\)showClienteSelect\(\);\};/.test(ADMIN));
 t('ya no re-abre a ciegas',
   !/clientesAuthData=snap\.docs\.map\(d=>\(\{uid:d\.id,\.\.\.d\.data\(\)\}\)\);\s*\n\s*showClienteSelect\(\);/.test(ADMIN));
 t('la lista de la venta hace preventDefault en su mousedown',

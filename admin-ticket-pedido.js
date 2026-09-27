@@ -55,6 +55,10 @@ function ticketPedidoLineas(items) {
     if (!i) return;
     const peso = typeof _tkEsPeso === 'function' ? _tkEsPeso(i) : i.tipoVenta === 'peso';
     if (!(i.escalaId && peso)) { out.push(i); return; }
+    /* En un pedido web escalaId lo manda el navegador: si no es una bolsa de ese mismo
+       producto (escalaDeLinea, admin-escalas.js) no se junta con nada. Si no, dos
+       productos distintos con el mismo escalaId salían en una sola línea. */
+    if (typeof escalaDeLinea === 'function' && !escalaDeLinea(i)) { out.push(i); return; }
     let g = porEscala.get(i.escalaId);
     if (!g) {
       g = Object.assign({}, i, { cantidad: 0, subtotal: 0, nombre: _tpNombreGrupo(i) });
@@ -70,17 +74,9 @@ function ticketPedidoLineas(items) {
 /* Un renglón como el del ticket de la venta, pero con el precio de LISTA (el de la
    tienda viene en precioOriginal) y el descuento al lado. */
 function _tpRenglon(i) {
-  const lista = Object.assign({}, i, { precio: Number(i.precioOriginal != null ? i.precioOriginal : i.precio) || 0 });
-  const unit = typeof _tkPrecioUnit === 'function' ? _tkPrecioUnit(lista) : _tpPlata(lista.precio);
-  const cant = typeof _tkCant === 'function' ? _tkCant(i) : String(i.cantidad || 0);
-  const sub = typeof _tkSubtotal === 'function' ? _tkSubtotal(i) : Number(i.subtotal || 0);
-  return '<div class="tk-it">' +
-    '<div class="tk-l1"><span class="tk-nom">' + _tpEsc(i.nombre || i.nombreMostrado || '-') + '</span>' +
-    '<span class="tk-cant">' + _tpEsc(cant) + '</span></div>' +
-    '<div class="tk-l2"><span>' + _tpEsc(unit) +
-    (Number(i.descuento || 0) > 0 ? ' <b>-' + Number(i.descuento) + '%</b>' : '') +
-    '</span><span>' + _tpPlata(sub) + '</span></div>' +
-  '</div>';
+  /* ticketRenglon (admin-ticket.js) con el precio de lista: el importe que no esté guardado
+     se calcula sobre la lista y no se descuenta dos veces. */
+  return ticketRenglon(Object.assign({}, i, { precio: Number(i.precioOriginal != null ? i.precioOriginal : i.precio) || 0 }));
 }
 
 const _tpFila = (a, b, clase) => '<div class="' + (clase || 'tk-row') + '"><span>' + a + '</span><span>' + b + '</span></div>';
@@ -104,7 +100,8 @@ function ticketPedidoDocumento(pedido, cfg, extra) {
   const desc = Number(base.descuentoMonto || 0);
   const cupon = (base.cupon && Number(base.cupon.monto) > 0) ? base.cupon : null;
   const cuponMonto = cupon ? Math.min(Number(cupon.monto), Math.max(0, sub - desc)) : 0;
-  const conEnvio = (p.tipoEntrega || base.tipoEntrega) === 'envio';
+  /* Si ya se cobró, manda la venta: al convertir se puede cambiar envío por retiro. */
+  const conEnvio = ((venta && venta.tipoEntrega) || p.tipoEntrega) === 'envio';
   const envio = Number(base.envio || 0);
   const total = (base.total != null) ? Number(base.total) : Math.max(0, sub - desc - cuponMonto) + envio;
   const fecha = f => (typeof _tkFechaHora === 'function' ? _tkFechaHora(f) : String(f || ''));
@@ -114,7 +111,10 @@ function ticketPedidoDocumento(pedido, cfg, extra) {
 
   let plata = '';
   if (cupon || desc > 0 || conEnvio) plata += _tpFila('Subtotal', _tpPlata(sub));
-  if (desc > 0) plata += _tpFila('Descuento' + (base.descuentoPct ? ' (' + base.descuentoPct + '%)' : ''), '-' + _tpPlata(desc));
+  /* descuentoPct puede venir de un pedido web (lo escribe el cliente): se usa como número,
+     nunca como texto, porque va adentro del HTML del papel. */
+  const pct = Number(base.descuentoPct) || 0;
+  if (desc > 0) plata += _tpFila('Descuento' + (pct > 0 ? ' (' + pct + '%)' : ''), '-' + _tpPlata(desc));
   if (cupon) plata += _tpFila('Cupón ' + _tpEsc(cupon.codigo || ''), '-' + _tpPlata(cuponMonto));
   if (conEnvio) plata += _tpFila('Envío', envio > 0 ? _tpPlata(envio) : 'Gratis');
 
@@ -199,17 +199,33 @@ function _tpImprimir(html) {
 }
 
 /* El botón del pedido. Imprime lo GUARDADO: con cambios sin guardar pide guardar antes,
-   igual que "Convertir a venta". */
+   igual que "Convertir a venta". Un doble clic no imprime dos tickets. */
+let _tpImprimiendo = false;
 async function imprimirTicketPedido(docId) {
+  if (_tpImprimiendo) return false;
+  _tpImprimiendo = true;
+  try { return await _tpImprimirPedido(docId); } finally { _tpImprimiendo = false; }
+}
+
+async function _tpImprimirPedido(docId) {
   const toast = (m, t) => { if (typeof showAdminToast === 'function') showAdminToast(m, t); };
   const id = docId || (typeof editingPedidoId !== 'undefined' ? editingPedidoId : null);
   if (!id) { toast('Guardá el pedido antes de imprimir su ticket', 'info'); return false; }
-  if (!docId && typeof pedidoDirty !== 'undefined' && pedidoDirty) {
+  const p = (typeof pedidosData !== 'undefined' && Array.isArray(pedidosData)) ? pedidosData.find(x => x.docId === id) : null;
+  if (!p) { toast('No se encontró ese pedido', 'error'); return false; }
+  /* pedidoDirty no se entera de todo: elegir otro cliente o cambiar el medio de pago no lo
+     marca. Se compara la pantalla con lo guardado (en los del panel: los de la web tienen
+     el cliente fijo y no traen medio de pago). */
+  const distinto = (idEl, guardado) => {
+    const el = typeof document !== 'undefined' && document.getElementById ? document.getElementById(idEl) : null;
+    return !!el && String(el.value == null ? '' : el.value).trim() !== String(guardado).trim();
+  };
+  const sinGuardar = (typeof pedidoDirty !== 'undefined' && pedidoDirty) ||
+    (p.origen !== 'web' && (distinto('pedClienteId', p.clienteId || '') || distinto('pedMedio', p.medioPago || 'Efectivo')));
+  if (!docId && sinGuardar) {
     toast('El pedido tiene cambios sin guardar: guardalo y después imprimí el ticket', 'error');
     return false;
   }
-  const p = (typeof pedidosData !== 'undefined' && Array.isArray(pedidosData)) ? pedidosData.find(x => x.docId === id) : null;
-  if (!p) { toast('No se encontró ese pedido', 'error'); return false; }
   if (typeof loadTicketCfg === 'function') await loadTicketCfg();
   if (typeof ticketConfigurado === 'function' && !ticketConfigurado()) {
     const ir = typeof pedirConfirmacion === 'function' && await pedirConfirmacion(

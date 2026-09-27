@@ -442,92 +442,6 @@
 .costos-igual{flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:0.78rem;color:var(--text-dim);white-space:nowrap;cursor:pointer}
 .costos-igual input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
 @media(max-width:520px){.costos-fila{flex-wrap:wrap}.costos-nom{flex-basis:100%}}
-/* === VENTAS (26/09/2026): cabecera, numeros, filtros, la lista por dia y la ventana de la venta === */
-.vt-cab{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
-.vt-tit{font-size:1.45rem;font-weight:800;margin:0;line-height:1.2}
-.vt-per{font-size:0.85rem;color:var(--text-dim);margin:0.2rem 0 0}
-.vt-per b{color:var(--text)}
-.vt-nueva{width:auto;padding:0.8rem 1.3rem;font-size:0.95rem;box-shadow:0 6px 18px rgba(95,168,122,0.25)}
-.vt-nueva.may{background:#6d3fa6;border-color:#6d3fa6;box-shadow:0 6px 18px rgba(109,63,166,0.3)}
-.vt-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:0.75rem;margin-bottom:1rem}
-.vt-kpi{display:flex;align-items:center;gap:0.8rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:0.85rem 1rem}
-.vt-kpi-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;background:var(--accent-bg);color:var(--accent-light);flex:0 0 auto}
-.vt-kpi-ico.verde{background:rgba(103,194,58,0.14);color:#86d766}
-.vt-kpi-ico.ambar{background:var(--warning-bg);color:#f0bd6a}
-.vt-kpi-ico.rojo{background:var(--danger-bg);color:#ff8a8a}
-.vt-kpi-ico.violeta{background:rgba(167,139,250,0.15);color:#b9a4fb}
-.vt-kpi-txt{display:flex;flex-direction:column;min-width:0}
-.vt-kpi-etq{font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.8px;font-weight:600}
-.vt-kpi-val{font-size:1.35rem;font-weight:800;line-height:1.2;color:var(--text)}
-.vt-kpi-sub{font-size:0.68rem;color:var(--text-dim)}
-.vt-filtros{display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin-bottom:0.6rem}
-.vt-mes{width:auto;min-width:190px;font-weight:600}
-.vt-refrescar{width:auto}
-.vt-aviso{background:rgba(237,184,51,0.1);border:1px solid rgba(237,184,51,0.3);border-radius:8px;padding:0.6rem 0.85rem;margin:0.5rem 0;font-size:0.8rem;color:var(--text-dim);line-height:1.5}
-.vt-lista{padding-right:4px}
-.vt-dia{display:flex;justify-content:space-between;align-items:center;gap:1rem;position:sticky;top:0;z-index:1;background:var(--bg);padding:0.7rem 0.2rem 0.45rem;font-size:0.76rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border)}
-.vt-dia b{color:var(--text);font-size:0.86rem}
-.vt-fila{display:grid;grid-template-columns:70px minmax(0,1fr) auto auto;gap:0.4rem 1rem;align-items:center;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:0.75rem 0.9rem;margin:0.5rem 0;cursor:pointer;transition:border-color .15s,box-shadow .15s}
-.vt-fila:hover{border-color:#3d4256;box-shadow:0 4px 16px rgba(0,0,0,0.25)}
-.vt-fila.may{border-left:3px solid #8b5cf6}
-.vt-fila-hora{display:flex;flex-direction:column;line-height:1.25}
-.vt-fila-hora b{font-size:0.95rem}
-.vt-fila-hora span{font-family:var(--mono);font-size:0.72rem;color:var(--text-dim)}
-.vt-fila-cli{min-width:0}
-.vt-fila-nom{font-weight:700;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vt-chips{display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.3rem}
-.vt-chip{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.72rem;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--bg-input);color:var(--text-dim)}
-.vt-chip.efectivo{background:rgba(103,194,58,0.13);color:#86d766}
-.vt-chip.tarjeta{background:rgba(64,158,255,0.14);color:#79b8ff}
-.vt-chip.transferencia{background:rgba(167,139,250,0.15);color:#b9a4fb}
-.vt-chip.fiado{background:var(--warning-bg);color:#f0bd6a}
-.vt-chip.debe{background:var(--danger-bg);color:#ff8a8a}
-.vt-chip.cobrado{background:var(--accent-bg);color:var(--accent-light)}
-.vt-chip.web{background:rgba(64,158,255,0.12);color:#8cc4ff}
-.vt-chip.envio{background:rgba(103,194,58,0.12);color:#86d766}
-.vt-chip.dsc{background:var(--warning-bg);color:#f0bd6a}
-.vt-chip.items{background:transparent;border:1px solid var(--border)}
-.vt-chev{font-size:0.62rem;transition:transform .15s}
-.vt-fila.abierta .vt-chev{transform:rotate(180deg)}
-.vt-fila-total{font-family:var(--mono);font-size:1.15rem;font-weight:800;color:var(--accent-light);white-space:nowrap}
-.vt-fila.may .vt-fila-total{color:#b9a4fb}
-.vt-fila-acc{display:flex;gap:0.35rem}
-.vt-acc{display:inline-flex;align-items:center;gap:0.35rem;background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:0.42rem 0.62rem;font:inherit;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s}
-.vt-acc:hover{border-color:var(--accent);color:var(--accent-light);background:var(--accent-bg)}
-.vt-acc.peligro:hover{border-color:var(--danger);color:#ff8a8a;background:var(--danger-bg)}
-.vt-items{display:none;grid-column:1/-1;border-top:1px dashed var(--border);margin-top:0.35rem;padding-top:0.45rem}
-.vt-fila.abierta .vt-items{display:block}
-.vt-item{display:flex;justify-content:space-between;gap:1rem;font-size:0.8rem;color:var(--text-dim);padding:2px 0}
-.vt-item span:last-child{font-family:var(--mono);white-space:nowrap}
-.vt-item b{color:var(--text)}
-.vt-item .vt-item-dsc{color:#f0bd6a}
-.vt-vacio{padding:2rem}
-.vt-vacio i{font-size:2rem;display:block;margin-bottom:0.5rem}
-.venta-modal-box{border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.55)}
-.venta-modal-box .modal-header{padding-bottom:0.9rem;border-bottom:1px solid var(--border);margin-bottom:1.1rem}
-.venta-modal-box .modal-header h3{display:flex;align-items:center;gap:0.55rem;font-size:1.25rem}
-.venta-modal-box .modal-header h3 i{width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-bg);color:var(--accent-light);font-size:1.1rem}
-.venta-modal-body>.venta-col:first-child{background:var(--bg-input);border:1px solid var(--border);border-radius:14px;padding:1rem}
-.venta-modal-body>.venta-col:first-child .form-input{background:var(--bg-card)}
-.venta-bloque{border:1px solid var(--border);border-radius:14px}
-.venta-items{max-height:320px}
-.venta-item{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;padding:8px 10px}
-.venta-item:hover{border-color:#3d4256}
-.vi-name{font-weight:600}
-.vi-qty{border-radius:8px;padding:5px 6px;font-size:0.85rem}
-.vi-sub{font-size:0.9rem}
-.vi-remove{width:28px;height:28px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
-.vi-remove:hover{background:var(--danger-bg)}
-.venta-total-row{margin-top:0.6rem;padding:0.85rem 1rem;border-radius:12px;background:linear-gradient(135deg,rgba(95,168,122,0.2),rgba(95,168,122,0.06));border:1px solid rgba(95,168,122,0.35)}
-.venta-total-val{font-size:1.7rem;font-weight:800}
-#ventaMayModal .venta-total-row{background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(139,92,246,0.06));border-color:rgba(139,92,246,0.35)}
-#ventaMayModal .venta-total-val{color:#b9a4fb}
-.venta-pie .btn-primary{font-size:1rem;padding:0.9rem 1.2rem;box-shadow:0 8px 20px rgba(95,168,122,0.25)}
-.entrega-toggle{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:4px;gap:4px}
-.entrega-btn{border:none;border-radius:9px;background:transparent}
-.entrega-btn.active{box-shadow:0 2px 8px rgba(0,0,0,0.3)}
-@media(max-width:900px){.vt-fila{grid-template-columns:60px minmax(0,1fr) auto}.vt-fila-acc{grid-column:1/-1;justify-content:flex-end}}
-@media(max-width:560px){.vt-acc span{display:none}.vt-fila-total{font-size:1rem}.vt-tit{font-size:1.2rem}.vt-nueva{width:100%}.vt-mes{flex:1}.vt-kpis{grid-template-columns:1fr 1fr;gap:0.5rem}.vt-kpi{padding:0.65rem 0.7rem;gap:0.55rem}.vt-kpi-ico{width:34px;height:34px;font-size:1rem;border-radius:10px}.vt-kpi-val{font-size:1.1rem}.vt-fila{grid-template-columns:48px minmax(0,1fr) auto;padding:0.65rem 0.7rem;gap:0.35rem 0.6rem}.vt-dia{font-size:0.7rem}}
 /* === INICIO DEL DIA (admin-inicio.js) === */
 .ini-cab{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.9rem}
 .ini-rotulo{font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent-light)}
@@ -841,7 +755,7 @@
         .vi-dsc-wrap{display:none;align-items:center;gap:3px}
         .insumo-usado-row{display:flex;align-items:center;gap:6px;background:var(--bg-input);padding:6px 10px;border-radius:var(--radius)}
         .insumo-usado-row.excede{border:1px solid #f56c6c}
-        .venta-card-cliente{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.82rem;color:var(--text);margin:0 0.6rem}.venta-card-total{font-family:var(--mono);font-weight:700;color:var(--accent-light)}.venta-card-mid{font-size:0.82rem;margin-bottom:3px}.venta-card-bot{display:flex;gap:10px;font-size:0.72rem;color:var(--text-dim)}.venta-card-actions{display:flex;gap:6px;margin-top:6px}.venta-card-actions button{font-size:0.75rem;padding:3px 8px}.v-items{display:none}.v-items.show{display:block}
+        .venta-card-total{font-family:var(--mono);font-weight:700;color:var(--accent-light)}.venta-card-bot{display:flex;gap:10px;font-size:0.72rem;color:var(--text-dim)}
         .cliente-card{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--border);transition:background 0.15s;gap:12px}.cliente-card:hover{background:var(--bg-input)}.cliente-info{flex:1;min-width:0}.cliente-name{font-weight:600;font-size:0.9rem;margin-bottom:2px}.cliente-detail{font-size:0.75rem;color:var(--text-dim);display:flex;gap:12px;flex-wrap:wrap}.cliente-actions{display:flex;gap:6px;flex-shrink:0}.cliente-actions button{font-size:0.75rem;padding:3px 8px}
         .ch-items.show{display:block!important}
         .cliente-select-wrap{position:relative}.cliente-select-list{display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:210;box-shadow:0 4px 12px rgba(0,0,0,0.3)}.cliente-select-list.open{display:block}.cliente-select-item{padding:8px 12px;cursor:pointer;font-size:0.82rem;transition:background 0.15s;display:flex;justify-content:space-between}.cliente-select-item:hover{background:var(--bg-hover)}.cliente-select-item small{color:var(--text-dim)}
@@ -924,6 +838,92 @@
         .prod-car-slide .slide-actions button{background:rgba(255,255,255,0.18);border:none;color:#fff;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:0.82rem}
         .prod-car-slide .slide-actions button:hover{background:rgba(255,255,255,0.35)}
         .prod-car-slide .slide-badge{position:absolute;top:4px;left:4px;background:var(--accent);color:#fff;font-size:0.62rem;font-weight:700;padding:1px 5px;border-radius:4px;letter-spacing:0.05em}
+/* === VENTAS (26/09/2026): cabecera, numeros, filtros, la lista por dia y la ventana de la venta. VAN AL FINAL: pisan reglas de mas arriba con la misma especificidad (.venta-items, .vi-qty, .entrega-btn...), y antes de ellas perdian === */
+.vt-cab{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.vt-tit{font-size:1.45rem;font-weight:800;margin:0;line-height:1.2}
+.vt-per{font-size:0.85rem;color:var(--text-dim);margin:0.2rem 0 0}
+.vt-per b{color:var(--text)}
+.vt-nueva{width:auto;padding:0.8rem 1.3rem;font-size:0.95rem;box-shadow:0 6px 18px rgba(95,168,122,0.25)}
+.vt-nueva.may{background:#6d3fa6;border-color:#6d3fa6;box-shadow:0 6px 18px rgba(109,63,166,0.3)}
+.vt-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:0.75rem;margin-bottom:1rem}
+.vt-kpi{display:flex;align-items:center;gap:0.8rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:0.85rem 1rem}
+.vt-kpi-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;background:var(--accent-bg);color:var(--accent-light);flex:0 0 auto}
+.vt-kpi-ico.verde{background:rgba(103,194,58,0.14);color:#86d766}
+.vt-kpi-ico.ambar{background:var(--warning-bg);color:#f0bd6a}
+.vt-kpi-ico.rojo{background:var(--danger-bg);color:#ff8a8a}
+.vt-kpi-ico.violeta{background:rgba(167,139,250,0.15);color:#b9a4fb}
+.vt-kpi-txt{display:flex;flex-direction:column;min-width:0}
+.vt-kpi-etq{font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.8px;font-weight:600}
+.vt-kpi-val{font-size:1.35rem;font-weight:800;line-height:1.2;color:var(--text)}
+.vt-kpi-sub{font-size:0.68rem;color:var(--text-dim)}
+.vt-filtros{display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin-bottom:0.6rem}
+.vt-mes{width:auto;min-width:190px;font-weight:600}
+.vt-refrescar{width:auto}
+.vt-aviso{background:rgba(237,184,51,0.1);border:1px solid rgba(237,184,51,0.3);border-radius:8px;padding:0.6rem 0.85rem;margin:0.5rem 0;font-size:0.8rem;color:var(--text-dim);line-height:1.5}
+.vt-lista{padding-right:4px}
+.vt-dia{display:flex;justify-content:space-between;align-items:center;gap:1rem;position:sticky;top:0;z-index:1;background:var(--bg);padding:0.7rem 0.2rem 0.45rem;font-size:0.76rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border)}
+.vt-dia b{color:var(--text);font-size:0.86rem}
+.vt-fila{display:grid;grid-template-columns:70px minmax(0,1fr) auto auto;gap:0.4rem 1rem;align-items:center;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:0.75rem 0.9rem;margin:0.5rem 0;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.vt-fila:hover{border-color:#3d4256;box-shadow:0 4px 16px rgba(0,0,0,0.25)}
+.vt-fila.may{border-left:3px solid #8b5cf6}
+.vt-fila-hora{display:flex;flex-direction:column;line-height:1.25}
+.vt-fila-hora b{font-size:0.95rem}
+.vt-fila-hora span{font-family:var(--mono);font-size:0.72rem;color:var(--text-dim)}
+.vt-fila-cli{min-width:0}
+.vt-fila-nom{font-weight:700;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vt-chips{display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.3rem}
+.vt-chip{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.72rem;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--bg-input);color:var(--text-dim)}
+.vt-chip.efectivo{background:rgba(103,194,58,0.13);color:#86d766}
+.vt-chip.tarjeta{background:rgba(64,158,255,0.14);color:#79b8ff}
+.vt-chip.transferencia{background:rgba(167,139,250,0.15);color:#b9a4fb}
+.vt-chip.fiado{background:var(--warning-bg);color:#f0bd6a}
+.vt-chip.debe{background:var(--danger-bg);color:#ff8a8a}
+.vt-chip.cobrado{background:var(--accent-bg);color:var(--accent-light)}
+.vt-chip.web{background:rgba(64,158,255,0.12);color:#8cc4ff}
+.vt-chip.envio{background:rgba(103,194,58,0.12);color:#86d766}
+.vt-chip.dsc{background:var(--warning-bg);color:#f0bd6a}
+.vt-chip.items{background:transparent;border:1px solid var(--border)}
+.vt-chev{font-size:0.62rem;transition:transform .15s}
+.vt-fila.abierta .vt-chev{transform:rotate(180deg)}
+.vt-fila-total{font-family:var(--mono);font-size:1.15rem;font-weight:800;color:var(--accent-light);white-space:nowrap}
+.vt-fila.may .vt-fila-total{color:#b9a4fb}
+.vt-fila-acc{display:flex;gap:0.35rem}
+.vt-acc{display:inline-flex;align-items:center;gap:0.35rem;background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:0.42rem 0.62rem;font:inherit;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s}
+.vt-acc:hover{border-color:var(--accent);color:var(--accent-light);background:var(--accent-bg)}
+.vt-acc.peligro:hover{border-color:var(--danger);color:#ff8a8a;background:var(--danger-bg)}
+.vt-items{display:none;grid-column:1/-1;border-top:1px dashed var(--border);margin-top:0.35rem;padding-top:0.45rem}
+.vt-fila.abierta .vt-items{display:block}
+.vt-item{display:flex;justify-content:space-between;gap:1rem;font-size:0.8rem;color:var(--text-dim);padding:2px 0}
+.vt-item span:last-child{font-family:var(--mono);white-space:nowrap}
+.vt-item b{color:var(--text)}
+.vt-item .vt-item-dsc{color:#f0bd6a}
+.vt-vacio{padding:2rem}
+.vt-vacio i{font-size:2rem;display:block;margin-bottom:0.5rem}
+.venta-modal-box{border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.55)}
+.venta-modal-box .modal-header{padding-bottom:0.9rem;border-bottom:1px solid var(--border);margin-bottom:1.1rem}
+.venta-modal-box .modal-header h3{display:flex;align-items:center;gap:0.55rem;font-size:1.25rem}
+.venta-modal-box .modal-header h3 i{width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-bg);color:var(--accent-light);font-size:1.1rem}
+.venta-modal-body>.venta-col:first-child{background:var(--bg-input);border:1px solid var(--border);border-radius:14px;padding:1rem}
+.venta-modal-body>.venta-col:first-child .form-input{background:var(--bg-card)}
+.venta-bloque{border:1px solid var(--border);border-radius:14px}
+.venta-items{max-height:320px}
+.venta-item{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;padding:8px 10px}
+.venta-item:hover{border-color:#3d4256}
+.vi-name{font-weight:600}
+.vi-qty{border-radius:8px;padding:5px 6px;font-size:0.85rem}
+.vi-sub{font-size:0.9rem}
+.vi-remove{width:28px;height:28px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
+.vi-remove:hover{background:var(--danger-bg)}
+.venta-total-row{margin-top:0.6rem;padding:0.85rem 1rem;border-radius:12px;background:linear-gradient(135deg,rgba(95,168,122,0.2),rgba(95,168,122,0.06));border:1px solid rgba(95,168,122,0.35)}
+.venta-total-val{font-size:1.7rem;font-weight:800}
+#ventaMayModal .venta-total-row{background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(139,92,246,0.06));border-color:rgba(139,92,246,0.35)}
+#ventaMayModal .venta-total-val{color:#b9a4fb}
+.venta-pie .btn-primary{font-size:1rem;padding:0.9rem 1.2rem;box-shadow:0 8px 20px rgba(95,168,122,0.25)}
+.entrega-toggle{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:4px;gap:4px}
+.entrega-btn{border:none;border-radius:9px;background:transparent}
+.entrega-btn.active{box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+@media(max-width:900px){.vt-fila{grid-template-columns:60px minmax(0,1fr) auto}.vt-fila-acc{grid-column:1/-1;justify-content:flex-end}}
+@media(max-width:560px){.vt-acc span{display:none}.vt-fila-total{font-size:1rem}.vt-tit{font-size:1.2rem}.vt-nueva{width:100%}.vt-mes{flex:1}.vt-kpis{grid-template-columns:1fr 1fr;gap:0.5rem}.vt-kpi{padding:0.65rem 0.7rem;gap:0.55rem}.vt-kpi-ico{width:34px;height:34px;font-size:1rem;border-radius:10px}.vt-kpi-val{font-size:1.1rem}.vt-fila{grid-template-columns:48px minmax(0,1fr) auto;padding:0.65rem 0.7rem;gap:0.35rem 0.6rem}.vt-dia{font-size:0.7rem}}
     </style>
 <!-- cache bust -->
 </head>
@@ -4129,7 +4129,8 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
             const neto=arr.reduce((s,v)=>s+netoVenta(v),0);
             const envios=arr.reduce((s,v)=>s+Number(v.envio||0),0);
-            const fiado=arr.filter(v=>medioKeyDeVenta(v)==='cuenta_corriente').reduce((s,v)=>s+netoVenta(v),0);
+            /* Sin cobrar de verdad: el fiado ya saldado (ccPagado) no cuenta. */
+            const fiado=arr.filter(v=>typeof _esFiadoImpago==='function'?_esFiadoImpago(v):medioKeyDeVenta(v)==='cuenta_corriente').reduce((s,v)=>s+netoVenta(v),0);
             set(pref+'Total',arr.length);
             set(pref+'Total$',fmt(neto));
             set(pref+'Prom',fmt(arr.length?neto/arr.length:0));
@@ -4153,15 +4154,17 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             if(k===hoyAR(new Date(Date.now()-86400000)))return 'Ayer · '+f;
             return f.charAt(0).toUpperCase()+f.slice(1);
         }
-        /* Lo cobrado en el dia se suma sobre TODAS las filtradas, no solo las de esta pagina:
-           un dia partido entre dos paginas dice lo mismo en las dos. */
+        /* Lo vendido en el dia (sin envios, como "Facturado" arriba) se suma sobre TODAS las
+           filtradas, no solo las de esta pagina: un dia partido entre dos paginas dice lo mismo
+           en las dos. Una fecha rota va a "Sin fecha" en vez de romper la lista entera. */
+        const _vtOk=v=>v.fecha instanceof Date&&!isNaN(v.fecha);
         function vtListaHtml(shown,todas,fila){
             const porDia={};
-            (todas||[]).forEach(v=>{const k=hoyAR(v.fecha);const x=porDia[k]||(porDia[k]={n:0,t:0});x.n++;x.t+=Number(v.total||0);});
+            (todas||[]).forEach(v=>{const k=_vtOk(v)?hoyAR(v.fecha):'';const x=porDia[k]||(porDia[k]={n:0,t:0});x.n++;x.t+=netoVenta(v);});
             let h='',ult=null;
             shown.forEach(v=>{
-                const k=hoyAR(v.fecha);
-                if(k!==ult){ult=k;const x=porDia[k]||{n:0,t:0};h+='<div class="vt-dia"><span>'+_vtDiaTxt(v.fecha)+'</span><span>'+x.n+(x.n===1?' venta':' ventas')+' · <b>$'+Math.round(x.t).toLocaleString('es-AR')+'</b></span></div>';}
+                const k=_vtOk(v)?hoyAR(v.fecha):'';
+                if(k!==ult){ult=k;const x=porDia[k]||{n:0,t:0};h+='<div class="vt-dia"><span>'+(k?_vtDiaTxt(v.fecha):'Sin fecha')+'</span><span>'+x.n+(x.n===1?' venta':' ventas')+' · <b>$'+Math.round(x.t).toLocaleString('es-AR')+'</b></span></div>';}
                 h+=fila(v);
             });
             return h;
@@ -4170,16 +4173,20 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             const may=tipo==='may';
             const id=may?v.id:v.docId;
             const nro=nroVta(v.numero||0);
-            const hora=v.fecha.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
+            /* La mayorista se guarda a las 12:00 (saveVentaMay): no hay hora que mostrar. */
+            const hora=(may||!_vtOk(v))?'':v.fecha.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
             const mk=medioKeyDeVenta(v);const m=_VT_MEDIOS[mk]||_VT_MEDIOS.otro;
             const chips=['<span class="vt-chip '+m.c+'"><i class="bi '+m.i+'"></i> '+esc(v.medioPago||'-')+'</span>'];
             if(mk==='cuenta_corriente')chips.push(v.ccPagado===true?'<span class="vt-chip cobrado"><i class="bi bi-check2-circle"></i> Fiado cobrado</span>':'<span class="vt-chip debe"><i class="bi bi-exclamation-circle"></i> Fiado sin cobrar</span>');
             if(v.origen==='web'||v.pedidoId)chips.push('<span class="vt-chip web"><i class="bi bi-globe2"></i> Tienda online</span>');
             if(v.tipoEntrega==='envio')chips.push('<span class="vt-chip envio"><i class="bi bi-truck"></i> Envío</span>');
-            if((v.descuentoPct||0)>0)chips.push('<span class="vt-chip dsc"><i class="bi bi-tag"></i> -'+v.descuentoPct+'%</span>');
-            const n=(v.items||[]).length;
+            const dpct=Number(v.descuentoPct)||0;
+            if(dpct>0)chips.push('<span class="vt-chip dsc"><i class="bi bi-tag"></i> -'+dpct+'%</span>');
+            /* Un granel que salio de dos bolsas es UN producto, como en la venta (ticketPedidoLineas). */
+            const lineas=(typeof ticketPedidoLineas==='function')?ticketPedidoLineas(v.items||[]):(v.items||[]);
+            const n=lineas.length;
             chips.push('<span class="vt-chip items"><i class="bi bi-basket"></i> '+n+(n===1?' producto':' productos')+' <i class="bi bi-chevron-down vt-chev"></i></span>');
-            const items=(v.items||[]).map(i=>{const dsc=Number(i.descuento||0);const sub=(i.subtotal!=null)?Number(i.subtotal):subtotalItem(i);
+            const items=lineas.map(i=>{const dsc=Number(i.descuento||0);const sub=(i.subtotal!=null)?Number(i.subtotal):subtotalItem(i);
                 return '<div class="vt-item"><span>'+esc(i.nombre)+(dsc>0?' <b class="vt-item-dsc">-'+dsc+'%</b>':'')+'</span><span>'+fmtCantidad(i)+(esPorPeso(i)?'':' u')+' × $'+Number(i.precio||0).toLocaleString('es-AR')+(esPorPeso(i)?' el kilo':'')+' = <b>$'+sub.toLocaleString('es-AR')+'</b></span></div>';}).join('');
             const acc=may
                 ?'<button class="vt-acc" onclick="openVentaMayModal(\''+id+'\')" title="Editar esta venta"><i class="bi bi-pencil"></i><span>Editar</span></button>'+
@@ -4189,7 +4196,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                  '<button class="vt-acc" onclick="reimprimirTicket(\''+id+'\')" title="Reimprimir el ticket de esta venta"><i class="bi bi-printer"></i><span>Ticket</span></button>'+
                  '<button class="vt-acc peligro" onclick="deleteVenta(\''+id+'\','+(v.numero||0)+')" title="Eliminar esta venta"><i class="bi bi-trash"></i></button>';
             return '<div class="vt-fila'+(may?' may':'')+'" onclick="if(!event.target.closest(\'.vt-fila-acc\'))this.classList.toggle(\'abierta\')">'+
-                '<div class="vt-fila-hora"><b>'+hora+'</b><span>#'+nro+'</span></div>'+
+                '<div class="vt-fila-hora">'+(hora?'<b>'+hora+'</b><span>#'+nro+'</span>':'<b>#'+nro+'</b>')+'</div>'+
                 '<div class="vt-fila-cli"><div class="vt-fila-nom">'+esc(v.cliente||'Consumidor Final')+'</div><div class="vt-chips">'+chips.join('')+'</div></div>'+
                 '<div class="vt-fila-total">$'+Number(v.total||0).toLocaleString('es-AR')+'</div>'+
                 '<div class="vt-fila-acc">'+acc+'</div>'+
@@ -5084,7 +5091,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             /* Los del local (el pedido guarda el cliente de esa coleccion), con "Agregar cliente
                nuevo" arriba (admin-clientes.js). Antes el nombre iba sin escapar adentro del
                onmousedown, y un nombre con comillas rompia la lista. */
-            if(typeof cargarClientesDelLocal==='function')cargarClientesDelLocal(()=>{if(document.activeElement===document.getElementById('pedCliente'))showPedClienteSelect();});
+            if(typeof cargarClientesDelLocal==='function')cargarClientesDelLocal(()=>{if(document.activeElement===document.getElementById('pedCliente')&&list.classList.contains('open'))showPedClienteSelect();});
             if(typeof pintarListaClientes!=='function'){list.classList.remove('open');return;}
             pintarListaClientes(list,clientesParaElegir(escrito,{soloLocal:true}),escrito,cl=>pickPedCliente(cl.id,cl.nombre),'pedido');
             /* Mismo patron que el selector de la venta: tocar el scrollbar no desenfoca. */
@@ -5130,6 +5137,10 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                    los dialogos (400 y mas). Con 2000 el aviso de "cliente repetido" quedaba
                    escondido detras, y el boton Guardar trabado. */
                 modal.style.zIndex='300';
+                /* Y al final de la pagina: Escape (admin-atajos.js) cierra el ULTIMO modal abierto
+                   en el orden de la pagina, y la ficha estaba antes que el pedido y la venta
+                   mayorista: cerraba el de atras y se perdia lo cargado. */
+                document.body.appendChild(modal);
             }else{
                 modal.style.zIndex='';
             }
@@ -5159,7 +5170,10 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                 /* En el mostrador es facil cargar dos veces al mismo: mismo telefono o DNI. */
                 if(!editingClienteId&&typeof clienteRepetido==='function'){
                     const _rep=clienteRepetido(data);
-                    if(_rep&&!(await pedirConfirmacion('Ya hay un cliente con ese '+(data.telefono&&_rep.telefono&&String(_rep.telefono).replace(/\D/g,'')===String(data.telefono).replace(/\D/g,'')?'teléfono':'DNI')+': "'+_rep.nombre+'".\n\n¿Lo guardo igual, como otro cliente?',{titulo:'Cliente repetido',aceptar:'Guardar igual',cancelar:'Volver'}))){
+                    /* Con la misma regla que clienteRepetido: un telefono cuenta desde 6 digitos. */
+                    const _dig=s=>String(s||'').replace(/\D/g,'');
+                    const _porTel=_dig(data.telefono).length>=6&&_dig(_rep.telefono)===_dig(data.telefono);
+                    if(_rep&&!(await pedirConfirmacion('Ya hay un cliente con ese '+(_porTel?'teléfono':'DNI')+': "'+_rep.nombre+'".\n\n¿Lo guardo igual, como otro cliente?',{titulo:'Cliente repetido',aceptar:'Guardar igual',cancelar:'Volver'}))){
                         btn.disabled=false;btn.innerHTML='<i class="bi bi-check-lg"></i> Guardar';
                         return;
                     }
@@ -5206,11 +5220,12 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                pero al menos se dice cuanto historial se va a desvincular antes de aceptar. */
             let nV=0,nP=0;
             try{
-                const [sv,sp]=await Promise.all([
+                const [sv,sp,sm]=await Promise.all([
                     db.collection('ventas').where('clienteId','==',id).get(),
-                    db.collection('pedidos').where('clienteId','==',id).get()
+                    db.collection('pedidos').where('clienteId','==',id).get(),
+                    db.collection('ventasMayoristas').where('clienteId','==',id).get()
                 ]);
-                nV=sv.size;nP=sp.size;
+                nV=sv.size+sm.size;nP=sp.size;
             }catch(e){console.warn('No se pudo contar el historial del cliente:',e);}
             const aviso=(nV||nP)
                 ?'"'+name+'" tiene '+nV+' venta(s) y '+nP+' pedido(s) asociados. Si lo borras, ese historial queda sin cliente y no se puede volver a asociar desde el panel. Si el problema es solo el nombre, cancela y usa Editar. Borrar igual?'
@@ -5245,8 +5260,15 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             c.innerHTML='<div class="empty-state" style="padding:2rem"><p>Cargando...</p></div>';
             document.getElementById('clienteHistModal').classList.add('show');
             try{
-                const snap=await db.collection('ventas').where('clienteId','==',id).get();
-                const ventas=snap.docs.map(d=>{const r=d.data();return{docId:d.id,...r,fecha:r.fecha?(r.fecha.toDate?r.fecha.toDate():new Date(r.fecha)):new Date()};})
+                /* Tambien las mayoristas (26/09): la venta mayorista ya puede elegir un cliente del
+                   local, y sus compras y su fiado tienen que verse aca. _col dice de que coleccion
+                   es cada una, para saldar el fiado en la que corresponde. */
+                const [snap,snapMay]=await Promise.all([
+                    db.collection('ventas').where('clienteId','==',id).get(),
+                    db.collection('ventasMayoristas').where('clienteId','==',id).get()
+                ]);
+                const _aVenta=(d,col)=>{const r=d.data();return{docId:d.id,_col:col,...r,fecha:r.fecha?(r.fecha.toDate?r.fecha.toDate():new Date(r.fecha)):new Date()};};
+                const ventas=snap.docs.map(d=>_aVenta(d,'ventas')).concat(snapMay.docs.map(d=>_aVenta(d,'ventasMayoristas')))
                     .sort((a,b)=>b.fecha-a.fecha);
                 _fichaCliente={id:id,nombre:nombre,ventas:ventas};
                 renderFichaResumen();
@@ -5311,6 +5333,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                 return '<div class="venta-card" style="cursor:pointer" onclick="this.querySelector(\'.ch-items\').classList.toggle(\'show\')">'+
                     '<div class="venta-card-top"><span class="venta-card-num">#'+nro+'</span><span class="venta-card-total">$'+(v.total||0).toLocaleString('es-AR')+'</span></div>'+
                     '<div class="venta-card-bot"><span>'+fecha+'</span><span>'+esc(v.medioPago||'')+'</span>'+chip+
+                    (v._col==='ventasMayoristas'?'<span style="background:rgba(139,92,246,0.18);color:#b9a4fb;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700">MAYORISTA</span>':'')+
                     '<span>'+(v.items||[]).length+' items <i class="bi bi-chevron-down" style="font-size:0.65rem"></i></span></div>'+
                     '<div class="ch-items" style="display:none;padding-top:8px;border-top:1px solid var(--border);margin-top:8px">'+items+'</div></div>';
             }).join('');
@@ -5377,7 +5400,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                 if(typeof getCajaAbiertaIdLive==='function'){ try{ cajaId=await getCajaAbiertaIdLive(); }catch(_e){} }
 
                 const batch=db.batch();
-                sel.forEach(v=>batch.update(db.collection('ventas').doc(v.docId),{
+                sel.forEach(v=>batch.update(db.collection(v._col||'ventas').doc(v.docId),{
                     ccPagado:true,
                     ccPagadoEn:firebase.firestore.FieldValue.serverTimestamp(),
                     ccPagadoPor:quien,
@@ -5422,17 +5445,15 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             /* Los de la web (clientesAuth) y, desde el 26/09, tambien los del local (clientes).
                Antes solo los de la web: el cliente que se cargaba en el local no se podia
                elegir al venderle (ver admin-clientes.js). */
-            if(!clientesAuthData.length){
-                db.collection('clientesAuth').get().then(snap=>{
-                    clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));
-                    /* Solo si el input SIGUE enfocado. La lectura tarda, y cuando volvia
-                       re-llamaba a showClienteSelect() a ciegas: si para entonces la lista
-                       ya se habia cerrado -porque eligieron, o tocaron afuera-, la RE-ABRIA
-                       sola y quedaba tapando los campos de abajo. */
-                    if(document.activeElement===document.getElementById('ventaCliente'))showClienteSelect();
-                }).catch(()=>{});
-            }
-            if(typeof cargarClientesDelLocal==='function')cargarClientesDelLocal(()=>{if(document.activeElement===document.getElementById('ventaCliente'))showClienteSelect();});
+            /* Cuando llegan los clientes se repinta SOLO si el input sigue enfocado Y la lista
+               sigue abierta. Al elegir uno la lista se cierra pero el foco queda en el campo (el
+               preventDefault de abajo): mirando solo el foco, la lista se volvia a abrir sola
+               encima de los otros campos y un clic ahi elegia otro cliente sin querer. Los de la
+               web se leen una sola vez (cargarClientesWeb): antes, con la coleccion vacia, cada
+               vuelta la volvia a leer. */
+            const _repintar=()=>{if(document.activeElement===document.getElementById('ventaCliente')&&list.classList.contains('open'))showClienteSelect();};
+            if(typeof cargarClientesWeb==='function')cargarClientesWeb(_repintar);
+            if(typeof cargarClientesDelLocal==='function')cargarClientesDelLocal(_repintar);
             if(typeof pintarListaClientes!=='function'){list.classList.remove('open');return;}
             pintarListaClientes(list,clientesParaElegir(escrito),escrito,cl=>pickCliente(cl.id,cl.nombre),'venta');
             /* preventDefault en el mousedown de la LISTA: al tocar el scrollbar o un hueco
@@ -7074,7 +7095,7 @@ prods.push({nombre:_nom,codigo:_cod,tipoVenta:_tv,costo,porcentaje:pMin,precio,p
             const mes=document.getElementById('ventaMayMesFiltro')?.value||'';
             ventasMayFiltered=ventasMayData;
             if(mes){const[my,mm]=mes.split('-').map(Number);ventasMayFiltered=ventasMayFiltered.filter(v=>v.fecha.getFullYear()===my&&(v.fecha.getMonth()+1)===mm);}
-            if(q)ventasMayFiltered=ventasMayFiltered.filter(v=>(v.cliente||'').toLowerCase().includes(q)||String(v.numero||'').includes(q));
+            if(q)ventasMayFiltered=ventasMayFiltered.filter(v=>(v.cliente||'').toLowerCase().includes(q)||String(v.numero||'').includes(q)||(v.medioPago||'').toLowerCase().includes(q));
             ventasMayPage=0;
             renderVentasMay();
         }
@@ -7368,8 +7389,8 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             /* El cliente elegido lo borra ESCRIBIR (el oninput del campo), no esto: esta funcion
                tambien corre al enfocar, y con solo volver a tocar el campo la venta se guardaba
                sin el cliente que se habia elegido. */
-            const enfocado=()=>document.activeElement===document.getElementById('ventaMayCliente')&&!ventaMayClienteSelected;
-            if(!clientesAuthData.length){db.collection('clientesAuth').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));if(enfocado())showVentaMayClienteSelect();}).catch(()=>{});}
+            const enfocado=()=>document.activeElement===document.getElementById('ventaMayCliente')&&list.classList.contains('open');
+            if(typeof cargarClientesWeb==='function')cargarClientesWeb(()=>{if(enfocado())showVentaMayClienteSelect();});
             if(typeof cargarClientesDelLocal==='function')cargarClientesDelLocal(()=>{if(enfocado())showVentaMayClienteSelect();});
             if(typeof pintarListaClientes!=='function'){list.classList.remove('open');return;}
             /* Los del local y los de la web, con "Agregar cliente nuevo" (admin-clientes.js). */
@@ -7750,6 +7771,9 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                 /* 2. Actualizar todas las ventas del cliente viejo */
                 const ventSnap=await db.collection('ventas').where('clienteId','==',clienteId).get();
                 ventSnap.docs.forEach(d=>batch.update(d.ref,{clienteAuthUid:_syncAuthUid,clienteId:null}));
+                /* 2b. Y las mayoristas (26/09: la venta mayorista ya puede tener un cliente del local). */
+                const maySnap=await db.collection('ventasMayoristas').where('clienteId','==',clienteId).get();
+                maySnap.docs.forEach(d=>batch.update(d.ref,{clienteAuthUid:_syncAuthUid,clienteId:null}));
                 /* 3. Eliminar el cliente de la colección clientes */
                 batch.delete(db.collection('clientes').doc(clienteId));
                 await batch.commit();

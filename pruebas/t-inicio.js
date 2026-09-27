@@ -101,6 +101,9 @@ function armar(opts) {
     } }) }) },
     getCajaAbierta: async () => { lecturas.push({ col: 'caja' }); return o.caja || null; },
     actualizarBadgeAlertas: async () => 'campana',
+    /* La de admin.html: la envuelve admin-inicio.js para repintar después de vender. */
+    aplicarStockProductos: async () => 'aplicado',
+    DESCONTAR_STOCK: o.descontar !== false,
     abiertos: [],
   };
   ctx.window = ctx;
@@ -308,6 +311,76 @@ console.log('\n-- lo que se ve --');
   await sinFechas.ctx.refrescarInicio(false);
   t('sin fechas de costo NO dice "al día": no se sabe', sinFechas.cuerpoIni.innerHTML.indexOf('al día') < 0 &&
     sinFechas.cuerpoIni.innerHTML.indexOf('producto que se vende no tiene fecha de costo') > 0);
+}
+
+/* ================================================= LO DE LA REVISIÓN (26/09) */
+console.log('\n-- lo de la revisión --');
+{
+  /* Sin productos (la carga falló) no se afirma nada. */
+  const m = armar({ productos: [] });
+  m.run('_iniListo = true;');
+  await m.ctx.refrescarInicio(false);
+  t('sin productos cargados no dice "Todo en orden"', m.cuerpoIni.innerHTML.indexOf('Todo en orden') < 0 &&
+    m.cuerpoIni.innerHTML.indexOf('Todavía no hay productos cargados') > 0);
+}
+{
+  /* Una lectura fallida se reintenta sola al minuto. */
+  const f = armar({ fallaVentas: true });
+  f.run('_iniListo = true;');
+  await f.ctx.refrescarInicio(false);
+  const antes = f.lecturas.length;
+  await f.ctx.refrescarInicio(false);
+  t('con la lectura fallida no se reintenta enseguida', f.lecturas.length === antes);
+  f.run('_iniDatos.en -= 61000;');
+  await f.ctx.refrescarInicio(false);
+  t('  pero al minuto sí, sola', f.lecturas.length > antes);
+}
+{
+  /* Lo leído otro día no se usa (el panel quedó abierto de ayer). */
+  const m = armar();
+  m.run('_iniListo = true;');
+  await m.ctx.refrescarInicio(false);
+  const antes = m.lecturas.length;
+  m.run("_iniDatos.dia = '2000-01-01';");
+  m.ctx.renderInicio();
+  t('lo de otro día no se muestra: "Revisando las ventas"', m.cuerpoIni.innerHTML.indexOf('Revisando las ventas') > 0 &&
+    m.cuerpoIni.innerHTML.indexOf('$10.600') < 0);
+  m.ctx.verTodoInicio('stock');
+  await new Promise(r => setImmediate(r));
+  await m.ctx.refrescarInicio(false);
+  t('  y "Ver todos" lo relee', m.lecturas.length > antes);
+}
+{
+  /* La caja: la más nueva entre la de Caja y la leída acá. */
+  const m = armar({ caja: null });
+  m.ctx.cajaActual = { estado: 'abierta', fecha: diaDe(hace(2)) };
+  m.ctx._cajaCargadaEn = Date.now() - 100000;
+  m.run('_iniListo = true;');
+  await m.ctx.refrescarInicio(false);
+  t('si la lectura de acá es más nueva que la de Caja, manda: la caja ya se cerró en otra compu',
+    m.cuerpoIni.innerHTML.indexOf('La caja quedó abierta') < 0);
+  m.ctx._cajaCargadaEn = Date.now() + 1000;
+  m.ctx.renderInicio();
+  t('  y si Caja se cargó después, manda Caja', m.cuerpoIni.innerHTML.indexOf('La caja quedó abierta') > 0);
+}
+{
+  /* Con "Descontar stock" apagado no hay avisos de stock. */
+  const m = armar({ descontar: false });
+  m.run('_iniListo = true;');
+  await m.ctx.refrescarInicio(false);
+  t('con "Descontar stock" apagado no se avisa de stock (no sería cierto)', m.cuerpoIni.innerHTML.indexOf('sin stock') < 0 &&
+    m.cuerpoIni.innerHTML.indexOf('por terminar') < 0 && m.cuerpoIni.innerHTML.indexOf('Los avisos de stock están apagados') > 0);
+}
+{
+  /* Después de vender (aplicarStockProductos) se repinta. */
+  const m = armar();
+  m.run('_iniListo = true;');
+  await m.ctx.refrescarInicio(false);
+  t('antes de vender: el alfajor figura sin stock', m.cuerpoIni.innerHTML.indexOf('data-ini="agregar" data-id="alf"') > 0);
+  m.ctx.allProducts.find(p => p.id === 'alf').stock = 7;
+  t('aplicarStockProductos sigue devolviendo lo suyo', (await m.ctx.aplicarStockProductos({ alf: 7 })) === 'aplicado');
+  await new Promise(r => setImmediate(r));
+  t('  y al vender, Inicio se repinta solo', m.cuerpoIni.innerHTML.indexOf('data-ini="agregar" data-id="alf"') < 0);
 }
 
 /* ================================================= EL PANEL */

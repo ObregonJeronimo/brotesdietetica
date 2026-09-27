@@ -32,6 +32,7 @@ const ctx = {
 vm.createContext(ctx);
 vm.runInContext(['hoyAR', 'esPorPeso', 'fmtPeso', 'fmtCantidad', 'precioConDsc', 'subtotalItem', 'netoVenta', 'keyDeMedio',
   'medioKeyDeVenta', 'nroVta'].map(cuerpo).join('\n') + '\n' + (html.match(/const _VT_MEDIOS=[^;]*;/) || [''])[0] +
+  '\n' + (html.match(/const _vtOk=[^;]*;/) || [''])[0] +
   '\n' + ['_vtDiaTxt', 'vtListaHtml', 'vtFilaHtml'].map(cuerpo).join('\n') +
   '\nthis._VT_MEDIOS = _VT_MEDIOS;', ctx);
 
@@ -52,8 +53,10 @@ console.log('\n-- agrupada por día --');
   const dias = h.match(/<div class="vt-dia">[\s\S]*?<\/div>/g) || [];
   t('un encabezado por día, en el orden de la lista', dias.length === 2 && dias[0].indexOf('Hoy · ') > 0 && dias[1].indexOf('Ayer · ') > 0, dias);
   t('  con cuántas ventas y lo cobrado ese día: hoy 2 ventas, $3.000', dias[0].indexOf('2 ventas · <b>$3.000</b>') > 0);
-  t('  el total del día cuenta TODAS las filtradas, no solo las de esta página: ayer 2 ventas, $6.000',
-    dias[1].indexOf('2 ventas · <b>$6.000</b>') > 0, dias[1]);
+  t('  el total del día cuenta TODAS las filtradas, no solo las de esta página, y sin envíos como "Facturado": ayer 2 ventas, $5.700',
+    dias[1].indexOf('2 ventas · <b>$5.700</b>') > 0, dias[1]);
+  const rota = ctx.vtListaHtml([venta({ numero: 9, fecha: new Date('nada'), total: 10 })], [], v => ctx.vtFilaHtml(v, 'min'));
+  t('una fecha rota va a "Sin fecha" en vez de romper la lista', rota.indexOf('Sin fecha') > 0 && rota.indexOf('<b>#000009</b>') > 0);
   t('los días que no son hoy ni ayer van con el nombre del día', /^[A-ZÁÉÍÓÚ][a-záéíóú]+ \d+ de [a-z]+$/.test(ctx._vtDiaTxt(new Date(2026, 8, 18))),
     ctx._vtDiaTxt(new Date(2026, 8, 18)));
 }
@@ -80,6 +83,9 @@ console.log('\n-- la fila --');
   t('la mayorista: la misma fila, con sus botones (Editar y Eliminar) y su descuento', may.indexOf('vt-fila may') > 0 &&
     may.indexOf("openVentaMayModal('M7')") > 0 && may.indexOf("deleteVentaMay('M7','000042')") > 0 && may.indexOf('showFactura') < 0 &&
     may.indexOf('-15%') > 0);
+  t('  sin hora: se guarda a las 12:00 y no dice nada', may.indexOf('15:05') < 0 && may.indexOf('12:00') < 0 &&
+    may.indexOf('<div class="vt-fila-hora"><b>#000042</b></div>') > 0);
+  t('  el descuento va como número', ctx.vtFilaHtml(Object.assign({}, ventas[0], { id: 'M8', descuentoPct: '<b>x' }), 'may').indexOf('<b>x') < 0);
 }
 
 console.log('\n-- el panel --');
@@ -88,6 +94,11 @@ console.log('\n-- el panel --');
   t('la minorista usa la lista por día', rv.indexOf("vtListaHtml(shown,ventasFiltered,v=>vtFilaHtml(v,'min'))") > 0);
   t('  la mayorista, la misma fila (y la tarjeta vieja ya no está)', cuerpo('renderVentasMay').indexOf("vtFilaHtml(v,'may')") > 0 &&
     html.indexOf('function _ventaMayCardHtml(') < 0);
+  t('el buscador mayorista busca también por medio de pago', cuerpo('filterVentasMay').indexOf("(v.medioPago||'').toLowerCase().includes(q)") > 0);
+  t('"Fiado sin cobrar" no cuenta lo ya cobrado', cuerpo('renderResumenVentas').indexOf('_esFiadoImpago(v)') > 0);
+  t('un granel de dos bolsas cuenta como un producto (ticketPedidoLineas)', cuerpo('vtFilaHtml').indexOf("ticketPedidoLineas(v.items||[])") > 0);
+  t('los estilos de ventas van DESPUÉS de los originales (antes perdían)', html.indexOf('=== VENTAS (26/09/2026)') > html.indexOf('.venta-items{max-height:200px') &&
+    html.indexOf('=== VENTAS (26/09/2026)') > html.indexOf('.entrega-btn{flex:1'));
   t('los números de arriba conservan sus ids (los llena renderResumenVentas)', ['vtStatTotal', 'vtStatTotal$', 'vtStatEnvios', 'vtStatProm',
     'vtStatFiado', 'vtStatPeriodo', 'vtMayStatTotal', 'vtMayStatTotal$', 'vtMayStatProm', 'vtMayStatFiado', 'vtMayStatPeriodo']
     .every(id => html.split('id="' + id + '"').length === 2));
