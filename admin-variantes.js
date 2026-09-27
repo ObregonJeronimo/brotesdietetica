@@ -364,6 +364,19 @@ function _nombreConPresentacion(p, nombre) {
   const e = tieneVariantes(p, _varProds()) ? String(etiquetaVariante(p) || '') : '';
   return e && n.toLowerCase().indexOf(e.toLowerCase()) < 0 ? _nombreConTam(n, e) : n;
 }
+/* Los gramos de la bolsa, si es una bolsa de un granel con otras (una variante por peso
+   que dice su tamaño): ahí el costo se carga por bolsa, como en "Costo y precio de cada
+   bolsa", aunque se guarde por kilo. Si no, null: por kilo o por unidad, como siempre. Lo
+   usan la ventana de costos (admin-costos.js) y el panel de la tabla (pedido del dueño, 27/09). */
+function gramosDeBolsa(p, productos) {
+  if (!p || p.tipoVenta !== 'peso' || p.depurado === true) return null;
+  const prods = productos || _varProds();
+  const pr = principalDeVariante(p, prods);
+  if (!pr || pr.depurado === true) return null;
+  if (variantesDeGrupo(pr, prods, { conOcultos: true }).filter(v => v.tipoVenta === 'peso').length < 2) return null;
+  const c = contenidoDeVariante(p);
+  return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+}
 /* Lo que dice la línea de la venta. */
 function textoFaltaStock(f) {
   return f.hay > 0 ? 'Solo hay ' + _cantConUnidad(f.producto, f.hay) + ' en stock: así no se puede vender' : 'Sin stock: no se puede vender';
@@ -1482,6 +1495,7 @@ function panelPresentacionesHtml(p) {
     return '<tr' + (marcar.has(m.id) ? ' class="coincide"' : '') + '>' +
       '<td class="var-tabla-tam"><b>' + _varEsc(etiquetaVariante(m)) + '</b>' + chips + '</td>' +
       '<td class="var-tabla-cod">' + _varEsc(m.codigo || '-') + '</td>' +
+      '<td class="var-tabla-costo">' + _costoCeldaHtml(p, m) + '</td>' +
       '<td class="var-tabla-precio">' + (caja
         ? '<b>$' + Number(m.precioMayorista).toLocaleString('es-AR') + '</b> <small>caja cerrada · lista $' + precio.toLocaleString('es-AR') + '</small>'
         : '<b>$' + precio.toLocaleString('es-AR') + '</b>' + (peso ? ' <small>el kilo</small>' : '')) + '</td>' +
@@ -1495,9 +1509,40 @@ function panelPresentacionesHtml(p) {
         '<button type="button" class="btn btn-secondary btn-sm" onclick="openGramajeModal(\'' + _varAttr(p.id) + '\')" title="Enganchar un producto que ya está cargado">Asociar uno existente</button>' +
         '<button type="button" class="btn btn-primary btn-sm" onclick="editarPresentaciones(\'' + _varAttr(p.id) + '\')"><i class="bi bi-pencil"></i> Editar ' + que + '</button>' +
       '</span></div>' +
-    '<table class="var-tabla"><thead><tr><th>Tamaño</th><th>Código</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
+    '<table class="var-tabla"><thead><tr><th>Tamaño</th><th>Código</th><th>Costo</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
       g.miembros.map(fila).join('') + '</tbody></table>' +
   '</div></td></tr>';
+}
+
+/* La columna "Costo" del panel (pedido del dueño, 27/09): en una bolsa, lo que costó la
+   bolsa (como se carga en el formulario) y abajo el kilo. Tocarla abre la ventana de costos
+   con todas las del producto: se cambia el costo y el precio sale solo, con su porcentaje. */
+function _costoCeldaHtml(p, m) {
+  const costo = Math.round(Number(m.costo || 0));
+  const g = gramosDeBolsa(m);
+  const pesos = n => '$' + Math.round(n).toLocaleString('es-AR');
+  const lapiz = ' <i class="bi bi-pencil"></i>';
+  const dentro = !(costo > 0)
+    ? '<span class="var-costo-falta">Sin costo' + lapiz + '</span>'
+    : g
+      ? '<span><b>' + pesos(costo * g / 1000) + '</b> <small>la bolsa</small>' + lapiz + '</span>' +
+        (g !== 1000 ? '<small>' + pesos(costo) + ' el kilo</small>' : '')
+      : '<span><b>' + pesos(costo) + '</b>' + (m.tipoVenta === 'peso' ? ' <small>el kilo</small>' : '') + lapiz + '</span>';
+  return '<button type="button" class="var-costo-btn" onclick="cambiarCostosDeGrupo(\'' + _varAttr(p.id) + '\', \'' + _varAttr(m.id) + '\')"' +
+    ' title="Cambiar el costo: el precio se recalcula con su porcentaje">' + dentro + '</button>';
+}
+
+function cambiarCostosDeGrupo(principalId, focoId) {
+  if (typeof abrirEditorCostos !== 'function') return;
+  const prods = _varProds();
+  const pr = prods.find(x => x && x.id === principalId);
+  if (!pr) return;
+  const ahora = Date.now();
+  const filas = variantesDeGrupo(pr, prods, { conOcultos: true }).map(m => {
+    const f = typeof fechaDeCosto === 'function' ? fechaDeCosto(m) : null;
+    return { producto: m, fecha: f, dias: f ? Math.floor((ahora - f.getTime()) / 86400000) : null };
+  });
+  abrirEditorCostos(filas, 'prod', focoId);
 }
 
 /* Abre o cierra el panel de un grupo. Se redibuja la tabla: la página no cambia (ver el

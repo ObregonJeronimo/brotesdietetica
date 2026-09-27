@@ -81,6 +81,28 @@ const _costoFechaTxt = f => (f ? f.toLocaleDateString('es-AR', { day: '2-digit',
 const _costoHace = d => (d <= 0 ? 'hoy' : d === 1 ? 'hace 1 día' : 'hace ' + d + ' días');
 const _costoUnidad = p => (p && p.tipoVenta === 'peso' ? ' el kilo' : '');
 const _costoEsc = s => (typeof esc === 'function' ? esc(String(s == null ? '' : s)) : String(s == null ? '' : s));
+const _costoLeer = v => Math.round(Number(typeof montoAR === 'function' ? montoAR(v) : String(v || '').replace(/[^0-9]/g, '')) || 0);
+
+/* LAS BOLSAS, POR BOLSA (pedido del dueño, 27/09). El costo de una bolsa de granel se
+   guarda por kilo, pero en el formulario se carga lo que costó la bolsa entera ("Costo y
+   precio de cada bolsa"): acá también, para que lo mismo no se escriba de dos formas.
+   $2.000 la bolsa de 3 kg se guarda como $667 el kilo (y vuelve como $2.001: el kilo va
+   en pesos enteros). gramosDeBolsa está en admin-variantes.js. */
+const _costoGramos = p => (typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p) : null);
+const _costoEscrito = (p, g) => Math.round(Number((p && p.costo) || 0) * (g ? g / 1000 : 1));
+const _costoGuardado = (n, g) => (g ? Math.round(n * 1000 / g) : n);
+
+/* Lo que queda con el costo que se está escribiendo, al lado del campo (pedido del dueño,
+   27/09): como en la tabla de bolsas del formulario (_resFilaVar), el kilo si es una
+   bolsa, el precio y el mayorista. Con la misma cuenta que al guardar (preciosDesdeCosto). */
+function _costoVistaHtml(p, costo, gramos) {
+  if (!(costo > 0)) return '<span class="costos-falta">Poné el costo.</span>';
+  const r = preciosDesdeCosto(p, costo);
+  const kg = _costoUnidad(p);
+  return (gramos ? '<span>Costo ' + _costoPesos(costo) + ' el kilo</span>' : '') +
+    '<span>Precio <b>' + _costoPesos(r.precio) + '</b>' + kg + '</span>' +
+    '<span class="costos-may">Mayorista ' + _costoPesos(r.precioMayorista) + kg + '</span>';
+}
 
 /* La fecha debajo del costo, en el formulario del producto. */
 function pintarFechaCosto(p) {
@@ -129,10 +151,13 @@ async function avisoCostosViejos(items, ctx) {
 let _costosEditor = null;   /* { filas: [{ producto, fecha, dias }], ctx: 'min' | 'may' | 'inicio' } */
 
 /* ctx 'inicio': desde Inicio del día (admin-inicio.js), sin una venta abierta atrás. */
-function abrirEditorCostos(viejos, ctx) {
+function abrirEditorCostos(viejos, ctx, focoId) {
   cerrarEditorCostos();
-  const inicio = ctx === 'inicio';
-  _costosEditor = { filas: viejos, ctx: ctx === 'may' ? 'may' : (inicio ? 'inicio' : 'min') };
+  const inicio = ctx === 'inicio', prod = ctx === 'prod';
+  /* Desde el Centro de avisos y desde Productos se guarda solo lo que se toca (guardarEditorCostos). */
+  const soloTocados = inicio || prod;
+  _costosEditor = { filas: viejos, ctx: ctx === 'may' ? 'may' : (inicio ? 'inicio' : (prod ? 'prod' : 'min')) };
+  const hayBolsas = viejos.some(v => _costoGramos(v.producto));
   const ov = document.createElement('div');
   /* dlg-overlay: así el Escape de admin-atajos.js no cierra la venta de atrás. */
   ov.className = 'dlg-overlay';
@@ -141,26 +166,36 @@ function abrirEditorCostos(viejos, ctx) {
   ov.innerHTML =
     '<div class="dlg-box costos-box" role="dialog" aria-modal="true" aria-labelledby="costosTit">' +
       '<div class="dlg-cab"><span class="dlg-ico"><i class="bi bi-pencil-square"></i></span>' +
-        '<h3 id="costosTit">' + (inicio ? 'Revisar costos' : 'Modificar costos') + '</h3></div>' +
+        '<h3 id="costosTit">' + (inicio ? 'Revisar costos' : (prod ? 'Cambiar costos' : 'Modificar costos')) + '</h3></div>' +
       '<div class="dlg-msg">' +
         '<p class="dlg-linea">' + (inicio
           ? 'Poné el costo nuevo en los que aumentaron: esos salen de la lista. Los que no cambies siguen ahí. ' +
             'Si alguno sigue igual y no querés que avise por un mes, tildá "Sigue igual".'
-          : 'Poné el costo de hoy. Si alguno sigue igual, dejalo como está: al guardar queda ' +
-            'confirmado con la fecha de hoy.') + ' El precio se recalcula con el mismo porcentaje de siempre.</p>' +
-        viejos.map((v, i) =>
-          '<div class="costos-fila">' +
-            '<div class="costos-nom"><b>' + _costoEsc(_costoNombre(v.producto)) + '</b>' +
-              '<div class="costos-sub">Costo actual ' + _costoPesos(v.producto.costo) + _costoUnidad(v.producto) +
-                ' · cambiado el ' + _costoFechaTxt(v.fecha) + ' (' + _costoHace(v.dias) + ')</div></div>' +
+          : prod
+            ? 'Poné el costo nuevo en los que aumentaron; los que no toques quedan como están. ' +
+              'Si alguno sigue igual y no querés que avise por un mes, tildá "Sigue igual".'
+            : 'Poné el costo de hoy. Si alguno sigue igual, dejalo como está: al guardar queda ' +
+              'confirmado con la fecha de hoy.') + ' El precio se recalcula con el mismo porcentaje de siempre.' +
+          (hayBolsas ? ' En las bolsas va lo que costó la bolsa entera, como al cargar el producto.' : '') + '</p>' +
+        viejos.map((v, i) => {
+          const p = v.producto, g = _costoGramos(p), nom = _costoEsc(_costoNombre(p));
+          const actual = g
+            ? 'Costo de la bolsa ' + _costoPesos(_costoEscrito(p, g)) + (g !== 1000 ? ' (' + _costoPesos(p.costo) + ' el kilo)' : '')
+            : 'Costo actual ' + _costoPesos(p.costo) + _costoUnidad(p);
+          return '<div class="costos-fila">' +
+            '<div class="costos-nom"><b>' + nom + '</b>' +
+              '<div class="costos-sub">' + actual + (v.fecha
+                ? ' · cambiado el ' + _costoFechaTxt(v.fecha) + ' (' + _costoHace(v.dias) + ')' : ' · sin fecha de cambio') + '</div></div>' +
             '<input type="text" inputmode="numeric" class="form-input costos-input" data-i="' + i + '" value="' +
-              Math.round(Number(v.producto.costo || 0)) + '" aria-label="Nuevo costo de ' + _costoEsc(_costoNombre(v.producto)) + '">' +
-            (inicio ? '<label class="costos-igual" title="El proveedor no aumentó: deja de avisar por un mes">' +
+              _costoEscrito(p, g) + '" aria-label="' + (g ? 'Nuevo costo de la bolsa de ' : 'Nuevo costo de ') + nom + '">' +
+            '<div class="costos-vista" data-i="' + i + '" aria-live="polite">' + _costoVistaHtml(p, Math.round(Number(p.costo || 0)), g) + '</div>' +
+            (soloTocados ? '<label class="costos-igual" title="El proveedor no aumentó: deja de avisar por un mes">' +
               '<input type="checkbox" class="costos-sigue" data-i="' + i + '"> Sigue igual</label>' : '') +
-          '</div>').join('') +
+          '</div>';
+        }).join('') +
       '</div>' +
       '<div class="dlg-pie">' +
-        '<button type="button" class="btn btn-secondary" id="costosVolver">' + (inicio ? 'Ahora no' : 'Volver a la venta') + '</button>' +
+        '<button type="button" class="btn btn-secondary" id="costosVolver">' + (inicio ? 'Ahora no' : (prod ? 'Cancelar' : 'Volver a la venta')) + '</button>' +
         '<button type="button" class="btn btn-primary" id="costosGuardar"><i class="bi bi-check-lg"></i> Guardar costos</button>' +
       '</div>' +
     '</div>';
@@ -170,11 +205,21 @@ function abrirEditorCostos(viejos, ctx) {
   ov.querySelector('#costosGuardar').addEventListener('click', guardarEditorCostos);
   ov.addEventListener('mousedown', e => { if (e.target === ov) cerrarEditorCostos(); });
   ov.querySelectorAll('.costos-input').forEach(inp => {
-    inp.addEventListener('input', () => { if (typeof limpiarMonto === 'function') limpiarMonto(inp); });
+    inp.addEventListener('input', () => {
+      if (typeof limpiarMonto === 'function') limpiarMonto(inp);
+      /* Cómo queda, mientras se escribe. */
+      const i = Number(inp.getAttribute('data-i')), fila = viejos[i];
+      const vista = ov.querySelector('.costos-vista[data-i="' + i + '"]');
+      if (!fila || !vista) return;
+      const g = _costoGramos(fila.producto);
+      vista.innerHTML = _costoVistaHtml(fila.producto, _costoGuardado(_costoLeer(inp.value), g), g);
+    });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); guardarEditorCostos(); } });
   });
   document.addEventListener('keydown', _costosTecla, true);
-  setTimeout(() => { const i = ov.querySelector('.costos-input'); if (i) { i.focus(); i.select(); } }, 30);
+  /* El foco en la que se tocó (desde el panel de bolsas) o en la primera. */
+  const k = focoId ? viejos.findIndex(v => v.producto && v.producto.id === focoId) : -1;
+  setTimeout(() => { const i = ov.querySelector('.costos-input[data-i="' + Math.max(0, k) + '"]'); if (i) { i.focus(); i.select(); } }, 30);
 }
 
 function _costosTecla(e) {
@@ -197,23 +242,25 @@ async function guardarEditorCostos() {
   const ed = _costosEditor;
   const ov = document.getElementById('costosEditor');
   if (!ed || !ov) return;
-  const leer = v => (typeof montoAR === 'function' ? montoAR(v) : Number(String(v || '').replace(/[^0-9]/g, '')));
-  const inicio = ed.ctx === 'inicio';
-  /* Desde Inicio del día se guarda SOLO lo que se tocó (pedido del dueño, 26/09): el costo
-     que cambió, o el que se marcó "Sigue igual". Lo demás sigue en la lista. Al vender se
-     confirma todo, como siempre: si no, el aviso volvería en la próxima venta. */
+  const inicio = ed.ctx === 'inicio', prod = ed.ctx === 'prod';
+  /* Desde el Centro de avisos (26/09) y desde el panel de bolsas de Productos (27/09) se
+     guarda SOLO lo que se tocó (pedido del dueño): el costo que cambió, o el que se marcó
+     "Sigue igual". Lo demás queda como está. Al vender se confirma todo, como siempre: si
+     no, el aviso volvería en la próxima venta. */
+  const soloTocados = inicio || prod;
   const sigueIgual = new Set();
-  if (inicio) ov.querySelectorAll('.costos-sigue').forEach(c => { if (c.checked) sigueIgual.add(Number(c.getAttribute('data-i'))); });
+  if (soloTocados) ov.querySelectorAll('.costos-sigue').forEach(c => { if (c.checked) sigueIgual.add(Number(c.getAttribute('data-i'))); });
   const cambios = [];
   for (const inp of ov.querySelectorAll('.costos-input')) {
     const i = Number(inp.getAttribute('data-i'));
     const fila = ed.filas[i];
     if (!fila) continue;
-    const nuevo = Math.round(Number(leer(inp.value)) || 0);
+    /* En una bolsa se escribió lo que costó la bolsa: se guarda por kilo. */
+    const nuevo = _costoGuardado(_costoLeer(inp.value), _costoGramos(fila.producto));
     const cambio = nuevo !== Math.round(Number(fila.producto.costo || 0));
     /* Se saltea ANTES de validar: un producto con costo 0 que no se tocó frenaba el guardado
        de todos los demás. */
-    if (inicio && !cambio && !sigueIgual.has(i)) continue;
+    if (soloTocados && !cambio && !sigueIgual.has(i)) continue;
     if (!(nuevo > 0)) {
       showAdminToast('Poné un costo válido para "' + _costoNombre(fila.producto) + '"', 'error');
       inp.focus();
@@ -223,7 +270,7 @@ async function guardarEditorCostos() {
   }
   if (!cambios.length) {
     cerrarEditorCostos();
-    showAdminToast('No cambiaste ningún costo: siguen todos en la lista.', 'info');
+    showAdminToast(prod ? 'No cambiaste ningún costo.' : 'No cambiaste ningún costo: siguen todos en la lista.', 'info');
     return;
   }
   const btn = ov.querySelector('#costosGuardar');
@@ -251,24 +298,24 @@ async function guardarEditorCostos() {
   /* El MISMO objeto de allProducts: la venta y la tabla lo tienen en la mano. */
   locales.forEach(l => Object.assign(l.p, l.campos));
   const cambiados = cambios.filter(c => c.cambio).map(c => c.p);
-  /* Desde Inicio del día no hay una venta abierta que actualizar. */
-  if (!inicio) _refrescarItemsDeVenta(ed.ctx, cambiados);
+  /* Desde el Centro de avisos y desde Productos no hay una venta abierta que actualizar. */
+  if (!soloTocados) _refrescarItemsDeVenta(ed.ctx, cambiados);
   if (typeof logAction === 'function') {
-    logAction('editar', (inicio ? 'Costos revisados desde el Centro de avisos: ' : 'Costos al vender: ') +
+    logAction('editar', (inicio ? 'Costos revisados desde el Centro de avisos: ' : (prod ? 'Costos cambiados desde Productos: ' : 'Costos al vender: ')) +
       cambiados.length + ' cambiado' + (cambiados.length === 1 ? '' : 's') +
       ', ' + (cambios.length - cambiados.length) + ' confirmado' + (cambios.length - cambiados.length === 1 ? '' : 's'),
-      cambios.map(c => _costoNombre(c.p) + (c.cambio ? ' -> ' + _costoPesos(c.nuevo) : ' (sigue igual)')).join(' | ').slice(0, 900));
+      cambios.map(c => _costoNombre(c.p) + (c.cambio ? ' -> ' + _costoPesos(c.nuevo) + _costoUnidad(c.p) : ' (sigue igual)')).join(' | ').slice(0, 900));
   }
   if (typeof filterTable === 'function') filterTable();
   cerrarEditorCostos();
   const confirmados = cambios.length - cambiados.length;
   const quedan = ed.filas.length - cambios.length;
-  showAdminToast(inicio
+  showAdminToast(soloTocados
     ? 'Listo: ' + [
         cambiados.length ? cambiados.length + (cambiados.length === 1 ? ' costo cambiado, con su precio nuevo' : ' costos cambiados, con su precio nuevo') : '',
         confirmados ? confirmados + (confirmados === 1 ? ' marcado' : ' marcados') + ' como "sigue igual"' : '',
       ].filter(Boolean).join(' y ') + '.' +
-      (quedan ? ' ' + (quedan === 1 ? 'El que no cambiaste sigue' : 'Los ' + quedan + ' que no cambiaste siguen') + ' en la lista.' : '')
+      (inicio && quedan ? ' ' + (quedan === 1 ? 'El que no cambiaste sigue' : 'Los ' + quedan + ' que no cambiaste siguen') + ' en la lista.' : '')
     : (cambiados.length
       ? 'Costos guardados. Los precios de la venta se actualizaron: revisá el total y registrala.'
       : 'Costos confirmados. Ya podés registrar la venta.'), 'success');

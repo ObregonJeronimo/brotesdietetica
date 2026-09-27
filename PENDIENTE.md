@@ -1490,8 +1490,14 @@ quedar frenados en el mostrador.
 - **Formulario del producto, bien a la vista** (27/09): al crear o editar un producto, los
   campos, los desplegables y los botones resaltan (la misma receta que los buscadores). Es
   solo CSS; los precios que se calculan solos quedan apagados, porque ahí no se escribe.
+- **El costo de una bolsa, por bolsa** (27/09): la ventana de costos (al vender, desde el
+  Centro de avisos o desde Productos) pide lo que costó la bolsa entera, como el
+  formulario, y al lado muestra el kilo, el precio y el mayorista que quedan. En la lista
+  de productos, el panel de las bolsas tiene la columna Costo: tocarla abre esa ventana con
+  todas las bolsas del producto. Ojo: la bolsa de 3 kg cargada a $2.000 se ve como $2.001,
+  porque el kilo se guarda en pesos enteros ($667).
 
-Pruebas: 3528 en 85 suites.
+Pruebas: 3553 en 85 suites.
 
 ---
 

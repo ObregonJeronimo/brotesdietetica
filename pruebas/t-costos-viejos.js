@@ -329,7 +329,8 @@ console.log('\n-- el editor de costos --');
   ];
   const m = armar({ productos: [caja, y1, y3], ventaItems: venta, conVariantes: true });
   m.api.abrirEditorCostos([caja, y1, y3].map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'min');
-  m.conInputs(['6500', '5500', '4800']);
+  /* Las bolsas se escriben por bolsa (27/09): $14.400 la de 3 kg son $4.800 el kilo. */
+  m.conInputs(['6500', '5500', '14400']);
   await (m.api.guardarEditorCostos());
   t('la caja cerrada toma el precio MAYORISTA nuevo, no el de lista', caja.precio === 10400 && venta[0].precio === caja.precioMayorista && venta[0].costo === 6500);
   t('los renglones del granel quedan todos al precio nuevo de la escala de 3 kg (no la bolsa de 1 kg al suyo)',
@@ -337,6 +338,75 @@ console.log('\n-- el editor de costos --');
   t('  cada uno con el costo nuevo de su bolsa', venta[1].costo === 4800 && venta[2].costo === 5500);
 }
 
+{
+  /* Las bolsas, por bolsa (pedido del dueño, 27/09): en el formulario se carga lo que costó
+     la bolsa entera; en la ventana de costos, también. Y al lado, cómo queda el precio. */
+  const b1 = { id: 'b1', nombre: 'Prueba1', gramaje: '1 kg', tipoVenta: 'peso', costo: 2000, porcentaje: 45, porcentajeMayorista: 43,
+    precio: 2900, precioMayorista: 2900, costoActualizadoEn: hace(92) };
+  const b3 = { id: 'b3', nombre: 'Prueba1 x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', gramajePadreId: 'b1', costo: 667, porcentaje: 45,
+    porcentajeMayorista: 45, precio: 967, precioMayorista: 1000, costoActualizadoEn: hace(92) };
+  const suelto = { id: 'al', nombre: 'Almendra', tipoVenta: 'peso', costo: 9000, porcentaje: 50, porcentajeMayorista: 20,
+    precio: 13500, precioMayorista: 10800, costoActualizadoEn: hace(40) };
+  const m = armar({ productos: [b1, b3, suelto], conVariantes: true });
+  m.api.abrirEditorCostos([b1, b3, suelto].map(p => ({ producto: p, fecha: hace(92), dias: 92 })), 'min');
+  const h = m.elementos.costosEditor.innerHTML;
+  t('la bolsa de 3 kg pide lo que costó la bolsa: $2.001 ($667 el kilo, con el kilo en pesos enteros)',
+    h.indexOf('value="2001" aria-label="Nuevo costo de la bolsa de Prueba1 x 3 kg"') > 0 && h.indexOf('Costo de la bolsa $2.001 ($667 el kilo) ·') > 0, h);
+  t('  la de 1 kg, lo mismo que el kilo, sin repetirlo', h.indexOf('value="2000" aria-label="Nuevo costo de la bolsa de Prueba1 x 1 kg"') > 0 &&
+    h.indexOf('Costo de la bolsa $2.000 ·') > 0);
+  t('  un granel sin bolsas sigue por kilo', h.indexOf('value="9000" aria-label="Nuevo costo de Almendra"') > 0 && h.indexOf('Costo actual $9.000 el kilo') > 0);
+  t('  y lo dice arriba', h.indexOf('En las bolsas va lo que costó la bolsa entera, como al cargar el producto.') > 0);
+  t('al lado de cada una, cómo queda: el kilo, el precio y el mayorista', h.indexOf('<div class="costos-vista" data-i="1" aria-live="polite">' +
+    '<span>Costo $667 el kilo</span><span>Precio <b>$967</b> el kilo</span><span class="costos-may">Mayorista $1.000 el kilo</span></div>') > 0, h);
+  t('  el que no es bolsa, sin el kilo aparte', h.indexOf('<div class="costos-vista" data-i="2" aria-live="polite"><span>Precio <b>$13.500</b> el kilo</span>') > 0);
+  m.conInputs(['2000', '2.100', '9000']);
+  await (m.api.guardarEditorCostos());
+  const w3 = m.escrituras.find(x => x.id === 'b3'), w1 = m.escrituras.find(x => x.id === 'b1');
+  t('$2.100 la bolsa de 3 kg se guarda por kilo: $700, con su precio y su mayorista', w3 && w3.campos.costo === 700 &&
+    w3.campos.precio === 1015 && w3.campos.precioMayorista === 1050, w3 && JSON.stringify(w3.campos));
+  t('  la de 1 kg, sin cambiar, solo se confirma', w1 && Object.keys(w1.campos).join() === 'costoActualizadoEn');
+  t('  y el historial dice que es el kilo', m.historial[0].indexOf('Prueba1 x 3 kg -> $700 el kilo') > 0, m.historial);
+  const m2 = armar({ productos: [Object.assign({}, b3, { costo: 667 })], conVariantes: true });
+  m2.ctx.allProducts.push(Object.assign({}, b1));
+  m2.api.abrirEditorCostos([{ producto: m2.ctx.allProducts[0], fecha: hace(92), dias: 92 }], 'min');
+  m2.conInputs(['2000']);
+  await (m2.api.guardarEditorCostos());
+  t('volver a escribir $2.000 (lo que se cargó) no cambia nada: da el mismo kilo', m2.escrituras.length === 1 &&
+    Object.keys(m2.escrituras[0].campos).join() === 'costoActualizadoEn');
+}
+{
+  /* Desde el panel de bolsas de Productos (admin-variantes.js, 27/09): "Cambiar costos". */
+  const b1 = { id: 'b1', nombre: 'Prueba1', gramaje: '1 kg', tipoVenta: 'peso', costo: 2000, porcentaje: 45, porcentajeMayorista: 43,
+    precio: 2900, precioMayorista: 2900, costoActualizadoEn: hace(92) };
+  const b3 = { id: 'b3', nombre: 'Prueba1 x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', gramajePadreId: 'b1', costo: 667, porcentaje: 45,
+    porcentajeMayorista: 45, precio: 967, precioMayorista: 1000, costoActualizadoEn: hace(92) };
+  const venta = [{ id: 'b3', precio: 967, costo: 667, cantidad: 500, tipoVenta: 'peso' }];
+  const m = armar({ productos: [b1, b3], ventaItems: venta, conVariantes: true });
+  let campana = 0;
+  m.ctx._refrescarAlertas = () => { campana++; };
+  m.api.abrirEditorCostos([b1, b3].map(p => ({ producto: p, fecha: hace(92), dias: 92 })), 'prod', 'b3');
+  const h = m.elementos.costosEditor.innerHTML;
+  t('desde Productos: "Cambiar costos", con "Cancelar" y "Sigue igual"', h.indexOf('>Cambiar costos<') > 0 && h.indexOf('>Cancelar<') > 0 &&
+    h.indexOf('Volver a la venta') < 0 && h.split('class="costos-sigue"').length === 3);
+  m.conInputs(['2000', '2.100']);
+  m.conCasillas([false, false]);
+  await (m.api.guardarEditorCostos());
+  t('  guarda solo la que cambió', m.escrituras.length === 1 && m.escrituras[0].id === 'b3' && b3.costo === 700 && b1.costoActualizadoEn.getTime() === hace(92).getTime());
+  t('  no toca una venta abierta', venta[0].precio === 967 && venta[0].costo === 667 && m.repintados.length === 0);
+  t('  el historial dice de dónde vino', m.historial[0].indexOf('Costos cambiados desde Productos: 1 cambiado, 0 confirmados') === 0, m.historial);
+  t('  el aviso no habla de ninguna lista', m.avisos.indexOf('success: Listo: 1 costo cambiado, con su precio nuevo.') >= 0, m.avisos);
+  t('  y avisa a la campana', campana === 1);
+  /* Copias con el costo de antes: el guardado de arriba dejó la de 3 kg en $700. */
+  const m2 = armar({ productos: [Object.assign({}, b1, { costo: 2000 }), Object.assign({}, b3, { costo: 667 })], conVariantes: true });
+  m2.api.abrirEditorCostos(m2.ctx.allProducts.map(p => ({ producto: p, fecha: null, dias: null })), 'prod');
+  const h2 = m2.elementos.costosEditor.innerHTML;
+  t('sin fecha dice "sin fecha de cambio" (no "hace undefined días")', h2.indexOf('sin fecha de cambio') > 0 && h2.indexOf('undefined') < 0);
+  m2.conInputs(['2000', '2001']);
+  m2.conCasillas([false, false]);
+  await (m2.api.guardarEditorCostos());
+  t('  sin tocar nada no se escribe nada, y se dice sin hablar de una lista', m2.escrituras.length === 0 &&
+    m2.avisos.indexOf('info: No cambiaste ningún costo.') >= 0, m2.avisos);
+}
 {
   /* Con varios tamaños, "Costo y precio" (con la fecha de arriba) queda escondido: la
      fecha va debajo de cada fila de la tabla (admin-variantes.js). */

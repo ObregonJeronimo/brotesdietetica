@@ -132,6 +132,30 @@ const ids = lista => lista.map(p => p.id + (p.__grupo ? '(' + p.__grupo.miembros
       hy.indexOf('<b>2 bolsas</b> de Yerba') > 0);
   }
   {
+    /* La columna "Costo" (pedido del dueño, 27/09): en una bolsa, lo que costó la bolsa y
+       abajo el kilo; tocarla abre la ventana de costos con todas las del producto. */
+    const w = armar();
+    const busca = id => w.ctx.allProducts.find(p => p.id === id);
+    busca('y1').costo = 5000; busca('y3').costo = 4500; busca('m160').costo = 800;
+    const [, mani, yerba] = w.ctx.agruparParaTabla(w.ctx.allProducts.filter(p => p.depurado !== true));
+    w.ctx._gruposAbiertos.add('y1');
+    w.ctx._gruposAbiertos.add('m80');
+    const hy = w.ctx.panelPresentacionesHtml(yerba), hm = w.ctx.panelPresentacionesHtml(mani);
+    t('la columna Costo, entre el código y el precio', hy.indexOf('<th>Código</th><th>Costo</th><th>Precio</th>') > 0);
+    t('  la bolsa de 3 kg: lo que costó la bolsa ($13.500) y abajo el kilo', hy.indexOf('<b>$13.500</b> <small>la bolsa</small>') > 0 &&
+      hy.indexOf('<small>$4.500 el kilo</small>') > 0, hy);
+    t('  la de 1 kg, sin repetir el kilo', hy.indexOf('<b>$5.000</b> <small>la bolsa</small>') > 0 && hy.indexOf('$5.000 el kilo') < 0);
+    t('  una presentación por unidad, su costo; sin costo cargado, lo dice', hm.indexOf('<b>$800</b>') > 0 && hm.indexOf('Sin costo') > 0);
+    t('  tocarla abre la ventana de costos de ese producto, en esa bolsa', hy.indexOf("cambiarCostosDeGrupo('y1', 'y3')") > 0);
+    const abiertos = [];
+    w.ctx.abrirEditorCostos = (filas, c, foco) => abiertos.push({ ids: filas.map(f => f.producto.id).join(), c, foco });
+    w.ctx.cambiarCostosDeGrupo('y1', 'y3');
+    t('  con todas las bolsas, desde Productos, y el foco en la que se tocó', abiertos.length === 1 && abiertos[0].ids === 'y1,y3' &&
+      abiertos[0].c === 'prod' && abiertos[0].foco === 'y3', JSON.stringify(abiertos));
+    t('  gramosDeBolsa: la de 3 kg sí; un granel suelto o una presentación por unidad, no', w.ctx.gramosDeBolsa(busca('y3')) === 3000 &&
+      w.ctx.gramosDeBolsa(busca('nuez')) === null && w.ctx.gramosDeBolsa(busca('m160')) === null);
+  }
+  {
     const w = armar();
     const [mani] = w.ctx.agruparParaTabla(filtrados(w, ['m160']));
     const h = w.ctx.panelPresentacionesHtml(mani);
