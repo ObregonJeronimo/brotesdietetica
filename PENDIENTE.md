@@ -1451,10 +1451,26 @@ quedar frenados en el mostrador.
   editor que sale al vender, lo que **se está por terminar** al ritmo del último mes y la caja
   abierta de otro día. Lee las ventas de 30 días una vez por día (~250 lecturas en producción).
   **El aviso de costos depende del backfill de `costoActualizadoEn`**: sin fechas dice que no
-  se sabe (no dice "al día"). Falta que el dueño la mire y decida si queda, qué se saca y qué
-  se agrega.
+  se sabe (no dice "al día"). El dueño la vio y le gustó; pidió dos ajustes, ya hechos: **el
+  stock negativo no aparece** (ojo: el mostrador ya no vende sin stock, pero un pedido web todavía puede
+  dejarlo en negativo; esos no se ven en Inicio. **Decisión pendiente del dueño**), y en "Revisar costos" **solo
+  sale de la lista el costo que se cambia** (o el que se tilda "Sigue igual"); al vender el
+  editor sigue confirmando todo.
+- **Ticket del pedido:** "Imprimir ticket del pedido" en la ventana del pedido
+  (`admin-ticket-pedido.js`), para darle al cliente cuando retira. Misma impresora y formato que el
+  ticket de la venta. Si el pedido ya se cobró, salen los renglones de la venta y el medio de
+  pago. **Falta probarlo con la impresora térmica.**
+- **Clientes del local en la venta:** el buscador de cliente de la venta (minorista y
+  mayorista) muestra también los clientes cargados en el panel, no solo los que entraron con
+  Google, y trae "Agregar cliente nuevo" (`admin-clientes.js`). La ficha guarda si quiere recibir
+  promociones y avisa si ya hay uno con ese teléfono o DNI. En el menú: "Clientes del local"
+  y "Clientes de la web". Comprar en la TIENDA sin entrar con Google es otra cosa (reglas,
+  functions y protección contra abuso): no se hizo.
+- **Ventas con otra cara (experimental):** encabezado, números con íconos, la lista agrupada
+  por día con lo cobrado en el día, filas con etiquetas de color, y la ventana de la venta más
+  clara. Mismos ids y funciones.
 
-Pruebas: 3392 en 82 suites.
+Pruebas: 3483 en 85 suites.
 
 ---
 
