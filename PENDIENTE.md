@@ -1487,6 +1487,9 @@ quedar frenados en el mostrador.
 - **El tamaño en el nombre, en todos los avisos del Centro**: "Maní Pelado x 1 kg", con la
   misma forma que la otra bolsa ("Maní Pelado x 2 kg"). También en la ventana de revisar
   costos y en los avisos de stock al vender, que decían "Maní Pelado (1 kg)".
+- **Formulario del producto, bien a la vista** (27/09): al crear o editar un producto, los
+  campos, los desplegables y los botones resaltan (la misma receta que los buscadores). Es
+  solo CSS; los precios que se calculan solos quedan apagados, porque ahí no se escribe.
 
 Pruebas: 3528 en 85 suites.
 
