@@ -1539,7 +1539,7 @@ quedar frenados en el mostrador.
 
 Pruebas: 3580 en 85 suites.
 
-### O) Stock: un producto con bolsas o presentaciones es un bloque · **HECHO, SIN SUBIR** (28/09/2026)
+### O) Stock: un producto con bolsas o presentaciones es un bloque · **SUBIDO A PRODUCCIÓN el 28/09/2026**
 
 Pedido del dueño: en Productos, un producto con varias bolsas ya era una fila, pero en Stock,
 buscando "Mani", salían separadas la de 1 kg y la de 3 kg, y la de 1 kg (la principal) sin el
@@ -1588,7 +1588,7 @@ Pruebas: `pruebas/t-stock-agrupado.js`, 54 asertos (fallan contra el commit ante
 3634 en 86 suites. Probado en el sandbox con clics de verdad (agregar y corregir el stock de un
 tamaño del bloque, y dejarlo como estaba).
 
-### P) Etiquetas en papel térmico adhesivo · **HECHO, SIN SUBIR** (28/09/2026)
+### P) Etiquetas en papel térmico adhesivo · **SUBIDO A PRODUCCIÓN el 28/09/2026**
 
 Pregunta del dueño: si "Imprimir etiquetas" sirve para una térmica con papel adhesivo. **Ya
 servía**: en Formato están los rollos térmicos (58 × 40, 50 × 30 y 40 × 30 mm, y "Personalizado"
@@ -1623,6 +1623,13 @@ Para tener en cuenta (no se tocó; falta probarlo con la impresora, como el tick
 Pruebas: 6 asertos nuevos en `pruebas/t-etiquetas.js` (148) y `pruebas/t-etiquetas-recuerda.js`
 (17, que fallan contra el commit anterior). Total: 3660 en 87 suites. Probado en el sandbox: se
 eligió el rollo de 50 × 25 sin "Rollo continuo", se recargó la página y volvió así.
+
+**Subido el 28/09/2026** (O y P juntos, pedido por el dueño después de la revisión de código): push a
+`main` hasta `86d51dd`. Vercel sirve los mismos archivos que el repo (`admin.html`,
+`admin-etiquetas.js`, `admin-variantes.js`, `admin-stock.js`, `app.min.js`, `styles.min.css`) y los
+`.md` no se publican. La tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar
+sesión) y el panel ya trae lo nuevo. Las functions y las reglas no cambiaron. Falta probar las
+etiquetas con la impresora térmica, junto con el ticket.
 
 ---
 

@@ -355,7 +355,7 @@ producción (de los "gramajes" viejos).
   carga sin errores y con todos los módulos nuevos, sin iniciar sesión.
 - **Las reglas de Firestore no cambiaron.**
 
-### 5.4 Después de la subida (28/09, en commits locales, SIN SUBIR)
+### 5.4 Lo del 28/09 (subido a producción el 28/09, push hasta `86d51dd`, verificado)
 
 - **Stock agrupado:** en Stock, un producto con bolsas o presentaciones es un bloque, como en
   Productos, con cada tamaño abajo y siempre a la vista. La ventana de "Agregar stock" dice el
@@ -477,7 +477,7 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 - Antes de dar por terminado algo grande: revisión de código y prueba en el sandbox.
 
-Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). Además, CONTEXTO.md quedó en un commit local. El sandbox está cerrado.
+Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El sandbox está cerrado.
 
 Pendientes principales: avisarle a la clienta del freno de stock (154 de 344 productos a la venta sin stock al 27/09), probar el ticket del pedido en la impresora térmica, decidir qué hacer con las ventas viejas guardadas como "Envío", y la migración (etapa 4), que se hace solo cuando yo lo pida. El resto de los pendientes está en CONTEXTO.md §7.
 
