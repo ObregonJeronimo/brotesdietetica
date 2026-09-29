@@ -198,6 +198,65 @@ function _provNoVendidos(lista, r) {
     .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || '')));
 }
 
+/* LOS TAMAÑOS DE UN MISMO PRODUCTO, JUNTOS (pedido del dueño, 29/09/2026). Un producto con
+   bolsas o presentaciones es UNO, como en Productos, Stock y Compras. En la ficha, "Mani RC"
+   de 1 kg salía con el nombre de la tienda ("Mani Recubierto de Chocolate") y el de 3 kg por
+   otro lado, como si fueran dos productos. Ahora, en lo vendido, en lo que no se vendió y en
+   la exportación, sus tamaños van juntos, con el nombre del producto arriba y cada uno con su
+   tamaño ("Mani RC x 1 kg"). El agrupado es el de Stock (agruparParaStock, admin-variantes.js):
+   sin ese archivo, todo sale como antes. Los números de la ficha (productos en el catálogo,
+   cuántos se vendieron) siguen contando cada tamaño, como la pantalla de Productos. */
+
+/* El nombre: en un producto con tamaños, el interno con su tamaño; en los demás, el de siempre. */
+function _provNombre(p) {
+  const n = (p && (p.nombreMostrado || p.nombre)) || '';
+  return typeof _nombreConPresentacion === 'function' ? _nombreConPresentacion(p, n) : n;
+}
+
+/* La lista con los de un mismo producto juntos: los sueltos como vienen, y cada producto con
+   tamaños como { grupo: { nombre, que, total, principal, miembros } }, con solo los tamaños que
+   vienen en la lista, de menor a mayor (total dice cuántos tiene el producto). */
+function _provJuntar(prods) {
+  if (typeof agruparParaStock !== 'function') return prods;
+  return agruparParaStock(prods).map(x => {
+    if (!x.__stockGrupo) return x;
+    const g = x.__stockGrupo;
+    return { grupo: { nombre: g.nombre, que: g.que, total: g.miembros.length, principal: g.principal,
+      miembros: g.miembros.filter(m => m.coincide).map(m => m.producto) } };
+  });
+}
+
+/* Lo vendido con los tamaños de un mismo producto juntos: un puesto por producto, con lo que
+   sumaron entre todos, y en `miembros` lo de cada tamaño, de menor a mayor y con su nombre de
+   ahora. Sigue ordenado por lo facturado, ahora del producto entero. Lo que ya no está en el
+   catálogo (un producto borrado) va suelto, como siempre. */
+function _provTopJuntos(top) {
+  const porId = new Map((typeof allProducts !== 'undefined' ? allProducts : []).map(p => [p.id, p]));
+  const grupoDe = new Map();
+  _provJuntar(top.map(x => x.id && porId.get(x.id)).filter(Boolean))
+    .forEach(x => { if (x.grupo) x.grupo.miembros.forEach(p => grupoDe.set(p.id, x.grupo)); });
+  if (!grupoDe.size) return top;
+  const out = [];
+  const hechos = new Set();
+  top.forEach(x => {
+    const g = x.id ? grupoDe.get(x.id) : null;
+    if (!g) { out.push(x); return; }
+    if (hechos.has(g)) return;
+    hechos.add(g);
+    const miembros = g.miembros.map(p => Object.assign({}, top.find(y => y.id === p.id), { nombre: _provNombre(p) }));
+    const suma = k => miembros.reduce((s, m) => s + Number(m[k] || 0), 0);
+    out.push({ grupo: g, nombre: g.nombre, miembros: miembros,
+      monto: suma('monto'), gramos: suma('gramos'), unidades: suma('unidades'), veces: suma('veces') });
+  });
+  return out.sort((a, b) => b.monto - a.monto);
+}
+
+/* La cabecera de un producto con tamaños: "Mani RC · 2 bolsas". */
+function _provCabGrupo(g) {
+  return '<span class="prov-grupo-n"><i class="bi bi-stack"></i> ' + esc(g.nombre) +
+    ' <span class="prov-grupo-que">&middot; ' + g.total + ' ' + g.que + '</span></span>';
+}
+
 /* Todo lo que se sabe de un proveedor, venga o no de las ventas. */
 function _provResumen(lista) {
   /* Los depurados no se cuentan: la ficha tiene que decir lo mismo que la tabla de
@@ -267,7 +326,9 @@ function renderProveedores() {
   const coinciden = new Set(_provFiltrados(resumenes));
   const filas = resumenes.map(r => {
     const sel = _provAbierto === r.lista.id;
-    const mejor = r.top[0];
+    /* El primero del ranking de la ficha, con los tamaños de un producto juntos (29/09):
+       con el de cada tamaño por separado, aca podia decir otro que el primero de la ficha. */
+    const mejor = _provTopJuntos(r.top)[0];
     return '<button type="button" class="prov-item' + (sel ? ' sel' : '') + '" ' +
       (coinciden.has(r) ? '' : 'style="display:none" ') +
       'onclick="provAbrir(\'' + r.lista.id + '\')">' +
@@ -332,20 +393,46 @@ function _provRenderDetalle() {
   const r = _provResumen(lista);
   const dias = (_provDatos && _provDatos.dias) || _provDias;
 
-  const top = r.top.slice(0, 10);
-  const resto = r.top.slice(10);
+  /* Los tamaños de un mismo producto, juntos (29/09): el producto entero es un puesto. */
+  const vendido = _provTopJuntos(r.top);
+  const top = vendido.slice(0, 10);
+  const resto = vendido.slice(10);
 
-  const filaProd = (p, i) =>
-    '<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.38rem 0;font-size:0.85rem;border-bottom:1px solid rgba(255,255,255,0.04)">' +
-      '<span style="color:var(--text-dim);font-size:0.75rem;width:1.4rem;flex:0 0 auto">' + (i + 1) + '</span>' +
-      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.nombre) + '</span>' +
-      '<span style="color:var(--text-dim);font-size:0.76rem;white-space:nowrap">' + _provCant(p) + '</span>' +
-      '<span style="font-weight:600;white-space:nowrap;min-width:5.5rem;text-align:right">' + _provPesos(p.monto) + '</span>' +
+  /* Un renglón de lo vendido: el puesto (vacío en un tamaño dentro de su producto), el
+     nombre, la cantidad y lo facturado. La cabecera de un producto con tamaños (cabecera)
+     baja de línea en vez de cortarse: cortada, en la tarjeta angosta no se leía cuántas
+     bolsas tiene. */
+  const renglon = (nombreHtml, cant, monto, puesto, chico, cabecera) =>
+    '<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.38rem 0;font-size:' + (chico ? '0.8rem' : '0.85rem') + ';border-bottom:1px solid rgba(255,255,255,0.04)">' +
+      '<span style="color:var(--text-dim);font-size:0.75rem;width:1.4rem;flex:0 0 auto">' + puesto + '</span>' +
+      '<span style="flex:1;' + (cabecera ? 'min-width:0' : 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap') + '">' + nombreHtml + '</span>' +
+      '<span style="color:var(--text-dim);font-size:0.76rem;white-space:nowrap">' + cant + '</span>' +
+      '<span style="font-weight:600;white-space:nowrap;min-width:5.5rem;text-align:right">' + monto + '</span>' +
     '</div>';
+  /* Un producto con tamaños va en un recuadro: arriba su puesto y el total, y abajo lo de cada
+     tamaño. La cantidad total va solo en las bolsas: sumar unidades de presentaciones
+     distintas (x1 con x12) da un número que no dice nada. */
+  const filaProd = (p, i) => !p.grupo
+    ? renglon(esc(p.nombre), _provCant(p), _provPesos(p.monto), i + 1)
+    : '<div class="prov-grupo">' +
+        renglon(_provCabGrupo(p.grupo), p.grupo.que === 'bolsas' ? _provCant(p) : '', _provPesos(p.monto), i + 1, false, true) +
+        p.miembros.map(m => renglon(esc(m.nombre), _provCant(m), _provPesos(m.monto), '', true)).join('') +
+      '</div>';
 
   const nadaVendido = '<p style="font-size:0.85rem;color:var(--text-dim)">No se vendió ningún producto de este proveedor en el período.</p>';
 
   const quietos = _provNoVendidos(lista, r);
+  /* Un producto que no se vendió, con su stock. Los tamaños de un mismo producto van juntos,
+     en un recuadro (29/09). */
+  const filaQuieto = p =>
+    '<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.3rem 0;font-size:0.84rem;border-bottom:1px solid rgba(255,255,255,0.04)">' +
+      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(_provNombre(p)) + '</span>' +
+      (p.oculto === true ? '<span style="font-size:0.72rem;color:var(--text-dim)">oculto</span>' : '') +
+      '<span style="font-size:0.76rem;white-space:nowrap;color:' +
+        (Number(p.stock || 0) <= 0 ? '#EDB833' : 'var(--text-dim)') + '">' +
+        (Number(p.stock || 0) <= 0 ? 'sin stock'
+          : (p.tipoVenta === 'peso' ? _provCant({ gramos: Number(p.stock || 0) }) : Number(p.stock || 0) + ' u')) +
+      '</span></div>';
 
   cont.innerHTML =
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem">' +
@@ -385,15 +472,10 @@ function _provRenderDetalle() {
         'No se vendieron en ' + dias + ' días (' + quietos.length + ')',
         '<p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.6rem;line-height:1.5">' +
         'Están en el catálogo y no salió ninguno. Conviene mirarlos antes de volver a pedirlos.</p>' +
-        quietos.map(p =>
-          '<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.3rem 0;font-size:0.84rem;border-bottom:1px solid rgba(255,255,255,0.04)">' +
-            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.nombreMostrado || p.nombre) + '</span>' +
-            (p.oculto === true ? '<span style="font-size:0.72rem;color:var(--text-dim)">oculto</span>' : '') +
-            '<span style="font-size:0.76rem;white-space:nowrap;color:' +
-              (Number(p.stock || 0) <= 0 ? '#EDB833' : 'var(--text-dim)') + '">' +
-              (Number(p.stock || 0) <= 0 ? 'sin stock'
-                : (p.tipoVenta === 'peso' ? _provCant({ gramos: Number(p.stock || 0) }) : Number(p.stock || 0) + ' u')) +
-            '</span></div>').join('')) + '</div>' : '');
+        _provJuntar(quietos).map(x => x.grupo
+          ? '<div class="prov-grupo"><div class="prov-grupo-cab">' + _provCabGrupo(x.grupo) + '</div>' +
+            x.grupo.miembros.map(filaQuieto).join('') + '</div>'
+          : filaQuieto(x)).join('')) + '</div>' : '');
 }
 
 /* ============================ EXPORTAR ============================ */
@@ -467,7 +549,9 @@ function _provDocExportar(lista, incluirNoVendidos) {
     const p = (typeof allProducts !== 'undefined' ? allProducts : []).find(x => x.id === id);
     return p ? _provCategoria(p) : 'Sin categoría';
   };
-  const top = r.top.slice(0, 10);
+  /* Con los tamaños de un mismo producto juntos, como en pantalla (29/09): el producto con su
+     puesto y el total, y abajo cada tamaño con lo suyo. */
+  const top = _provTopJuntos(r.top).slice(0, 10);
   bloques.push({
     tipo: 'tabla',
     titulo: 'Los 10 productos más vendidos de este proveedor',
@@ -475,7 +559,11 @@ function _provDocExportar(lista, incluirNoVendidos) {
     anchos: [9, 68, 42, 26, 27],
     derecha: [3, 4],
     filas: top.length
-      ? top.map((x, i) => [i + 1, x.nombre, catDe(x.id), _provCant(x), _provPesos(x.monto)])
+      ? top.flatMap((x, i) => !x.grupo
+          ? [[i + 1, x.nombre, catDe(x.id), _provCant(x), _provPesos(x.monto)]]
+          : [[i + 1, x.nombre + ' (' + x.grupo.total + ' ' + x.grupo.que + ')', catDe(x.grupo.principal.id),
+              x.grupo.que === 'bolsas' ? _provCant(x) : '', _provPesos(x.monto)]]
+              .concat(x.miembros.map(m => ['', '· ' + m.nombre, '', _provCant(m), _provPesos(m.monto)])))
       : [['', 'No se vendió ningún producto de este proveedor en el período.', '', '', '']],
   });
 
@@ -501,19 +589,32 @@ function _provDocExportar(lista, incluirNoVendidos) {
       const stockTxt = (x) => Number(x.stock || 0) <= 0 ? 'sin stock'
         : (x.tipoVenta === 'peso' ? _provCant({ gramos: Number(x.stock || 0) })
                                   : Number(x.stock || 0) + ' u');
+      /* Los tamaños de un producto van todos en la categoría de su principal (revisión del
+         29/09): cada tamaño guarda la suya, y un producto con dos categorías salía partido en
+         dos bloques. */
+      const catDe = new Map();
+      _provJuntar(quietos).forEach(x => {
+        if (x.grupo) x.grupo.miembros.forEach(m => catDe.set(m.id, x.grupo.principal.categoria));
+      });
+      const porCategoria = _provPorCategoria(quietos.map(p =>
+        catDe.has(p.id) ? Object.assign({}, p, { categoria: catDe.get(p.id) }) : p));
       bloques.push({
         tipo: 'pares',
         titulo: 'No se vendieron en ' + dias + ' días (' + quietos.length + ')',
-        filas: _provPorCategoria(quietos).map(g => [g.categoria, String(g.productos.length)]),
+        filas: porCategoria.map(g => [g.categoria, String(g.productos.length)]),
       });
-      _provPorCategoria(quietos).forEach(g => {
+      porCategoria.forEach(g => {
         bloques.push({
           tipo: 'tabla',
           titulo: g.categoria + ' (' + g.productos.length + ')',
           columnas: ['Producto', 'Stock'],
           anchos: [130, 40],
           derecha: [1],
-          filas: g.productos.map(x => [x.nombreMostrado || x.nombre || '', stockTxt(x)]),
+          /* Los tamaños de un mismo producto, juntos: el producto y abajo cada uno (29/09). */
+          filas: _provJuntar(g.productos).flatMap(x => !x.grupo
+            ? [[_provNombre(x), stockTxt(x)]]
+            : [[x.grupo.nombre + ' (' + x.grupo.total + ' ' + x.grupo.que + ')', '']]
+                .concat(x.grupo.miembros.map(m => ['· ' + _provNombre(m), stockTxt(m)]))),
         });
       });
     }

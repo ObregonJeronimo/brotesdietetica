@@ -125,6 +125,7 @@ function dibujar(filtro, abierto) {
     _provDias: 90, _provDatos: null, _provAbierto: abierto || null, _provFiltro: filtro,
     _provResumen: l => ({ lista: l, facturado: 100, productos: 1, ventas: 1, sinVender: 0, gastado: 0, debe: 0, top: [] }),
     _provCard: () => '', _provRenderDetalle: () => {}, _provPesos: n => '$' + n,
+    _provTopJuntos: top => top,
     esc: s => String(s),
   };
   const nombres = Object.keys(fakes);

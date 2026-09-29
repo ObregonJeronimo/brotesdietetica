@@ -153,6 +153,8 @@ const docProv = new Function(
   cuerpo(srcProv, '_provCant') + cuerpo(srcProv, '_provFecha') +
   linea(srcProv, /const _provPesos = [^\n]*/) + '\n' +
   cuerpo(srcProv, '_provResumen') + cuerpo(srcProv, '_provNoVendidos') +
+  /* Los tamaños de un mismo producto, juntos (29/09): sin admin-variantes.js no agrupan nada. */
+  cuerpo(srcProv, '_provNombre') + cuerpo(srcProv, '_provJuntar') + cuerpo(srcProv, '_provTopJuntos') +
   cuerpo(srcProv, '_provCategoria') + cuerpo(srcProv, '_provPorCategoria') +
   cuerpo(srcProv, '_provDocExportar') +
   ';return function(lista, noVend, prods, datos, compras){' +

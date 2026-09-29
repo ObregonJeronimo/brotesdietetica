@@ -1708,10 +1708,19 @@ con el stock sumado en gramos y el costo actualizado a $400 el kilo, y "Ver" mue
 "$1.200/bolsa".
 
 Anotado sin hacer: en la ficha del proveedor, "No se vendieron en 90 días" sigue mostrando cada
-bolsa por separado, y la principal con el nombre de la tienda.
+bolsa por separado, y la principal con el nombre de la tienda (**hecho el 29/09**, §T).
 
 Pruebas: `pruebas/t-compras-bolsas.js` (56, fallan contra el commit anterior), y se ajustaron
 `t-exportar.js` (58) y `t-lector-compra.js` (24). Total: 3745 en 88 suites.
+
+**Revisión independiente (29/09), después del commit:** no encontró errores en las cuentas. Se
+agregó un aviso: si una bolsa queda con menos gramos que una bolsa (se escribió 2 pensando en 2
+bolsas de 3 kg), al guardar sale "Revisá la cantidad", con "Volver y corregir" o "Guardar igual".
+Sin eso se cargaban 2 g y la cuenta daba $8 en vez de $24.000, sin que nada lo marcara. Además, el
+buscador arma el nombre con el tamaño solo si no encontró por los otros nombres (más liviano con
+los proveedores grandes). `t-compras-bolsas.js` quedó en 63 (3 fallan sin el aviso). Probado en el
+sandbox: 2 g de la bolsa de 3 kg, sale el aviso, "Volver y corregir" no guarda nada. Anotado sin
+hacer: al ver una compra guardada, las bolsas siguen una por renglón, con el tamaño en el nombre.
 
 ### S) Proveedores: al borrar la búsqueda vuelven todos · **HECHO, SIN SUBIR** (29/09/2026)
 
@@ -1730,6 +1739,48 @@ cartel) y borrar; vuelven los 20, sin cartel.
 
 Pruebas: 6 nuevas en `pruebas/t-prov-lista.js` (35; 4 fallan contra el commit anterior). Total:
 3751 en 88 suites.
+
+### T) La ficha del proveedor: los tamaños de un producto van juntos · **HECHO, SIN SUBIR** (29/09/2026)
+
+Pedido del dueño, después de §R: en la ficha de ANDNUTS, "No se vendieron en 90 días" mostraba "Mani
+Recubierto de Chocolate" (la bolsa de 1 kg, con el nombre de la tienda) y "Mani RC x 3 kg" por
+separado. Ahora, en toda la ficha (`admin-proveedores.js` y el CSS en `admin.html`), los tamaños de
+un producto van en un recuadro, "Mani RC · 2 bolsas", cada uno con su tamaño ("Mani RC x 1 kg"):
+- **No se vendieron:** el recuadro con los tamaños que no se vendieron. Si una bolsa se vendió,
+  queda la otra, y la cabecera sigue diciendo cuántas tiene el producto.
+- **Los 10 más vendidos y el resto:** el producto entero es un puesto, con lo que facturaron sus
+  tamaños juntos. En el recuadro va arriba el total y abajo lo de cada tamaño. La cantidad total va
+  solo en las bolsas: sumar unidades de presentaciones distintas (x1 con x12) no dice nada. Un
+  producto que ya no está en el catálogo va suelto, como siempre.
+- **La lista de proveedores:** "Lo que más deja" sale del mismo ranking agrupado, así dice lo mismo
+  que el primer puesto de la ficha.
+- **La exportación (PDF y Excel):** igual que en pantalla, con el producto ("Mani RC (2 bolsas)") y
+  abajo cada tamaño ("· Mani RC x 1 kg"). En "No se vendieron", que va por categoría, el producto va
+  entero en la categoría de su principal: cada tamaño guarda la suya, y si eran distintas salía
+  partido en dos bloques (lo encontró la revisión).
+- **Los números de la ficha** (productos en el catálogo, cuántos se vendieron, "No se vendieron
+  (N)") siguen contando cada tamaño, como la pantalla de Productos.
+- Si admin-variantes.js no carga, todo sale como antes.
+
+Probado en el sandbox con clics de verdad. En "No se vendieron" de ANDNUTS, el recuadro del Mani RC
+muestra las dos bolsas. Después se hicieron dos ventas de prueba (4 kg, que se cobra como la bolsa de
+3 kg, y 500 g, que sale de la de 1 kg), y la ficha muestra el puesto 4 "Mani RC · 2 bolsas", con 4,5
+kg y $2.358, y abajo cada bolsa. En la tarjeta angosta, la cabecera baja de línea en vez de cortarse.
+Quedaron en el sandbox las ventas #41 y #42 y las compras #7 y #8 de prueba.
+
+Pruebas: `pruebas/t-prov-bolsas.js` (30; 21 fallan contra el commit anterior), y se ajustaron
+`t-exportar.js` y `t-prov-lista.js`. Total: 3788 en 89 suites.
+
+**Revisión independiente (29/09):** no encontró errores en las cuentas ni en lo que se muestra
+(probó además 800 catálogos al azar, con y sin admin-variantes.js). Lo que encontró y se arregló:
+"Lo que más deja" y la exportación partida por categoría (arriba). Anotado sin hacer, menores:
+- un tamaño que se vendió y después se depuró sale suelto en lo vendido, porque los depurados no
+  entran en los grupos (tampoco en Productos ni en Stock);
+- la cabecera dice cuántos tamaños tiene el producto ("2 bolsas") aunque en el recuadro se vea uno
+  solo: el otro es de otro proveedor, está oculto o ya se vendió;
+- "El resto de lo vendido (N)" cuenta productos, y los otros números de la ficha cuentan tamaños;
+- los recuadros se reconocen por un campo `grupo` (en Compras y acá). Ningún producto tiene un
+  campo con ese nombre; si algún día se agregara, habría que cambiarlo.
 
 ---
 
