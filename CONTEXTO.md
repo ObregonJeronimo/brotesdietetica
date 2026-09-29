@@ -362,8 +362,8 @@ producción (de los "gramajes" viejos).
   tamaño ("Mani prueba x 1 kg"). Detalle en `PENDIENTE.md` §1-bis O, con lo que la revisión
   antes de subir dejó anotado para más adelante (menores).
 - **Etiquetas en térmica adhesiva:** ya se podía (rollos térmicos y "Rollo continuo" tildado o no).
-  Se agregó el rollo de 50 × 25 mm y el texto en negro puro en la térmica. Falta probarlo con la
-  impresora. Detalle en `PENDIENTE.md` §1-bis P.
+  Se agregó el rollo de 50 × 25 mm, el texto en negro puro en la térmica y que se acuerde del
+  formato y del tipo de rollo. Falta probarlo con la impresora. Detalle en `PENDIENTE.md` §1-bis P.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

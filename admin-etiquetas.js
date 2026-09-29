@@ -414,6 +414,41 @@ let _etqSoloPeso = false;
 let _etqBusqueda = '';
 let _etqLista = '';
 
+/* LO ÚLTIMO QUE SE USÓ, RECORDADO (revisión del 28/09/2026). Un local tiene una impresora
+   y un tipo de rollo: si al abrir el panel vuelve siempre a "Hoja A4" y a "Rollo continuo"
+   tildado, un rollo de etiquetas ya cortadas sale como tira corrida y se pierde esa tanda.
+   Se guarda al imprimir y se pone la primera vez que se abre la ventana. Solo en este
+   navegador, como la hoja de la ficha (ETQ_HOJA_FICHA_KEY). */
+const ETQ_ULTIMO_KEY = 'brotesEtqUltimo';
+const ETQ_ULTIMO_CAMPOS = ['etqSeparacion', 'etqCustomAncho', 'etqCustomAlto', 'etqCustomCols',
+  'etqCustomFilas', 'etqCustomMargenH', 'etqCustomMargenV'];
+let _etqUltimoPuesto = false;
+function _etqGuardarUltimo() {
+  try {
+    const campos = {};
+    ETQ_ULTIMO_CAMPOS.forEach(id => { const el = document.getElementById(id); if (el) campos[id] = String(el.value); });
+    const cont = document.getElementById('etqContinuo');
+    const ter = document.getElementById('etqCustomTermica');
+    localStorage.setItem(ETQ_ULTIMO_KEY, JSON.stringify({
+      formato: _etqFormato, continuo: cont ? !!cont.checked : true, termica: ter ? !!ter.checked : false, campos: campos }));
+  } catch (e) { /* sin guardar: la próxima vez arranca como siempre */ }
+}
+function _etqPonerUltimo() {
+  let u = null;
+  try { u = JSON.parse(localStorage.getItem(ETQ_ULTIMO_KEY) || 'null'); } catch (e) { u = null; }
+  if (!u || typeof u !== 'object') return;
+  if (ETQ_FORMATOS.some(f => f.id === u.formato)) _etqFormato = u.formato;
+  const cont = document.getElementById('etqContinuo');
+  if (cont && typeof u.continuo === 'boolean') cont.checked = u.continuo;
+  const ter = document.getElementById('etqCustomTermica');
+  if (ter && typeof u.termica === 'boolean') ter.checked = u.termica;
+  const campos = (u.campos && typeof u.campos === 'object') ? u.campos : {};
+  ETQ_ULTIMO_CAMPOS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && campos[id] != null && campos[id] !== '' && isFinite(Number(campos[id]))) el.value = String(campos[id]);
+  });
+}
+
 /* ============ EL CODIGO DE BARRAS DENTRO DE LA FICHA DEL PRODUCTO ============
    Ver como va a salir la etiqueta ANTES de imprimir doscientas. El simbolo no se
    "ve mal" cuando esta mal: sale un dibujo de barras perfectamente plausible que
@@ -639,6 +674,8 @@ function openEtiquetasModal() {
     sel.innerHTML = '<option value="">Todos los proveedores</option>' +
       (listasData || []).map(l => '<option value="' + l.id + '">' + esc(l.nombre) + '</option>').join('');
   }
+  /* La primera vez que se abre: lo que se usó la última vez que se imprimió. */
+  if (!_etqUltimoPuesto) { _etqUltimoPuesto = true; _etqPonerUltimo(); }
   const f = document.getElementById('etqFormato');
   if (f) {
     f.innerHTML = ETQ_FORMATOS.map(x =>
@@ -880,6 +917,8 @@ function etiquetasImprimir() {
 
   const win = window.open('', '_blank', 'width=900,height=700');
   if (!win) return showAdminToast('El navegador bloqueó la ventana de impresión', 'error');
+  /* Se imprime: queda recordado para la próxima vez (ver _etqGuardarUltimo). */
+  _etqGuardarUltimo();
   win.document.write('<html><head><title>Etiquetas</title><style>' +
     etiquetaEstilos(f) + '</style></head><body>' + cuerpo + '</body></html>');
   win.document.close();

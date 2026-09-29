@@ -1577,7 +1577,9 @@ tamaño en el nombre.
 - en Compras la bolsa principal sigue sin el tamaño ("Mani prueba"): el nombre con el tamaño se
   agregó solo en Stock;
 - código: `agruparParaStock` repite el recorrido de `agruparParaTabla`, la carga en tanda repite
-  la regla de `_stkNombre`, y queda un `if` que nunca se cumple.
+  la regla de `_stkNombre`, y queda un `if` que nunca se cumple;
+- si un tamaño se cargó con el mismo nombre pero con un punto de más ("Mani pelado."), la fila
+  repite el nombre abajo, chico. No molesta.
 
 En producción hoy hay un solo grupo, AJI MOLIDO EXTRA (1 kg por peso; 250 g y 500 g por unidad):
 en Stock va a ser un bloque "AJI MOLIDO EXTRA · 3 presentaciones" con las tres filas.
@@ -1596,12 +1598,19 @@ con la casilla "Térmica"), y con un rollo térmico aparece "Rollo continuo":
 - **destildado**: rollo de etiquetas ya cortadas (troquelado), el de las impresoras de etiquetas.
   Cada etiqueta es su propia página, del tamaño exacto de la etiqueta.
 
-Lo que se cambió (`admin-etiquetas.js`):
+Lo que se cambió (`admin-etiquetas.js` y la ayuda en `admin.html`):
 - **El rollo de 50 × 25 mm**, la etiqueta adhesiva térmica más común. El código sale al 123% y
   entra de sobra; en el sandbox, con "Aceite De Almendras Tostado" y el precio, no se sale nada.
 - **En la térmica el texto va en negro puro.** El gramaje (#333) y el código interno (#666) iban en
   gris, y la térmica no imprime grises: los imita salteando puntos, y en letra chica sale
   desflecado. En A4 siguen en gris.
+- **Se acuerda de lo último que se usó** (lo encontró la revisión antes de subir): el formato,
+  "Rollo continuo" y la separación se guardan al imprimir y vuelven la próxima vez que se abre la
+  ventana, en ese navegador. Antes volvía siempre a "Hoja A4" y con "Rollo continuo" tildado: con
+  un rollo de etiquetas ya cortadas, olvidarse de destildarlo un día imprimía una tira corrida y se
+  perdía esa tanda.
+- **La ayuda de "Rollo continuo", en palabras simples**: decía "troquelado"; ahora dice "si el
+  rollo trae las etiquetas ya cortadas, separadas una de otra" y que se recuerda.
 
 Para tener en cuenta (no se tocó; falta probarlo con la impresora, como el ticket):
 - en rollo continuo el largo de la tira lo decide la impresora: Chrome descarta
@@ -1611,7 +1620,9 @@ Para tener en cuenta (no se tocó; falta probarlo con la impresora, como el tick
 - el botón de la ficha del producto sigue imprimiendo solo hojas A4 (pedido del comercio del
   26/09); las térmicas se imprimen desde "Imprimir etiquetas".
 
-Pruebas: 6 asertos nuevos en `pruebas/t-etiquetas.js` (148). Total: 3643 en 86 suites.
+Pruebas: 6 asertos nuevos en `pruebas/t-etiquetas.js` (148) y `pruebas/t-etiquetas-recuerda.js`
+(17, que fallan contra el commit anterior). Total: 3660 en 87 suites. Probado en el sandbox: se
+eligió el rollo de 50 × 25 sin "Rollo continuo", se recargó la página y volvió así.
 
 ---
 
