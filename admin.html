@@ -625,6 +625,8 @@
         .stock-row.sin-guardar .stock-input{border-color:#EDB833;color:#EDB833}
         .stock-chip-sg{font-size:0.62rem;font-weight:700;color:#EDB833;background:rgba(237,184,51,0.18);padding:1px 6px;border-radius:8px;white-space:nowrap;margin-left:6px}
         .stock-input{width:70px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.5rem;color:var(--text);font-family:var(--mono);font-size:0.9rem;text-align:center;outline:none}.stock-input:focus{border-color:var(--accent)}.stock-actual{display:flex;flex-direction:column;align-items:flex-end;min-width:86px;text-align:right}.stock-actual b{font-family:var(--mono);font-size:0.95rem;color:var(--text);white-space:nowrap}.stock-actual small{font-size:0.68rem;color:var(--text-dim);white-space:nowrap}.stock-agregar{width:auto;white-space:nowrap;padding:0.45rem 0.8rem;font-size:0.8rem}.stock-corregir{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;width:34px;height:34px;flex:0 0 auto;cursor:pointer}.stock-corregir:hover{color:var(--text);border-color:var(--accent)}.stock-save{background:var(--accent);color:white;border:none;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.8rem;cursor:pointer;font-weight:600;transition:all 0.2s}.stock-save:hover{background:var(--accent-light)}
+        /* Stock: un producto con bolsas o presentaciones es UN bloque, con cada tamanio abajo y a la vista (pedido del duenio, 28/09/2026). Los huecos alinean la foto y el nombre con los de las filas sueltas. */
+        .stock-grupo{background:var(--bg-input);border-radius:var(--radius);margin-bottom:0.5rem;padding:0.15rem 0}.stock-grupo-cab{display:flex;align-items:center;gap:1rem;padding:0.6rem 1rem 0.45rem}.stock-grupo-cab img{width:40px;height:40px;border-radius:6px;object-fit:cover}.stock-chk-hueco{width:16px;flex:0 0 16px;margin-right:2px}.stock-tam-hueco{width:40px;flex:0 0 40px;text-align:center;color:var(--text-dim);font-size:0.9rem}.stock-row.stock-row-tam{background:none;border-radius:0;margin-bottom:0;padding:0.45rem 1rem;border-top:1px solid var(--border)}.stock-row.stock-row-tam.coincide{background:rgba(95,168,122,0.14)}.var-chip.fijo{cursor:default}.var-chip.fijo:hover{background:rgba(95,168,122,0.12)}
         .admin-topbar-logo{height:36px;width:auto;}
         @media(max-width:768px){.topbar{padding:0.75rem 1rem}.admin-topbar-logo{height:28px}.user-badge{display:none}.topbar-right .btn{font-size:0.75rem;padding:0.3rem 0.6rem}}
         .editor-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}.editor-title{font-size:0.85rem;font-weight:700;color:var(--accent-light);margin-bottom:1rem;display:flex;align-items:center;gap:8px}
@@ -2096,7 +2098,10 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             /* Solo los que se estan viendo: si hay un filtro puesto, marcar "todos"
                no puede alcanzar a productos que el usuario no tiene a la vista. */
             _stockVisibles.forEach(id=>{ if(marcado)_stockSel.add(id); else _stockSel.delete(id); });
-            document.querySelectorAll('#stockList .stock-chk').forEach(c=>{c.checked=marcado;});
+            /* Y en pantalla, solo sus casillas: el otro tamanio de un bloque de Stock que no
+               coincide con la busqueda se ve, pero no entra (28/09/2026). */
+            const vis=new Set(_stockVisibles);
+            document.querySelectorAll('#stockList .stock-chk').forEach(c=>{const fila=c.closest('.stock-row');if(!fila||vis.has(fila.getAttribute('data-id')))c.checked=marcado;});
             pintarSeleccionStock();
         }
 
@@ -2136,7 +2141,9 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
 
             /* Solo se tocan los que tienen cantidad para su clase. */
             const afectados=[].concat(cantUni?uni:[], cantPeso?peso:[]);
-            const nombres=afectados.map(p=>p.nombre||p.id);
+            /* Con el tamanio si es una bolsa o presentacion ("Mani x 1 kg" y "Mani x 3 kg", no
+               "Mani" y "Mani x 3 kg"): pedido del duenio, 28/09/2026. */
+            const nombres=afectados.map(p=>(typeof _nombreConPresentacion==='function'?_nombreConPresentacion(p):p.nombre)||p.id);
             const muestra=nombres.slice(0,6).join(', ')+(nombres.length>6?' y '+(nombres.length-6)+' m\u00e1s':'');
             const linea=(c,n,unidad)=>(c>0?'Sumar ':'Descontar ')+Math.abs(c)+' '+unidad+' a '+n+' producto'+(n===1?'':'s');
             const verbo=[
@@ -2887,6 +2894,14 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             if(window._stockSortDir==='desc')f.sort((a,b)=>(b.stock||0)-(a.stock||0));
             else if(window._stockSortDir==='asc')f.sort((a,b)=>(a.stock||0)-(b.stock||0));
 
+            /* Pedido del duenio (28/09/2026): un producto con bolsas o presentaciones va en UN
+               bloque, como en Productos, con cada tamanio abajo y siempre a la vista, porque
+               aca se carga lo que llega de cada uno (agruparParaStock, admin-variantes.js).
+               Se agrupa ANTES de paginar: una pagina son 20 productos, no 20 tamanios.
+               Visibles siguen siendo los que pasan la busqueda y los filtros: el otro tamanio
+               de un bloque se ve, pero "Seleccionar los visibles" no lo alcanza (buscando
+               "3 kg" para cargar esas bolsas, no se carga tambien la de 1 kg). */
+            const lista=(typeof agruparParaStock==='function')?agruparParaStock(f):f;
             _stockVisibles=f.map(p=>p.id);
 
             if(!f.length){
@@ -2895,28 +2910,33 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 pintarSeleccionStock(); pintarStockSinGuardar(); return;
             }
 
-            let items=f, totalPag=1;
+            let items=lista, totalPag=1;
             const porPag=(typeof ADMIN_PER_PAGE!=='undefined')?ADMIN_PER_PAGE:0;
             if(porPag){
-                totalPag=Math.ceil(f.length/porPag);
+                totalPag=Math.ceil(lista.length/porPag);
                 if(adminStockPage>totalPag)adminStockPage=totalPag||1;
-                items=f.slice((adminStockPage-1)*porPag,adminStockPage*porPag);
+                items=lista.slice((adminStockPage-1)*porPag,adminStockPage*porPag);
             }
 
-            c.innerHTML=items.map(p=>{
+            /* Una fila. t viene cuando es un tamanio dentro de su bloque ({ tam, peso,
+               coincide }): sin la foto ni la categoria, que estan arriba, y con el tamanio
+               en lugar del nombre. */
+            const fila=(p,t)=>{
                 const img=p.imagen||'img/default-product.svg';
                 /* Si el valor se edito y todavia no se guardo, se vuelve a pintar lo
                    escrito y no lo que hay en la base: cambiar de pagina o filtrar no
                    puede borrar en silencio lo que la persona tipeo. */
                 const pend=_stockDirty.has(p.id);
                 const val=pend?_stockDirty.get(p.id):Number(p.stock||0);
-                return '<div class="stock-row'+(pend?' sin-guardar':'')+'" data-id="'+_attrHtml(p.id)+'">'+
+                const peso=t?t.peso:esPorPeso(p);
+                return '<div class="stock-row'+(t?' stock-row-tam':'')+(t&&t.coincide?' coincide':'')+(pend?' sin-guardar':'')+'" data-id="'+_attrHtml(p.id)+'">'+
                     '<input type="checkbox" class="stock-chk" '+(_stockSel.has(p.id)?'checked':'')+
                         ' onchange="stockAlternar(\''+_attrHtml(p.id)+'\',this.checked)" title="Seleccionar">'+
-                    '<img src="'+_attrHtml(img)+'" onerror="this.src=\'img/default-product.svg\'">'+
-                    '<div class="stock-row-info"><strong>'+esc(p.nombre||'')+(esPorPeso(p)?'<span class="vprod-chip neutro" style="margin-left:6px">POR PESO</span>':'')+
+                    (t?'<span class="stock-tam-hueco"><i class="bi bi-arrow-return-right"></i></span>':
+                    '<img src="'+_attrHtml(img)+'" onerror="this.src=\'img/default-product.svg\'">')+
+                    '<div class="stock-row-info"><strong>'+esc(t?t.tam:(p.nombre||''))+(peso?'<span class="vprod-chip neutro" style="margin-left:6px">POR PESO</span>':'')+
                         (pend?'<span class="stock-chip-sg">SIN GUARDAR</span>':'')+'</strong>'+
-                        '<small>'+esc((p.categoria||'')+(p.subcategoria?' / '+p.subcategoria:''))+'</small></div>'+
+                        (t?'':'<small>'+esc((p.categoria||'')+(p.subcategoria?' / '+p.subcategoria:''))+'</small>')+'</div>'+
                     /* Pedido del comercio (25/09/2026): en vez de escribir el total, "Agregar
                        stock" suma lo que llego, y el lapiz corrige el total (despues de contar).
                        Ver admin-stock.js. Sin ese archivo, el campo de siempre. En los de peso
@@ -2929,10 +2949,30 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                     '<button class="stock-save" onclick="saveStock(\''+_attrHtml(p.id)+'\')" title="Guardar este producto">'+
                         '<i class="bi bi-check-lg"></i></button>')+
                 '</div>';
-            }).join('');
+            };
+            /* El bloque de un producto con bolsas o presentaciones: arriba la foto, el nombre y
+               cuantos tamanios son; abajo, uno por fila, cada uno con su stock, su "Agregar
+               stock" y su lapiz. Si la busqueda o el filtro dejaron solo algunos, esos se
+               marcan. */
+            const bloque=g=>{
+                const pr=g.principal;
+                const img=pr.imagen||'img/default-product.svg';
+                const todosPeso=g.miembros.every(m=>esPorPeso(m.producto));
+                const marcar=g.miembros.some(m=>!m.coincide);
+                return '<div class="stock-grupo" data-grupo="'+_attrHtml(pr.id)+'">'+
+                    '<div class="stock-grupo-cab"><span class="stock-chk-hueco"></span>'+
+                        '<img src="'+_attrHtml(img)+'" onerror="this.src=\'img/default-product.svg\'">'+
+                        '<div class="stock-row-info"><strong>'+esc(g.nombre)+
+                            '<span class="var-chip fijo"><i class="bi bi-stack"></i> '+g.miembros.length+' '+g.que+'</span>'+
+                            (todosPeso?'<span class="vprod-chip neutro" style="margin-left:6px">POR PESO</span>':'')+'</strong>'+
+                        '<small>'+esc((pr.categoria||'')+(pr.subcategoria?' / '+pr.subcategoria:''))+'</small></div></div>'+
+                    g.miembros.map(m=>fila(m.producto,{tam:m.tam,peso:!todosPeso&&esPorPeso(m.producto),coincide:marcar&&m.coincide})).join('')+
+                '</div>';
+            };
+            c.innerHTML=items.map(it=>it.__stockGrupo?bloque(it.__stockGrupo):fila(it)).join('');
 
             if(porPag&&typeof renderAdminPagination==='function')
-                renderAdminPagination('sec-stock',adminStockPage,totalPag,f.length,'stock');
+                renderAdminPagination('sec-stock',adminStockPage,totalPag,lista.length,'stock');
             pintarSeleccionStock();
             pintarStockSinGuardar();
         }

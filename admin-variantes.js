@@ -1492,6 +1492,43 @@ function agruparParaTabla(lista) {
   return out;
 }
 
+/* EN STOCK (pedido del dueño, 28/09/2026): un producto con bolsas o presentaciones es UN
+   bloque, como en Productos, con cada tamaño abajo y siempre a la vista, porque ahí se
+   carga lo que llega de cada uno (renderStockList, admin.html). Devuelve la lista con los
+   de un mismo grupo juntos en
+   { __stockGrupo: { principal, nombre, que, miembros: [{ producto, tam, coincide }] } }.
+   - El bloque va donde aparece el PRIMERO de sus tamaños, no donde está el principal:
+     ordenando por "Menor stock", sale a la altura de su bolsa más vacía.
+   - Van todos los tamaños (menos los depurados); "coincide" dice cuáles pasaron la
+     búsqueda y los filtros, para marcarlos cuando no son todos.
+   - El nombre va sin el tamaño, que está en cada fila: "Maní x 1 kg" -> "Maní", y sin los
+     paréntesis que quedan vacíos: "Yerba Mate (500 Gr)" -> "Yerba Mate", no "Yerba Mate ( )".
+     Solo para mostrar: baseDeNombre también arma el nombre que se guarda en una variante nueva. */
+function agruparParaStock(lista) {
+  const prods = _varProds();
+  const porId = new Map(prods.filter(Boolean).map(x => [x.id, x]));
+  const conHijos = new Set(prods.filter(x => x && x.gramajePadreId && x.depurado !== true).map(x => x.gramajePadreId));
+  const f = lista || [];
+  const enLista = new Set(f.map(p => p && p.id));
+  const out = [];
+  const hechos = new Set();
+  f.forEach(p => {
+    const pr = _principalTabla(p, porId, conHijos);
+    if (!pr) { out.push(p); return; }
+    if (hechos.has(pr.id)) return;
+    hechos.add(pr.id);
+    const miembros = variantesDeGrupo(pr, prods, { conOcultos: true });
+    if (miembros.length < 2) { out.push(p); return; }
+    out.push({ __stockGrupo: {
+      principal: pr,
+      nombre: baseDeNombre(pr.nombre).replace(/\(\s*\)|\[\s*\]/g, ' ').replace(/\s+/g, ' ').trim() || pr.nombre || '',
+      que: _queGrupo({ miembros: miembros }),
+      miembros: miembros.map(m => ({ producto: m, tam: etiquetaVariante(m), coincide: enLista.has(m.id) })),
+    } });
+  });
+  return out;
+}
+
 function _grupoAbierto(p) {
   if (!p || !p.__grupo) return false;
   if (window._gruposCerrados.has(p.id)) return false;

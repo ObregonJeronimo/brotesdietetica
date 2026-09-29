@@ -355,6 +355,12 @@ producción (de los "gramajes" viejos).
   carga sin errores y con todos los módulos nuevos, sin iniciar sesión.
 - **Las reglas de Firestore no cambiaron.**
 
+### 5.4 Después de la subida (28/09, en commits locales, SIN SUBIR)
+
+- **Stock agrupado:** en Stock, un producto con bolsas o presentaciones es un bloque, como en
+  Productos, con cada tamaño abajo y siempre a la vista. La ventana de "Agregar stock" dice el
+  tamaño ("Mani prueba x 1 kg"). Detalle en `PENDIENTE.md` §1-bis O.
+
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
 - El stock negativo no aparece en el Centro de avisos (decidido el 26/09).
@@ -370,6 +376,7 @@ producción (de los "gramajes" viejos).
   ventana.
 - Brotes no hace envíos: `haceEnvios:false` en producción, y el sandbox se prepara igual.
 - La parte de Ventas con otra cara y el Centro de avisos son "experimentales", pero quedaron.
+- En Stock, los tamaños de un bloque van **siempre a la vista**, no detrás de un botón (28/09).
 
 ## 7. Pendientes
 

@@ -1,0 +1,285 @@
+/**
+ * STOCK: UN PRODUCTO CON BOLSAS O PRESENTACIONES ES UN BLOQUE.
+ *
+ * Pedido del dueño (28/09/2026): en Productos, un producto con varias bolsas es una fila;
+ * en Stock, buscando "Mani", salían separadas la de 1 kg y la de 3 kg, como si fueran dos
+ * productos, y la de 1 kg (la principal) sin el tamaño en el nombre. Ahora es un bloque:
+ * arriba el producto, y abajo cada tamaño a la vista, con su stock, su "Agregar stock" y su
+ * lápiz. La ventana de "Agregar stock" y la carga en tanda dicen "Mani prueba x 1 kg".
+ *
+ * Corre de verdad admin-variantes.js, admin-stock.js, y renderStockList y
+ * agregarStockMasivo de admin.html, con un document de mentira.
+ */
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const RAIZ = path.join(__dirname, '..');
+const leer = f => fs.readFileSync(path.join(RAIZ, f), 'utf8');
+const VAR = leer('admin-variantes.js');
+const STK = leer('admin-stock.js');
+const html = leer('admin.html');
+
+let ok = 0, fail = 0;
+const t = (d, c, extra) => {
+  if (c) { ok++; console.log('  OK   ' + d); }
+  else { fail++; console.log('  FALLA ' + d + (extra !== undefined ? '   [' + extra + ']' : '')); }
+};
+
+/* Una función de admin.html, entera, con su async si lo tiene. */
+function extraer(n) {
+  const i = html.indexOf('function ' + n + '(');
+  if (i < 0) throw new Error('falta ' + n);
+  let prof = 0, k;
+  for (k = html.indexOf('{', i); k < html.length; k++) {
+    if (html[k] === '{') prof++;
+    else if (html[k] === '}') { prof--; if (!prof) break; }
+  }
+  return (html.slice(i - 6, i) === 'async ' ? 'async ' : '') + html.slice(i, k + 1);
+}
+
+const P = (id, extra) => Object.assign({ id, nombre: id, categoria: 'Frutos secos', stock: 5, tipoVenta: 'unidad' }, extra || {});
+function catalogo() {
+  return [
+    P('alm', { nombre: 'Almendra', tipoVenta: 'peso', stock: 2953 }),
+    P('m1', { nombre: 'Mani prueba', gramaje: '1 kg', tipoVenta: 'peso', stock: 122, categoria: 'Aceites' }),
+    P('m3', { nombre: 'Mani prueba x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', stock: 111, categoria: 'Aceites', gramajePadreId: 'm1' }),
+    P('alf1', { nombre: 'Alfajor', gramaje: 'x1', stock: 30, categoria: 'Golosinas' }),
+    P('alf12', { nombre: 'Alfajor x12', gramaje: 'x12', stock: 0, categoria: 'Golosinas', cajaCerrada: true, gramajePadreId: 'alf1' }),
+    P('alf6', { nombre: 'Alfajor x6', gramaje: 'x6', stock: 4, categoria: 'Golosinas', oculto: true, gramajePadreId: 'alf1' }),
+    P('alf24', { nombre: 'Alfajor x24', gramaje: 'x24', depurado: true, gramajePadreId: 'alf1' }),
+    P('chia', { nombre: 'Chia', gramaje: '500 g', tipoVenta: 'peso', depurado: true }),
+    P('chia1', { nombre: 'Chia x 1 kg', gramaje: '1 kg', tipoVenta: 'peso', stock: 50, gramajePadreId: 'chia' }),
+    P('nuez', { nombre: 'Nuez', stock: 13 }),
+  ];
+}
+
+/* Un panel de mentira: la lista de Stock, su buscador y su filtro, la paginación y una base
+   que suma lo que se agrega. sinVariantes: como si admin-variantes.js no hubiera cargado. */
+function armar(opts) {
+  const o = opts || {};
+  const campos = {
+    stockList: { innerHTML: '' },
+    stockSearch: { value: o.q || '' },
+    stockFilterCat: { value: o.cat || '' },
+    stockMasivoCant: { value: '' }, stockMasivoCantPeso: { value: '' }, stockMasivoBtn: { disabled: false, innerHTML: '' },
+  };
+  const productos = o.productos || catalogo();
+  const base = {};
+  productos.forEach(p => { base[p.id] = p.stock; });
+  const paginas = [], avisos = [], historial = [], preguntas = [];
+  const ctx = {
+    console, Math, Number, String, Object, Array, Set, Map, Promise, Infinity, parseInt, isFinite,
+    setTimeout: () => 0,
+    document: { getElementById: id => campos[id] || null, querySelector: () => null, querySelectorAll: () => [] },
+    allProducts: productos,
+    esc: s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+    _attrHtml: s => String(s).replace(/"/g, '&quot;'),
+    esPorPeso: p => !!(p && p.tipoVenta === 'peso'),
+    fmtPeso: g => (Math.abs(g) < 1000 ? g + ' g' : (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg'),
+    ADMIN_PER_PAGE: o.porPag || 20,
+    adminStockPage: o.pagina || 1,
+    _stockDirty: new Map(), _stockSel: new Set(), _stockVisibles: [],
+    removePagination: () => paginas.push('ninguna'),
+    renderAdminPagination: (sec, pag, tot, n) => paginas.push(pag + ' de ' + tot + ', ' + n + ' productos'),
+    pintarSeleccionStock: () => {}, pintarStockSinGuardar: () => {},
+    firebase: { firestore: { FieldValue: { increment: n => ({ __inc: n }) } } },
+    db: { collection: () => ({ doc: id => ({
+      update: async d => { if (d.stock && d.stock.__inc !== undefined) base[id] += d.stock.__inc; else base[id] = d.stock; },
+      get: async () => ({ exists: true, data: () => ({ stock: base[id] }) }),
+    }) }) },
+    logAction: (a, b) => historial.push(b),
+    showAdminToast: m => avisos.push(m),
+    pedirConfirmacion: async m => { preguntas.push(m); return false; },
+    _reRenderProductos: () => {}, updateStats: () => {}, _refrescarAlertas: () => {},
+  };
+  ctx.window = ctx;
+  if (o.orden) ctx._stockSortDir = o.orden;
+  vm.createContext(ctx);
+  if (o.sinVariantes !== true) vm.runInContext(VAR, ctx);
+  vm.runInContext(STK, ctx);
+  vm.runInContext(extraer('renderStockList'), ctx);
+  vm.runInContext(extraer('agregarStockMasivo'), ctx);
+  return { ctx, campos, paginas, avisos, historial, preguntas };
+}
+const b = (w, id) => w.ctx.allProducts.find(p => p.id === id);
+const desc = l => l.map(it => it.__stockGrupo
+  ? it.__stockGrupo.principal.id + '[' + it.__stockGrupo.miembros.map(m => m.producto.id).join('+') + ']' : it.id).join(' ');
+const bloques = h => (h.match(/<div class="stock-grupo" /g) || []).length;
+/* Las filas dibujadas, en orden: "m1(tam)" si es un tamaño dentro de su bloque, y
+   "(marcada)" si coincide con la búsqueda cuando no coinciden todas. */
+const filas = h => [...h.matchAll(/<div class="(stock-row[^"]*)" data-id="([^"]+)">/g)]
+  .map(m => m[2] + (m[1].indexOf('stock-row-tam') > 0 ? '(tam)' : '') + (m[1].indexOf('coincide') > 0 ? '(marcada)' : '')).join();
+
+(async () => {
+  console.log('\n-- agruparParaStock --');
+  {
+    const w = armar();
+    const l = w.ctx.agruparParaStock(w.ctx.allProducts.filter(p => p.depurado !== true));
+    t('los de un mismo producto van juntos, de menor a mayor; los sueltos, como siempre',
+      desc(l) === 'alm m1[m1+m3] alf1[alf1+alf6+alf12] chia1 nuez', desc(l));
+    const m = l[1].__stockGrupo, a = l[2].__stockGrupo;
+    t('  el nombre, y si son bolsas o presentaciones', m.nombre === 'Mani prueba' && m.que === 'bolsas' && a.que === 'presentaciones');
+    t('  cada tamaño con su etiqueta: "1 kg", "3 kg"; "x1", "x6", "x12"',
+      m.miembros.map(x => x.tam).join() === '1 kg,3 kg' && a.miembros.map(x => x.tam).join() === 'x1,x6,x12');
+    t('  el oculto va (tiene su stock), el depurado no', a.miembros.some(x => x.producto.id === 'alf6') && !a.miembros.some(x => x.producto.id === 'alf24'));
+    t('  si el principal está depurado, el otro va suelto', l.indexOf(b(w, 'chia1')) === 3);
+    t('  sin buscar, coinciden todos', [m, a].every(g => g.miembros.every(x => x.coincide === true)));
+  }
+  {
+    const w = armar();
+    const l = w.ctx.agruparParaStock(w.ctx.allProducts.filter(p => p.depurado !== true).sort((x, y) => x.stock - y.stock));
+    t('ordenando por menor stock, el bloque va a la altura de su tamaño con menos: el de los alfajores (x12 en 0) primero, y el del maní a la altura de la de 3 kg (111 g)',
+      desc(l) === 'alf1[alf1+alf6+alf12] nuez chia1 m1[m1+m3] alm', desc(l));
+  }
+  {
+    const w = armar();
+    const l = w.ctx.agruparParaStock(w.ctx.allProducts.filter(p => p.depurado !== true && p.nombre.toLowerCase().includes('3 kg')));
+    t('buscando "3 kg": el bloque entero, y "coincide" solo en la de 3 kg',
+      l.length === 1 && l[0].__stockGrupo.miembros.map(x => x.producto.id + ':' + x.coincide).join() === 'm1:false,m3:true');
+  }
+  {
+    const w = armar({ productos: [
+      P('av5', { nombre: 'AVENA INSTANTANEA X 5 KG', gramaje: '5 kg', tipoVenta: 'peso' }),
+      P('av1', { nombre: 'AVENA INSTANTANEA X 1 KG', gramaje: '1 kg', tipoVenta: 'peso', gramajePadreId: 'av5' }),
+    ] });
+    const g = w.ctx.agruparParaStock(w.ctx.allProducts.slice())[0].__stockGrupo;
+    t('si el principal dice su tamaño en el nombre, el bloque va sin él: "AVENA INSTANTANEA"', g.nombre === 'AVENA INSTANTANEA', g.nombre);
+    t('  y abajo, de menor a mayor: 1 kg, 5 kg', g.miembros.map(x => x.tam).join() === '1 kg,5 kg');
+  }
+  {
+    const w = armar({ productos: [
+      P('y5', { nombre: 'Yerba Mate (500 Gr)', gramaje: '500 g', tipoVenta: 'peso' }),
+      P('y1', { nombre: 'Yerba Mate (1 Kg)', gramaje: '1 kg', tipoVenta: 'peso', gramajePadreId: 'y5' }),
+    ] });
+    const g = w.ctx.agruparParaStock(w.ctx.allProducts.slice())[0].__stockGrupo;
+    t('con el tamaño entre paréntesis, sin los paréntesis vacíos: "Yerba Mate", no "Yerba Mate ( )"', g.nombre === 'Yerba Mate', g.nombre);
+  }
+
+  console.log('\n-- la lista de Stock --');
+  {
+    const w = armar({ q: 'mani' });
+    w.ctx.renderStockList();
+    const h = w.campos.stockList.innerHTML;
+    t('buscando "mani": UN bloque, no dos filas sueltas', bloques(h) === 1 && filas(h) === 'm1(tam),m3(tam)', filas(h));
+    t('  arriba: "Mani prueba", "2 bolsas", POR PESO una sola vez, la categoría y una sola foto',
+      h.indexOf('<strong>Mani prueba<span class="var-chip fijo"><i class="bi bi-stack"></i> 2 bolsas</span>' +
+        '<span class="vprod-chip neutro" style="margin-left:6px">POR PESO</span></strong><small>Aceites</small>') > 0 &&
+      (h.match(/POR PESO/g) || []).length === 1 && (h.match(/<small>Aceites<\/small>/g) || []).length === 1 && (h.match(/<img /g) || []).length === 1);
+    t('  abajo, cada bolsa con su tamaño: la de 1 kg dice "1 kg"', /data-id="m1">.*?<strong>1 kg<\/strong>/.test(h) && /data-id="m3">.*?<strong>3 kg<\/strong>/.test(h));
+    t('  cada una con su casilla, su stock, su "Agregar stock" y su lápiz',
+      ['m1', 'm3'].every(id => h.indexOf("stockAlternar('" + id + "',this.checked)") > 0 && h.indexOf("agregarStockProducto('" + id + "')") > 0 &&
+        h.indexOf("corregirStockProducto('" + id + "')") > 0) && h.indexOf('<b>122 g</b>') > 0 && h.indexOf('<b>111 g</b>') > 0);
+    t('"Seleccionar los visibles" alcanza a las dos bolsas', w.ctx._stockVisibles.join() === 'm1,m3', w.ctx._stockVisibles.join());
+  }
+  {
+    const w = armar();
+    w.ctx.renderStockList();
+    const h = w.campos.stockList.innerHTML;
+    t('sin buscar: los sueltos como siempre, con su foto, su nombre y su categoría',
+      h.indexOf('<strong>Almendra<span class="vprod-chip neutro" style="margin-left:6px">POR PESO</span></strong><small>Frutos secos</small>') > 0 &&
+      h.indexOf('<strong>Nuez</strong><small>Frutos secos</small>') > 0);
+    t('  las presentaciones también van juntas, con la oculta y sin la depurada',
+      bloques(h) === 2 && filas(h) === 'alm,m1(tam),m3(tam),alf1(tam),alf6(tam),alf12(tam),chia1,nuez', filas(h));
+    t('  "3 presentaciones", y sin POR PESO', h.indexOf('<strong>Alfajor<span class="var-chip fijo"><i class="bi bi-stack"></i> 3 presentaciones</span></strong><small>Golosinas</small>') > 0);
+    t('  sin buscar no se marca ninguna', h.indexOf('coincide') < 0);
+    t('  la página cuenta cada bloque como UN producto: 5, no 8', w.paginas.join() === '1 de 1, 5 productos', w.paginas.join());
+    t('  visibles: los 8 que pasan el filtro', w.ctx._stockVisibles.length === 8);
+  }
+  {
+    const w = armar({ q: '3 kg' });
+    w.ctx.renderStockList();
+    const h = w.campos.stockList.innerHTML;
+    t('buscando "3 kg": el bloque con las dos bolsas, y la de 3 kg marcada', bloques(h) === 1 && filas(h) === 'm1(tam),m3(tam)(marcada)', filas(h));
+    t('  "Seleccionar los visibles" alcanza solo a la de 3 kg (la de 1 kg se ve, pero no se buscó)', w.ctx._stockVisibles.join() === 'm3', w.ctx._stockVisibles.join());
+    vm.runInContext(extraer('stockSeleccionarTodos'), w.ctx);
+    const casillas = [...h.matchAll(/data-id="([^"]+)"><input type="checkbox" class="stock-chk"/g)]
+      .map(m => ({ id: m[1], checked: false, closest: () => ({ getAttribute: k => (k === 'data-id' ? m[1] : null) }) }));
+    w.ctx.document.querySelectorAll = sel => (sel === '#stockList .stock-chk' ? casillas : []);
+    w.ctx.stockSeleccionarTodos(true);
+    const vistas = casillas.map(c => c.id + ':' + c.checked).join();
+    t('  y en pantalla se tilda solo esa, no la de 1 kg', [...w.ctx._stockSel].join() === 'm3' && vistas === 'm1:false,m3:true', vistas);
+    w.ctx.stockSeleccionarTodos(false);
+    t('  y destildar "todos" la saca', w.ctx._stockSel.size === 0 && casillas.every(c => c.checked === false));
+  }
+  {
+    const w = armar({ porPag: 2, pagina: 2 });
+    w.ctx.renderStockList();
+    const h = w.campos.stockList.innerHTML;
+    t('de a 2 por página: la 2 trae el bloque entero de los alfajores y la chía',
+      filas(h) === 'alf1(tam),alf6(tam),alf12(tam),chia1' && w.paginas.join() === '2 de 3, 5 productos', filas(h) + ' / ' + w.paginas.join());
+  }
+  {
+    const w = armar({ q: 'mani' });
+    w.ctx._stockSel.add('m3');
+    w.ctx._stockDirty.set('m1', 500);
+    w.ctx.renderStockList();
+    const h = w.campos.stockList.innerHTML;
+    t('una bolsa tildada sigue tildada', /data-id="m3"><input type="checkbox" class="stock-chk" checked/.test(h) &&
+      !/data-id="m1"><input type="checkbox" class="stock-chk" checked/.test(h));
+    t('una bolsa con un cambio sin guardar se marca en su fila',
+      h.indexOf('<div class="stock-row stock-row-tam sin-guardar" data-id="m1">') >= 0 && h.indexOf('<strong>1 kg<span class="stock-chip-sg">SIN GUARDAR</span></strong>') > 0);
+  }
+  {
+    const w = armar({ q: 'mani', sinVariantes: true });
+    w.ctx.renderStockList();
+    const h = w.campos.stockList.innerHTML;
+    t('sin admin-variantes.js, una fila por producto, como antes', bloques(h) === 0 && filas(h) === 'm1,m3' &&
+      h.indexOf('<strong>Mani prueba<span') > 0 && h.indexOf('<strong>Mani prueba x 3 kg<span') > 0, filas(h));
+  }
+  {
+    const w = armar({ q: 'zzz' });
+    w.ctx.renderStockList();
+    t('sin resultados, el aviso de siempre', w.campos.stockList.innerHTML.indexOf('No hay productos') > 0 && w.ctx._stockVisibles.length === 0);
+  }
+
+  console.log('\n-- el nombre, con su tamaño --');
+  {
+    const w = armar();
+    /* Es un const de arriba de todo: en vm no queda como propiedad del contexto. */
+    const nombre = id => vm.runInContext('_stkNombre', w.ctx)(b(w, id));
+    t('la principal dice su tamaño: "Mani prueba x 1 kg"', nombre('m1') === 'Mani prueba x 1 kg', nombre('m1'));
+    t('  la otra ya lo decía, y no se repite: "Mani prueba x 3 kg"', nombre('m3') === 'Mani prueba x 3 kg');
+    t('  una presentación: "Alfajor x1"', nombre('alf1') === 'Alfajor x1', nombre('alf1'));
+    t('  uno sin tamaños, como siempre: "Almendra"', nombre('alm') === 'Almendra');
+  }
+  {
+    const w = armar();
+    let ov = null;
+    const pieza = () => ({ value: '', innerHTML: '', disabled: false, style: {}, addEventListener() {}, focus() {}, select() {} });
+    Object.assign(w.ctx.document, {
+      createElement: () => (ov = Object.assign(pieza(), { className: '', remove() {}, querySelector: () => pieza(), querySelectorAll: () => [] })),
+      body: { appendChild() {} }, addEventListener() {}, removeEventListener() {},
+    });
+    w.ctx.pedirCantidadStock(b(w, 'm1'), 'agregar');
+    t('la ventana de "Agregar stock" dice a cuál: "Mani prueba x 1 kg"', !!ov && ov.innerHTML.indexOf('<p class="dlg-linea"><b>Mani prueba x 1 kg</b></p>') > 0);
+  }
+  {
+    const w = armar();
+    w.ctx.pedirCantidadStock = async () => 500;
+    await w.ctx.agregarStockProducto('m1');
+    t('agregando a la de 1 kg, el aviso dice cuál', w.avisos[0] === 'Se agregaron 500 g a Mani prueba x 1 kg. Ahora hay 622 g.', w.avisos[0]);
+    t('  y el historial también', w.historial[0] === 'Stock agregado: Mani prueba x 1 kg', w.historial[0]);
+  }
+  {
+    const w = armar();
+    w.campos.stockMasivoCantPeso.value = '500';
+    ['m1', 'm3', 'alm'].forEach(id => w.ctx._stockSel.add(id));
+    await w.ctx.agregarStockMasivo();
+    t('la carga en tanda nombra cada bolsa con su tamaño', (w.preguntas[0] || '').indexOf('Mani prueba x 1 kg, Mani prueba x 3 kg, Almendra') > 0, w.preguntas[0]);
+  }
+
+  console.log('\n-- los estilos --');
+  {
+    const css = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    ['.stock-grupo{', '.stock-grupo-cab{', '.stock-grupo-cab img{', '.stock-chk-hueco{', '.stock-tam-hueco{',
+      '.stock-row.stock-row-tam{', '.stock-row.stock-row-tam.coincide{', '.var-chip.fijo{', '.var-chip.fijo:hover{']
+      .forEach(s => t('existe ' + s.slice(0, -1), css.indexOf(s) >= 0));
+    t('el hueco de la foto mide lo mismo que la foto de una fila suelta (40px)',
+      /\.stock-tam-hueco\{width:40px;flex:0 0 40px/.test(css) && /\.stock-row img\{width:40px;height:40px/.test(css));
+    t('el hueco de la casilla, lo mismo que la casilla (16px y 2px de margen)',
+      /\.stock-chk-hueco\{width:16px;flex:0 0 16px;margin-right:2px\}/.test(css) && /\.stock-chk\{width:16px;height:16px;[^}]*margin-right:2px\}/.test(css));
+  }
+
+  console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
+  process.exit(fail ? 1 : 0);
+})().catch(e => { console.error('ERROR: ' + (e && e.stack || e)); process.exit(1); });

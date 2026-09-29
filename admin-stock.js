@@ -21,6 +21,10 @@ const _STK_NL = String.fromCharCode(10);
 const _stkProducto = id => (typeof allProducts !== 'undefined' && Array.isArray(allProducts) ? allProducts : []).find(x => x && x.id === id) || null;
 const _stkPeso = p => (typeof esPorPeso === 'function' ? esPorPeso(p) : !!(p && p.tipoVenta === 'peso'));
 const _stkEsc = s => (typeof esc === 'function' ? esc(String(s == null ? '' : s)) : String(s == null ? '' : s));
+/* El nombre, con su tamaño si es una bolsa o una presentación: "Mani prueba x 1 kg". La
+   principal no suele decirlo, y no se sabía a cuál se le cargaba (pedido del dueño,
+   28/09/2026). Sin admin-variantes.js, el nombre de siempre. */
+const _stkNombre = p => (typeof _nombreConPresentacion === 'function' ? _nombreConPresentacion(p) : ((p && p.nombre) || ''));
 
 /* Una cantidad de stock, en su unidad: "2.953 g" o "12 unidades". En los de peso van los
    gramos, igual que en la fila: es como se piensa lo que llega ("843 gramos"). */
@@ -60,7 +64,7 @@ function pedirCantidadStock(p, modo) {
         '<div class="dlg-cab"><span class="dlg-ico"><i class="bi ' + (corregir ? 'bi-pencil' : 'bi-box-arrow-in-down') + '"></i></span>' +
         '<h3>' + (corregir ? 'Corregir el stock' : 'Agregar stock') + '</h3></div>' +
         '<div class="dlg-msg">' +
-          '<p class="dlg-linea"><b>' + _stkEsc(p.nombre || '') + '</b></p>' +
+          '<p class="dlg-linea"><b>' + _stkEsc(_stkNombre(p)) + '</b></p>' +
           '<p class="dlg-linea" style="color:var(--text-dim);font-size:0.83rem">' + (corregir
             ? 'Poné cuánto hay en total, por ejemplo después de contar. Ahora figura ' + _stkEsc(_stkCant(p, antes)) + '.'
             : '¿Cuánto llegó? Se suma a lo que hay: ahora ' + _stkEsc(_stkCant(p, antes)) + '.') + '</p>' +
@@ -149,10 +153,10 @@ async function agregarStockProducto(id) {
     try { const sn = await ref.get(); if (sn && sn.exists) ahora = Number((sn.data() || {}).stock || 0); } catch (e) { /* queda la cuenta */ }
     p.stock = ahora;
     if (typeof logAction === 'function') {
-      logAction('stock', 'Stock agregado: ' + (p.nombre || id), '+' + n + (_stkPeso(p) ? ' g' : ' u.') + ' (' + antes + ' -> ' + ahora + ')');
+      logAction('stock', 'Stock agregado: ' + (_stkNombre(p) || id), '+' + n + (_stkPeso(p) ? ' g' : ' u.') + ' (' + antes + ' -> ' + ahora + ')');
     }
     if (typeof showAdminToast === 'function') {
-      showAdminToast('Se agregaron ' + _stkEsc(_stkCant(p, n)) + ' a ' + _stkEsc(p.nombre || '') + '. Ahora hay ' + _stkEsc(_stkCant(p, ahora)) + '.', 'success');
+      showAdminToast('Se agregaron ' + _stkEsc(_stkCant(p, n)) + ' a ' + _stkEsc(_stkNombre(p)) + '. Ahora hay ' + _stkEsc(_stkCant(p, ahora)) + '.', 'success');
     }
     _stkRepintar();
   } catch (e) {
@@ -172,7 +176,7 @@ async function corregirStockProducto(id) {
     const sn = await ref.get();
     const real = (sn && sn.exists) ? Number((sn.data() || {}).stock || 0) : visto;
     if (real !== visto && typeof pedirConfirmacion === 'function') {
-      const ok = await pedirConfirmacion('El stock de "' + (p.nombre || id) + '" pasó a ' + _stkCant(p, real) +
+      const ok = await pedirConfirmacion('El stock de "' + (_stkNombre(p) || id) + '" pasó a ' + _stkCant(p, real) +
         ' mientras tenías esta pantalla abierta (acá figuraba ' + _stkCant(p, visto) + ').' + _STK_NL + _STK_NL +
         'Si guardás ' + _stkCant(p, n) + ', ese movimiento se pierde.' + _STK_NL + _STK_NL + '¿Guardar igual?',
         { titulo: 'El stock cambió', aceptar: 'Guardar igual' });
@@ -185,7 +189,7 @@ async function corregirStockProducto(id) {
     }
     await ref.update({ stock: n });
     p.stock = n;
-    if (typeof logAction === 'function') logAction('stock', 'Stock: ' + (p.nombre || id), 'stock: ' + real + ' -> ' + n);
+    if (typeof logAction === 'function') logAction('stock', 'Stock: ' + (_stkNombre(p) || id), 'stock: ' + real + ' -> ' + n);
     if (typeof showAdminToast === 'function') showAdminToast('Stock corregido: ' + _stkEsc(_stkCant(p, n)) + '.', 'success');
     _stkRepintar();
   } catch (e) {

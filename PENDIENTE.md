@@ -1539,6 +1539,33 @@ quedar frenados en el mostrador.
 
 Pruebas: 3580 en 85 suites.
 
+### O) Stock: un producto con bolsas o presentaciones es un bloque · **HECHO, SIN SUBIR** (28/09/2026)
+
+Pedido del dueño: en Productos, un producto con varias bolsas ya era una fila, pero en Stock,
+buscando "Mani", salían separadas la de 1 kg y la de 3 kg, y la de 1 kg (la principal) sin el
+tamaño en el nombre.
+- **Stock:** ahora es un bloque, como en Productos. Arriba van la foto, el nombre, "2 bolsas" (o
+  "3 presentaciones") y la categoría. Abajo, **siempre a la vista** (lo eligió el dueño), una fila
+  por tamaño ("1 kg", "3 kg"), cada una con su casilla, su stock, "Agregar stock" y el lápiz.
+  `agruparParaStock` (admin-variantes.js) arma la lista y `renderStockList` (admin.html) la dibuja.
+  - Se agrupa antes de paginar: una página son 20 productos, no 20 tamaños.
+  - El bloque va donde aparece el primero de sus tamaños: con "Menor stock", a la altura de su
+    bolsa más vacía.
+  - Buscando "3 kg" sale el bloque entero, con esa bolsa resaltada. "Seleccionar los visibles"
+    alcanza solo a las que coinciden: la de 1 kg se ve, pero no entra en la carga en tanda. (Lo
+    encontró la revisión de código: antes del arreglo, le sumaba también a la de 1 kg.)
+  - El nombre del bloque va sin el tamaño y sin paréntesis vacíos ("Yerba Mate (500 Gr)" ->
+    "Yerba Mate"). `baseDeNombre` no se tocó, porque también arma el nombre que se guarda.
+- **El nombre con su tamaño** (`_stkNombre`, admin-stock.js): las ventanas de "Agregar stock" y
+  de corregir, el aviso, el historial y la carga en tanda dicen "Mani prueba x 1 kg". Es solo lo
+  que se muestra: el nombre guardado del producto no cambia.
+- **Visto en el celular (viene de antes, no se tocó):** las filas de Stock no entran en una
+  pantalla angosta. El nombre queda tapado y el lápiz cortado, tanto en las filas sueltas como en
+  el bloque (ahí no se ve el "1 kg"). Si se quiere, se acomoda aparte.
+
+Pruebas: `pruebas/t-stock-agrupado.js`, 50 asertos (fallan contra el commit anterior). Total:
+3630 en 86 suites. Probado en el sandbox con clics de verdad.
+
 ---
 
 ## 2. Decisiones tuyas
