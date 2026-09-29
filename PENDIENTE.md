@@ -1778,7 +1778,8 @@ Pruebas: `pruebas/t-prov-bolsas.js` (30; 21 fallan contra el commit anterior), y
 - un tamaño que se vendió y después se depuró sale suelto en lo vendido, porque los depurados no
   entran en los grupos (tampoco en Productos ni en Stock);
 - la cabecera dice cuántos tamaños tiene el producto ("2 bolsas") aunque en el recuadro se vea uno
-  solo: el otro es de otro proveedor, está oculto o ya se vendió;
+  solo: el otro es de otro proveedor, está oculto o ya se vendió (**se sacó el "2 bolsas" el 29/09**,
+  §V);
 - "El resto de lo vendido (N)" cuenta productos, y los otros números de la ficha cuentan tamaños;
 - los recuadros se reconocen por un campo `grupo` (en Compras y acá). Ningún producto tiene un
   campo con ese nombre; si algún día se agregara, habría que cambiarlo.
@@ -1803,6 +1804,18 @@ el CSS en `admin.html`):
 Probado en el sandbox con clics de verdad: "Ver" de la compra #7, y una compra de prueba (#9) que
 quedó como deuda, desplegada en Deudas. Pruebas: 9 nuevas en `pruebas/t-compras-bolsas.js` (72), y
 se ajustó `t-exportar.js`. Total: 3797 en 89 suites.
+
+### V) Los recuadros, sin "2 bolsas" · **HECHO, SIN SUBIR** (29/09/2026)
+
+Pedido del dueño: la cabecera de los recuadros de Cargar compra y de la ficha del proveedor decía
+"Mani RC · 2 bolsas" (o "· 2 presentaciones"), que son los tamaños que tiene el producto. Se leía
+como las bolsas que entraron o que se vendieron, y a veces el recuadro mostraba una sola. Ahora
+dice solo el nombre del producto, "Mani RC". Vale para la lista para agregar, "Lo que entró", lo
+vendido y lo que no se vendió de la ficha, y su exportación (sin "(2 bolsas)"). Stock y Productos
+siguen como estaban: ahí se ven siempre todos los tamaños.
+
+Probado en el sandbox. Pruebas: `t-compras-bolsas.js` (73) y `t-prov-bolsas.js` (32), con una que
+verifica que ninguna cabecera diga cuántas bolsas o presentaciones. Total: 3800 en 89 suites.
 
 ---
 

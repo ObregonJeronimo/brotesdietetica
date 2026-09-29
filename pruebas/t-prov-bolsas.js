@@ -125,10 +125,12 @@ console.log('\n-- lo que no se vendió --');
   const w = armar(['alm', 'gal']);
   const q = seccion(w.html, QUIETOS);
   t('las dos bolsas del Mani RC van en UN recuadro, con el nombre del producto arriba',
-    q && q.indexOf('[Mani RC · 2 bolsas | Mani RC x 1 kg 2,1 kg | Mani RC x 3 kg 6,1 kg]') >= 0, q && q.join(' / '));
+    q && q.indexOf('[Mani RC | Mani RC x 1 kg 2,1 kg | Mani RC x 3 kg 6,1 kg]') >= 0, q && q.join(' / '));
   t('  la de 1 kg ya no sale con el nombre de la tienda', w.html.indexOf('Mani Recubierto de Chocolate') < 0);
-  t('las presentaciones también: "Alfajor · 2 presentaciones"',
-    q && q.indexOf('[Alfajor · 2 presentaciones | Alfajor x1 30 u | Alfajor x6 sin stock]') >= 0, q && q.join(' / '));
+  t('las presentaciones también, con "Alfajor" arriba',
+    q && q.indexOf('[Alfajor | Alfajor x1 30 u | Alfajor x6 sin stock]') >= 0, q && q.join(' / '));
+  t('ninguna cabecera dice cuántas bolsas o presentaciones tiene el producto (29/09)',
+    !/\d+ (bolsas|presentaciones)/.test(textoDe(w.html)), textoDe(w.html));
   t('el suelto va suelto, como siempre', q && q.indexOf('Nuez 13 u') >= 0);
   t('el título sigue contando cada tamaño (5), como "No se vendió ninguno"',
     w.html.indexOf(QUIETOS + ' (5)') >= 0 && /No se vendió ninguno<\/span><span[^>]*>5</.test(w.html));
@@ -137,8 +139,8 @@ console.log('\n-- lo que no se vendió --');
 {
   const w = armar(['mrc1', 'alm', 'gal']);
   const q = seccion(w.html, QUIETOS);
-  t('si una bolsa se vendió, en el recuadro queda la otra, y la cabecera dice cuántas tiene el producto',
-    q && q.indexOf('[Mani RC · 2 bolsas | Mani RC x 3 kg 6,1 kg]') >= 0, q && q.join(' / '));
+  t('si una bolsa se vendió, en el recuadro queda la otra, con el nombre del producto arriba',
+    q && q.indexOf('[Mani RC | Mani RC x 3 kg 6,1 kg]') >= 0, q && q.join(' / '));
 }
 
 console.log('\n-- lo vendido --');
@@ -146,11 +148,12 @@ console.log('\n-- lo vendido --');
   const w = armar(Object.keys(VENDIDO));
   const top = seccion(w.html, TOP);
   t('el producto entero es un puesto: los dos Mani RC suman $20.000 y quedan segundos, después de Galletas',
-    top && top[0] === '1 Galletas 2 u $30.900' && /^\[2 Mani RC · 2 bolsas /.test(top[1]), top && top.join(' / '));
+    top && top[0] === '1 Galletas 2 u $30.900' && /^\[2 Mani RC 8 kg /.test(top[1]), top && top.join(' / '));
   t('  con el total de las bolsas (8 kg) y abajo lo de cada una, con su tamaño',
-    top && top[1] === '[2 Mani RC · 2 bolsas 8 kg $20.000 | Mani RC x 1 kg 2 kg $8.000 | Mani RC x 3 kg 6 kg $12.000]', top && top[1]);
+    top && top[1] === '[2 Mani RC 8 kg $20.000 | Mani RC x 1 kg 2 kg $8.000 | Mani RC x 3 kg 6 kg $12.000]', top && top[1]);
+  t('  y la cabecera no dice "2 bolsas", que se leería como las que se vendieron', !/\d+ (bolsas|presentaciones)/.test(textoDe(w.html)));
   t('las presentaciones van juntas, sin sumar unidades de tamaños distintos',
-    top && top[3] === '[4 Alfajor · 2 presentaciones $6.500 | Alfajor x1 3 u $1.500 | Alfajor x6 2 u $5.000]', top && top[3]);
+    top && top[3] === '[4 Alfajor $6.500 | Alfajor x1 3 u $1.500 | Alfajor x6 2 u $5.000]', top && top[3]);
   t('los sueltos, como siempre, con el nombre de la venta', top && top[2] === '3 Almendra 500 g $7.000');
   t('un producto que ya no está en el catálogo va suelto', top && top[4] === '5 Uno que ya no existe 1 u $900');
   t('y son 5 puestos', top && top.length === 5);
@@ -171,7 +174,7 @@ console.log('\n-- lo vendido --');
   const resto = seccion(w.html, 'El resto de lo vendido') || [];
   t('con 12 puestos (el Mani RC y 11 sueltos), el top tiene 10 y el resto 2',
     top.length === 10 && w.html.indexOf('El resto de lo vendido (2)') >= 0 && resto.length === 2, top.length + ' / ' + resto.length);
-  t('  el Mani RC va primero, en su recuadro', /^\[1 Mani RC · 2 bolsas/.test(top[0] || ''));
+  t('  el Mani RC va primero, en su recuadro', /^\[1 Mani RC /.test(top[0] || ''), top[0]);
   t('  y el resto sigue la numeración', resto[0] === '11 Suelto 10 1 u $990' && resto[1] === '12 Suelto 11 1 u $989', resto.join(' / '));
   extra.forEach(id => delete VENDIDO[id]);
 }
@@ -196,10 +199,10 @@ console.log('\n-- la exportación --');
   const tb = w.doc(false).bloques.find(b => b.titulo === TOP);
   const f = tb.filas.map(r => r.join(' ; '));
   t('el top exporta el producto con su puesto y el total, y abajo cada tamaño',
-    f[1] === '2 ; Mani RC (2 bolsas) ; Frutos secos ; 8 kg ; $20.000' &&
+    f[1] === '2 ; Mani RC ; Frutos secos ; 8 kg ; $20.000' &&
     f[2] === ' ; · Mani RC x 1 kg ;  ; 2 kg ; $8.000' && f[3] === ' ; · Mani RC x 3 kg ;  ; 6 kg ; $12.000', f.slice(0, 4).join(' / '));
   t('  las presentaciones, sin total de unidades',
-    f.indexOf('4 ; Alfajor (2 presentaciones) ; Golosinas ;  ; $6.500') >= 0, f.join(' / '));
+    f.indexOf('4 ; Alfajor ; Golosinas ;  ; $6.500') >= 0, f.join(' / '));
   t('  y los sueltos como siempre', f[0] === '1 ; Galletas ; Golosinas ; 2 u ; $30.900' && f.indexOf('3 ; Almendra ; Frutos secos ; 500 g ; $7.000') >= 0);
 }
 {
@@ -207,7 +210,7 @@ console.log('\n-- la exportación --');
   const d = w.doc(true);
   const fs2 = d.bloques.find(b => b.titulo === 'Frutos secos (3)');
   t('lo que no se vendió, por categoría: el producto y abajo cada bolsa',
-    fs2 && fs2.filas.map(r => r.join(' ; ')).join(' / ') === 'Mani RC (2 bolsas) ;  / · Mani RC x 1 kg ; 2,1 kg / · Mani RC x 3 kg ; 6,1 kg / Nuez ; 13 u',
+    fs2 && fs2.filas.map(r => r.join(' ; ')).join(' / ') === 'Mani RC ;  / · Mani RC x 1 kg ; 2,1 kg / · Mani RC x 3 kg ; 6,1 kg / Nuez ; 13 u',
     fs2 && fs2.filas.map(r => r.join(' ; ')).join(' / '));
   const res = d.bloques.find(b => b.tipo === 'pares' && /^No se vendieron/.test(b.titulo));
   t('  el resumen por categoría sigue contando cada tamaño', res && res.filas.map(r => r.join('=')).join() === 'Frutos secos=3,Golosinas=2');
@@ -222,7 +225,7 @@ console.log('\n-- la exportación --');
   const fr = d.bloques.find(b => /^Frutos secos/.test(b.titulo));
   const go = d.bloques.find(b => /^Golosinas/.test(b.titulo));
   t('con la bolsa de 3 kg en otra categoría, el Mani RC va entero en la de su principal',
-    fr && fr.titulo === 'Frutos secos (3)' && fr.filas.map(r => r[0]).join(' / ') === 'Mani RC (2 bolsas) / · Mani RC x 1 kg / · Mani RC x 3 kg / Nuez',
+    fr && fr.titulo === 'Frutos secos (3)' && fr.filas.map(r => r[0]).join(' / ') === 'Mani RC / · Mani RC x 1 kg / · Mani RC x 3 kg / Nuez',
     fr && fr.titulo + ': ' + fr.filas.map(r => r[0]).join(' / '));
   t('  y no aparece también en la otra', go && go.titulo === 'Golosinas (2)' && !go.filas.some(r => /Mani/.test(r[0])),
     go && go.titulo + ': ' + go.filas.map(r => r[0]).join(' / '));

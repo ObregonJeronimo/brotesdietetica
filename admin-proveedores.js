@@ -214,14 +214,14 @@ function _provNombre(p) {
 }
 
 /* La lista con los de un mismo producto juntos: los sueltos como vienen, y cada producto con
-   tamaños como { grupo: { nombre, que, total, principal, miembros } }, con solo los tamaños que
-   vienen en la lista, de menor a mayor (total dice cuántos tiene el producto). */
+   tamaños como { grupo: { nombre, que, principal, miembros } }, con solo los tamaños que
+   vienen en la lista, de menor a mayor. que: "bolsas" si todos se venden por peso. */
 function _provJuntar(prods) {
   if (typeof agruparParaStock !== 'function') return prods;
   return agruparParaStock(prods).map(x => {
     if (!x.__stockGrupo) return x;
     const g = x.__stockGrupo;
-    return { grupo: { nombre: g.nombre, que: g.que, total: g.miembros.length, principal: g.principal,
+    return { grupo: { nombre: g.nombre, que: g.que, principal: g.principal,
       miembros: g.miembros.filter(m => m.coincide).map(m => m.producto) } };
   });
 }
@@ -251,10 +251,10 @@ function _provTopJuntos(top) {
   return out.sort((a, b) => b.monto - a.monto);
 }
 
-/* La cabecera de un producto con tamaños: "Mani RC · 2 bolsas". */
+/* La cabecera de un producto con tamaños: solo su nombre, "Mani RC". Sin "· 2 bolsas" (pedido
+   del dueño, 29/09): en lo vendido se leía como las bolsas que se vendieron. */
 function _provCabGrupo(g) {
-  return '<span class="prov-grupo-n"><i class="bi bi-stack"></i> ' + esc(g.nombre) +
-    ' <span class="prov-grupo-que">&middot; ' + g.total + ' ' + g.que + '</span></span>';
+  return '<span class="prov-grupo-n"><i class="bi bi-stack"></i> ' + esc(g.nombre) + '</span>';
 }
 
 /* Todo lo que se sabe de un proveedor, venga o no de las ventas. */
@@ -400,8 +400,7 @@ function _provRenderDetalle() {
 
   /* Un renglón de lo vendido: el puesto (vacío en un tamaño dentro de su producto), el
      nombre, la cantidad y lo facturado. La cabecera de un producto con tamaños (cabecera)
-     baja de línea en vez de cortarse: cortada, en la tarjeta angosta no se leía cuántas
-     bolsas tiene. */
+     baja de línea en vez de cortarse, para que en la tarjeta angosta se lea el nombre entero. */
   const renglon = (nombreHtml, cant, monto, puesto, chico, cabecera) =>
     '<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.38rem 0;font-size:' + (chico ? '0.8rem' : '0.85rem') + ';border-bottom:1px solid rgba(255,255,255,0.04)">' +
       '<span style="color:var(--text-dim);font-size:0.75rem;width:1.4rem;flex:0 0 auto">' + puesto + '</span>' +
@@ -561,7 +560,7 @@ function _provDocExportar(lista, incluirNoVendidos) {
     filas: top.length
       ? top.flatMap((x, i) => !x.grupo
           ? [[i + 1, x.nombre, catDe(x.id), _provCant(x), _provPesos(x.monto)]]
-          : [[i + 1, x.nombre + ' (' + x.grupo.total + ' ' + x.grupo.que + ')', catDe(x.grupo.principal.id),
+          : [[i + 1, x.nombre, catDe(x.grupo.principal.id),
               x.grupo.que === 'bolsas' ? _provCant(x) : '', _provPesos(x.monto)]]
               .concat(x.miembros.map(m => ['', '· ' + m.nombre, '', _provCant(m), _provPesos(m.monto)])))
       : [['', 'No se vendió ningún producto de este proveedor en el período.', '', '', '']],
@@ -613,7 +612,7 @@ function _provDocExportar(lista, incluirNoVendidos) {
           /* Los tamaños de un mismo producto, juntos: el producto y abajo cada uno (29/09). */
           filas: _provJuntar(g.productos).flatMap(x => !x.grupo
             ? [[_provNombre(x), stockTxt(x)]]
-            : [[x.grupo.nombre + ' (' + x.grupo.total + ' ' + x.grupo.que + ')', '']]
+            : [[x.grupo.nombre, '']]
                 .concat(x.grupo.miembros.map(m => ['· ' + _provNombre(m), stockTxt(m)]))),
         });
       });

@@ -64,28 +64,27 @@ function _cpCostoTxt(it) {
   return _cpPesos(it.costoUnitario) + (it.tipoVenta === 'peso' ? ' el kilo' : ' c/u');
 }
 /* La lista con los de un mismo producto juntos: los sueltos como vienen, y cada producto con
-   tamaños como { grupo: { nombre, que, total, miembros } }. Van solo los miembros que vienen
-   en la lista (de este proveedor, sin los que ya están en la compra), de menor a mayor. */
+   tamaños como { grupo: { nombre, miembros } }. Van solo los miembros que vienen en la lista
+   (de este proveedor, sin los que ya están en la compra), de menor a mayor. */
 function _cpAgrupar(prods) {
   if (typeof agruparParaStock !== 'function') return prods;
   return agruparParaStock(prods).map(x => {
     if (!x.__stockGrupo) return x;
     const g = x.__stockGrupo;
-    return { grupo: { nombre: g.nombre, que: g.que, total: g.miembros.length,
+    return { grupo: { nombre: g.nombre,
       miembros: g.miembros.filter(m => m.coincide).map(m => m.producto) } };
   });
 }
-/* La cabecera del recuadro: "Mani RC · 2 bolsas". */
+/* La cabecera del recuadro: solo el nombre del producto, "Mani RC". Decía también "· 2
+   bolsas" (los tamaños que tiene el producto) y se sacó a pedido del dueño (29/09): se leía
+   como las bolsas que entraron, y a veces el recuadro mostraba una sola. */
 function _cpCabGrupo(g) {
-  return '<div class="cp-grupo-cab"><i class="bi bi-stack"></i> ' + esc(g.nombre) +
-    ' <span class="cp-grupo-que">&middot; ' + g.total + ' ' + g.que + '</span></div>';
+  return '<div class="cp-grupo-cab"><i class="bi bi-stack"></i> ' + esc(g.nombre) + '</div>';
 }
 
 /* UNA COMPRA GUARDADA (pedido del dueño, 29/09/2026): al verla, al exportarla y en Deudas,
    las bolsas de un mismo producto van juntas, como al cargarla. Arriba el producto y lo que
-   se pagó por todas sus bolsas; abajo cada bolsa, con cuántas entraron. La cabecera no dice
-   "2 bolsas" (los tamaños que tiene el producto): acá se leería como las bolsas que
-   entraron. */
+   se pagó por todas sus bolsas; abajo cada bolsa, con cuántas entraron. */
 
 /* Cuántas bolsas son: "2 bolsas", "1 bolsa", "3,33 bolsas". Vacío si no es una bolsa. */
 function _cpBolsasTxt(it) {

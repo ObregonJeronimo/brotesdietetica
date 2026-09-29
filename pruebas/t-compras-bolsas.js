@@ -130,8 +130,8 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     const r = recuadros(h);
     t('las dos bolsas del Mani RC van en UN recuadro', r.filter(x => x.indexOf('Mani RC') >= 0).length === 1);
     const mani = r.find(x => x.indexOf('Mani RC') >= 0) || '';
-    t('  el recuadro dice de qué producto son y cuántas bolsas tiene: "Mani RC · 2 bolsas"',
-      textoDe(mani).indexOf('Mani RC · 2 bolsas') === 0, textoDe(mani).slice(0, 40));
+    t('  el recuadro dice de qué producto son, y nada más: "Mani RC" (sin "2 bolsas", 29/09)',
+      textoDe(mani).indexOf('Mani RC Mani RC x 1 kg') === 0, textoDe(mani).slice(0, 40));
     t('  adentro, las dos, de menor a mayor', /compraAgregar\('mrc1'\)[\s\S]*compraAgregar\('mrc3'\)/.test(mani));
     t('  cada una con su tamaño, también la principal: "Mani RC x 1 kg" y "Mani RC x 3 kg"',
       mani.indexOf('>Mani RC x 1 kg<') > 0 && mani.indexOf('>Mani RC x 3 kg<') > 0);
@@ -140,7 +140,9 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('  la de 1 kg, la bolsa sola (el kilo es lo mismo)',
       mani.indexOf('costo $4.000 la bolsa<') > 0 && mani.indexOf('$4.000 la bolsa (') < 0);
     const alf = r.find(x => x.indexOf('Alfajor') >= 0) || '';
-    t('las presentaciones (Alfajor x1 y x6) también van juntas', textoDe(alf).indexOf('Alfajor · 2 presentaciones') === 0);
+    t('las presentaciones (Alfajor x1 y x6) también van juntas', textoDe(alf).indexOf('Alfajor Alfajor x1') === 0, textoDe(alf).slice(0, 40));
+    t('ninguna cabecera dice cuántas bolsas o presentaciones tiene el producto',
+      !/\d+ (bolsas|presentaciones)/.test(r.map(x => textoDe(x.slice(0, x.indexOf('<button')))).join(' ')));
     t('  y su costo sigue siendo por unidad, no por bolsa', alf.indexOf('costo $500<') > 0 && alf.indexOf('la bolsa') < 0);
     const b = botones(h);
     t('los sueltos van sueltos, como siempre', b.indexOf('alm') >= 0 && b.indexOf('gal') >= 0, b.join());
@@ -154,7 +156,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     w.ctx.compraBuscarProd('3 kg');
     const h = w.el('compraLista').innerHTML;
     t('buscando "3 kg" sale la bolsa de 3 kg, dentro del recuadro de su producto',
-      botones(h).join() === 'mrc3(grupo)' && textoDe(h).indexOf('Mani RC · 2 bolsas') === 0, botones(h).join());
+      botones(h).join() === 'mrc3(grupo)' && textoDe(h).indexOf('Mani RC Mani RC x 3 kg') === 0, botones(h).join());
     /* La de 1 kg tiene otro nombre en la tienda: se ve y se busca como "Mani RC x 1 kg". */
     const busco = q => { w.ctx.compraBuscarProd(q); return botones(w.el('compraLista').innerHTML).join(); };
     t('buscando "mani rc" salen las dos, aunque la de 1 kg en la tienda se llame de otra forma', busco('mani rc') === 'mrc1(grupo),mrc3(grupo)', busco('mani rc'));
@@ -168,8 +170,8 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     w.ctx.compraAgregar('mrc1');
     const h = w.el('compraLista').innerHTML;
     t('agregada la de 1 kg, en la lista queda la otra, en su recuadro',
-      botones(h).filter(x => x.indexOf('mrc') === 0).join() === 'mrc3(grupo)' && h.indexOf('Mani RC · 2 bolsas') < 0 &&
-      textoDe(recuadros(h).find(x => x.indexOf('mrc3') >= 0) || '').indexOf('Mani RC · 2 bolsas') === 0);
+      botones(h).filter(x => x.indexOf('mrc') === 0).join() === 'mrc3(grupo)' &&
+      textoDe(recuadros(h).find(x => x.indexOf('mrc3') >= 0) || '').indexOf('Mani RC Mani RC x 3 kg') === 0);
   }
 
   console.log('\n-- lo que entró --');
@@ -187,8 +189,8 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('la Almendra entra como siempre, por kilo', it[1].gramosBolsa === undefined && it[1].costoBolsa === undefined && it[1].costoUnitario === 14000);
     const h = w.el('compraItems').innerHTML;
     const r = recuadros(h);
-    t('las dos bolsas, en un recuadro que dice "Mani RC · 2 bolsas"',
-      r.length === 1 && textoDe(r[0]).indexOf('Mani RC · 2 bolsas') === 0);
+    t('las dos bolsas, en un recuadro que dice "Mani RC", sin cuántas bolsas tiene',
+      r.length === 1 && textoDe(r[0]).indexOf('Mani RC Mani RC x 1 kg') === 0, r[0] && textoDe(r[0]).slice(0, 40));
     t('  de menor a mayor, aunque la de 3 kg se agregó primero',
       /id="cpCant2"[\s\S]*id="cpCant0"/.test(r[0]) && r[0].indexOf('cpCant1') < 0);
     t('  el recuadro va donde entró la primera, y la Almendra después, suelta',
@@ -311,7 +313,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     const r = recuadros(h);
     t('sacar la de 3 kg deja la de 1 kg en su recuadro, con su fila nueva (1)',
       v.items().map(i => i.id).join() === 'alm,mrc1' && r.length === 1 && /id="cpCant1"/.test(r[0]) &&
-      r[0].indexOf('cpCant0') < 0 && textoDe(r[0]).indexOf('Mani RC · 2 bolsas') === 0);
+      r[0].indexOf('cpCant0') < 0 && textoDe(r[0]).indexOf('Mani RC Mani RC x 1 kg') === 0);
     t('  y la de 3 kg vuelve a la lista para agregar', botones(v.el('compraLista').innerHTML).indexOf('mrc3(grupo)') >= 0);
   }
 
