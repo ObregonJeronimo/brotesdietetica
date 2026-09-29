@@ -174,7 +174,8 @@ M.FORMATOS.filter(f => f.id !== 'custom').forEach(f => {
 const justos = M.FORMATOS.filter(f => f.id !== 'custom' && M.medidas(f).justo).map(f => f.id);
 t('los dos mas chicos quedan marcados como justos',
   justos.length === 2 && justos.indexOf('a4-5x13') >= 0 && justos.indexOf('ter-40x30') >= 0);
-t('el resto no', M.FORMATOS.filter(f => f.id !== 'custom' && !M.medidas(f).justo).length === 5);
+/* 6 desde el 28/09/2026, con el rollo de 50 x 25 mm (al 123%, no es justo). */
+t('el resto no', M.FORMATOS.filter(f => f.id !== 'custom' && !M.medidas(f).justo).length === 6);
 t('ninguno baja del 80% que permite la norma',
   M.FORMATOS.filter(f => f.id !== 'custom').every(f => magnif(f) >= 0.80));
 t('el aviso de margen existe y no promete una falla',
@@ -354,6 +355,21 @@ console.log('\nEL ROLLO TERMICO: continuo o troquelado');
   t('la separacion es configurable', /margin-bottom:5mm/.test(M.estilos(Object.assign({}, base, { continuo: true, separacion: 5 }))));
   t('y admite 0 mm, pegadas', /margin-bottom:0mm/.test(M.estilos(Object.assign({}, base, { continuo: true, separacion: 0 }))));
   t('en A4 nada de esto aplica', /@page\{size:A4/.test(as) && !/margin-bottom:2mm/.test(as));
+})();
+/* EN PAPEL TERMICO ADHESIVO (pedido del duenio, 28/09/2026). La termica no imprime grises:
+   los imita salteando puntos, y en letra chica sale desflecado. */
+(function () {
+  const f = M.formato('ter-50x25');
+  t('esta el rollo de 50 x 25 mm, la etiqueta adhesiva termica mas comun',
+    f.id === 'ter-50x25' && f.hoja === 'termica' && f.ancho === 50 && f.alto === 25);
+  const m = M.medidas(f);
+  t('  y el codigo entra en 50 x 25 sin salirse ni quedar justo', !m.angosta && !m.justo && m.bcAncho <= 50 && m.bcAlto < 25);
+  const neg = /\.etq-sub,\.etq-cod\{color:#000\}/;
+  t('en termica el gramaje y el codigo van en negro (troquelado)', neg.test(M.estilos(Object.assign({}, f, { continuo: false }))));
+  t('  y en rollo continuo tambien', neg.test(M.estilos(Object.assign({}, f, { continuo: true, separacion: 2 }))));
+  t('  en A4 siguen en gris, que en una impresora comun se lee bien', !neg.test(M.estilos(M.formato('a4-3x8'))));
+  const d = M.doc([{ producto: P, copias: 2 }], Object.assign({}, f, { continuo: false }), { precio: true });
+  t('  salen las etiquetas pedidas, una por pagina', (d.match(/class="etq"/g) || []).length === 2 && d.indexOf('etq-pag') < 0);
 })();
 t('el modal deja elegir el tipo de rollo', html.indexOf('id="etqContinuo"') > 0);
 t('y viene en continuo por defecto, que es el que no rompe nada',

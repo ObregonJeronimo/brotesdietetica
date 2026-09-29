@@ -204,6 +204,10 @@ const ETQ_FORMATOS = [
     hoja: 'termica', columnas: 1, filas: 1, ancho: 58, alto: 40, margenH: 0, margenV: 0 },
   { id: 'ter-50x30', nombre: 'Térmica · rollo 50 × 30 mm',
     hoja: 'termica', columnas: 1, filas: 1, ancho: 50, alto: 30, margenH: 0, margenV: 0 },
+  /* La etiqueta adhesiva térmica más común (pedido del dueño, 28/09/2026). El código sale
+     al 123%: entra de sobra. */
+  { id: 'ter-50x25', nombre: 'Térmica · rollo 50 × 25 mm',
+    hoja: 'termica', columnas: 1, filas: 1, ancho: 50, alto: 25, margenH: 0, margenV: 0 },
   { id: 'ter-40x30', nombre: 'Térmica · rollo 40 × 30 mm',
     hoja: 'termica', columnas: 1, filas: 1, ancho: 40, alto: 30, margenH: 0, margenV: 0 },
   { id: 'custom', nombre: 'Personalizado...', hoja: 'A4',
@@ -302,6 +306,11 @@ function etiquetaEstilos(f) {
     '.etq-bc{display:block;margin-top:0.4mm}';
 
   if (esTermica) {
+    /* EN LA TÉRMICA NO HAY GRISES: el cabezal pone un punto negro o no pone nada, y el
+       gris lo imita salteando puntos. En letra chica -el gramaje en #333, el código en
+       #666- eso sale desflecado y cuesta leerlo. En la térmica va todo en negro
+       (pedido del dueño, 28/09/2026: etiquetas en papel térmico adhesivo). */
+    const negro = '.etq-sub,.etq-cod{color:#000}';
     /* DOS CLASES DE ROLLO, Y LA DIFERENCIA IMPORTA MUCHO.
 
        a) TROQUELADO: el rollo ya viene cortado en etiquetas. Cada una tiene que
@@ -320,14 +329,14 @@ function etiquetaEstilos(f) {
        molesto pero recuperable; al reves se cortan treinta etiquetas sanas-. */
     if (f.continuo) {
       const sep = (typeof f.separacion === 'number') ? f.separacion : 2;
-      return base +
+      return base + negro +
         /* Alto auto: la tira mide lo que sume, y es UNA sola pagina. */
         '@page{size:' + f.ancho + 'mm auto;margin:0}' +
         '.etq{page-break-after:auto;break-after:auto;height:' + f.alto + 'mm;' +
           'margin-bottom:' + sep + 'mm}' +
         '.etq:last-child{margin-bottom:0}';
     }
-    return base +
+    return base + negro +
       '@page{size:' + f.ancho + 'mm ' + f.alto + 'mm;margin:0}' +
       '.etq{page-break-after:always;break-after:page}' +
       '.etq:last-child{page-break-after:auto;break-after:auto}';

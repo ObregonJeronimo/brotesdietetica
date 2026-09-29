@@ -1586,6 +1586,33 @@ Pruebas: `pruebas/t-stock-agrupado.js`, 54 asertos (fallan contra el commit ante
 3634 en 86 suites. Probado en el sandbox con clics de verdad (agregar y corregir el stock de un
 tamaño del bloque, y dejarlo como estaba).
 
+### P) Etiquetas en papel térmico adhesivo · **HECHO, SIN SUBIR** (28/09/2026)
+
+Pregunta del dueño: si "Imprimir etiquetas" sirve para una térmica con papel adhesivo. **Ya
+servía**: en Formato están los rollos térmicos (58 × 40, 50 × 30 y 40 × 30 mm, y "Personalizado"
+con la casilla "Térmica"), y con un rollo térmico aparece "Rollo continuo":
+- **tildado** (viene así): papel de ticket adhesivo, en tira. Salen todas juntas y se cortan con
+  tijera;
+- **destildado**: rollo de etiquetas ya cortadas (troquelado), el de las impresoras de etiquetas.
+  Cada etiqueta es su propia página, del tamaño exacto de la etiqueta.
+
+Lo que se cambió (`admin-etiquetas.js`):
+- **El rollo de 50 × 25 mm**, la etiqueta adhesiva térmica más común. El código sale al 123% y
+  entra de sobra; en el sandbox, con "Aceite De Almendras Tostado" y el precio, no se sale nada.
+- **En la térmica el texto va en negro puro.** El gramaje (#333) y el código interno (#666) iban en
+  gris, y la térmica no imprime grises: los imita salteando puntos, y en letra chica sale
+  desflecado. En A4 siguen en gris.
+
+Para tener en cuenta (no se tocó; falta probarlo con la impresora, como el ticket):
+- en rollo continuo el largo de la tira lo decide la impresora: Chrome descarta
+  `@page{size:58mm auto}` (no es una medida válida; lo mismo pasa en el ticket). Si la tira sale
+  partida en varias páginas, en la configuración de la impresora hay que elegir el papel de rollo
+  más largo;
+- el botón de la ficha del producto sigue imprimiendo solo hojas A4 (pedido del comercio del
+  26/09); las térmicas se imprimen desde "Imprimir etiquetas".
+
+Pruebas: 6 asertos nuevos en `pruebas/t-etiquetas.js` (148). Total: 3643 en 86 suites.
+
 ---
 
 ## 2. Decisiones tuyas
