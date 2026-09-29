@@ -1575,7 +1575,7 @@ tamaño en el nombre.
 - con muchos grupos, agrupar tarda más en cada tecla del buscador: 0,7 ms hoy (1 grupo) y 12,7 ms
   con 400 (medido con 1316 productos). Mirarlo después de la migración;
 - en Compras la bolsa principal sigue sin el tamaño ("Mani prueba"): el nombre con el tamaño se
-  agregó solo en Stock;
+  agregó solo en Stock (**arreglado el 29/09**, §R);
 - código: `agruparParaStock` repite el recorrido de `agruparParaTabla`, la carga en tanda repite
   la regla de `_stkNombre`, y queda un `if` que nunca se cumple;
 - si un tamaño se cargó con el mismo nombre pero con un punto de más ("Mani pelado."), la fila
@@ -1675,6 +1675,43 @@ seguro, porque solo cambia el panel, la pestaña abierta sigue con lo viejo hast
 sirve el panel con `no-store`): push a `main` hasta `a2f3f77`. Vercel sirve los mismos archivos que
 el repo, la tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesión), y el
 panel ya trae el aviso. La clienta lo ve al recargar (F5). Functions y reglas, sin cambios.
+
+### R) Cargar compra: las bolsas de un producto van juntas y se cargan por bolsa · **HECHO, SIN SUBIR** (29/09/2026)
+
+Pedido del dueño: en Proveedores > Cargar compra, "Mani RC" de 1 kg y de 3 kg salían separados,
+como dos productos distintos, y el costo se pedía por kilo. Ahora va como en Productos y Stock
+(`admin-compras.js` y el CSS en `admin.html`):
+- **En la lista para agregar**, las bolsas (o presentaciones) de un producto van en un recuadro,
+  "Mani RC · 2 bolsas", cada una con su tamaño, también la principal ("Mani RC x 1 kg"). Una bolsa
+  dice lo que cuesta la bolsa, con el kilo entre paréntesis ("$999 la bolsa ($333 el kilo)"); la de
+  1 kg, solo la bolsa. El buscador encuentra por el nombre de la tienda, el interno, el que se ve
+  con el tamaño o el código. Buscando "Mani RC" no salía la de 1 kg, que en la tienda se llama
+  "Mani Recubierto de Chocolate".
+- **En "Lo que entró"**, las bolsas de un producto van juntas en un recuadro, de menor a mayor,
+  donde entró la primera. Una bolsa pide "Costo de la bolsa", y al lado dice cómo queda el kilo
+  ("$400 el kilo"), como en el formulario del producto, con el "?" del redondeo. La cantidad sigue
+  en gramos, porque el stock va en gramos.
+- **Las cuentas:** el subtotal de una bolsa sale de lo que costó la bolsa: 3 kg a $1.000 son
+  $1.000, no $999 del kilo redondeado. El costo se sigue guardando por kilo, con la cuenta del
+  formulario (`kiloDeBolsa`). Si se vuelve a escribir la misma bolsa que ya tenía, queda el kilo
+  que tenía: la ida y vuelta no es exacta y salía como un cambio de costo. Cada bolsa de la compra
+  guarda además `costoBolsa` y `gramosBolsa`.
+- **Al guardar:** el resumen dice "6 kg a $1.200 la bolsa". El aviso de costos dice "Mani RC x 3
+  kg: $999 → $1.200 la bolsa ($333 → $400 el kilo)". Al ver o exportar la compra sale
+  "$1.200/bolsa". Las compras viejas se ven como antes.
+- Si admin-variantes.js no carga, todo sigue como antes: por kilo y sin recuadros.
+
+Probado en el sandbox con clics de verdad (ANDNUTS, Mani RC de 1 y 3 kg). Los recuadros salen en
+las dos listas. Se cargaron 6000 g de la de 3 kg a $1.200 la bolsa ($400 el kilo, $2.400), 2000 g
+de la de 1 kg a $500 y 1 kg de Tostada Integral por kilo: total $9.500. La compra #0007 se guardó
+con el stock sumado en gramos y el costo actualizado a $400 el kilo, y "Ver" muestra
+"$1.200/bolsa".
+
+Anotado sin hacer: en la ficha del proveedor, "No se vendieron en 90 días" sigue mostrando cada
+bolsa por separado, y la principal con el nombre de la tienda.
+
+Pruebas: `pruebas/t-compras-bolsas.js` (56, fallan contra el commit anterior), y se ajustaron
+`t-exportar.js` (58) y `t-lector-compra.js` (24). Total: 3745 en 88 suites.
 
 ---
 

@@ -57,7 +57,7 @@ t('recorta los nombres larguisimos', nombre('x'.repeat(300)).length < 90);
 /* ---------------------------------------------------------------- compras */
 const docCompra = new Function(
   linea(srcComp, /const _cpPesos = [^\n]*/) + '\n' +
-  cuerpo(srcComp, '_cpEsPeso') + cuerpo(srcComp, '_cpCant') +
+  cuerpo(srcComp, '_cpEsPeso') + cuerpo(srcComp, '_cpEsBolsa') + cuerpo(srcComp, '_cpCant') +
   cuerpo(srcComp, '_cpMs') + cuerpo(srcComp, '_cpFechaTxt') +
   cuerpo(srcComp, '_cpDocExportar') + ';return _cpDocExportar;')();
 
@@ -86,6 +86,11 @@ t('los 500 g se muestran como peso, no como 500 unidades',
 t('el costo por peso se marca /kg', String(tabla.filas[0][2]).indexOf('/kg') > 0);
 t('el de unidad no lleva /kg', String(tabla.filas[1][2]).indexOf('/kg') < 0);
 t('el subtotal de 500 g a $14.000 el kilo es $7.000', tabla.filas[0][3] === '$7.000');
+/* Una bolsa de un granel con tamaños (29/09): se cargó por lo que costó la bolsa. */
+const conBolsa = docCompra(Object.assign({}, compra, { items: [
+  { nombre: 'Mani RC x 3 kg', cantidad: 6000, tipoVenta: 'peso', costoUnitario: 333, costoBolsa: 1000, gramosBolsa: 3000, subtotal: 2000 },
+] })).bloques[1].filas[0];
+t('una bolsa muestra lo que costó la bolsa ($1.000/bolsa), no el kilo', conBolsa[2] === '$1.000/bolsa' && conBolsa[3] === '$2.000');
 
 const pares = dc.bloques[0].filas;
 const buscar = (etq) => (pares.find(f => f[0] === etq) || [])[1];

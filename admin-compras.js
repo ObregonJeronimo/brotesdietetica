@@ -43,11 +43,54 @@ const _cpPesos = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-AR');
 
 function _cpEsPeso(p) { return !!(p && p.tipoVenta === 'peso'); }
 
+/* LAS BOLSAS DE UN GRANEL (pedido del dueño, 29/09/2026). Un producto con varias bolsas
+   (Mani RC de 1 kg y de 3 kg) es UNO, como en Productos, Stock y la venta: en la lista para
+   agregar y en "Lo que entró" sus bolsas van juntas, en un recuadro, cada una con su tamaño
+   ("Mani RC x 1 kg"). Y una bolsa se carga por lo que costó la bolsa, como en el formulario
+   del producto, con lo que queda el kilo al lado. El costo se sigue guardando por kilo
+   (kiloDeBolsa), que es como lo lee todo lo demás. Las cuentas y el agrupado son los de
+   admin-variantes.js: gramosDeBolsa, costoDeBolsa, kiloDeBolsa y agruparParaStock. */
+function _cpGramosBolsa(p) { return typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p) : null; }
+function _cpEsBolsa(it) { return !!it && it.tipoVenta === 'peso' && Number(it.gramosBolsa) > 0; }
+/* El nombre: en un producto con tamaños, el interno con su tamaño ("Mani RC x 1 kg"); en
+   los demás, el de siempre. */
+function _cpNombre(p) {
+  const n = (p && (p.nombreMostrado || p.nombre)) || '';
+  return typeof _nombreConPresentacion === 'function' ? _nombreConPresentacion(p, n) : n;
+}
+/* Lo que cuesta, como se carga: "$999 la bolsa", "$14.000 el kilo" o "$2.000 c/u". */
+function _cpCostoTxt(it) {
+  if (_cpEsBolsa(it)) return _cpPesos(it.costoBolsa) + ' la bolsa';
+  return _cpPesos(it.costoUnitario) + (it.tipoVenta === 'peso' ? ' el kilo' : ' c/u');
+}
+/* La lista con los de un mismo producto juntos: los sueltos como vienen, y cada producto con
+   tamaños como { grupo: { nombre, que, total, miembros } }. Van solo los miembros que vienen
+   en la lista (de este proveedor, sin los que ya están en la compra), de menor a mayor. */
+function _cpAgrupar(prods) {
+  if (typeof agruparParaStock !== 'function') return prods;
+  return agruparParaStock(prods).map(x => {
+    if (!x.__stockGrupo) return x;
+    const g = x.__stockGrupo;
+    return { grupo: { nombre: g.nombre, que: g.que, total: g.miembros.length,
+      miembros: g.miembros.filter(m => m.coincide).map(m => m.producto) } };
+  });
+}
+/* La cabecera del recuadro: "Mani RC · 2 bolsas". */
+function _cpCabGrupo(g) {
+  return '<div class="cp-grupo-cab"><i class="bi bi-stack"></i> ' + esc(g.nombre) +
+    ' <span class="cp-grupo-que">&middot; ' + g.total + ' ' + g.que + '</span></div>';
+}
+
 /* Lo que se cobra por un renglón. En los de peso el costo es por kilo y la
    cantidad son gramos: por eso divide por mil. Es la misma cuenta que
    subtotalItem() hace del lado de las ventas. */
 function _cpSubtotal(it) {
   const c = Number(it.costoUnitario || 0), q = Number(it.cantidad || 0);
+  /* Una bolsa (29/09) se paga por bolsa: lo que costó la bolsa por las bolsas que entraron,
+     sin pasar por el kilo redondeado (3 kg a $1.000 son $1.000, no $999). */
+  if (it.tipoVenta === 'peso' && Number(it.gramosBolsa) > 0 && it.costoBolsa != null) {
+    return Math.round(Number(it.costoBolsa || 0) * q / Number(it.gramosBolsa));
+  }
   return it.tipoVenta === 'peso' ? Math.round(c * q / 1000) : Math.round(c * q);
 }
 
@@ -226,8 +269,11 @@ function compraBuscarProd(q) {
   const t = String(q || '').trim().toLowerCase();
   const yaEsta = new Set(_compraItems.map(i => i.id));
   let prods = (typeof allProducts !== 'undefined' ? allProducts : []).filter(p => p.lista === prov && p.depurado !== true);
-  if (t) prods = prods.filter(p => String(p.nombreMostrado || p.nombre || '').toLowerCase().includes(t) ||
-                                   String(p.codigo || '').toLowerCase().includes(t));
+  /* Por el nombre público, el interno, el que se ve en la lista ("Mani RC x 1 kg", 29/09:
+     buscando "Mani RC" no salía la de 1 kg, que en la tienda es "Maní Recubierto de
+     Chocolate") o el código. */
+  if (t) prods = prods.filter(p => [p.nombreMostrado, p.nombre, _cpNombre(p), p.codigo]
+    .some(s => String(s || '').toLowerCase().includes(t)));
   prods = prods.filter(p => !yaEsta.has(p.id)).slice(0, 40);
   if (!prods.length) {
     cont.innerHTML = '<p style="font-size:0.82rem;color:var(--text-dim);padding:0.5rem 0">' +
@@ -235,26 +281,36 @@ function compraBuscarProd(q) {
          : 'Este proveedor no tiene productos en el catálogo.') + '</p>';
     return;
   }
-  cont.innerHTML = prods.map(p =>
-    '<button type="button" class="cp-prod" onclick="compraAgregar(\'' + p.id + '\')">' +
-      '<span class="cp-prod-n">' + esc(p.nombreMostrado || p.nombre) + '</span>' +
-      '<span class="cp-prod-d">' + esc(p.codigo || '') +
-        ' · costo ' + _cpPesos(p.costo) + (_cpEsPeso(p) ? ' el kilo' : '') + '</span>' +
-    '</button>').join('');
+  /* Una bolsa dice lo que costó la bolsa, y el kilo entre paréntesis (29/09); la de 1 kg
+     no, que es lo mismo (como en la tabla de Productos). */
+  const boton = p => {
+    const g = _cpGramosBolsa(p);
+    const costo = g ? _cpPesos(costoDeBolsa(p.costo, g)) + ' la bolsa' + (g !== 1000 ? ' (' + _cpPesos(p.costo) + ' el kilo)' : '')
+                    : _cpPesos(p.costo) + (_cpEsPeso(p) ? ' el kilo' : '');
+    return '<button type="button" class="cp-prod" onclick="compraAgregar(\'' + p.id + '\')">' +
+      '<span class="cp-prod-n">' + esc(_cpNombre(p)) + '</span>' +
+      '<span class="cp-prod-d">' + esc(p.codigo || '') + ' · costo ' + costo + '</span>' +
+    '</button>';
+  };
+  cont.innerHTML = _cpAgrupar(prods).map(x => x.grupo
+    ? '<div class="cp-grupo">' + _cpCabGrupo(x.grupo) + x.grupo.miembros.map(boton).join('') + '</div>'
+    : boton(x)).join('');
 }
 
 function compraAgregar(id) {
   const p = (allProducts || []).find(x => x.id === id);
   if (!p) return;
-  _compraItems.push({
-    id: p.id, nombre: p.nombreMostrado || p.nombre,
+  const g = _cpGramosBolsa(p);
+  _compraItems.push(Object.assign({
+    id: p.id, nombre: _cpNombre(p),
     tipoVenta: _cpEsPeso(p) ? 'peso' : 'unidad',
     cantidad: 0,
     /* Arranca con el costo que ya tiene cargado: la mayoría de las veces no
        cambió, y así solo hay que tocar los que sí. */
     costoUnitario: Number(p.costo || 0),
     costoAnterior: Number(p.costo || 0),
-  });
+  /* Una bolsa: sus gramos y lo que cuesta la bolsa, desde el kilo que tiene cargado. */
+  }, g ? { gramosBolsa: g, costoBolsa: costoDeBolsa(p.costo, g) } : {}));
   renderCompraItems();
   compraBuscarProd((document.getElementById('compraBuscar') || {}).value || '');
 }
@@ -462,8 +518,21 @@ function compraQuitar(i) {
 }
 
 function compraCampo(i, campo, valor) {
-  if (!_compraItems[i]) return;
-  _compraItems[i][campo] = Math.max(0, Number(valor) || 0);
+  const it = _compraItems[i];
+  if (!it) return;
+  if (campo === 'costoBolsa') {
+    /* Lo que costó la bolsa: el kilo sale solo, con la cuenta del formulario. Si es la
+       misma bolsa que ya tenía, el kilo que ya tenía: la cuenta de ida y vuelta no es
+       exacta ($3.001 el kilo en 500 g se ve $1.501, que vuelve como $3.002), y salía
+       como un costo que cambió (como _costoDeFila, admin-costos.js). */
+    it.costoBolsa = Math.max(0, Number(valor) || 0);
+    it.costoUnitario = it.costoBolsa === costoDeBolsa(it.costoAnterior, it.gramosBolsa)
+      ? Number(it.costoAnterior || 0) : kiloDeBolsa(it.costoBolsa, it.gramosBolsa);
+    const k = document.getElementById('cpKilo' + i);
+    if (k) k.textContent = _cpPesos(it.costoUnitario) + ' el kilo';
+  } else {
+    it[campo] = Math.max(0, Number(valor) || 0);
+  }
   const t = document.getElementById('compraTotal');
   if (t) t.textContent = _cpPesos(_cpTotal());
   const sub = document.getElementById('cpSub' + i);
@@ -477,7 +546,7 @@ function renderCompraItems() {
     cont.innerHTML = '<p style="font-size:0.83rem;color:var(--text-dim);padding:0.6rem 0">' +
       'Buscá un producto de la lista de abajo para empezar a cargar la compra.</p>';
   } else {
-    cont.innerHTML = _compraItems.map((it, i) =>
+    const fila = (it, i) =>
       '<div class="cp-row' + (it.deRemito ? (it.verificado ? ' cp-leido' : ' cp-dudoso') : '') + '">' +
         '<span class="cp-row-n">' + esc(it.nombre) +
           (it.tipoVenta === 'peso' ? ' <span class="cp-tag">por peso</span>' : '') +
@@ -487,16 +556,51 @@ function renderCompraItems() {
           '<input type="number" min="0" step="1" class="form-input" id="cpCant' + i + '" ' +
           'value="' + (it.cantidad || '') + '" ' +
           'oninput="compraCampo(' + i + ',\'cantidad\',this.value)"></label>' +
-        '<label class="cp-f"><span>Costo' + (it.tipoVenta === 'peso' ? ' por kilo' : ' c/u') + '</span>' +
-          '<input type="number" min="0" step="0.01" class="form-input" value="' + (it.costoUnitario || '') + '" ' +
-          'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>' +
+        /* Una bolsa (29/09): lo que costó la bolsa, como en el formulario, y al lado el kilo. */
+        (_cpEsBolsa(it)
+          ? '<label class="cp-f"><span>Costo de la bolsa</span>' +
+              '<input type="number" min="0" step="0.01" class="form-input" value="' + (it.costoBolsa || '') + '" ' +
+              'oninput="compraCampo(' + i + ',\'costoBolsa\',this.value)"></label>' +
+            '<span class="cp-kilo" id="cpKilo' + i + '">' + _cpPesos(it.costoUnitario) + ' el kilo</span>'
+          : '<label class="cp-f"><span>Costo' + (it.tipoVenta === 'peso' ? ' por kilo' : ' c/u') + '</span>' +
+              '<input type="number" min="0" step="0.01" class="form-input" value="' + (it.costoUnitario || '') + '" ' +
+              'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>') +
         '<span class="cp-sub" id="cpSub' + i + '">' + _cpPesos(_cpSubtotal(it)) + '</span>' +
         '<button type="button" class="cp-x" onclick="compraQuitar(' + i + ')" title="Sacar de la compra">&times;</button>' +
-      '</div>').join('');
+      '</div>';
+    /* Las bolsas de un mismo producto, juntas en un recuadro, donde entró la primera; con el
+       "?" del redondeo si hay alguna bolsa (el kilo se guarda sin centavos). */
+    cont.innerHTML = _cpBloques().map(b => b.grupo
+      ? '<div class="cp-grupo">' + _cpCabGrupo(b.grupo) + b.filas.map(i => fila(_compraItems[i], i)).join('') +
+        (b.filas.some(i => _cpEsBolsa(_compraItems[i])) && typeof ayudaRedondeoLineaHtml === 'function' ? ayudaRedondeoLineaHtml(true) : '') +
+        '</div>'
+      : fila(_compraItems[b.filas[0]], b.filas[0])).join('');
   }
   const t = document.getElementById('compraTotal');
   if (t) t.textContent = _cpPesos(_cpTotal());
   compraAvisoStock();
+}
+
+/* "Lo que entró" en bloques: { filas: [i] } para un renglón suelto, o { grupo, filas } para
+   las bolsas de un mismo producto, de menor a mayor. Cada bloque va donde entró su primer
+   renglón, así que la lista no se reordena al agregar. */
+function _cpBloques() {
+  const prods = _compraItems.map(it => (allProducts || []).find(p => p.id === it.id)).filter(Boolean);
+  const grupoDe = new Map();
+  _cpAgrupar(prods).forEach(x => { if (x.grupo) x.grupo.miembros.forEach(p => grupoDe.set(p.id, x.grupo)); });
+  const hechos = new Set();
+  const out = [];
+  _compraItems.forEach((it, i) => {
+    const g = grupoDe.get(it.id);
+    if (!g) { out.push({ filas: [i] }); return; }
+    if (hechos.has(g)) return;
+    hechos.add(g);
+    /* Todas sus filas: si un producto quedara dos veces, no se esconde ninguna. */
+    const filas = [];
+    g.miembros.forEach(p => _compraItems.forEach((x, k) => { if (x.id === p.id) filas.push(k); }));
+    out.push({ grupo: g, filas: filas });
+  });
+  return out;
 }
 
 /* El cartel de que el stock NO se va a sumar. Va bien visible porque es
@@ -571,8 +675,7 @@ async function guardarCompra() {
   const lista = (listasData || []).find(l => l.id === prov);
   const total = conCantidad.reduce((s, i) => s + _cpSubtotal(i), 0);
 
-  const resumen = conCantidad.map(i => '- ' + i.nombre + ': ' + _cpCant(i) + ' a ' + _cpPesos(i.costoUnitario) +
-      (i.tipoVenta === 'peso' ? ' el kilo' : ' c/u')).join('\n');
+  const resumen = conCantidad.map(i => '- ' + i.nombre + ': ' + _cpCant(i) + ' a ' + _cpCostoTxt(i)).join('\n');
   const aviso = sumaStock
     ? '\nEl stock de esos productos va a subir.'
     : '\nOJO: el stock NO se va a tocar, porque destildaste la casilla.';
@@ -607,11 +710,12 @@ async function guardarCompra() {
       return n;
     });
 
-    const items = conCantidad.map(i => ({
+    /* Una bolsa guarda además lo que costó la bolsa y de cuántos gramos era (29/09). */
+    const items = conCantidad.map(i => Object.assign({
       id: i.id, nombre: i.nombre, tipoVenta: i.tipoVenta,
       cantidad: Number(i.cantidad), costoUnitario: Number(i.costoUnitario),
       subtotal: _cpSubtotal(i),
-    }));
+    }, _cpEsBolsa(i) ? { costoBolsa: Number(i.costoBolsa), gramosBolsa: Number(i.gramosBolsa) } : {}));
 
     const doc = {
       numero: numero, proveedorId: prov, proveedorNombre: (lista && lista.nombre) || '',
@@ -693,6 +797,12 @@ async function ofrecerActualizarCostos(items) {
   if (!cambian.length) return;
   const detalle = cambian.map(i => {
     const p = (allProducts || []).find(x => x.id === i.id);
+    /* Una bolsa se dice como se cargó: la bolsa, y el kilo entre paréntesis (29/09). */
+    if (_cpEsBolsa(i)) {
+      return '- ' + i.nombre + ': ' + _cpPesos(costoDeBolsa(p.costo, i.gramosBolsa)) + ' → ' + _cpPesos(i.costoBolsa) +
+             ' la bolsa' + (Number(i.gramosBolsa) !== 1000
+               ? ' (' + _cpPesos(p.costo) + ' → ' + _cpPesos(i.costoUnitario) + ' el kilo)' : '');
+    }
     return '- ' + i.nombre + ': ' + _cpPesos(p.costo) + ' → ' + _cpPesos(i.costoUnitario) +
            (i.tipoVenta === 'peso' ? ' el kilo' : '');
   }).join('\n');
@@ -744,8 +854,8 @@ function verCompra(docId) {
         '<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.3rem 0;font-size:0.84rem">' +
           '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(i.nombre) + '</span>' +
           '<span style="color:var(--text-dim);font-size:0.78rem;white-space:nowrap">' + _cpCant(i) + '</span>' +
-          '<span style="color:var(--text-dim);font-size:0.78rem;white-space:nowrap">' + _cpPesos(i.costoUnitario) +
-            (i.tipoVenta === 'peso' ? '/kg' : '') + '</span>' +
+          '<span style="color:var(--text-dim);font-size:0.78rem;white-space:nowrap">' + (_cpEsBolsa(i)
+            ? _cpPesos(i.costoBolsa) + '/bolsa' : _cpPesos(i.costoUnitario) + (i.tipoVenta === 'peso' ? '/kg' : '')) + '</span>' +
           '<span style="font-weight:600;white-space:nowrap;min-width:5rem;text-align:right">' + _cpPesos(i.subtotal) + '</span>' +
         '</div>').join('') +
     '</div>' +
@@ -833,7 +943,7 @@ function _cpDocExportar(c) {
         filas: (c.items || []).map(i => [
           i.nombre || '',
           _cpCant(i),
-          _cpPesos(i.costoUnitario) + (i.tipoVenta === 'peso' ? '/kg' : ''),
+          _cpEsBolsa(i) ? _cpPesos(i.costoBolsa) + '/bolsa' : _cpPesos(i.costoUnitario) + (i.tipoVenta === 'peso' ? '/kg' : ''),
           _cpPesos(i.subtotal),
         ]).concat([['TOTAL', '', '', _cpPesos(c.total)]]),
       },

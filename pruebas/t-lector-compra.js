@@ -80,6 +80,7 @@ function correr(prod, { proveedor = 'L1', yaCargados = [] } = {}) {
   };
   const nombres = Object.keys(fakes);
   const fn = new Function(...nombres,
+    cuerpo(compras, '_cpGramosBolsa') + cuerpo(compras, '_cpNombre') +
     cuerpo(compras, '_cpFocoCantidad') + cuerpo(compras, 'compraAgregar') +
     cuerpo(compras, 'compraEscanear') + ';return compraEscanear;');
   fn(...nombres.map(n => fakes[n]))(prod);
