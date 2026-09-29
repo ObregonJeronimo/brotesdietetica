@@ -259,11 +259,17 @@ function renderProveedores() {
 
   /* Cada proveedor es una fila de la lista de la izquierda. El rotulo del monto
      NO va en cada fila -asi estaba antes y con 27 proveedores chocaba con el
-     nombre-: va una sola vez, como encabezado de la columna. */
-  const filas = _provFiltrados(resumenes).map(r => {
+     nombre-: va una sola vez, como encabezado de la columna.
+     Van TODOS, y los que no coinciden con el buscador, escondidos: provBuscar
+     filtra escondiendo y mostrando. Antes se dibujaban solo los que coincidian, y
+     despues de elegir uno con algo escrito, al borrar la busqueda no volvian los
+     otros: la lista quedaba con lo que habia encontrado (29/09/2026). */
+  const coinciden = new Set(_provFiltrados(resumenes));
+  const filas = resumenes.map(r => {
     const sel = _provAbierto === r.lista.id;
     const mejor = r.top[0];
     return '<button type="button" class="prov-item' + (sel ? ' sel' : '') + '" ' +
+      (coinciden.has(r) ? '' : 'style="display:none" ') +
       'onclick="provAbrir(\'' + r.lista.id + '\')">' +
       '<span class="prov-item-top">' +
         '<span class="prov-item-n">' + esc(r.lista.nombre) + '</span>' +
@@ -283,9 +289,10 @@ function renderProveedores() {
       '</button>';
   }).join('');
 
-  const hayFiltro = !!_provFiltro;
-  const lista = filas || ('<p class="prov-vacio">' +
-    (hayFiltro ? 'Ning\u00fan proveedor coincide con la b\u00fasqueda.' : 'No hay proveedores.') + '</p>');
+  /* Si lo escrito no coincide con ninguno, el cartel va despues de las filas
+     escondidas, como lo pone provBuscar, que lo saca cuando vuelve a haber. */
+  const lista = !filas ? '<p class="prov-vacio">No hay proveedores.</p>'
+    : filas + (coinciden.size ? '' : '<p class="prov-vacio">Ning\u00fan proveedor coincide con la b\u00fasqueda.</p>');
 
   cont.innerHTML = cab +
     (sinProv && sinProv.facturado

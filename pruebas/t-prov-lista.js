@@ -110,5 +110,68 @@ t('sin seleccion, el panel derecho explica que hacer',
   src.indexOf('Elegí un proveedor de la lista') > 0 ||
   src.indexOf('Eleg\\u00ed un proveedor de la lista') > 0);
 
+/* ------------------------- elegir uno con algo escrito, y despues borrar
+   Pedido del duenio (29/09/2026): buscando "andnuts" y tocando ANDNUTS, la
+   lista se volvia a dibujar solo con los que coincidian; al borrar la busqueda
+   provBuscar solo podia mostrar lo que habia quedado, y la lista se quedaba
+   con ANDNUTS. Ahora se dibujan todos y se esconden los que no coinciden. */
+function dibujar(filtro, abierto) {
+  const cont = { innerHTML: '' };
+  const LISTAS = [{ id: 'l1', nombre: 'VERDEDIET' }, { id: 'l2', nombre: 'ANDNUTS' }, { id: 'l3', nombre: 'FRUTICOR' }];
+  const fakes = {
+    document: { getElementById: id => (id === 'provBody' ? cont : null) },
+    listasData: LISTAS,
+    PROV_PERIODOS: [{ dias: 90, etq: 'Últimos 90 días' }],
+    _provDias: 90, _provDatos: null, _provAbierto: abierto || null, _provFiltro: filtro,
+    _provResumen: l => ({ lista: l, facturado: 100, productos: 1, ventas: 1, sinVender: 0, gastado: 0, debe: 0, top: [] }),
+    _provCard: () => '', _provRenderDetalle: () => {}, _provPesos: n => '$' + n,
+    esc: s => String(s),
+  };
+  const nombres = Object.keys(fakes);
+  new Function(...nombres, cuerpo('_provNormalizar') + cuerpo('_provFiltrados') + cuerpo('renderProveedores') +
+    ';renderProveedores();')(...nombres.map(n => fakes[n]));
+  return cont.innerHTML;
+}
+/* Los botones dibujados, como los veria provBuscar: con su nombre y si estan escondidos. */
+function botonesDe(h) {
+  return [...h.matchAll(/<button type="button" class="prov-item[^"]*" (style="display:none" )?onclick="provAbrir\('[^']+'\)">[\s\S]*?<span class="prov-item-n">([^<]*)<\/span>/g)]
+    .map(m => ({ nombre: m[2], style: { display: m[1] ? 'none' : '' } }));
+}
+/* Borrar la busqueda, con provBuscar de verdad sobre esos botones. */
+function borrar(h, desde) {
+  const bs = botonesDe(h);
+  let aviso = h.indexOf('prov-vacio') > 0 ? { remove() { aviso = null; } } : null;
+  const caja = {
+    querySelectorAll: () => bs.map(b => Object.assign(b, { querySelector: () => ({ textContent: b.nombre }) })),
+    querySelector: () => aviso,
+    insertAdjacentHTML: () => { aviso = { remove() { aviso = null; } }; },
+  };
+  const doc = { getElementById: () => ({ querySelector: () => caja }) };
+  const buscar = new Function('document', '_provFiltro', 'renderProveedores',
+    cuerpo('_provNormalizar') + cuerpo('provBuscar') + ';return provBuscar;')(doc, desde, () => {});
+  buscar('');
+  return { visibles: bs.filter(b => b.style.display !== 'none').map(b => b.nombre).join(), aviso: !!aviso };
+}
+{
+  const h = dibujar('andnuts', 'l2');
+  const bs = botonesDe(h);
+  t('con "andnuts" escrito y ANDNUTS elegido, se dibujan los tres', bs.length === 3);
+  t('  y a la vista queda solo ANDNUTS', bs.filter(b => b.style.display !== 'none').map(b => b.nombre).join() === 'ANDNUTS');
+  const r = borrar(h, 'andnuts');
+  t('al borrar la busqueda vuelven todos', r.visibles === 'VERDEDIET,ANDNUTS,FRUTICOR', r.visibles);
+}
+{
+  const h = dibujar('zzz');
+  t('si no coincide ninguno: todos escondidos y el cartel despues',
+    botonesDe(h).every(b => b.style.display === 'none') && /<\/button><p class="prov-vacio">Ning/.test(h));
+  const r = borrar(h, 'zzz');
+  t('  y al borrar vuelven todos y se va el cartel', r.visibles === 'VERDEDIET,ANDNUTS,FRUTICOR' && !r.aviso);
+}
+{
+  const h = dibujar('');
+  t('sin nada escrito, ninguno escondido y sin cartel',
+    botonesDe(h).length === 3 && h.indexOf('display:none') < 0 && h.indexOf('prov-vacio') < 0);
+}
+
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

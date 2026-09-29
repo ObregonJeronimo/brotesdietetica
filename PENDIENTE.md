@@ -1713,6 +1713,24 @@ bolsa por separado, y la principal con el nombre de la tienda.
 Pruebas: `pruebas/t-compras-bolsas.js` (56, fallan contra el commit anterior), y se ajustaron
 `t-exportar.js` (58) y `t-lector-compra.js` (24). Total: 3745 en 88 suites.
 
+### S) Proveedores: al borrar la búsqueda vuelven todos · **HECHO, SIN SUBIR** (29/09/2026)
+
+Pedido del dueño: en Proveedores, buscando un proveedor y borrando después, la lista se quedaba
+con lo que había encontrado. Pasaba después de tocar un proveedor, o de cambiar el período, con
+algo escrito: la lista se volvía a dibujar solo con los que coincidían, y el buscador, que filtra
+escondiendo y mostrando (`provBuscar`), no tenía de dónde sacar a los otros. Ahora
+`renderProveedores` (`admin-proveedores.js`) dibuja todos y esconde los que no coinciden. Si no
+coincide ninguno, el cartel "Ningún proveedor coincide" va después de las filas, como lo pone
+`provBuscar`, que lo saca cuando vuelve a haber resultados. El buscador de proveedores de
+Productos no tenía el problema, porque se dibuja entero en cada tecla.
+
+Probado en el sandbox con clics y teclas de verdad. Primero: "andnuts", tocar ANDNUTS y borrar;
+vuelven los 20 y ANDNUTS sigue abierto a la derecha. Después: "zzz" y cambiar a 30 días (sale el
+cartel) y borrar; vuelven los 20, sin cartel.
+
+Pruebas: 6 nuevas en `pruebas/t-prov-lista.js` (35; 4 fallan contra el commit anterior). Total:
+3751 en 88 suites.
+
 ---
 
 ## 2. Decisiones tuyas
