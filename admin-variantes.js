@@ -333,6 +333,8 @@ function stockYaTomadoPorVenta(ctx) {
    puede: ni agregar más de lo que hay -los gramos, una unidad más, la cantidad de la
    línea-, ni registrar la venta si al guardar no alcanza (con el stock recién leído).
    Si el stock estaba mal cargado, se carga primero en Stock, con "Agregar stock".
+   Y el 29/09/2026 (pedido del dueño): se vuelve a dejar vender, con un aviso que explica
+   que el stock queda en negativo y que después hay que cargarlo. Ver FRENAR_VENTA_SIN_STOCK.
    No se mira si el negocio no descuenta stock, ni en una venta que sale de un pedido web
    que ya lo descontó: esa venta no descuenta nada. */
 function _stockNoAplica(ctx) {
@@ -347,6 +349,14 @@ function _stockNoAplica(ctx) {
 }
 /* Si el stock se mira en esta venta: lo contrario de _stockNoAplica. */
 function stockSeMira(ctx) { return !_stockNoAplica(ctx); }
+/* ¿SIN STOCK SUFICIENTE SE FRENA LA VENTA, O SE AVISA Y SE DEJA? Cambió dos veces: el
+   25/09 avisaba y dejaba "Registrar igual"; el 26/09 el comercio pidió que no deje vender;
+   el 29/09 el dueño pidió volver a dejar, con un aviso que diga que el stock queda en
+   negativo y que después hay que cargarlo. Todo lo que frenaba pregunta acá: para volver a
+   frenar alcanza con poner true (las pruebas del freno corren así). */
+let FRENAR_VENTA_SIN_STOCK = false;
+/* Si en esta venta, sin stock suficiente, NO se deja vender. */
+function stockFrena(ctx) { return FRENAR_VENTA_SIN_STOCK === true && stockSeMira(ctx); }
 /* Lo que hay de un producto para esta venta: lo que ella ya había tomado (una que se edita)
    más el stock que queda, si queda. Un stock en negativo no resta: si lo dejó así esta
    misma venta, editarla sin tocar las cantidades no se puede frenar. Antes era stock +
@@ -370,7 +380,10 @@ function faltantesDeStock(items, ctx) {
     const p = prods.find(x => x && x.id === id);
     if (!p) return null;
     const hay = _hayParaVenta(p, tomado);
-    return vende[id] > hay ? { producto: p, hay: hay, vende: vende[id] } : null;
+    /* queda: el stock en que va a quedar (el de ahora, más lo que la venta ya había
+       descontado, menos lo que vende). */
+    return vende[id] > hay ? { producto: p, hay: hay, vende: vende[id],
+      queda: Number(p.stock || 0) + ((tomado && tomado[id]) || 0) - vende[id] } : null;
   }).filter(Boolean);
 }
 /* "Maní RC x 80 g": con presentaciones, cuál es, con la misma forma que el nombre de las
@@ -413,9 +426,12 @@ function gramosDeBolsa(p, productos) {
    distintas, la tabla y la ventana que abre mostraban $1 de diferencia (revisión del 27/09). */
 function costoDeBolsa(costoKilo, gramos) { return Math.round(Number(costoKilo || 0) * gramos / 1000); }
 function kiloDeBolsa(costoBolsa, gramos) { return Math.round(Number(costoBolsa || 0) * 1000 / gramos); }
-/* Lo que dice la línea de la venta. */
+/* Lo que dice la línea de la venta: con el freno, que así no se puede; sin freno (29/09),
+   que el stock va a quedar en negativo. */
 function textoFaltaStock(f) {
-  return f.hay > 0 ? 'Solo hay ' + _cantConUnidad(f.producto, f.hay) + ' en stock: así no se puede vender' : 'Sin stock: no se puede vender';
+  const hay = f.hay > 0 ? 'Solo hay ' + _cantConUnidad(f.producto, f.hay) + ' en stock' : 'Sin stock';
+  if (!FRENAR_VENTA_SIN_STOCK) return hay + ': va a quedar en negativo';
+  return hay + (f.hay > 0 ? ': así no se puede vender' : ': no se puede vender');
 }
 /* Cuánto hay de p para esta venta: su stock más lo que la venta ya había descontado (una
    que se edita), lo que ya está en la lista y lo que queda para agregar. null si el stock
@@ -429,7 +445,7 @@ function stockParaVenta(p, lista, ctx) {
 /* "2,3 kg" o "3 unidades". */
 function _cantConUnidad(p, x) {
   if (p && p.tipoVenta === 'peso') return typeof fmtPeso === 'function' ? fmtPeso(x) : x + ' g';
-  return x + (x === 1 ? ' unidad' : ' unidades');
+  return x + (Math.abs(x) === 1 ? ' unidad' : ' unidades');
 }
 /* El aviso de cuando no alcanza, con el texto que pidió el comercio (26/09/2026). hay: todo
    el stock que hay; ya: lo que ya está en esta venta. */
@@ -457,6 +473,8 @@ async function stockParaVentaFresco(p, lista, ctx, cuanto) {
    que frenaría, por lo mismo que stockParaVentaFresco. */
 function frenoDeGramos(p, sp, recalcular) {
   if (!sp) return {};
+  /* Sin freno (29/09): el diálogo deja agregar y avisa que el stock queda en negativo. */
+  if (!FRENAR_VENTA_SIN_STOCK) return { stock: sp.queda, avisarNegativo: true };
   const o = { stock: sp.queda, bloquear: true, avisoSinStock: textoStockInsuficiente(p, sp.hay, sp.ya), ayudaSinStock: _AYUDA_SIN_STOCK };
   if (typeof recalcular === 'function') {
     o.refrescar = async () => {
@@ -488,6 +506,19 @@ async function _stockFresco(ids) {
     } catch (e) { /* queda el que había */ }
   }))]);
 }
+/* El aviso de cuando se vende más de lo que hay (pedido del dueño, 29/09): qué no alcanza,
+   en cuánto va a quedar el stock y qué hacer después. En palabras simples: lo lee la dueña
+   en el mostrador. faltan: lo de faltantesDeStock. */
+function mensajeVentaSinStock(faltan) {
+  const uno = faltan.length === 1;
+  const lineas = faltan.map(f => '- ' + _nombreConPresentacion(f.producto) + ': ' +
+    (f.hay > 0 ? 'tenés ' + _cantConUnidad(f.producto, f.hay) : 'no te queda stock') +
+    ' y estás vendiendo ' + _cantConUnidad(f.producto, f.vende) + '. Va a quedar en ' + _cantConUnidad(f.producto, f.queda) + '.');
+  return '[!] Estás por vender más de lo que tenés en stock' + (uno ? '.' : ' de estos productos:') + _VAR_NL + _VAR_NL +
+    lineas.join(_VAR_NL) + _VAR_NL + _VAR_NL +
+    'Podés vender igual: la venta se registra y el stock ' + (uno ? 'de este producto' : 'de estos productos') + ' queda en negativo.' + _VAR_NL +
+    'Cuando te llegue la mercadería, cargala en Stock con "Agregar stock" y el número vuelve a estar bien.';
+}
 /* true = registrar; false = volver a la venta. */
 async function avisoStockInsuficiente(items, ctx) {
   if (_stockNoAplica(ctx)) return true;
@@ -496,23 +527,31 @@ async function avisoStockInsuficiente(items, ctx) {
   await _stockFresco(ids);
   const faltan = faltantesDeStock(items, ctx);
   if (!faltan.length) return true;
-  /* No se registra: se dice qué no alcanza y qué hacer, con un solo botón. */
+  /* Las líneas, con el stock recién leído: detrás del aviso se ve cuál no alcanza. */
+  const repintar = ctx === 'may' ? (typeof renderVentaMayItems === 'function' ? renderVentaMayItems : null)
+                                 : (typeof renderVentaItems === 'function' ? renderVentaItems : null);
+  if (repintar) repintar();
+  /* Sin freno (pedido del dueño, 29/09): "Vender igual" registra, y el stock queda en
+     negativo hasta que se cargue lo que llegó. */
+  if (!FRENAR_VENTA_SIN_STOCK) {
+    if (typeof pedirConfirmacion !== 'function') return true;
+    return pedirConfirmacion(mensajeVentaSinStock(faltan), { titulo: 'Stock insuficiente', icono: 'bi-exclamation-triangle',
+      cuidado: true, aceptar: 'Vender igual', cancelar: 'Revisar la venta' });
+  }
+  /* Con el freno (26/09) no se registra: se dice qué no alcanza y qué hacer, con un solo botón. */
   const lineas = faltan.map(f => '- ' + _nombreConPresentacion(f.producto) + ': ' +
     (f.hay > 0 ? 'tenés ' + _cantConUnidad(f.producto, f.hay) : 'no tenés stock') + ' y estás vendiendo ' + _cantConUnidad(f.producto, f.vende) + '.');
   const msg = '[x] STOCK INSUFICIENTE: la venta NO se puede realizar debido a que no tenés stock suficiente ' +
     (faltan.length === 1 ? 'de este producto:' : 'de estos productos:') + _VAR_NL + _VAR_NL +
     lineas.join(_VAR_NL) + _VAR_NL + _VAR_NL +
     'Bajá la cantidad o sacalo de la venta. ' + _AYUDA_SIN_STOCK;
-  /* Las líneas, con el stock recién leído: al cerrar el aviso se ve cuál no alcanza. */
-  const repintar = ctx === 'may' ? (typeof renderVentaMayItems === 'function' ? renderVentaMayItems : null)
-                                 : (typeof renderVentaItems === 'function' ? renderVentaItems : null);
-  if (repintar) repintar();
   if (typeof avisar === 'function') await avisar(msg, { titulo: 'Stock insuficiente', icono: 'bi-x-octagon', aceptar: 'Entendido', alerta: true });
   return false;
 }
 
-/* Cambiar la cantidad en la línea de la venta tampoco pasa lo que hay: se vuelve a la de
-   antes y se dice por qué. El granel con escalas lo mira admin-escalas.js
+/* Con el freno (26/09), cambiar la cantidad en la línea de la venta tampoco pasa lo que hay:
+   se vuelve a la de antes y se dice por qué. Sin freno (29/09) se cambia como siempre, y la
+   línea dice que el stock queda en negativo. El granel con escalas lo mira admin-escalas.js
    (cambiarGramosGranel), que envuelve esto mismo después. */
 (function () {
   if (typeof window === 'undefined') return;
@@ -520,6 +559,7 @@ async function avisoStockInsuficiente(items, ctx) {
     const orig = window[nombre];
     if (typeof orig !== 'function') return;
     window[nombre] = async function (id, val) {
+      if (!stockFrena(ctx)) return orig.apply(this, arguments);
       const lista = ctx === 'may' ? (typeof ventaMayItems !== 'undefined' ? ventaMayItems : []) : (typeof ventaItems !== 'undefined' ? ventaItems : []);
       const p = _varProds().find(x => x && x.id === id);
       const n = Math.max(1, parseInt(val, 10) || 1);
@@ -573,10 +613,13 @@ async function sugerirPresentacion(p, lista, ctx) {
   /* Si lo que falta es una caja cerrada, se dice cuánto salía: lo que se ofrece va a
      precio normal y puede salir más caro (chequeo del 25/09). */
   const caja = esCajaCerrada(p);
-  /* Sin stock no se vende (26/09): no se ofrece agregar la pedida igual. */
-  const frena = !_stockNoAplica(ctx);
+  /* Con el freno (26/09) no se ofrece agregar la pedida igual. Sin freno (29/09) sí, y se
+     dice que su stock queda en negativo (si el negocio descuenta stock). */
+  const frena = stockFrena(ctx);
+  const negativo = !frena && stockSeMira(ctx);
   const msg = 'No hay stock de ' + (p.nombreMostrado || p.nombre) + (quedan ? ' (quedan ' + quedan + ').' : '.') +
     (frena ? ' Sin stock no se puede vender.' : '') +
+    (negativo ? ' Si agregás la de ' + etiquetaVariante(p) + ' igual, su stock va a quedar en negativo.' : '') +
     (caja ? ' Es una caja cerrada: salía $' + precioDeVentaVariante(p, ctx).toLocaleString('es-AR') + '.' : '') + _VAR_NL + _VAR_NL +
     '¿Agregar ' + s.cantidad + ' de ' + etiquetaVariante(s.variante) + ' en su lugar? Cada una a su precio: $' +
     pu.toLocaleString('es-AR') + ', en total $' + (pu * s.cantidad).toLocaleString('es-AR') + '.';

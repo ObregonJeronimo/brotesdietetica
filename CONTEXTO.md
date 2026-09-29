@@ -68,7 +68,7 @@ Brotes es un **clon de YERCO** (otro comercio del mismo equipo, proyecto Firebas
 - `admin-inicio.js`: Centro de avisos.
 - `admin-costos.js`: fecha de costo, aviso al vender y ventana de costos.
 - `admin-variantes.js`: presentaciones, tamaños en el formulario, panel de bolsas en la tabla y
-  freno de stock.
+  el stock al vender (frenar o avisar: `FRENAR_VENTA_SIN_STOCK`).
 - `admin-escalas.js`: granel con bolsas. Precio por cantidad y de qué bolsa sale el stock.
 - `admin-stock.js`: "Agregar stock".
 - `admin-clientes.js`: clientes del local en la venta.
@@ -223,7 +223,7 @@ Brotes es un **clon de YERCO** (otro comercio del mismo equipo, proyecto Firebas
 
 - **Centro de avisos** (era "Inicio del día"): la primera pantalla al entrar. Muestra:
   - cómo fue ayer;
-  - lo que se vende y está sin stock (el stock **negativo no se muestra**, lo decidió el dueño);
+  - lo que se vende y está sin stock (el **negativo** también, desde el 29/09; del 26 al 29/09 no se mostraba);
   - los costos desactualizados, de a 10;
   - lo que se está por terminar;
   - la caja abierta de otro día.
@@ -242,7 +242,7 @@ Brotes es un **clon de YERCO** (otro comercio del mismo equipo, proyecto Firebas
 - **"?" del redondeo:** explica que la bolsa puede mostrar unos pesos de diferencia y que
   **NO SE PIERDE DINERO**.
 - **Freno de stock:** sin stock suficiente no se puede vender en el mostrador. Los pedidos web sí
-  pueden dejar el stock en negativo.
+  pueden dejar el stock en negativo. **El 29/09 se cambió** (sin subir): avisa y deja vender (§5.5).
 - **"Agregar stock"** en Stock: suma lo que llegó. El lápiz corrige el total.
 - **Productos con varios tamaños en una fila**, con un panel de tamaños que tiene la columna Costo.
 - **Proveedores:** las listas detrás del botón "Ver listas de proveedores", con buscador.
@@ -329,7 +329,7 @@ depende de la cantidad.
   cobrada (`escalaId`). En la venta se ven juntos en una línea.
 - **Caja cerrada:** se cobra el mayorista.
 - **Freno de stock:** sin stock suficiente no deja agregar ni registrar. Dice cuánto hay y manda
-  a "Agregar stock".
+  a "Agregar stock". Desde el 29/09 (sin subir) avisa y deja vender: ver §5.5.
 - **Aviso de costo desactualizado** si algún producto de la venta tiene el costo sin revisar hace
   más de 30 días.
 
@@ -365,9 +365,18 @@ producción (de los "gramajes" viejos).
   Se agregó el rollo de 50 × 25 mm, el texto en negro puro en la térmica y que se acuerde del
   formato y del tipo de rollo. Falta probarlo con la impresora. Detalle en `PENDIENTE.md` §1-bis P.
 
+### 5.5 Lo del 29/09 (en commits locales, SIN SUBIR)
+
+- **Vender sin stock suficiente, con aviso** (pedido del dueño): el freno del 26/09 queda apagado
+  con un solo interruptor, `FRENAR_VENTA_SIN_STOCK = false` (admin-variantes.js). Se agrega y se
+  registra igual; al registrar sale "Stock insuficiente" con "Vender igual" y en cuánto queda el
+  stock. El Centro de avisos muestra lo que está en negativo. Detalle en `PENDIENTE.md` §1-bis Q.
+
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
-- El stock negativo no aparece en el Centro de avisos (decidido el 26/09).
+- **Sin stock suficiente se puede vender, con aviso**, y el negativo **aparece** en el Centro de
+  avisos (pedido del dueño, 29/09). Del 26/09 al 29/09 frenaba y el negativo no aparecía. Para volver
+  a frenar: `FRENAR_VENTA_SIN_STOCK = true` en admin-variantes.js.
 - El nombre de la sección es "Centro de avisos". La venta arranca en Retiro. Se sacó la casilla de
   promociones.
 - Los buscadores quedan con la "opción A". El formulario de producto va resaltado con la misma
@@ -386,9 +395,10 @@ producción (de los "gramajes" viejos).
 
 ### 7.1 Después de la subida (lo más urgente)
 
-1. **Avisarle a la clienta del freno de stock.** El 27/09 había **154 de 344 productos a la venta
-   sin stock** (123 en 0 y 31 en negativo). No se pueden vender en el mostrador hasta cargarles
-   stock con "Agregar stock".
+1. **El freno de stock está en producción desde el 27/09** (ese día había 154 de 344 productos a la
+   venta sin stock: 123 en 0 y 31 en negativo). El 29/09 se cambió a "avisa y deja vender" (§5.5,
+   sin subir): al subirlo, avisarle a la clienta que ya puede vender sin stock y que el Centro de
+   avisos le muestra lo que quedó en negativo, para cargarlo.
 2. **Probar el ticket del pedido en la impresora térmica.**
 3. **Ventas viejas guardadas como envío sin cargo** (el default de antes): siguen diciendo "Envío"
    en la lista y en el ticket hasta que se editan. Pasarlas todas a Retiro es un cambio de datos
@@ -477,9 +487,9 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 - Antes de dar por terminado algo grande: revisión de código y prueba en el sandbox.
 
-Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El sandbox está cerrado.
+Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El 29/09 quedó hecho, sin subir, que se pueda vender sin stock con un aviso y que el Centro de avisos muestre los negativos (PENDIENTE.md §1-bis Q). El sandbox está cerrado.
 
-Pendientes principales: avisarle a la clienta del freno de stock (154 de 344 productos a la venta sin stock al 27/09), probar el ticket del pedido en la impresora térmica, decidir qué hacer con las ventas viejas guardadas como "Envío", y la migración (etapa 4), que se hace solo cuando yo lo pida. El resto de los pendientes está en CONTEXTO.md §7.
+Pendientes principales: subir lo del 29/09 (vender sin stock con aviso) cuando lo pida y avisarle a la clienta, probar el ticket del pedido en la impresora térmica, decidir qué hacer con las ventas viejas guardadas como "Envío", y la migración (etapa 4), que se hace solo cuando yo lo pida. El resto de los pendientes está en CONTEXTO.md §7.
 
 Cuando termines de leer, confirmame en pocas líneas que tenés el contexto y esperá mi próximo pedido; no arranques nada por tu cuenta.
 ```

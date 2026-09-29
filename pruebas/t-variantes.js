@@ -288,14 +288,29 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('si acepta, se agregan las de la otra presentación', r === 'hecho' && w.agregados.join() === 'min:mani80,min:mani80');
     const q = w.preguntas[0];
     t('  la pregunta dice cuántas, de cuál y cuánto sale', !!q && q.msg.indexOf('¿Agregar 2 de 80 g') >= 0 && q.msg.indexOf('$2.400') > 0);
-    t('  sin stock no se vende (26/09): la otra, o cancelar; no "agregar la pedida igual"',
-      q.op.opciones.map(x => x.valor).join() === 'otra,no' && q.op.opciones[0].principal === true &&
-      q.op.opciones[1].texto === 'Cancelar' && q.msg.indexOf('No hay stock de Maní x 160 g. Sin stock no se puede vender.') === 0, q.msg);
+    t('  sin stock se puede vender avisando (29/09): la otra, o la pedida igual, diciendo que queda en negativo',
+      q.op.opciones.map(x => x.valor).join() === 'otra,igual' && q.op.opciones[0].principal === true &&
+      q.op.opciones[1].texto === 'Agregar la de 160 g igual' &&
+      q.msg.indexOf('No hay stock de Maní x 160 g. Si agregás la de 160 g igual, su stock va a quedar en negativo.') === 0, q.msg);
   }
   {
-    const w = armar({ respuesta: 'no' });
+    const w = armar({ respuesta: 'igual' });
     const r = await w.ctx.sugerirPresentacion(buscar(w.ctx.allProducts, 'mani160'), [], 'min');
-    t('"Cancelar" no agrega nada', r === 'cancelar' && w.agregados.length === 0);
+    t('"Agregar la de 160 g igual" sigue con la pedida (la agrega quien llama)', r === 'seguir' && w.agregados.length === 0);
+  }
+  {
+    /* Con el freno prendido (26/09, FRENAR_VENTA_SIN_STOCK): no se ofrece la pedida igual. */
+    const w = armar({ respuesta: 'otra' });
+    vm.runInContext('FRENAR_VENTA_SIN_STOCK = true;', w.ctx);
+    await w.ctx.sugerirPresentacion(buscar(w.ctx.allProducts, 'mani160'), [], 'min');
+    const q = w.preguntas[0];
+    t('con el freno: la otra, o cancelar; no "agregar la pedida igual"',
+      q.op.opciones.map(x => x.valor).join() === 'otra,no' && q.op.opciones[0].principal === true &&
+      q.op.opciones[1].texto === 'Cancelar' && q.msg.indexOf('No hay stock de Maní x 160 g. Sin stock no se puede vender.') === 0, q.msg);
+    const w2 = armar({ respuesta: 'no' });
+    vm.runInContext('FRENAR_VENTA_SIN_STOCK = true;', w2.ctx);
+    const r = await w2.ctx.sugerirPresentacion(buscar(w2.ctx.allProducts, 'mani160'), [], 'min');
+    t('  y "Cancelar" no agrega nada', r === 'cancelar' && w2.agregados.length === 0);
   }
   {
     const w = armar({ respuesta: 'igual' });

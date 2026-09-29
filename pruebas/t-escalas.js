@@ -129,6 +129,9 @@ function armar(opts) {
   /* La cuenta de verdad de admin.html. */
   vm.runInContext(['esPorPeso', 'precioConDsc', 'subtotalItem'].map(n => cuerpo(html, n)).join('\n'), ctx);
   vm.runInContext(VAR, ctx);
+  /* Estas pruebas son del FRENO (26/09): corren con el interruptor prendido. Las de vender
+     sin stock avisando (29/09, lo que anda hoy) piden { frena: false }. */
+  if (o.frena !== false) vm.runInContext('FRENAR_VENTA_SIN_STOCK = true;', ctx);
   vm.runInContext(ESC, ctx);
   return { ctx, porId, pintados, preguntas, confirmaciones, gramosPedidos, originales, avisos };
 }
@@ -722,8 +725,8 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
   }
   {
     /* Lo que queda en admin.html y admin-dialogo.js. */
-    t('agregar un producto por unidad sin stock no se puede: se dice por qué (releyendo el stock antes)',
-      html.indexOf("const sp=(p&&typeof stockParaVentaFresco==='function')?await stockParaVentaFresco(p,lista,ctx,1):null;") > 0 &&
+    t('agregar un producto por unidad sin stock no se puede: se dice por qué (releyendo el stock antes; solo si frena)',
+      html.indexOf("const sp=(p&&typeof stockFrena==='function'&&stockFrena(ctx))?await stockParaVentaFresco(p,lista,ctx,1):null;") > 0 &&
       html.indexOf("if(sp&&sp.queda<1){await avisarSinStock(p,sp.hay,sp.ya);return;}") > 0);
     t('  los gramos de un granel sin escalas frenan en el diálogo',
       html.indexOf("const gr = await pedirCantidadPeso(p,Object.assign({precioKg:precioKg},(sp&&typeof frenoDeGramos==='function')?frenoDeGramos(p,sp,async()=>{await _stockFresco([p.id]);return stockParaVenta(p,lista,ctx);}):{}));") > 0);
@@ -733,6 +736,122 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     t('  y el botón apagado se ve apagado (antes quedaba igual de verde)', /\.dlg-pie \.btn:disabled\{opacity:0\.4;cursor:not-allowed/.test(html));
     t('  sin nada de stock, el aviso sale de entrada', /\/\* Sin nada de stock el aviso sale de entrada, antes de escribir\. \*\/\s*pintar\(\);/.test(dialogo));
     t('  y sin bloquear (el negocio no descuenta), como antes', dialogo.indexOf("(!bloquear && ok && stock > 0 && g > stock)") > 0);
+  }
+
+  /* =================================== VENDER SIN STOCK: SE AVISA Y SE DEJA (29/09) */
+  console.log('\n-- vender sin stock suficiente: se avisa y se deja (29/09, lo que anda hoy) --');
+  {
+    /* Pedido del dueño (29/09/2026): "que te deje vender igual, pero que te salte el aviso".
+       Es FRENAR_VENTA_SIN_STOCK en false: estas pruebas piden { frena: false }. */
+    const linea = (id, cant, extra) => Object.assign({ id, nombre: id, precio: 1000, cantidad: cant, tipoVenta: 'unidad' }, extra || {});
+    const w = armar({ frena: false, ventaItems: [linea('y500', 12)] });
+    t('el interruptor viene apagado: el stock se mira, pero no frena', /let FRENAR_VENTA_SIN_STOCK = false;/.test(VAR) &&
+      w.ctx.stockFrena('min') === false && w.ctx.stockSeMira('min') === true);
+    t('la línea dice que queda en negativo (no que no se puede)', w.ctx.vistaItemsVenta(w.ctx.ventaItems)[0].__falta === 'Solo hay 10 unidades en stock: va a quedar en negativo');
+    const ok = await w.ctx.avisoStockInsuficiente(w.ctx.ventaItems, 'min');
+    const c = w.confirmaciones[0] || { msg: '', op: {} };
+    t('al registrar pregunta, con "Vender igual" y "Revisar la venta", y el ícono en amarillo',
+      ok === true && w.avisos.length === 0 && w.confirmaciones.length === 1 && c.op.titulo === 'Stock insuficiente' &&
+      c.op.aceptar === 'Vender igual' && c.op.cancelar === 'Revisar la venta' && c.op.cuidado === true && !c.op.alerta && !c.op.peligro, JSON.stringify(c.op));
+    t('  el aviso dice qué pasa, en cuánto queda el stock y qué hacer después',
+      c.msg.indexOf('[!] Estás por vender más de lo que tenés en stock.') === 0 &&
+      c.msg.indexOf('- Yerba Mate x 500 g: tenés 10 unidades y estás vendiendo 12 unidades. Va a quedar en -2 unidades.') > 0 &&
+      c.msg.indexOf('Podés vender igual: la venta se registra y el stock de este producto queda en negativo.') > 0 &&
+      c.msg.indexOf('Cuando te llegue la mercadería, cargala en Stock con "Agregar stock" y el número vuelve a estar bien.') > 0, c.msg);
+    t('  el ícono amarillo existe', /\(opts\.cuidado \? ' cuidado' : ''\)/.test(dialogo) && /\.dlg-box\.cuidado \.dlg-ico\{/.test(html));
+    t('  y se repintan las líneas antes de preguntar (con el stock recién leído)', w.pintados.indexOf('min') >= 0);
+    const wno = armar({ frena: false, confirma: false, ventaItems: [linea('y500', 12)] });
+    t('"Revisar la venta" no registra: vuelve a la venta', (await wno.ctx.avisoStockInsuficiente(wno.ctx.ventaItems, 'min')) === false);
+    const wv = armar({ frena: false, ventaItems: [linea('y500', 12), linea('nuez', 3500, { tipoVenta: 'peso' })] });
+    await wv.ctx.avisoStockInsuficiente(wv.ctx.ventaItems, 'min');
+    const cv = wv.confirmaciones[0] || { msg: '' };
+    t('con varios, un solo aviso con todos, y el granel en gramos', wv.confirmaciones.length === 1 &&
+      cv.msg.indexOf('[!] Estás por vender más de lo que tenés en stock de estos productos:') === 0 &&
+      cv.msg.indexOf('- Nueces: tenés 3 kg y estás vendiendo 3,5 kg. Va a quedar en -500 g.') > 0 &&
+      cv.msg.indexOf('el stock de estos productos queda en negativo') > 0, cv.msg);
+    const prods = catalogo();
+    prods.find(p => p.id === 'y500').stock = -2;
+    const wn = armar({ frena: false, productos: prods, ventaItems: [linea('y500', 3)] });
+    await wn.ctx.avisoStockInsuficiente(wn.ctx.ventaItems, 'min');
+    t('ya en negativo: "no te queda stock", y queda en -5 (el negativo de antes también cuenta)',
+      (wn.confirmaciones[0] || { msg: '' }).msg.indexOf('- Yerba Mate x 500 g: no te queda stock y estás vendiendo 3 unidades. Va a quedar en -5 unidades.') > 0 &&
+      wn.ctx.vistaItemsVenta(wn.ctx.ventaItems)[0].__falta === 'Sin stock: va a quedar en negativo', (wn.confirmaciones[0] || {}).msg);
+    const we = armar({ frena: false, ventaItems: [linea('y500', 17)], editingVentaId: 'v1', editingVentaOriginal: { stockDescontado: true, items: [{ id: 'y500', cantidad: 5 }] } });
+    await we.ctx.avisoStockInsuficiente(we.ctx.ventaItems, 'min');
+    t('editando una venta, lo que ya había descontado vuelve: 10 + 5, vende 17, queda en -2',
+      (we.confirmaciones[0] || { msg: '' }).msg.indexOf('tenés 15 unidades y estás vendiendo 17 unidades. Va a quedar en -2 unidades.') > 0, (we.confirmaciones[0] || {}).msg);
+    const w1 = armar({ frena: false, ventaItems: [linea('y500', 11)] });
+    await w1.ctx.avisoStockInsuficiente(w1.ctx.ventaItems, 'min');
+    t('  "-1 unidad", en singular', (w1.confirmaciones[0] || { msg: '' }).msg.indexOf('Va a quedar en -1 unidad.') > 0);
+    const wok = armar({ frena: false, ventaItems: [linea('y500', 10)] });
+    t('si alcanza, no pregunta nada', (await wok.ctx.avisoStockInsuficiente(wok.ctx.ventaItems, 'min')) === true && wok.confirmaciones.length === 0);
+    const wm = armar({ frena: false, ventaMayItems: [linea('y500', 11)] });
+    t('en la mayorista igual', (await wm.ctx.avisoStockInsuficiente(wm.ctx.ventaMayItems, 'may')) === true && wm.confirmaciones.length === 1 &&
+      wm.ctx.vistaItemsVenta(wm.ctx.ventaMayItems)[0].__falta === 'Solo hay 10 unidades en stock: va a quedar en negativo');
+    const wd = armar({ frena: false, ventaItems: [linea('y500', 12)] });
+    wd.ctx.DESCONTAR_STOCK = false;
+    t('si el negocio no descuenta stock, ni pregunta ni marca la línea', (await wd.ctx.avisoStockInsuficiente(wd.ctx.ventaItems, 'min')) === true &&
+      wd.confirmaciones.length === 0 && wd.ctx.vistaItemsVenta(wd.ctx.ventaItems) === wd.ctx.ventaItems);
+  }
+  {
+    /* Cambiar la cantidad en la línea: se cambia, como siempre. */
+    const nueces = () => [{ id: 'nuez', nombre: 'Nueces', precio: 18000, costo: 9000, cantidad: 250, descuento: 0, tipoVenta: 'peso' }];
+    const w = armar({ frena: false, ventaItems: nueces() });
+    await w.ctx.updateVentaQty('nuez', '3500');
+    t('subir la cantidad de la línea más de lo que hay se puede, sin cartel (lo dice la línea)', w.originales.join() === 'qty:nuez=3500' && w.avisos.length === 0);
+    const wm = armar({ frena: false, ventaMayItems: [{ id: 'y500', nombre: 'Yerba', precio: 1000, cantidad: 2, tipoVenta: 'unidad' }] });
+    await wm.ctx.updateVentaMayQty('y500', '11');
+    t('  en la mayorista igual', wm.originales.join() === 'mayqty:y500=11' && wm.avisos.length === 0);
+    let leidas = 0;
+    const wl = armar({ frena: false, ventaItems: nueces() });
+    wl.ctx.db = { collection: () => ({ doc: () => ({ get: async () => { leidas++; return { exists: false }; } }) }) };
+    await wl.ctx.updateVentaQty('nuez', '9000');
+    t('  y sin releer el stock: no hay nada que frenar', leidas === 0 && wl.originales.join() === 'qty:nuez=9000');
+    /* La línea de un granel con bolsas (la envuelve admin-escalas.js): 13 kg con 12,5 kg. */
+    const wg = armar({ frena: false, ventaItems: [{ id: 'y1', nombre: 'Yerba Mate', precio: 8000, costo: 5000, cantidad: 200, descuento: 0, tipoVenta: 'peso', escalaId: 'y1' }] });
+    await wg.ctx.updateVentaQty('y1', '13000');
+    const mz = wg.confirmaciones.find(x => x.msg.indexOf('Y ni así alcanza') > 0) || { msg: '' };
+    t('  un granel con bolsas también: 13 kg con 12,5 kg se ponen, avisando que falta y queda en negativo',
+      wg.avisos.length === 0 && wg.ctx.ventaItems.reduce((s, i) => s + i.cantidad, 0) === 13000 &&
+      mz.msg.indexOf('[!] Y ni así alcanza: faltan 500 g.') > 0, renglones(wg.ctx.ventaItems) + ' | ' + mz.msg);
+  }
+  {
+    /* El diálogo de gramos: deja, avisando. */
+    const w = armar({ frena: false });
+    const fr = w.ctx.frenoDeGramos(b(w.ctx, 'nuez'), { hay: 3000, ya: 0, queda: 3000 });
+    t('el diálogo de gramos recibe que avise, no que bloquee', fr.stock === 3000 && fr.avisarNegativo === true && !fr.bloquear &&
+      JSON.stringify(w.ctx.frenoDeGramos(b(w.ctx, 'nuez'), null)) === '{}');
+    const wg = armar({ frena: false, gramos: 700 });
+    await wg.ctx.agregarGranelVenta(b(wg.ctx, 'y1'), 'min');
+    const op = wg.gramosPedidos[0].op;
+    t('  el del granel con escalas también, con todo lo que hay en sus bolsas', op.avisarNegativo === true && !op.bloquear && op.stock === 12500);
+    t('  y el diálogo dice "sin stock" arriba, y abajo que se puede y queda en negativo',
+      dialogo.indexOf("((bloquear || opts.avisarNegativo) ? ' &middot; sin stock' : '')") > 0 &&
+      dialogo.indexOf("'Ojo: no queda stock de este producto. '") > 0 && dialogo.indexOf("'Se puede vender igual, y el stock va a quedar en negativo.'") > 0);
+  }
+  {
+    /* El granel con escalas: más de lo que hay en todas las bolsas se agrega, avisando. */
+    const w = armar({ frena: false, gramos: 20000 });
+    const r = await w.ctx.agregarGranelVenta(b(w.ctx, 'y1'), 'min');
+    const cf = w.confirmaciones.find(x => x.msg.indexOf('Y ni así alcanza') > 0) || { msg: '', op: {} };
+    t('20 kg con 12,5 kg en las bolsas: se agrega, avisando que la bolsa de 5 kg queda en negativo',
+      r === 'hecho' && w.avisos.length === 0 && w.ctx.ventaItems.reduce((s, i) => s + i.cantidad, 0) === 20000 &&
+      cf.msg.indexOf('[!] Y ni así alcanza: faltan 7,5 kg. Se descuentan de la bolsa de 5 kg, que queda con el stock en negativo.') > 0 &&
+      cf.op.aceptar === 'Sí, vender', cf.msg);
+    const w2 = armar({ frena: false, gramos: 20000, confirma: false });
+    t('  y si dice que no, no se agrega nada', (await w2.ctx.agregarGranelVenta(b(w2.ctx, 'y1'), 'min')) === 'cancelar' && w2.ctx.ventaItems.length === 0);
+    const pocas = catalogo();
+    pocas.find(p => p.id === 'y5').stock = 0;
+    const w3 = armar({ frena: false, gramos: 2900, productos: pocas, opcion: 'igual' });
+    await w3.ctx.agregarGranelVenta(b(w3.ctx, 'y1'), 'min');
+    t('"llevando más, paga menos" se ofrece aunque no haya para llevar más (2,9 kg con 2,5 kg en las bolsas)',
+      w3.preguntas.some(q => q.op.titulo === 'Llevando más, paga menos'));
+  }
+  {
+    /* La otra presentación: se puede agregar la pedida igual (ver t-variantes.js). Y agregar
+       un producto por unidad sin stock: admin.html solo relee y frena si frena. */
+    t('agregar un producto por unidad sin stock: solo se frena si frena (stockFrena)',
+      html.indexOf("const sp=(p&&typeof stockFrena==='function'&&stockFrena(ctx))?await stockParaVentaFresco(p,lista,ctx,1):null;") > 0);
   }
 
   /* ======================================== LA REVISIÓN DE CÓDIGO DEL 26/09 */
@@ -829,7 +948,9 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     await w2.ctx.avisoStockInsuficiente(w2.ctx.ventaItems, 'min');
     t('al frenar al registrar se repintan las líneas (se ve cuál no alcanza)', w2.pintados.indexOf('min') >= 0);
     t('"¿Tenés lo que costó la bolsa?" usa enModoTamanos, no su copia', ESC.indexOf('const conTabla = typeof enModoTamanos === \'function\' && enModoTamanos();') > 0);
-    t('"el stock se mira" en un solo lugar (stockSeMira)', (ESC.match(/_stockNoAplica/g) || []).length === 0 && (ESC.match(/_escFrena\(/g) || []).length >= 4);
+    t('"el stock se mira" en un solo lugar (stockSeMira), y "frena" en otro (stockFrena)', (ESC.match(/_stockNoAplica/g) || []).length === 0 &&
+      (ESC.match(/_escFrena\(|_escMira\(/g) || []).length >= 4 && /const _escMira = ctx => typeof stockSeMira === 'function' && stockSeMira\(ctx\);/.test(ESC) &&
+      /const _escFrena = ctx => typeof stockFrena === 'function' && stockFrena\(ctx\);/.test(ESC));
   }
 
   /* ======================================== LA REVISIÓN DE CÓDIGO DEL 25/09 */

@@ -409,7 +409,7 @@
         .dlg-cab{display:flex;align-items:center;gap:0.7rem;margin-bottom:0.85rem}
         .dlg-cab h3{font-size:1.02rem;font-weight:700;margin:0}
         .dlg-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--accent-bg);color:var(--accent-light);font-size:1.05rem}
-        .dlg-box.peligro .dlg-ico,.dlg-box.alerta .dlg-ico{background:rgba(229,69,69,0.15);color:var(--danger)}
+        .dlg-box.peligro .dlg-ico,.dlg-box.alerta .dlg-ico{background:rgba(229,69,69,0.15);color:var(--danger)}.dlg-box.cuidado .dlg-ico{background:rgba(237,184,51,0.15);color:#EDB833}
         .dlg-msg{font-size:0.9rem;line-height:1.55;color:var(--text);max-height:52vh;overflow-y:auto;overflow-x:hidden}
         .dlg-linea{margin:0 0 0.35rem;overflow-wrap:break-word}
         .dlg-linea:last-child{margin-bottom:0}
@@ -3742,8 +3742,8 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 /* ya se agregaron: las de la otra presentacion, o los renglones del granel */
             } else if(p && esPorPeso(p)){
                 const precioKg = may ? (p.precioMayorista||p.precio||0) : (p.precio||0);
-                /* Sin stock suficiente no se vende (pedido del comercio, 26/09/2026): el dialogo
-                   no deja pasar mas de lo que queda. Ver stockParaVenta en admin-variantes.js. */
+                /* Sin stock suficiente el dialogo frena (26/09) o avisa que queda en negativo
+                   (29/09): ver frenoDeGramos en admin-variantes.js. */
                 const sp=(typeof stockParaVenta==='function')?stockParaVenta(p,lista,ctx):null;
                 const gr = await pedirCantidadPeso(p,Object.assign({precioKg:precioKg},(sp&&typeof frenoDeGramos==='function')?frenoDeGramos(p,sp,async()=>{await _stockFresco([p.id]);return stockParaVenta(p,lista,ctx);}):{}));
                 if(gr==null) return;                       /* cancelo */
@@ -3753,7 +3753,9 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                 const it = lista.find(x=>x.id===id);
                 if(it){ it.cantidad = yaEstaba ? (antes+gr) : gr; repintar(); }
             } else {
-                const sp=(p&&typeof stockParaVentaFresco==='function')?await stockParaVentaFresco(p,lista,ctx,1):null;
+                /* Con el freno (26/09) sin stock no se agrega. Sin freno (29/09) se agrega: la
+                   linea dice que queda en negativo y al registrar se avisa. */
+                const sp=(p&&typeof stockFrena==='function'&&stockFrena(ctx))?await stockParaVentaFresco(p,lista,ctx,1):null;
                 if(sp&&sp.queda<1){await avisarSinStock(p,sp.hay,sp.ya);return;}
                 orig(id);
             }

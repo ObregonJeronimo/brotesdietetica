@@ -46,7 +46,7 @@ function catalogo() {
     /* Un granel con dos bolsas: la de 2 kg vacía, pero la de 1 kg tiene. */
     { id: 'm1', nombre: 'Maní', tipoVenta: 'peso', gramaje: '1 kg', stock: 3000, costo: 1000, precio: 2000, costoActualizadoEn: hace(10) },
     { id: 'm2', nombre: 'Maní x 2 kg', tipoVenta: 'peso', gramaje: '2 kg', gramajePadreId: 'm1', stock: 0, costo: 800, precio: 1600, costoActualizadoEn: hace(10) },
-    /* Otro granel con las DOS bolsas vacías: ese no se puede vender. */
+    /* Otro granel con las DOS bolsas sin stock (la de 3 kg en negativo): aparecen las dos. */
     { id: 'y1', nombre: 'Yerba', tipoVenta: 'peso', gramaje: '1 kg', stock: 0, costo: 3000, precio: 5000, costoActualizadoEn: hace(10) },
     { id: 'y3', nombre: 'Yerba x 3 kg', tipoVenta: 'peso', gramaje: '3 kg', gramajePadreId: 'y1', stock: -100, costo: 2500, precio: 4500, costoActualizadoEn: hace(10) },
     { id: 'gal', nombre: 'Galletas', tipoVenta: 'unidad', stock: 3, costo: 400, precio: 900, costoActualizadoEn: hace(31) },
@@ -137,15 +137,15 @@ console.log('\n-- lo que se vende y está sin stock --');
   const s = ctx.sinStockQueSeVende(ctx.allProducts, ctx.vendidoPorProducto(ventas()));
   const ids = s.lista.map(f => f.p.id);
   t('primero lo que más se vende: el alfajor (5 ventas)', ids[0] === 'alf', ids);
-  t('el stock NEGATIVO no aparece (pedido del dueño, 26/09): la harina en -2 y la bolsa de yerba en -100',
-    ids.indexOf('har') < 0 && ids.indexOf('y3') < 0);
-  t('  un granel con TODAS las bolsas vacías no se puede vender: la bolsa de yerba en 0 sí', ids.indexOf('y1') > 0 && ids.length === 2, ids);
+  t('el stock NEGATIVO aparece (pedido del dueño, 29/09): la harina en -2 y la bolsa de yerba en -100',
+    ids.indexOf('har') > 0 && ids.indexOf('y3') > 0, ids);
+  t('  un granel con TODAS las bolsas vacías va entero: la de 1 kg en 0 y la de 3 kg en -100', ids.indexOf('y1') > 0 && ids.length === 4, ids);
   t('una bolsa vacía con otra bolsa que tiene va aparte: se sigue vendiendo', s.bolsas.length === 1 && s.bolsas[0].p.id === 'm2' &&
     s.bolsas[0].otras[0].id === 'm1', s.bolsas.map(f => f.p.id));
   t('lo publicado sin stock que no se vendió solo se cuenta: el trigo', s.quietos === 1);
   t('ni los ocultos ni los depurados', ids.indexOf('ocu') < 0 && ids.indexOf('dep') < 0);
   const sinVentas = ctx.sinStockQueSeVende(ctx.allProducts, null);
-  t('si no se pudieron leer las ventas, van todos los que están en 0 (no se esconde nada)', sinVentas.lista.length === 3 && sinVentas.quietos === 0,
+  t('si no se pudieron leer las ventas, van todos los que están en 0 o en negativo (no se esconde nada)', sinVentas.lista.length === 5 && sinVentas.quietos === 0,
     sinVentas.lista.map(f => f.p.id));
 }
 
@@ -354,9 +354,13 @@ console.log('\n-- lo que se ve --');
     h.indexOf('Hoy hay 1 cosa importante para resolver y 2 más para revisar.') > 0);
   t('el resumen de ayer con el total y la comparación', h.indexOf('$10.600') > 0 && h.indexOf('33% más que el') > 0 &&
     h.indexOf('Tienda online $1.600') > 0 && h.indexOf('sin contar 1 producto que no tiene costo cargado') > 0);
-  t('sin stock: el número grande y cada fila con Agregar stock y Corregir', h.indexOf('<span class="ini-num">2</span> productos que se venden están sin stock') > 0 &&
+  t('sin stock: el número grande y cada fila con Agregar stock y Corregir', h.indexOf('<span class="ini-num">4</span> productos que se venden están sin stock o en negativo') > 0 &&
     h.indexOf('data-ini="agregar" data-id="alf"') > 0 && h.indexOf('data-ini="corregir" data-id="alf"') > 0);
-  t('  el negativo no aparece', h.indexOf('data-id="har"') < 0 && h.indexOf('-2 unidades') < 0);
+  t('  el negativo aparece (29/09), con su stock y por qué, y con Agregar stock', h.indexOf('data-ini="agregar" data-id="har"') > 0 &&
+    h.indexOf('En stock: -2 unidades<small>se vendió más de lo que había cargado</small>') > 0);
+  t('  y el texto dice que se puede vender y queda en negativo (ya no que el sistema no deja)',
+    h.indexOf('Se pueden seguir vendiendo, pero el stock queda en negativo y deja de coincidir con lo que tenés.') > 0 &&
+    h.indexOf('poné el total con el lápiz') > 0 && h.indexOf('el sistema no deja vender') < 0);
   t('  la bolsa vacía va aparte, diciendo de qué bolsa se sigue vendiendo', h.indexOf('Bolsas vacías que se siguen vendiendo con otra bolsa') > 0 &&
     h.indexOf('se vende de la bolsa de 1 kg (3 kg), con aviso de mezcla') > 0);
   t('  y lo que no se vende, en una línea con el camino a Stock', h.indexOf('Además hay 1 producto publicado sin stock que no se vendió en el último mes.') > 0 &&
@@ -386,7 +390,7 @@ console.log('\n-- lo que se ve --');
   m.ctx.allProducts.find(p => p.id === 'alf').stock = 12;
   await m.ctx.actualizarBadgeAlertas();
   await m.ctx.refrescarInicio(false);
-  t('lo que se resuelve desaparece solo: el alfajor ya tiene stock', m.cuerpoIni.innerHTML.indexOf('<span class="ini-num">1</span> producto que se vende está sin stock') > 0 &&
+  t('lo que se resuelve desaparece solo: el alfajor ya tiene stock', m.cuerpoIni.innerHTML.indexOf('<span class="ini-num">3</span> productos que se venden están sin stock o en negativo') > 0 &&
     m.cuerpoIni.innerHTML.indexOf('data-ini="agregar" data-id="alf"') < 0);
 }
 {

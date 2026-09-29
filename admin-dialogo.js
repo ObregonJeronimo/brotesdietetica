@@ -25,9 +25,11 @@ let _dlgAbiertos = 0;
 
 /**
  * @param {string} mensaje  Texto principal. Los saltos de línea se respetan.
- * @param {Object} [opts]   { titulo, aceptar, cancelar, peligro, icono, alerta }
+ * @param {Object} [opts]   { titulo, aceptar, cancelar, peligro, icono, alerta, cuidado }
  *                          alerta: el ícono en rojo, sin volver rojo el botón (un aviso
  *                          que frena, como "Stock insuficiente", no borra nada).
+ *                          cuidado: el ícono en amarillo (un aviso que deja seguir, como
+ *                          vender sin stock suficiente: 29/09).
  * @returns {Promise<boolean>}
  */
 function pedirConfirmacion(mensaje, opts) {
@@ -50,7 +52,7 @@ function pedirConfirmacion(mensaje, opts) {
     _dlgAbiertos++;
 
     ov.innerHTML =
-      '<div class="dlg-box' + (peligro ? ' peligro' : '') + (opts.alerta ? ' alerta' : '') + '" role="alertdialog" aria-modal="true" aria-labelledby="dlgTit">' +
+      '<div class="dlg-box' + (peligro ? ' peligro' : '') + (opts.alerta ? ' alerta' : '') + (opts.cuidado ? ' cuidado' : '') + '" role="alertdialog" aria-modal="true" aria-labelledby="dlgTit">' +
         '<div class="dlg-cab">' +
           '<span class="dlg-ico"><i class="bi ' + icono + '"></i></span>' +
           '<h3 id="dlgTit">' + _dlgEsc(titulo) + '</h3>' +
@@ -247,6 +249,8 @@ function _dlgTexto(msg) {
    opts.bloquear, si los gramos pasan opts.stock (lo que queda para esta venta) el botón
    no anda y abajo sale opts.avisoSinStock en rojo, con opts.ayudaSinStock (qué hacer).
    Sin bloquear -el negocio no descuenta stock- se avisa y se deja, como antes.
+   SIN FRENO (pedido del dueño, 29/09/2026): con opts.avisarNegativo se deja agregar y se
+   avisa que el stock va a quedar en negativo, también cuando no hay nada de stock.
    ============================================================================= */
 function pedirCantidadPeso(producto, opts) {
   opts = opts || {};
@@ -257,7 +261,7 @@ function pedirCantidadPeso(producto, opts) {
   const RAPIDOS = [100, 250, 500, 1000];
   const bloquear = !!opts.bloquear;
   const sinStock = g => bloquear && (stock <= 0 || (Number.isFinite(g) && g > stock));
-  const hayTxt = () => (stock > 0 ? ' &middot; hay ' + _dlgPeso(stock) : (bloquear ? ' &middot; sin stock' : ''));
+  const hayTxt = () => (stock > 0 ? ' &middot; hay ' + _dlgPeso(stock) : ((bloquear || opts.avisarNegativo) ? ' &middot; sin stock' : ''));
 
   return new Promise(resolve => {
     const ov = document.createElement('div');
@@ -355,9 +359,14 @@ function pedirCantidadPeso(producto, opts) {
         return;
       }
       avi.className = 'pz-aviso';
-      /* Sin bloquear (el negocio no descuenta stock) se avisa y se deja. */
-      avi.textContent = (!bloquear && ok && stock > 0 && g > stock)
-        ? 'Ojo: en el sistema figuran ' + _dlgPeso(stock) + '. Se puede vender igual.' : '';
+      /* Sin bloquear se avisa y se deja. Si el stock se descuenta y no frena (29/09:
+         opts.avisarNegativo), se dice que queda en negativo; si el negocio no descuenta
+         stock, solo lo que figura, como antes. */
+      avi.textContent = (opts.avisarNegativo && ok && g > stock)
+        ? (stock > 0 ? 'Ojo: quedan ' + _dlgPeso(stock) + ' en stock. ' : 'Ojo: no queda stock de este producto. ') +
+          'Se puede vender igual, y el stock va a quedar en negativo.'
+        : (!bloquear && ok && stock > 0 && g > stock)
+          ? 'Ojo: en el sistema figuran ' + _dlgPeso(stock) + '. Se puede vender igual.' : '';
     }
 
     function onTecla(e) {

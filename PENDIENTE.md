@@ -1631,6 +1631,45 @@ eligió el rollo de 50 × 25 sin "Rollo continuo", se recargó la página y volv
 sesión) y el panel ya trae lo nuevo. Las functions y las reglas no cambiaron. Falta probar las
 etiquetas con la impresora térmica, junto con el ticket.
 
+### Q) Vender sin stock suficiente: se avisa y se deja · **HECHO, SIN SUBIR** (29/09/2026)
+
+Pedido del dueño: el freno del 26/09 no dejaba vender, por ejemplo, 3 bolsas de maní de 80 g con 2
+en stock. Ahora se puede, con un aviso claro. Y el Centro de avisos muestra lo que está en negativo.
+- **Un solo interruptor:** `FRENAR_VENTA_SIN_STOCK` (admin-variantes.js), en `false`. Ya cambió dos
+  veces (el 25/09 avisaba, el 26/09 frenaba, el 29/09 avisa): para volver a frenar alcanza con poner
+  `true`, porque todo lo que frenaba pregunta ahí (`stockFrena`). Las pruebas del freno siguen
+  corriendo con el interruptor prendido.
+- **Al vender** (mostrador y mayorista), se agrega y se cambia la cantidad sin freno. La línea dice
+  en amarillo "Solo hay 2 unidades en stock: va a quedar en negativo" (o "Sin stock: ..."). El
+  diálogo de gramos deja agregar y avisa ("Ojo: quedan 220 g en stock. Se puede vender igual, y el
+  stock va a quedar en negativo."). La otra presentación vuelve a ofrecer "Agregar la de 160 g
+  igual". El granel con bolsas se agrega aunque no alcance, con el aviso de la mezcla ("faltan 7,5
+  kg... queda con el stock en negativo").
+- **Al registrar**, si algo no alcanza sale "Stock insuficiente", con el ícono amarillo: "Estás por
+  vender más de lo que tenés en stock", cada producto con cuánto hay, cuánto se vende y en cuánto
+  queda ("Va a quedar en -1 unidad."), que se puede vender igual y que después se carga en Stock con
+  "Agregar stock". Botones: "Vender igual" y "Revisar la venta".
+- **Centro de avisos:** la tarjeta de lo que se vende sin stock ahora incluye el negativo ("3
+  productos que se venden están sin stock o en negativo"), cada uno con "se vendió más de lo que
+  había cargado", y el texto ya no dice que el sistema no deja vender.
+
+Probado en el sandbox con clics de verdad: 3 castañas con 2 en stock y 1 harina que estaba en -2
+(el aviso con los dos, "Vender igual", y quedaron en -1 y -3), el Centro con los negativos, y el
+diálogo de gramos con 500 g de un producto que tiene 220 g.
+
+**Revisión de código (29/09), anotado sin hacer:**
+- el negativo que no se vendió en el último mes solo se cuenta ("Además hay N productos..."), no se
+  lista: **decisión del dueño**, si lo quiere en la lista también;
+- el granel con bolsas avisa dos veces (la mezcla al agregar y "Stock insuficiente" al registrar), y
+  la otra presentación también;
+- una bolsa en negativo, con otra bolsa que tiene stock, sale en "Bolsas vacías" sin decir que está
+  en negativo;
+- Enter confirma "Vender igual" (el foco arranca ahí, como en los otros avisos);
+- el freno queda en el código detrás del interruptor: son dos modos para mantener.
+
+Pruebas: `t-escalas.js` (242: las del freno con el interruptor prendido, y 25 nuevas del aviso),
+`t-variantes.js` (238) y `t-inicio.js` (89). Total: 3688 en 87 suites.
+
 ---
 
 ## 2. Decisiones tuyas

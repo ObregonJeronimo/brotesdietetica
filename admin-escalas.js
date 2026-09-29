@@ -31,8 +31,11 @@ const _ESC_NL = String.fromCharCode(10);
 const _escProds = () => (typeof allProducts !== 'undefined' && Array.isArray(allProducts) ? allProducts : []);
 const _escPeso = g => (typeof fmtPeso === 'function' ? fmtPeso(g) : (typeof _dlgPeso === 'function' ? _dlgPeso(g) : g + ' g'));
 const _escPlata = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-AR');
-/* Si en esta venta el stock se mira (y entonces sin stock no se vende): stockSeMira. */
-const _escFrena = ctx => typeof stockSeMira === 'function' && stockSeMira(ctx);
+/* Si en esta venta el stock se mira (stockSeMira): lo que no alcanza se avisa. Y si además
+   frena (stockFrena; frenaba del 26/09 al 29/09), sin stock suficiente no se vende. Ver
+   FRENAR_VENTA_SIN_STOCK en admin-variantes.js. */
+const _escMira = ctx => typeof stockSeMira === 'function' && stockSeMira(ctx);
+const _escFrena = ctx => typeof stockFrena === 'function' && stockFrena(ctx);
 
 /* ----------------------------------------------------------- LAS ESCALAS */
 
@@ -368,8 +371,8 @@ function opcionesGramosEscalas(escalas, ctx, ya, dsc, disponible) {
   const todo = escalas.reduce((s, e) => s + disp(e), 0);
   const hay = todo - ya;
   const antes = ya > 0 ? escalaPara(escalas, ya) : null;
-  /* Sin stock suficiente no se agrega: ver frenoDeGramos en admin-variantes.js. */
-  const frena = _escFrena(ctx) && typeof frenoDeGramos === 'function';
+  /* Sin stock suficiente, el diálogo frena o avisa: ver frenoDeGramos en admin-variantes.js. */
+  const mira = _escMira(ctx) && typeof frenoDeGramos === 'function';
   return Object.assign({
     nombre: _escNombre(escalas[0]),
     detalle: precios + (ya > 0 ? ' · ya hay ' + _escPeso(ya) + ' en la venta' : ''),
@@ -383,7 +386,7 @@ function opcionesGramosEscalas(escalas, ctx, ya, dsc, disponible) {
           (antes && antes !== e ? ' Lo que ya estaba en la venta pasa a este precio.' : ''),
       };
     },
-  }, frena ? frenoDeGramos(escalas[0].producto, { hay: todo, ya: ya, queda: hay }, async () => {
+  }, mira ? frenoDeGramos(escalas[0].producto, { hay: todo, ya: ya, queda: hay }, async () => {
     if (typeof _stockFresco === 'function') await _stockFresco(escalas.map(e => e.id));
     const t = escalas.reduce((s, e) => s + disp(e), 0);
     return { hay: t, ya: ya, queda: t - ya };
@@ -412,8 +415,9 @@ async function fijarGranelVenta(escalas, total, ctx, opts) {
   let gramos = total;
   let cobra = escalaPara(escalas, gramos);
   const disp = disponibleParaVenta(ctx);
-  /* Sin stock suficiente no se vende (pedido del comercio, 26/09/2026): si no alcanza ni
-     sumando todas las bolsas, no se agrega. Así llega cambiar los gramos en la línea. */
+  /* Con el freno (pedido del comercio, 26/09/2026), si no alcanza ni sumando todas las
+     bolsas, no se agrega; así llega cambiar los gramos en la línea. Sin freno (29/09) se
+     agrega, y el aviso de la mezcla dice que la bolsa queda en negativo. */
   const frena = _escFrena(ctx);
   let hay = escalas.reduce((s, e) => s + disp(e), 0);
   if (frena && gramos > hay && typeof _stockFresco === 'function') {
@@ -496,7 +500,7 @@ function vistaItemsVenta(items) {
      avisoStockInsuficiente en admin-variantes.js). */
   const ctxV = esMay ? 'may' : 'min';
   const faltaDe = new Map();
-  if (typeof faltantesDeStock === 'function' && _escFrena(ctxV)) {
+  if (typeof faltantesDeStock === 'function' && _escMira(ctxV)) {
     faltantesDeStock(lista, ctxV).forEach(f => faltaDe.set(f.producto.id, f));
   }
   if (!grupoDe.size && !cajas.size && !faltaDe.size) return lista;

@@ -7,9 +7,9 @@
 
    1) Cómo fue ayer: cuánto se vendió, en cuántas ventas, la ganancia y contra el
       mismo día de la semana anterior.
-   2) Lo que SE VENDE y está sin stock (en 0: el negativo no se muestra). Con el
-      freno de stock (26/09) eso no se puede vender en el mostrador. Primero lo que
-      más se vende.
+   2) Lo que SE VENDE y está sin stock: en 0 o en negativo (el negativo se muestra desde
+      el 29/09, pedido del dueño: se puede vender sin stock y queda en negativo). Primero
+      lo que más se vende.
    3) Costos viejos (COSTO_VIEJO_DIAS, admin-costos.js) de lo que se vende, de a
       INICIO_TANDA_COSTOS, con el mismo editor que sale al vender. Desde acá solo
       sale de la lista el costo que se cambia (o se marca "Sigue igual"). Las bolsas
@@ -123,20 +123,19 @@ function _iniOtrasBolsas(p, prods) {
   return escalasDe(p, prods).filter(e => e.id !== p.id && Number((e.producto && e.producto.stock) || 0) > 0);
 }
 
-/* Lo publicado con stock en 0. `lista`: lo que se vendió en el último mes y hoy no
-   se puede vender. `bolsas`: bolsas vacías de un granel que sigue teniendo en otra.
-   `quietos`: los que tampoco se vendieron. Sin ventas leídas (vendido null) no se sabe qué
-   se vende, y van todos a `lista`.
-   EL NEGATIVO NO APARECE (pedido del dueño, 26/09). Ojo: el mostrador ya no vende sin
-   stock, pero un pedido WEB todavía puede dejarlo en negativo (descontarStockPedido
-   descuenta aunque no alcance). Ese producto queda sin stock para el mostrador y acá
-   no se ve; la campana sí lo cuenta. El dueño lo decidió así sabiéndolo (26/09). */
+/* Lo publicado con stock en 0 o en negativo. `lista`: lo que se vendió en el último mes.
+   `bolsas`: bolsas vacías de un granel que sigue teniendo en otra. `quietos`: los que
+   tampoco se vendieron. Sin ventas leídas (vendido null) no se sabe qué se vende, y van
+   todos a `lista`.
+   EL NEGATIVO APARECE desde el 29/09 (pedido del dueño). Del 26/09 al 29/09 no aparecía:
+   el mostrador no dejaba vender sin stock. Ahora deja, avisando, y lo que quedó en
+   negativo es stock que hay que cargar. */
 function sinStockQueSeVende(prods, vendido) {
   const lista = [], bolsas = [];
   let quietos = 0;
   (prods || []).filter(_iniALaVenta).forEach(p => {
     const s = Number(p.stock || 0);
-    if (s !== 0) return;
+    if (s > 0) return;
     const v = vendido ? vendido[p.id] : null;
     if (vendido && !v) { quietos++; return; }
     const fila = { p: p, stock: s, v: v || null };
@@ -448,22 +447,31 @@ function _iniHtmlSinStock(s, conVentas) {
   if (!n) {
     if (!bolsasHtml) {
       return _iniAviso('ok', 'bi-check-circle-fill', 'Todo lo que se vende tiene stock',
-        'Ningún producto vendido en el último mes está en cero.', '', quietos);
+        'Ningún producto vendido en el último mes está en cero ni en negativo.', '', quietos);
     }
     return _iniAviso('aviso', 'bi-bag-x', 'Hay bolsas vacías',
       'Se siguen vendiendo con la otra bolsa, pero cada venta sale con el aviso de mezcla y a otro costo. Cargá las bolsas que te llegaron.',
       bolsasHtml, quietos);
   }
   const todas = _iniAbierto.stock ? s.lista : s.lista.slice(0, INICIO_FILAS);
+  /* En negativo se dice por qué: se vendió más de lo que había cargado. */
   const filas = todas.map(f => _iniFila(_iniNombre(f.p), _iniVendidoTxt(f.v), 'En stock: ' + _iniCant(f.p, f.stock),
-    '', _iniBotonesStock(f.p))).join('');
+    f.stock < 0 ? 'se vendió más de lo que había cargado' : '', _iniBotonesStock(f.p))).join('');
   const verTodo = n > INICIO_FILAS
     ? '<button type="button" class="ini-link" data-ini="todo" data-cual="stock">' + (_iniAbierto.stock ? 'Ver menos' : 'Ver los ' + n) + '</button>' : '';
+  const neg = s.lista.filter(f => f.stock < 0).length;
+  const estado = neg === n ? ' en negativo' : (neg ? ' sin stock o en negativo' : ' sin stock');
   const titulo = conVentas
-    ? _iniNum(n) + _iniS(n, ' producto que se vende está', ' productos que se venden están') + ' sin stock'
-    : _iniNum(n) + _iniS(n, ' producto publicado está', ' productos publicados están') + ' sin stock';
-  const texto = 'Así no se pueden vender en el mostrador: el sistema no deja vender lo que no hay. ' +
-    'Si tenés la mercadería, cargala con <b>Agregar stock</b>.' +
+    ? _iniNum(n) + _iniS(n, ' producto que se vende está', ' productos que se venden están') + estado
+    : _iniNum(n) + _iniS(n, ' producto publicado está', ' productos publicados están') + estado;
+  /* Con el freno (FRENAR_VENTA_SIN_STOCK, admin-variantes.js) no se pueden vender; sin él
+     (29/09) sí, y el stock queda en negativo. */
+  const frena = typeof stockFrena === 'function' && stockFrena('min');
+  const texto = (frena
+    ? 'Así no se pueden vender en el mostrador: el sistema no deja vender lo que no hay. ' +
+      'Si tenés la mercadería, cargala con <b>Agregar stock</b>.'
+    : 'Se pueden seguir vendiendo, pero el stock queda en negativo y deja de coincidir con lo que tenés. ' +
+      'Si te llegó mercadería, sumala con <b>Agregar stock</b>; si contaste lo que hay, poné el total con el lápiz.') +
     (conVentas ? ' Primero están los que más se venden.' : ' (No se pudieron leer las ventas, así que no se sabe cuáles se venden más.)');
   return _iniAviso('critico', 'bi-x-octagon-fill', titulo, texto, filas + bolsasHtml, verTodo + quietos);
 }
