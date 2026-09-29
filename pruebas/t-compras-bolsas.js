@@ -273,6 +273,47 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('en la bolsa de 1 kg el aviso no repite el kilo',
       act && act.m.indexOf('- Mani RC x 1 kg: $4.000 → $4.500 la bolsa\n') >= 0 && act.m.indexOf('el kilo)') < 0, act && act.m);
   }
+  t('con una bolsa entera o más, no se pregunta por la cantidad', !w.preguntas.some(p => p.titulo === 'Revisá la cantidad'));
+  {
+    /* Revisión del 29/09: escribir 2 pensando en 2 bolsas carga 2 g, y la cuenta da $8. */
+    const armarDos = respuestas => {
+      const v = armar({ respuestas });
+      v.ctx.openCompraModal('L1');
+      v.ctx.compraAgregar('mrc3');
+      v.ctx.compraAgregar('alm');
+      v.ctx.compraCampo(0, 'cantidad', '2');
+      v.ctx.compraCampo(0, 'costoBolsa', '12000');
+      v.ctx.compraCampo(1, 'cantidad', '300');
+      return v;
+    };
+    const v = armarDos({ 'Revisá la cantidad': false });
+    await v.ctx.guardarCompra();
+    const p = v.preguntas.find(x => x.titulo === 'Revisá la cantidad');
+    t('una bolsa con menos de una bolsa (2 g de la de 3 kg) pregunta antes de guardar',
+      p && p.m.indexOf('La cantidad va en gramos') === 0 && p.m.indexOf('• Mani RC x 3 kg: 2 g (una bolsa son 3 kg)') > 0 &&
+      p.m.indexOf('2 bolsas de 3 kg son 6000 gramos') > 0, p && p.m);
+    t('  y no nombra lo que no es bolsa (300 g de Almendra)', p && p.m.indexOf('Almendra') < 0);
+    t('  "Volver y corregir" no guarda nada', v.guardadas.length === 0 && !v.preguntas.some(x => x.titulo === 'Guardar compra'));
+    const v2 = armarDos({ 'Revisá la cantidad': true });
+    await v2.ctx.guardarCompra();
+    t('  "Guardar igual" sigue como siempre', v2.guardadas.length === 1 && v2.guardadas[0].items.find(i => i.id === 'mrc3').subtotal === 8);
+  }
+  {
+    /* Sacar una fila de adentro de un recuadro: el otro tamaño queda en su recuadro, con los
+       números de fila nuevos. */
+    const v = armar();
+    v.ctx.openCompraModal('L1');
+    v.ctx.compraAgregar('mrc3');
+    v.ctx.compraAgregar('alm');
+    v.ctx.compraAgregar('mrc1');
+    v.ctx.compraQuitar(0);
+    const h = v.el('compraItems').innerHTML;
+    const r = recuadros(h);
+    t('sacar la de 3 kg deja la de 1 kg en su recuadro, con su fila nueva (1)',
+      v.items().map(i => i.id).join() === 'alm,mrc1' && r.length === 1 && /id="cpCant1"/.test(r[0]) &&
+      r[0].indexOf('cpCant0') < 0 && textoDe(r[0]).indexOf('Mani RC · 2 bolsas') === 0);
+    t('  y la de 3 kg vuelve a la lista para agregar', botones(v.el('compraLista').innerHTML).indexOf('mrc3(grupo)') >= 0);
+  }
 
   console.log('\n-- ver la compra --');
   {

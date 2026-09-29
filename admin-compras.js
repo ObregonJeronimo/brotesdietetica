@@ -269,11 +269,11 @@ function compraBuscarProd(q) {
   const t = String(q || '').trim().toLowerCase();
   const yaEsta = new Set(_compraItems.map(i => i.id));
   let prods = (typeof allProducts !== 'undefined' ? allProducts : []).filter(p => p.lista === prov && p.depurado !== true);
-  /* Por el nombre público, el interno, el que se ve en la lista ("Mani RC x 1 kg", 29/09:
-     buscando "Mani RC" no salía la de 1 kg, que en la tienda es "Maní Recubierto de
-     Chocolate") o el código. */
-  if (t) prods = prods.filter(p => [p.nombreMostrado, p.nombre, _cpNombre(p), p.codigo]
-    .some(s => String(s || '').toLowerCase().includes(t)));
+  /* Por el nombre público, el interno, el código o el que se ve en la lista ("Mani RC x 1 kg",
+     29/09: buscando "Mani RC" no salía la de 1 kg, que en la tienda es "Maní Recubierto de
+     Chocolate"). El que se ve, al final: es el único que cuesta armar. */
+  const dice = s => String(s || '').toLowerCase().includes(t);
+  if (t) prods = prods.filter(p => dice(p.nombreMostrado) || dice(p.nombre) || dice(p.codigo) || dice(_cpNombre(p)));
   prods = prods.filter(p => !yaEsta.has(p.id)).slice(0, 40);
   if (!prods.length) {
     cont.innerHTML = '<p style="font-size:0.82rem;color:var(--text-dim);padding:0.5rem 0">' +
@@ -660,6 +660,21 @@ async function guardarCompra() {
       'Podés volver, ponerles la cantidad y guardar de nuevo.',
       { titulo: 'Quedaron productos sin cantidad', aceptar: 'Guardar igual',
         cancelar: 'Volver y completar', icono: 'bi-exclamation-triangle' });
+    if (!seguir) return;
+  }
+  /* UNA BOLSA CON MENOS DE UNA BOLSA (revisión del 29/09). La cantidad va en gramos y el
+     costo por bolsa: escribir 2 pensando en 2 bolsas de 3 kg carga 2 g, y la cuenta sale $8
+     en vez de $24.000 sin que nada lo marque. Se pregunta antes de guardar. */
+  const pocas = conCantidad.filter(i => _cpEsBolsa(i) && Number(i.cantidad) < Number(i.gramosBolsa));
+  if (pocas.length) {
+    const nl = String.fromCharCode(10);
+    const seguir = await pedirConfirmacion(
+      'La cantidad va en gramos, y esto es menos de una bolsa:' + nl + nl +
+      pocas.map(i => '• ' + i.nombre + ': ' + _cpCant(i) + ' (una bolsa son ' +
+        _cpCant({ tipoVenta: 'peso', cantidad: i.gramosBolsa }) + ')').join(nl) + nl + nl +
+      'Por ejemplo, 2 bolsas de 3 kg son 6000 gramos.',
+      { titulo: 'Revisá la cantidad', aceptar: 'Guardar igual',
+        cancelar: 'Volver y corregir', icono: 'bi-exclamation-triangle' });
     if (!seguir) return;
   }
   const sinCosto = conCantidad.filter(i => Number(i.costoUnitario || 0) <= 0);
