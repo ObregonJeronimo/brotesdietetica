@@ -1631,7 +1631,7 @@ eligió el rollo de 50 × 25 sin "Rollo continuo", se recargó la página y volv
 sesión) y el panel ya trae lo nuevo. Las functions y las reglas no cambiaron. Falta probar las
 etiquetas con la impresora térmica, junto con el ticket.
 
-### Q) Vender sin stock suficiente: se avisa y se deja · **HECHO, SIN SUBIR** (29/09/2026)
+### Q) Vender sin stock suficiente: se avisa y se deja · **SUBIDO A PRODUCCIÓN el 29/09/2026**
 
 Pedido del dueño: el freno del 26/09 no dejaba vender, por ejemplo, 3 bolsas de maní de 80 g con 2
 en stock. Ahora se puede, con un aviso claro. Y el Centro de avisos muestra lo que está en negativo.
@@ -1669,6 +1669,12 @@ diálogo de gramos con 500 g de un producto que tiene 220 g.
 
 Pruebas: `t-escalas.js` (242: las del freno con el interruptor prendido, y 25 nuevas del aviso),
 `t-variantes.js` (238) y `t-inicio.js` (89). Total: 3688 en 87 suites.
+
+**Subido el 29/09/2026** (pedido por el dueño, con la clienta usando el sistema: se vio antes que era
+seguro, porque solo cambia el panel, la pestaña abierta sigue con lo viejo hasta recargar, y Vercel
+sirve el panel con `no-store`): push a `main` hasta `a2f3f77`. Vercel sirve los mismos archivos que
+el repo, la tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesión), y el
+panel ya trae el aviso. La clienta lo ve al recargar (F5). Functions y reglas, sin cambios.
 
 ---
 
