@@ -59,6 +59,8 @@ const docCompra = new Function(
   linea(srcComp, /const _cpPesos = [^\n]*/) + '\n' +
   cuerpo(srcComp, '_cpEsPeso') + cuerpo(srcComp, '_cpEsBolsa') + cuerpo(srcComp, '_cpCant') +
   cuerpo(srcComp, '_cpMs') + cuerpo(srcComp, '_cpFechaTxt') +
+  /* Las bolsas de un producto, juntas (29/09): sin admin-variantes.js no agrupan nada. */
+  cuerpo(srcComp, '_cpAgrupar') + cuerpo(srcComp, '_cpBloques') + cuerpo(srcComp, '_cpBolsasTxt') +
   cuerpo(srcComp, '_cpDocExportar') + ';return _cpDocExportar;')();
 
 const compra = {

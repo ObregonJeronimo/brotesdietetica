@@ -81,6 +81,44 @@ function _cpCabGrupo(g) {
     ' <span class="cp-grupo-que">&middot; ' + g.total + ' ' + g.que + '</span></div>';
 }
 
+/* UNA COMPRA GUARDADA (pedido del dueño, 29/09/2026): al verla, al exportarla y en Deudas,
+   las bolsas de un mismo producto van juntas, como al cargarla. Arriba el producto y lo que
+   se pagó por todas sus bolsas; abajo cada bolsa, con cuántas entraron. La cabecera no dice
+   "2 bolsas" (los tamaños que tiene el producto): acá se leería como las bolsas que
+   entraron. */
+
+/* Cuántas bolsas son: "2 bolsas", "1 bolsa", "3,33 bolsas". Vacío si no es una bolsa. */
+function _cpBolsasTxt(it) {
+  if (!_cpEsBolsa(it)) return '';
+  const n = Math.round(Number(it.cantidad || 0) / Number(it.gramosBolsa) * 100) / 100;
+  return n.toLocaleString('es-AR', { maximumFractionDigits: 2 }) + (n === 1 ? ' bolsa' : ' bolsas');
+}
+/* La cantidad, y en una bolsa cuántas bolsas son: "6 kg (2 bolsas)". */
+function _cpCantBolsas(it) {
+  return _cpCant(it) + (_cpEsBolsa(it) ? ' (' + _cpBolsasTxt(it) + ')' : '');
+}
+/* Lo que se pagó por las filas de un bloque. */
+function _cpSumaFilas(items, filas) {
+  return filas.reduce((s, k) => s + Number(items[k].subtotal || 0), 0);
+}
+/* Los renglones de una compra guardada, para verla: los sueltos como siempre, y las bolsas de
+   un mismo producto en un recuadro con el nombre del producto y el total. */
+function _cpRenglonesGuardados(items) {
+  const renglon = i =>
+    '<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.3rem 0;font-size:0.84rem">' +
+      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(i.nombre) + '</span>' +
+      '<span style="color:var(--text-dim);font-size:0.78rem;white-space:nowrap">' + _cpCantBolsas(i) + '</span>' +
+      '<span style="color:var(--text-dim);font-size:0.78rem;white-space:nowrap">' + (_cpEsBolsa(i)
+        ? _cpPesos(i.costoBolsa) + '/bolsa' : _cpPesos(i.costoUnitario) + (i.tipoVenta === 'peso' ? '/kg' : '')) + '</span>' +
+      '<span style="font-weight:600;white-space:nowrap;min-width:5rem;text-align:right">' + _cpPesos(i.subtotal) + '</span>' +
+    '</div>';
+  return _cpBloques(items).map(b => b.grupo
+    ? '<div class="cp-grupo"><div class="cp-grupo-cab"><i class="bi bi-stack"></i> ' + esc(b.grupo.nombre) +
+        '<span class="cp-grupo-tot">' + _cpPesos(_cpSumaFilas(items, b.filas)) + '</span></div>' +
+      b.filas.map(k => renglon(items[k])).join('') + '</div>'
+    : renglon(items[b.filas[0]])).join('');
+}
+
 /* Lo que se cobra por un renglón. En los de peso el costo es por kilo y la
    cantidad son gramos: por eso divide por mil. Es la misma cuenta que
    subtotalItem() hace del lado de las ventas. */
@@ -583,21 +621,24 @@ function renderCompraItems() {
 
 /* "Lo que entró" en bloques: { filas: [i] } para un renglón suelto, o { grupo, filas } para
    las bolsas de un mismo producto, de menor a mayor. Cada bloque va donde entró su primer
-   renglón, así que la lista no se reordena al agregar. */
-function _cpBloques() {
-  const prods = _compraItems.map(it => (allProducts || []).find(p => p.id === it.id)).filter(Boolean);
+   renglón, así que la lista no se reordena al agregar. Con items, los de una compra ya
+   guardada (al verla, al exportarla y en Deudas). */
+function _cpBloques(items) {
+  const lista = items || _compraItems;
+  const catalogo = (typeof allProducts !== 'undefined' && allProducts) || [];
+  const prods = lista.map(it => catalogo.find(p => p.id === it.id)).filter(Boolean);
   const grupoDe = new Map();
   _cpAgrupar(prods).forEach(x => { if (x.grupo) x.grupo.miembros.forEach(p => grupoDe.set(p.id, x.grupo)); });
   const hechos = new Set();
   const out = [];
-  _compraItems.forEach((it, i) => {
+  lista.forEach((it, i) => {
     const g = grupoDe.get(it.id);
     if (!g) { out.push({ filas: [i] }); return; }
     if (hechos.has(g)) return;
     hechos.add(g);
     /* Todas sus filas: si un producto quedara dos veces, no se esconde ninguna. */
     const filas = [];
-    g.miembros.forEach(p => _compraItems.forEach((x, k) => { if (x.id === p.id) filas.push(k); }));
+    g.miembros.forEach(p => lista.forEach((x, k) => { if (x.id === p.id) filas.push(k); }));
     out.push({ grupo: g, filas: filas });
   });
   return out;
@@ -865,14 +906,7 @@ function verCompra(docId) {
       ? '<p style="font-size:0.82rem;color:#EDB833;margin:0.5rem 0;line-height:1.5">' +
         'Esta compra <b>no sumó stock</b>: se guardó con la casilla destildada.</p>' : '') +
     '<div style="margin-top:0.7rem;padding-top:0.55rem;border-top:1px solid var(--border)">' +
-      (c.items || []).map(i =>
-        '<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.3rem 0;font-size:0.84rem">' +
-          '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(i.nombre) + '</span>' +
-          '<span style="color:var(--text-dim);font-size:0.78rem;white-space:nowrap">' + _cpCant(i) + '</span>' +
-          '<span style="color:var(--text-dim);font-size:0.78rem;white-space:nowrap">' + (_cpEsBolsa(i)
-            ? _cpPesos(i.costoBolsa) + '/bolsa' : _cpPesos(i.costoUnitario) + (i.tipoVenta === 'peso' ? '/kg' : '')) + '</span>' +
-          '<span style="font-weight:600;white-space:nowrap;min-width:5rem;text-align:right">' + _cpPesos(i.subtotal) + '</span>' +
-        '</div>').join('') +
+      _cpRenglonesGuardados(c.items || []) +
     '</div>' +
     (c.notas ? '<p style="font-size:0.82rem;color:var(--text-dim);margin-top:0.6rem;line-height:1.5"><b>Notas:</b> ' + esc(c.notas) + '</p>' : '') +
     (c.facturaUrl
@@ -955,12 +989,20 @@ function _cpDocExportar(c) {
         columnas: ['Producto', 'Cantidad', 'Costo', 'Subtotal'],
         anchos: [85, 30, 30, 30],
         derecha: [1, 2, 3],
-        filas: (c.items || []).map(i => [
-          i.nombre || '',
-          _cpCant(i),
-          _cpEsBolsa(i) ? _cpPesos(i.costoBolsa) + '/bolsa' : _cpPesos(i.costoUnitario) + (i.tipoVenta === 'peso' ? '/kg' : ''),
-          _cpPesos(i.subtotal),
-        ]).concat([['TOTAL', '', '', _cpPesos(c.total)]]),
+        /* Las bolsas de un mismo producto, juntas, como en pantalla (29/09): el producto y abajo
+           cada bolsa, con cuántas entraron. El producto va sin monto: en la columna de
+           subtotales se sumaría dos veces. */
+        filas: _cpBloques(c.items || []).flatMap(b => {
+          const fila = (i, antes) => [
+            antes + (i.nombre || '') + (_cpEsBolsa(i) ? ' (' + _cpBolsasTxt(i) + ')' : ''),
+            _cpCant(i),
+            _cpEsBolsa(i) ? _cpPesos(i.costoBolsa) + '/bolsa' : _cpPesos(i.costoUnitario) + (i.tipoVenta === 'peso' ? '/kg' : ''),
+            _cpPesos(i.subtotal),
+          ];
+          return b.grupo
+            ? [[b.grupo.nombre, '', '', '']].concat(b.filas.map(k => fila(c.items[k], '· ')))
+            : [fila(c.items[b.filas[0]], '')];
+        }).concat([['TOTAL', '', '', _cpPesos(c.total)]]),
       },
     ],
   };

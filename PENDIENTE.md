@@ -1720,7 +1720,8 @@ Sin eso se cargaban 2 g y la cuenta daba $8 en vez de $24.000, sin que nada lo m
 buscador arma el nombre con el tamaño solo si no encontró por los otros nombres (más liviano con
 los proveedores grandes). `t-compras-bolsas.js` quedó en 63 (3 fallan sin el aviso). Probado en el
 sandbox: 2 g de la bolsa de 3 kg, sale el aviso, "Volver y corregir" no guarda nada. Anotado sin
-hacer: al ver una compra guardada, las bolsas siguen una por renglón, con el tamaño en el nombre.
+hacer: al ver una compra guardada, las bolsas siguen una por renglón, con el tamaño en el nombre
+(**hecho el 29/09**, §U).
 
 ### S) Proveedores: al borrar la búsqueda vuelven todos · **HECHO, SIN SUBIR** (29/09/2026)
 
@@ -1781,6 +1782,27 @@ Pruebas: `pruebas/t-prov-bolsas.js` (30; 21 fallan contra el commit anterior), y
 - "El resto de lo vendido (N)" cuenta productos, y los otros números de la ficha cuentan tamaños;
 - los recuadros se reconocen por un campo `grupo` (en Compras y acá). Ningún producto tiene un
   campo con ese nombre; si algún día se agregara, habría que cambiarlo.
+
+### U) Una compra guardada: las bolsas de un producto van juntas · **HECHO, SIN SUBIR** (29/09/2026)
+
+Pedido del dueño: al abrir una compra ya guardada, cada bolsa salía en su propio renglón. Ahora van
+juntas en los tres lugares donde se ve una compra guardada (`admin-compras.js`, `admin-deudas.js` y
+el CSS en `admin.html`):
+- **Ver**, en las compras de la ficha del proveedor: las bolsas de un producto van en un recuadro,
+  con el nombre del producto y lo que se pagó por todas ("Mani RC $3.400"). Abajo va cada bolsa con
+  cuántas entraron ("Mani RC x 3 kg · 6 kg (2 bolsas) · $1.200/bolsa · $2.400").
+- **Exportar**, en PDF y Excel: el producto va en su fila, sin monto, porque en la columna de
+  subtotales se sumaría dos veces. Abajo va cada bolsa ("· Mani RC x 3 kg (2 bolsas)").
+- **Deudas**, al desplegar una compra: una fila con el producto y el total, y abajo cada bolsa con
+  una raya verde a la izquierda.
+- La cabecera no dice "2 bolsas", que son los tamaños que tiene el producto: en una compra se
+  leería como las bolsas que entraron.
+- Una compra de antes de §R también se agrupa, según el catálogo de hoy. Sus bolsas se ven por
+  kilo, como se cargaron.
+
+Probado en el sandbox con clics de verdad: "Ver" de la compra #7, y una compra de prueba (#9) que
+quedó como deuda, desplegada en Deudas. Pruebas: 9 nuevas en `pruebas/t-compras-bolsas.js` (72), y
+se ajustó `t-exportar.js`. Total: 3797 en 89 suites.
 
 ---
 

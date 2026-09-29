@@ -242,6 +242,8 @@
         .cp-grupo .cp-row:last-of-type{border-bottom:none}
         .cp-grupo .cp-prod{margin-bottom:0.3rem}
         .cp-kilo{font-size:0.74rem;color:var(--text-dim);white-space:nowrap;padding-bottom:0.55rem;min-width:5.8rem}
+        /* Una compra guardada: el total del producto a la derecha de su recuadro (29/09/2026). */
+        .cp-grupo-tot{margin-left:auto;font-size:0.84rem;font-weight:700;color:var(--text);white-space:nowrap}
         .cp-x{background:none;border:none;color:var(--danger);font-size:1.2rem;cursor:pointer;padding:0 0.3rem 0.3rem}
         /* El aviso de que el stock NO se va a tocar. Va en ambar y ocupa el ancho
            entero: es justo lo que despues nadie recuerda haber desmarcado. */
@@ -327,6 +329,10 @@
         .deu-tabla{width:100%;border-collapse:collapse;font-size:0.82rem;margin-top:0.4rem}
         .deu-tabla td{padding:0.25rem 0;border-bottom:1px solid rgba(255,255,255,0.04)}
         .deu-tabla td.num{text-align:right;white-space:nowrap;color:var(--text-dim)}
+        /* Las bolsas de un mismo producto, juntas: el producto y abajo cada bolsa, con una raya (29/09/2026). */
+        .deu-tabla tr.deu-grupo td{color:var(--accent-light);font-weight:700;padding-top:0.45rem}
+        .deu-tabla tr.deu-grupo td.num{color:var(--text)}
+        .deu-tabla tr.deu-tam td:first-child{padding-left:0.7rem;border-left:2px solid rgba(95,168,122,0.45)}
         .deu-sub{font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;
                  letter-spacing:0.5px;margin-top:0.7rem;font-weight:600}
         .deu-pago{display:grid;grid-template-columns:4.5rem 6.5rem 1fr auto;gap:0.5rem;

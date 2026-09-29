@@ -326,6 +326,55 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('al ver una compra, la bolsa dice lo que costó la bolsa', h.indexOf('$12.000/bolsa') > 0);
     t('  y la Almendra, el kilo', h.indexOf('$14.000/kg') > 0);
   }
+  {
+    /* Pedido del dueño (29/09): al abrir una compra guardada, las bolsas de un producto van
+       juntas, como al cargarla, y se entiende cuántas entraron. */
+    const ITEMS = '[' +
+      '{ id: "mrc3", nombre: "Mani RC x 3 kg", tipoVenta: "peso", cantidad: 6000, costoUnitario: 4000, costoBolsa: 12000, gramosBolsa: 3000, subtotal: 24000 },' +
+      '{ id: "alm", nombre: "Almendra", tipoVenta: "peso", cantidad: 500, costoUnitario: 14000, subtotal: 7000 },' +
+      '{ id: "mrc1", nombre: "Mani RC x 1 kg", tipoVenta: "peso", cantidad: 2000, costoUnitario: 4000, costoBolsa: 4000, gramosBolsa: 1000, subtotal: 8000 }]';
+    const v = armar();
+    vm.runInContext('_comprasCache = { lista: [{ docId: "c2", numero: 8, proveedorNombre: "FRUTICOR", total: 39000, items: ' + ITEMS + ' }] }', v.ctx);
+    v.ctx.verCompra('c2');
+    const h = v.el('compraVerBody').innerHTML;
+    const r = recuadros(h);
+    t('al ver la compra, las dos bolsas del Mani RC van en UN recuadro', r.length === 1);
+    t('  arriba el producto y lo que se pagó por las dos: "Mani RC $32.000"',
+      r[0] && /^Mani RC \$32\.000 /.test(textoDe(r[0])), r[0] && textoDe(r[0]));
+    t('  sin "2 bolsas" en la cabecera, que se leería como las bolsas que entraron',
+      r[0] && r[0].indexOf('cp-grupo-que') < 0);
+    t('  abajo cada bolsa, de menor a mayor, con cuántas bolsas entraron',
+      r[0] && textoDe(r[0]).indexOf('Mani RC x 1 kg 2 kg (2 bolsas) $4.000/bolsa $8.000 Mani RC x 3 kg 6 kg (2 bolsas) $12.000/bolsa $24.000') > 0,
+      r[0] && textoDe(r[0]));
+    t('  y la Almendra, suelta como siempre, después del recuadro',
+      textoDe(h.slice(h.indexOf(r[0]) + r[0].length)).indexOf('Almendra 500 g $14.000/kg $7.000') === 0, textoDe(h));
+    const x = v.ctx._cpDocExportar(v.ctx._cpVerActual || vm.runInContext('_cpVerActual', v.ctx));
+    const f = x.bloques[1].filas.map(fila => fila.join(' ; '));
+    t('la exportación, igual: el producto sin monto (no se suma dos veces) y abajo cada bolsa',
+      f.join(' / ') === 'Mani RC ;  ;  ;  / · Mani RC x 1 kg (2 bolsas) ; 2 kg ; $4.000/bolsa ; $8.000 / ' +
+        '· Mani RC x 3 kg (2 bolsas) ; 6 kg ; $12.000/bolsa ; $24.000 / Almendra ; 500 g ; $14.000/kg ; $7.000 / TOTAL ;  ;  ; $39.000',
+      f.join(' / '));
+    vm.runInContext(leer('admin-deudas.js'), v.ctx);
+    const d = v.ctx._deuRenglones(vm.runInContext(ITEMS, v.ctx));
+    t('en Deudas, la compra desplegada también: una fila con el producto y el total, y abajo cada bolsa',
+      d.indexOf('<tr class="deu-grupo"><td colspan="2"><i class="bi bi-stack"></i> Mani RC</td><td class="num">$32.000</td></tr>' +
+        '<tr class="deu-tam"><td>Mani RC x 1 kg</td><td class="num">2 kg (2 bolsas)</td><td class="num">$8.000</td></tr>' +
+        '<tr class="deu-tam"><td>Mani RC x 3 kg</td><td class="num">6 kg (2 bolsas)</td><td class="num">$24.000</td></tr>') === 0 &&
+      d.indexOf('<tr><td>Almendra</td><td class="num">500 g</td><td class="num">$7.000</td></tr>') > 0, d);
+    t('  una bolsa que no es entera dice cuántas son', v.ctx._cpBolsasTxt({ tipoVenta: 'peso', cantidad: 9999, gramosBolsa: 3000 }) === '3,33 bolsas' &&
+      v.ctx._cpBolsasTxt({ tipoVenta: 'peso', cantidad: 1000, gramosBolsa: 1000 }) === '1 bolsa');
+  }
+  {
+    const v = armar({ sinVariantes: true });
+    vm.runInContext('_comprasCache = { lista: [{ docId: "c3", numero: 9, total: 15000, items: [' +
+      '{ id: "mrc3", nombre: "Mani RC x 3 kg", tipoVenta: "peso", cantidad: 3000, costoUnitario: 4000, subtotal: 12000 },' +
+      '{ id: "mrc1", nombre: "Mani Recubierto de Chocolate", tipoVenta: "peso", cantidad: 1000, costoUnitario: 3000, subtotal: 3000 }] }] }', v.ctx);
+    v.ctx.verCompra('c3');
+    const h = v.el('compraVerBody').innerHTML;
+    t('sin admin-variantes.js la compra guardada se ve como antes, un renglón por producto',
+      h.indexOf('cp-grupo') < 0 && textoDe(h).indexOf('Mani RC x 3 kg 3 kg $4.000/kg $12.000 Mani Recubierto de Chocolate 1 kg $3.000/kg $3.000') >= 0,
+      textoDe(h));
+  }
 
   console.log('\n-- escanear --');
   {

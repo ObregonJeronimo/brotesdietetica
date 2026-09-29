@@ -386,6 +386,9 @@ producción (de los "gramajes" viejos).
 - **La ficha del proveedor** (pedido del dueño): los tamaños de un producto van juntos en un
   recuadro en lo vendido (el producto entero es un puesto), en lo que no se vendió y en la
   exportación. Detalle en `PENDIENTE.md` §1-bis T.
+- **Una compra guardada** (pedido del dueño): al verla, al exportarla y en Deudas, las bolsas de un
+  producto van juntas, con el total del producto y cuántas bolsas entraron. Detalle en
+  `PENDIENTE.md` §1-bis U.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
@@ -503,7 +506,7 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 - Antes de dar por terminado algo grande: revisión de código y prueba en el sandbox.
 
-Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El 29/09 subimos que se pueda vender sin stock con un aviso y que el Centro de avisos muestre los negativos (push hasta a2f3f77, verificado; PENDIENTE.md §1-bis Q). Después quedó hecho, en un commit local sin subir, que en Cargar compra las bolsas de un producto vayan juntas y se carguen por bolsa, que en Proveedores al borrar la búsqueda vuelvan todos, y que la ficha del proveedor muestre los tamaños de un producto juntos (PENDIENTE.md §1-bis R, S y T). El sandbox está cerrado.
+Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El 29/09 subimos que se pueda vender sin stock con un aviso y que el Centro de avisos muestre los negativos (push hasta a2f3f77, verificado; PENDIENTE.md §1-bis Q). Después quedó hecho, en un commit local sin subir, que en Cargar compra las bolsas de un producto vayan juntas y se carguen por bolsa, que en Proveedores al borrar la búsqueda vuelvan todos, que la ficha del proveedor muestre los tamaños de un producto juntos, y que una compra guardada muestre sus bolsas juntas (PENDIENTE.md §1-bis R, S, T y U). El sandbox está cerrado.
 
 Pendientes principales: subir lo de Cargar compra y de Proveedores cuando lo pida, avisarle a la clienta que ya puede vender sin stock (con el aviso) y que el Centro le muestra los negativos, probar el ticket del pedido en la impresora térmica, decidir qué hacer con las ventas viejas guardadas como "Envío", y la migración (etapa 4), que se hace solo cuando yo lo pida. El resto de los pendientes está en CONTEXTO.md §7.
 

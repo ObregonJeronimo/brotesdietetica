@@ -191,6 +191,23 @@ function renderDeudas() {
     d.compras.map(c => _deuFicha(c)).join('');
 }
 
+/* Los productos de una compra en Deudas, con las bolsas de un mismo producto juntas, como al
+   ver la compra (29/09): una fila con el producto y lo que se pagó por todas, y abajo cada
+   bolsa con cuántas entraron. Sin admin-compras.js, una fila por producto, como antes. */
+function _deuRenglones(items) {
+  const cant = i => (typeof _cpCantBolsas === 'function' ? _cpCantBolsas(i)
+    : (typeof _cpCant === 'function' ? _cpCant(i) : i.cantidad));
+  const fila = (i, tam) => '<tr' + (tam ? ' class="deu-tam"' : '') + '><td>' + esc(i.nombre) + '</td>' +
+    '<td class="num">' + cant(i) + '</td>' +
+    '<td class="num">' + _deuPesos(i.subtotal) + '</td></tr>';
+  if (typeof _cpBloques !== 'function') return items.map(i => fila(i)).join('');
+  return _cpBloques(items).map(b => b.grupo
+    ? '<tr class="deu-grupo"><td colspan="2"><i class="bi bi-stack"></i> ' + esc(b.grupo.nombre) + '</td>' +
+        '<td class="num">' + _deuPesos(_cpSumaFilas(items, b.filas)) + '</td></tr>' +
+      b.filas.map(k => fila(items[k], true)).join('')
+    : fila(items[b.filas[0]])).join('');
+}
+
 function _deuFicha(c) {
   const e = deudaEstado(c);
   const abierta = _deuAbierta === c.docId;
@@ -221,11 +238,7 @@ function _deuFicha(c) {
     h += '<div class="deu-detalle">' +
       (c.comprobante ? '<div class="deu-chico">Comprobante: ' + esc(c.comprobante) + '</div>' : '') +
       (c.notas ? '<div class="deu-chico">' + esc(c.notas) + '</div>' : '') +
-      '<table class="deu-tabla"><tbody>' +
-      items.map(i => '<tr><td>' + esc(i.nombre) + '</td>' +
-        '<td class="num">' + (typeof _cpCant === 'function' ? _cpCant(i) : i.cantidad) + '</td>' +
-        '<td class="num">' + _deuPesos(i.subtotal) + '</td></tr>').join('') +
-      '</tbody></table>';
+      '<table class="deu-tabla"><tbody>' + _deuRenglones(items) + '</tbody></table>';
 
     if (e.pagos.length) {
       h += '<div class="deu-sub">Pagos hechos</div>' +
