@@ -372,7 +372,7 @@ producción (de los "gramajes" viejos).
   registra igual; al registrar sale "Stock insuficiente" con "Vender igual" y en cuánto queda el
   stock. El Centro de avisos muestra lo que está en negativo. Detalle en `PENDIENTE.md` §1-bis Q.
 
-### 5.6 Lo del 29/09, después de la subida (en commit local, SIN SUBIR)
+### 5.6 Lo del 29/09, segunda parte (subido a producción el 29/09, push hasta `f75f08d`, verificado)
 
 - **Cargar compra con bolsas** (pedido del dueño): en Proveedores > Cargar compra, las bolsas de un
   producto van juntas en un recuadro ("Mani RC · 2 bolsas"), cada una con su tamaño, en la lista
@@ -416,7 +416,8 @@ producción (de los "gramajes" viejos).
 
 ### 7.1 Después de la subida (lo más urgente)
 
-0. **Subir lo de Cargar compra con bolsas, el buscador y la ficha de Proveedores** (§5.6) cuando Thiago lo pida.
+0. **Avisarle a la clienta lo nuevo de Compras y Proveedores** (§5.6, subido el 29/09) y que recargue
+   el panel (F5) si lo tenía abierto.
 1. **Avisarle a la clienta** que desde el 29/09 puede vender sin stock (sale el aviso "Stock
    insuficiente" con "Vender igual") y que el Centro de avisos le muestra lo que quedó en negativo,
    para cargarlo. Del 27/09 al 29/09 estuvo el freno (el 27/09 había 154 de 344 productos a la venta
@@ -509,9 +510,9 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 - Antes de dar por terminado algo grande: revisión de código y prueba en el sandbox.
 
-Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El 29/09 subimos que se pueda vender sin stock con un aviso y que el Centro de avisos muestre los negativos (push hasta a2f3f77, verificado; PENDIENTE.md §1-bis Q). Después quedó hecho, en un commit local sin subir, que en Cargar compra las bolsas de un producto vayan juntas y se carguen por bolsa, que en Proveedores al borrar la búsqueda vuelvan todos, que la ficha del proveedor muestre los tamaños de un producto juntos, que una compra guardada muestre sus bolsas juntas, y que los recuadros digan solo el nombre del producto (PENDIENTE.md §1-bis R a V). El sandbox está cerrado.
+Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El 29/09 subimos que se pueda vender sin stock con un aviso y que el Centro de avisos muestre los negativos (push hasta a2f3f77, verificado; PENDIENTE.md §1-bis Q). Después subimos también (push hasta f75f08d, verificado) que en Cargar compra las bolsas de un producto vayan juntas y se carguen por bolsa, que en Proveedores al borrar la búsqueda vuelvan todos, que la ficha del proveedor muestre los tamaños de un producto juntos, que una compra guardada muestre sus bolsas juntas, y que los recuadros digan solo el nombre del producto (PENDIENTE.md §1-bis R a V). El sandbox está cerrado.
 
-Pendientes principales: subir lo de Cargar compra y de Proveedores cuando lo pida, avisarle a la clienta que ya puede vender sin stock (con el aviso) y que el Centro le muestra los negativos, probar el ticket del pedido en la impresora térmica, decidir qué hacer con las ventas viejas guardadas como "Envío", y la migración (etapa 4), que se hace solo cuando yo lo pida. El resto de los pendientes está en CONTEXTO.md §7.
+Pendientes principales: avisarle a la clienta lo nuevo de Compras y Proveedores, y que ya puede vender sin stock (con el aviso) y que el Centro le muestra los negativos, probar el ticket del pedido en la impresora térmica, decidir qué hacer con las ventas viejas guardadas como "Envío", y la migración (etapa 4), que se hace solo cuando yo lo pida. El resto de los pendientes está en CONTEXTO.md §7.
 
 Cuando termines de leer, confirmame en pocas líneas que tenés el contexto y esperá mi próximo pedido; no arranques nada por tu cuenta.
 ```

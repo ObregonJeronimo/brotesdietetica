@@ -1676,7 +1676,7 @@ sirve el panel con `no-store`): push a `main` hasta `a2f3f77`. Vercel sirve los 
 el repo, la tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesión), y el
 panel ya trae el aviso. La clienta lo ve al recargar (F5). Functions y reglas, sin cambios.
 
-### R) Cargar compra: las bolsas de un producto van juntas y se cargan por bolsa · **HECHO, SIN SUBIR** (29/09/2026)
+### R) Cargar compra: las bolsas de un producto van juntas y se cargan por bolsa · **SUBIDO A PRODUCCIÓN el 29/09/2026**
 
 Pedido del dueño: en Proveedores > Cargar compra, "Mani RC" de 1 kg y de 3 kg salían separados,
 como dos productos distintos, y el costo se pedía por kilo. Ahora va como en Productos y Stock
@@ -1723,7 +1723,7 @@ sandbox: 2 g de la bolsa de 3 kg, sale el aviso, "Volver y corregir" no guarda n
 hacer: al ver una compra guardada, las bolsas siguen una por renglón, con el tamaño en el nombre
 (**hecho el 29/09**, §U).
 
-### S) Proveedores: al borrar la búsqueda vuelven todos · **HECHO, SIN SUBIR** (29/09/2026)
+### S) Proveedores: al borrar la búsqueda vuelven todos · **SUBIDO A PRODUCCIÓN el 29/09/2026**
 
 Pedido del dueño: en Proveedores, buscando un proveedor y borrando después, la lista se quedaba
 con lo que había encontrado. Pasaba después de tocar un proveedor, o de cambiar el período, con
@@ -1741,7 +1741,7 @@ cartel) y borrar; vuelven los 20, sin cartel.
 Pruebas: 6 nuevas en `pruebas/t-prov-lista.js` (35; 4 fallan contra el commit anterior). Total:
 3751 en 88 suites.
 
-### T) La ficha del proveedor: los tamaños de un producto van juntos · **HECHO, SIN SUBIR** (29/09/2026)
+### T) La ficha del proveedor: los tamaños de un producto van juntos · **SUBIDO A PRODUCCIÓN el 29/09/2026**
 
 Pedido del dueño, después de §R: en la ficha de ANDNUTS, "No se vendieron en 90 días" mostraba "Mani
 Recubierto de Chocolate" (la bolsa de 1 kg, con el nombre de la tienda) y "Mani RC x 3 kg" por
@@ -1784,7 +1784,7 @@ Pruebas: `pruebas/t-prov-bolsas.js` (30; 21 fallan contra el commit anterior), y
 - los recuadros se reconocen por un campo `grupo` (en Compras y acá). Ningún producto tiene un
   campo con ese nombre; si algún día se agregara, habría que cambiarlo.
 
-### U) Una compra guardada: las bolsas de un producto van juntas · **HECHO, SIN SUBIR** (29/09/2026)
+### U) Una compra guardada: las bolsas de un producto van juntas · **SUBIDO A PRODUCCIÓN el 29/09/2026**
 
 Pedido del dueño: al abrir una compra ya guardada, cada bolsa salía en su propio renglón. Ahora van
 juntas en los tres lugares donde se ve una compra guardada (`admin-compras.js`, `admin-deudas.js` y
@@ -1805,7 +1805,7 @@ Probado en el sandbox con clics de verdad: "Ver" de la compra #7, y una compra d
 quedó como deuda, desplegada en Deudas. Pruebas: 9 nuevas en `pruebas/t-compras-bolsas.js` (72), y
 se ajustó `t-exportar.js`. Total: 3797 en 89 suites.
 
-### V) Los recuadros, sin "2 bolsas" · **HECHO, SIN SUBIR** (29/09/2026)
+### V) Los recuadros, sin "2 bolsas" · **SUBIDO A PRODUCCIÓN el 29/09/2026**
 
 Pedido del dueño: la cabecera de los recuadros de Cargar compra y de la ficha del proveedor decía
 "Mani RC · 2 bolsas" (o "· 2 presentaciones"), que son los tamaños que tiene el producto. Se leía
@@ -1816,6 +1816,14 @@ siguen como estaban: ahí se ven siempre todos los tamaños.
 
 Probado en el sandbox. Pruebas: `t-compras-bolsas.js` (73) y `t-prov-bolsas.js` (32), con una que
 verifica que ninguna cabecera diga cuántas bolsas o presentaciones. Total: 3800 en 89 suites.
+
+**R a V, subidos el 29/09/2026** (pedido por el dueño, con la clienta usando el sistema, después de
+ver que era seguro: solo cambia el panel, que se carga entero al abrir la página y se sirve con
+`no-store`; la pestaña abierta sigue con lo viejo hasta recargar; los datos nuevos de las compras,
+`costoBolsa` y `gramosBolsa`, los lee bien el código viejo, y las reglas de `compras` no revisan
+campos). Push a `main` hasta `f75f08d`, después de una revisión rápida del último cambio. Vercel
+sirve los mismos archivos que el repo. La clienta lo ve al recargar (F5). Functions y reglas, sin
+cambios.
 
 ---
 
