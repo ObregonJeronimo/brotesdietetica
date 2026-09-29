@@ -1556,6 +1556,9 @@ tamaño en el nombre.
     encontró la revisión de código: antes del arreglo, le sumaba también a la de 1 kg.)
   - El nombre del bloque va sin el tamaño y sin paréntesis vacíos ("Yerba Mate (500 Gr)" ->
     "Yerba Mate"). `baseDeNombre` no se tocó, porque también arma el nombre que se guarda.
+  - Si un tamaño es otro producto (enganchado con "Asociar uno existente"), su nombre va abajo
+    del tamaño, chico: en el sandbox, "1 Kg" dice abajo "Te Verde Tostado". (Lo encontró la
+    segunda revisión, antes de subir: la fila decía solo "1 Kg".)
 - **El nombre con su tamaño** (`_stkNombre`, admin-stock.js): las ventanas de "Agregar stock" y
   de corregir, el aviso, el historial y la carga en tanda dicen "Mani prueba x 1 kg". Es solo lo
   que se muestra: el nombre guardado del producto no cambia.
@@ -1563,8 +1566,25 @@ tamaño en el nombre.
   pantalla angosta. El nombre queda tapado y el lápiz cortado, tanto en las filas sueltas como en
   el bloque (ahí no se ve el "1 kg"). Si se quiere, se acomoda aparte.
 
-Pruebas: `pruebas/t-stock-agrupado.js`, 50 asertos (fallan contra el commit anterior). Total:
-3630 en 86 suites. Probado en el sandbox con clics de verdad.
+**Revisión antes de subir (28/09):** además del arreglo de arriba, quedaron anotados sin hacer
+(menores):
+- un nombre con fracción ("1/2 KG") queda raro en el bloque ("YERBA PLAYADITO 1/"). Es lo de las
+  fracciones de CONTEXTO §7.3, y no hay grupos así;
+- buscando "3 kg", el texto dice "Seleccionar los 1 visibles" con dos filas a la vista. Es a
+  propósito: la de 1 kg no entra en la carga en tanda;
+- con muchos grupos, agrupar tarda más en cada tecla del buscador: 0,7 ms hoy (1 grupo) y 12,7 ms
+  con 400 (medido con 1316 productos). Mirarlo después de la migración;
+- en Compras la bolsa principal sigue sin el tamaño ("Mani prueba"): el nombre con el tamaño se
+  agregó solo en Stock;
+- código: `agruparParaStock` repite el recorrido de `agruparParaTabla`, la carga en tanda repite
+  la regla de `_stkNombre`, y queda un `if` que nunca se cumple.
+
+En producción hoy hay un solo grupo, AJI MOLIDO EXTRA (1 kg por peso; 250 g y 500 g por unidad):
+en Stock va a ser un bloque "AJI MOLIDO EXTRA · 3 presentaciones" con las tres filas.
+
+Pruebas: `pruebas/t-stock-agrupado.js`, 54 asertos (fallan contra el commit anterior). Total:
+3634 en 86 suites. Probado en el sandbox con clics de verdad (agregar y corregir el stock de un
+tamaño del bloque, y dejarlo como estaba).
 
 ---
 

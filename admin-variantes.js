@@ -1503,9 +1503,15 @@ function agruparParaTabla(lista) {
      búsqueda y los filtros, para marcarlos cuando no son todos.
    - El nombre va sin el tamaño, que está en cada fila: "Maní x 1 kg" -> "Maní", y sin los
      paréntesis que quedan vacíos: "Yerba Mate (500 Gr)" -> "Yerba Mate", no "Yerba Mate ( )".
-     Solo para mostrar: baseDeNombre también arma el nombre que se guarda en una variante nueva. */
+     Solo para mostrar: baseDeNombre también arma el nombre que se guarda en una variante nueva.
+   - "otroNombre": si un tamaño es un producto con otro nombre (enganchado con "Asociar uno
+     existente"), su nombre, para que la fila no diga solo "1 Kg" y se sepa a cuál se le carga
+     (revisión del 28/09: "Te Verde Tostado" salía como "1 Kg" de "Yerba Mate Tostado"). Se
+     compara como el aviso de nombres repetidos (claveProducto): sin tildes ni mayúsculas. */
 function agruparParaStock(lista) {
   const prods = _varProds();
+  const sinTam = n => baseDeNombre(n).replace(/\(\s*\)|\[\s*\]/g, ' ').replace(/\s+/g, ' ').trim();
+  const clave = n => (typeof claveProducto === 'function' ? claveProducto(sinTam(n)) : sinTam(n).toLowerCase());
   const porId = new Map(prods.filter(Boolean).map(x => [x.id, x]));
   const conHijos = new Set(prods.filter(x => x && x.gramajePadreId && x.depurado !== true).map(x => x.gramajePadreId));
   const f = lista || [];
@@ -1519,11 +1525,13 @@ function agruparParaStock(lista) {
     hechos.add(pr.id);
     const miembros = variantesDeGrupo(pr, prods, { conOcultos: true });
     if (miembros.length < 2) { out.push(p); return; }
+    const base = clave(pr.nombre);
     out.push({ __stockGrupo: {
       principal: pr,
-      nombre: baseDeNombre(pr.nombre).replace(/\(\s*\)|\[\s*\]/g, ' ').replace(/\s+/g, ' ').trim() || pr.nombre || '',
+      nombre: sinTam(pr.nombre) || pr.nombre || '',
       que: _queGrupo({ miembros: miembros }),
-      miembros: miembros.map(m => ({ producto: m, tam: etiquetaVariante(m), coincide: enLista.has(m.id) })),
+      miembros: miembros.map(m => ({ producto: m, tam: etiquetaVariante(m), coincide: enLista.has(m.id),
+        otroNombre: clave(m.nombre) !== base ? (m.nombre || '') : '' })),
     } });
   });
   return out;

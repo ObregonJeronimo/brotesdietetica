@@ -97,6 +97,7 @@ function armar(opts) {
   vm.createContext(ctx);
   if (o.sinVariantes !== true) vm.runInContext(VAR, ctx);
   vm.runInContext(STK, ctx);
+  vm.runInContext(extraer('claveProducto'), ctx);
   vm.runInContext(extraer('renderStockList'), ctx);
   vm.runInContext(extraer('agregarStockMasivo'), ctx);
   return { ctx, campos, paginas, avisos, historial, preguntas };
@@ -153,6 +154,21 @@ const filas = h => [...h.matchAll(/<div class="(stock-row[^"]*)" data-id="([^"]+
     ] });
     const g = w.ctx.agruparParaStock(w.ctx.allProducts.slice())[0].__stockGrupo;
     t('con el tamaño entre paréntesis, sin los paréntesis vacíos: "Yerba Mate", no "Yerba Mate ( )"', g.nombre === 'Yerba Mate', g.nombre);
+  }
+  /* Un tamaño que es OTRO producto (enganchado con "Asociar uno existente"): la fila no
+     puede decir solo "1 Kg" (revisión del 28/09, el grupo del sandbox). */
+  const asociados = () => [
+    P('ym', { nombre: 'Yerba Mate Tostado', gramaje: '500 Gr', stock: 0 }),
+    P('tv', { nombre: 'Te Verde Tostado', gramaje: '1 Kg', stock: 3, gramajePadreId: 'ym' }),
+    P('mp', { nombre: 'Maní prueba', gramaje: '1 kg', tipoVenta: 'peso' }),
+    P('mp3', { nombre: 'MANI PRUEBA x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', gramajePadreId: 'mp' }),
+  ];
+  {
+    const w = armar({ productos: asociados() });
+    const l = w.ctx.agruparParaStock(w.ctx.allProducts.slice());
+    const otros = g => g.__stockGrupo.miembros.map(x => x.producto.id + ':' + x.otroNombre).join();
+    t('un tamaño que es otro producto trae su nombre: "Te Verde Tostado"', otros(l[0]) === 'ym:,tv:Te Verde Tostado', otros(l[0]));
+    t('  el mismo nombre con otras tildes o mayúsculas no cuenta como otro ("Maní prueba" y "MANI PRUEBA x 3 kg")', otros(l[1]) === 'mp:,mp3:', otros(l[1]));
   }
 
   console.log('\n-- la lista de Stock --');
@@ -225,6 +241,20 @@ const filas = h => [...h.matchAll(/<div class="(stock-row[^"]*)" data-id="([^"]+
     const h = w.campos.stockList.innerHTML;
     t('sin admin-variantes.js, una fila por producto, como antes', bloques(h) === 0 && filas(h) === 'm1,m3' &&
       h.indexOf('<strong>Mani prueba<span') > 0 && h.indexOf('<strong>Mani prueba x 3 kg<span') > 0, filas(h));
+  }
+  {
+    const w = armar({ productos: asociados(), q: 'tostado' });
+    w.ctx.renderStockList();
+    const h = w.campos.stockList.innerHTML;
+    t('en la lista, la fila de "1 Kg" dice abajo "Te Verde Tostado", y la de 500 Gr nada más que el tamaño',
+      /data-id="tv">.*?<strong>1 Kg<\/strong><small>Te Verde Tostado<\/small><\/div>/.test(h) && /data-id="ym">.*?<strong>500 Gr<\/strong><\/div>/.test(h));
+  }
+  {
+    const w = armar({ q: 'mani' });
+    w.ctx.renderStockList();
+    /* Lo de abajo del nombre va pegado al </strong>; el <small> del stock es otro. */
+    t('con el mismo nombre, las bolsas no repiten el nombre abajo (solo la categoría del bloque)',
+      (w.campos.stockList.innerHTML.match(/<\/strong><small>/g) || []).length === 1);
   }
   {
     const w = armar({ q: 'zzz' });

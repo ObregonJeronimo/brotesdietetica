@@ -2919,8 +2919,9 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             }
 
             /* Una fila. t viene cuando es un tamanio dentro de su bloque ({ tam, peso,
-               coincide }): sin la foto ni la categoria, que estan arriba, y con el tamanio
-               en lugar del nombre. */
+               coincide, otro }): sin la foto ni la categoria, que estan arriba, y con el
+               tamanio en lugar del nombre. Si ese tamanio es un producto con otro nombre
+               (otro), el nombre va abajo, chico, donde las filas sueltas llevan la categoria. */
             const fila=(p,t)=>{
                 const img=p.imagen||'img/default-product.svg';
                 /* Si el valor se edito y todavia no se guardo, se vuelve a pintar lo
@@ -2936,7 +2937,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                     '<img src="'+_attrHtml(img)+'" onerror="this.src=\'img/default-product.svg\'">')+
                     '<div class="stock-row-info"><strong>'+esc(t?t.tam:(p.nombre||''))+(peso?'<span class="vprod-chip neutro" style="margin-left:6px">POR PESO</span>':'')+
                         (pend?'<span class="stock-chip-sg">SIN GUARDAR</span>':'')+'</strong>'+
-                        (t?'':'<small>'+esc((p.categoria||'')+(p.subcategoria?' / '+p.subcategoria:''))+'</small>')+'</div>'+
+                        (t?(t.otro?'<small>'+esc(t.otro)+'</small>':''):'<small>'+esc((p.categoria||'')+(p.subcategoria?' / '+p.subcategoria:''))+'</small>')+'</div>'+
                     /* Pedido del comercio (25/09/2026): en vez de escribir el total, "Agregar
                        stock" suma lo que llego, y el lapiz corrige el total (despues de contar).
                        Ver admin-stock.js. Sin ese archivo, el campo de siempre. En los de peso
@@ -2966,7 +2967,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                             '<span class="var-chip fijo"><i class="bi bi-stack"></i> '+g.miembros.length+' '+g.que+'</span>'+
                             (todosPeso?'<span class="vprod-chip neutro" style="margin-left:6px">POR PESO</span>':'')+'</strong>'+
                         '<small>'+esc((pr.categoria||'')+(pr.subcategoria?' / '+pr.subcategoria:''))+'</small></div></div>'+
-                    g.miembros.map(m=>fila(m.producto,{tam:m.tam,peso:!todosPeso&&esPorPeso(m.producto),coincide:marcar&&m.coincide})).join('')+
+                    g.miembros.map(m=>fila(m.producto,{tam:m.tam,peso:!todosPeso&&esPorPeso(m.producto),coincide:marcar&&m.coincide,otro:m.otroNombre})).join('')+
                 '</div>';
             };
             c.innerHTML=items.map(it=>it.__stockGrupo?bloque(it.__stockGrupo):fila(it)).join('');

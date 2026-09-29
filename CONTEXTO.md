@@ -359,7 +359,8 @@ producción (de los "gramajes" viejos).
 
 - **Stock agrupado:** en Stock, un producto con bolsas o presentaciones es un bloque, como en
   Productos, con cada tamaño abajo y siempre a la vista. La ventana de "Agregar stock" dice el
-  tamaño ("Mani prueba x 1 kg"). Detalle en `PENDIENTE.md` §1-bis O.
+  tamaño ("Mani prueba x 1 kg"). Detalle en `PENDIENTE.md` §1-bis O, con lo que la revisión
+  antes de subir dejó anotado para más adelante (menores).
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
