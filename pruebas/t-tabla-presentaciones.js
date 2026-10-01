@@ -156,8 +156,14 @@ const ids = lista => lista.map(p => p.id + (p.__grupo ? '(' + p.__grupo.miembros
     w.ctx.cambiarCostosDeGrupo('y1', 'y3');
     t('  con todas las bolsas, desde Productos, y el foco en la que se tocó', abiertos.length === 1 && abiertos[0].ids === 'y1,y3' &&
       abiertos[0].c === 'prod' && abiertos[0].foco === 'y3', JSON.stringify(abiertos));
-    t('  gramosDeBolsa: la de 3 kg sí; un granel suelto (sin otras bolsas) o una presentación por unidad, no', w.ctx.gramosDeBolsa(busca('y3')) === 3000 &&
-      w.ctx.gramosDeBolsa({ id: 'suelto', tipoVenta: 'peso', gramaje: '1 kg' }) === null && w.ctx.gramosDeBolsa(busca('m160')) === null);
+    t('  gramosDeBolsa: la de 3 kg sí; una presentación por unidad, no', w.ctx.gramosDeBolsa(busca('y3')) === 3000 && w.ctx.gramosDeBolsa(busca('m160')) === null);
+    /* Pedido del dueño (30/09): un granel sin otras bolsas que dice de cuánto es la bolsa también
+       es una bolsa, en Cargar compra y en la ventana de costos por igual. */
+    t('  un granel suelto que dice su tamaño (en el tamaño o en el nombre) también es una bolsa; sin tamaño, no',
+      w.ctx.gramosDeBolsa({ id: 'suelto', tipoVenta: 'peso', gramaje: '1 kg' }) === 1000 &&
+      w.ctx.gramosDeBolsa({ id: 'suelto2', tipoVenta: 'peso', nombre: 'Lenteja x 5 kg' }) === 5000 &&
+      w.ctx.gramosDeBolsa({ id: 'suelto3', tipoVenta: 'peso', nombre: 'Avellana' }) === null &&
+      w.ctx.gramosDeBolsa({ id: 'suelto4', tipoVenta: 'peso', gramaje: '2 kg', depurado: true }) === null);
   }
   {
     /* Revisión del 27/09, #12: la columna y la ventana hacen la misma cuenta. */

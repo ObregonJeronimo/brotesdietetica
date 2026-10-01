@@ -411,15 +411,21 @@ function _nombreConPresentacion(p, nombre) {
 /* Los gramos de la bolsa, si es una bolsa de un granel con otras (una variante por peso
    que dice su tamaño): ahí el costo se carga por bolsa, como en "Costo y precio de cada
    bolsa", aunque se guarde por kilo. Si no, null: por kilo o por unidad, como siempre. Lo
-   usan la ventana de costos (admin-costos.js) y el panel de la tabla (pedido del dueño, 27/09). */
+   usan la ventana de costos (admin-costos.js), el panel de la tabla (pedido del dueño, 27/09)
+   y Cargar compra (admin-compras.js).
+   Un producto por peso SIN otras bolsas también es una bolsa si dice de cuánto es, en el
+   nombre o en el tamaño de su ficha (pedido del dueño, 30/09): Cargar compra lo carga por
+   bolsa, y la ventana de costos y los avisos tienen que decir lo mismo. */
 function gramosDeBolsa(p, productos) {
   if (!p || p.tipoVenta !== 'peso' || p.depurado === true) return null;
   const prods = productos || _varProds();
+  const c = contenidoDeVariante(p);
+  const g = c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+  if (!tieneVariantes(p, prods)) return g;
   const pr = principalDeVariante(p, prods);
   if (!pr || pr.depurado === true) return null;
   if (variantesDeGrupo(pr, prods, { conOcultos: true }).filter(v => v.tipoVenta === 'peso').length < 2) return null;
-  const c = contenidoDeVariante(p);
-  return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+  return g;
 }
 /* El costo de la bolsa desde el del kilo, y al revés: UNA sola cuenta para la ventana de
    costos y la tabla, la misma del formulario (costo × gramos / 1000). Con dos cuentas

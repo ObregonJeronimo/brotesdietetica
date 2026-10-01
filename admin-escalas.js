@@ -742,11 +742,14 @@ function mezclaDePedido(items) {
 /* ------------------------------------------------ EL COSTO DE LA BOLSA */
 /* El costo de un producto por peso es por kilo, pero lo que está a mano es la
    factura: "la bolsa de 3 kg me salió $2.600". Se carga eso y el costo por kilo sale
-   solo. Aparece en los productos por peso con su tamaño en Gramaje / Presentación. */
+   solo. Aparece en los productos por peso que dicen de cuánto es la bolsa ("Tamaño de la
+   bolsa"). Desde el 30/09 (pedido del dueño) se ve como en Cargar compra: "Costo de la bolsa
+   de 2 kg", ya cargado con lo que da el kilo de arriba, y al lado cómo queda el kilo. */
 function pintarCostoBolsa() {
   const cont = document.getElementById('pCostoBolsa');
   if (!cont) return;
   const peso = typeof _tipoVentaProd !== 'undefined' && _tipoVentaProd === 'peso';
+  _etqTamanoBolsa(peso);
   const gEl = document.getElementById('pGramaje');
   const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ gramaje: gEl ? gEl.value : '' }) : null;
   /* Con la tabla de bolsas a la vista sobra: lo que costó la bolsa de este producto va
@@ -755,20 +758,37 @@ function pintarCostoBolsa() {
   if (!peso || conTabla || !c || c.unidad !== 'g' || !(c.valor > 0)) { cont.hidden = true; cont.innerHTML = ''; return; }
   let inp = cont.querySelector('input');
   if (!inp) {
-    cont.innerHTML = '<label class="cb-lbl" for="pCostoBolsaInput">¿Tenés lo que costó la bolsa? Bolsa de <span class="cb-tam"></span>:</label>' +
+    cont.innerHTML = '<label class="cb-lbl" for="pCostoBolsaInput">Costo de la bolsa de <span class="cb-tam"></span></label>' +
       '<div class="cb-fila"><span class="cb-signo">$</span>' +
       '<input type="text" inputmode="numeric" class="form-input cb-input" id="pCostoBolsaInput" autocomplete="off" placeholder="lo que dice la factura"></div>' +
       '<small class="cb-nota"></small>';
     inp = cont.querySelector('input');
-    inp.addEventListener('input', () => costoBolsaEscrito(inp));
+    inp.addEventListener('input', () => { if (inp.dataset) inp.dataset.escrito = '1'; costoBolsaEscrito(inp); });
   }
   cont.hidden = false;
   cont.querySelector('.cb-tam').textContent = _escPeso(c.valor);
-  if (document.activeElement === inp && inp.value) return;
+  if (document.activeElement === inp) return;
+  /* Si se escribió lo que costó la bolsa, eso manda: con otro tamaño, el kilo se recalcula. */
+  if (inp.dataset && inp.dataset.escrito === '1' && inp.value) { costoBolsaEscrito(inp); return; }
+  /* Si no, la bolsa sale del kilo de arriba, como en Cargar compra. */
   const costoKg = typeof montoAR === 'function' ? montoAR((document.getElementById('pCosto') || {}).value) : 0;
-  cont.querySelector('.cb-nota').textContent = costoKg > 0
-    ? 'Con ' + _escPlata(costoKg) + ' el kilo, la bolsa de ' + _escPeso(c.valor) + ' sale ' + _escPlata(costoKg * c.valor / 1000) + '.'
-    : '';
+  inp.value = costoKg > 0 ? String(Math.round(costoKg * c.valor / 1000)) : '';
+  cont.querySelector('.cb-nota').textContent = costoKg > 0 ? '= ' + _escPlata(costoKg) + ' el kilo' : '';
+}
+
+/* "Gramaje / Presentación" en un producto por peso es de cuánto es la bolsa que se le compra al
+   proveedor (pedido del dueño, 30/09): se llama así. En la tienda no se muestra, salvo como
+   presentación cuando hay varias. Por unidad sigue como siempre. */
+const _ETQ_TAM_UNIDAD = 'Gramaje / Presentación <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional — ej: 250g, 500g, 1kg)</span>';
+const _ETQ_TAM_PESO = 'Tamaño de la bolsa <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional — la que le comprás al proveedor: 1 kg, 5 kg, 25 kg)</span>';
+function _etqTamanoBolsa(peso) {
+  const wrap = document.getElementById('pGramajeWrap');
+  const lbl = wrap && wrap.querySelector('label');
+  const inp = document.getElementById('pGramaje');
+  if (!lbl || !inp) return;
+  const html = peso ? _ETQ_TAM_PESO : _ETQ_TAM_UNIDAD;
+  if (lbl.innerHTML !== html) lbl.innerHTML = html;
+  inp.placeholder = peso ? 'Ej: 5 kg' : 'Ej: 500g ó 1kg';
 }
 
 function costoBolsaEscrito(inp) {
@@ -783,7 +803,7 @@ function costoBolsaEscrito(inp) {
   const pc = document.getElementById('pCosto');
   if (pc) pc.value = String(costoKg);
   if (typeof calcPrecioModal === 'function') calcPrecioModal();
-  if (nota) nota.textContent = '= ' + _escPlata(costoKg) + ' el kilo. Queda cargado arriba, en el costo.';
+  if (nota) nota.textContent = '= ' + _escPlata(costoKg) + ' el kilo. Queda cargado arriba, en el costo por kilo.';
 }
 
 /* Se repinta al abrir el formulario, al cambiar la forma de venta, la presentación o
@@ -794,7 +814,7 @@ if (typeof openModal === 'function') {
   openModal = function () {
     const r = _escOpenModal.apply(this, arguments);
     const inp = document.getElementById('pCostoBolsaInput');
-    if (inp) inp.value = '';
+    if (inp) { inp.value = ''; if (inp.dataset) delete inp.dataset.escrito; }
     pintarCostoBolsa();
     return r;
   };
@@ -812,8 +832,9 @@ if (typeof setTipoVenta === 'function') {
   if (g) g.addEventListener('input', pintarCostoBolsa);
   const c = document.getElementById('pCosto');
   if (c) c.addEventListener('input', () => {
+    /* El kilo escrito a mano manda: la bolsa vuelve a salir de él. */
     const inp = document.getElementById('pCostoBolsaInput');
-    if (inp && document.activeElement !== inp) inp.value = '';
+    if (inp && document.activeElement !== inp) { inp.value = ''; if (inp.dataset) delete inp.dataset.escrito; }
     pintarCostoBolsa();
   });
 })();

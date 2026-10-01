@@ -400,6 +400,10 @@ producción (de los "gramajes" viejos).
   campo de tamaño). Si no lo dice (118 en producción), la fila pregunta "¿De cuánto es la
   bolsa?", y al guardar la compra queda anotado en "Gramaje / presentación" del producto.
   Detalle en `PENDIENTE.md` §1-bis W.
+- **El tamaño de la bolsa, sin baches** (pedido del dueño): la compra dice qué bolsa es ("la bolsa
+  de 2 kg"), la ventana de costos usa la misma regla que la compra, y en la ficha de un producto
+  por peso el campo se llama "Tamaño de la bolsa" y la ayuda dice "Costo de la bolsa de 2 kg".
+  Detalle en `PENDIENTE.md` §1-bis X.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

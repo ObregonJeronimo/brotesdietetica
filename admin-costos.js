@@ -109,7 +109,14 @@ function _costoDeFila(fila, mostrado, escrito) {
 function costoActualTxt(p) {
   const g = _costoGramos(p);
   if (!g) return _costoPesos(p && p.costo) + _costoUnidad(p);
-  return _costoPesos(_costoEscrito(p, g)) + ' la bolsa' + (g !== 1000 ? ' (' + _costoPesos(p.costo) + ' el kilo)' : '');
+  return _costoPesos(_costoEscrito(p, g)) + ' la bolsa' + _costoDeBolsa(p, g) + (g !== 1000 ? ' (' + _costoPesos(p.costo) + ' el kilo)' : '');
+}
+/* " de 2 kg": de cuánto es la bolsa, si el nombre no lo dice ya (pedido del dueño, 30/09). En
+   "Mani RC" no se sabía qué bolsa era; en "Mani RC x 3 kg" ya se lee, y no se repite. */
+function _costoDeBolsa(p, g) {
+  const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ nombre: _costoNombre(p) }) : null;
+  if (c && c.unidad === 'g' && c.valor === g) return '';
+  return ' de ' + (g >= 1000 ? (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg' : g + ' g');
 }
 
 /* Lo que queda con el costo que se está escribiendo, al lado del campo (pedido del dueño,

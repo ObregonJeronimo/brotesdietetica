@@ -479,11 +479,13 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     w.porId.pCosto.value = '4500';
     w.ctx.pintarCostoBolsa();
     t('en un producto por peso de 3 kg aparece', cont.hidden === false && tam.textContent === '3 kg');
-    t('  con lo que sale la bolsa según el costo por kilo', nota.textContent === 'Con $4.500 el kilo, la bolsa de 3 kg sale $13.500.');
+    t('  como en Cargar compra: "Costo de la bolsa de 3 kg", ya cargado desde el kilo ($13.500), y al lado el kilo (30/09)',
+      cont.innerHTML.indexOf('Costo de la bolsa de <span class="cb-tam"></span>') > 0 && inp.value === '13500' && nota.textContent === '= $4.500 el kilo',
+      inp.value + ' / ' + nota.textContent);
     inp.value = '13.500';
     w.ctx.costoBolsaEscrito(inp);
     t('escribir lo que costó la bolsa carga el costo por kilo', w.porId.pCosto.value === '4500' && w.pintados.indexOf('calc') >= 0);
-    t('  y lo dice', nota.textContent === '= $4.500 el kilo. Queda cargado arriba, en el costo.');
+    t('  y lo dice', nota.textContent === '= $4.500 el kilo. Queda cargado arriba, en el costo por kilo.');
     inp.value = '2600';
     w.porId.pGramaje.value = '3 kg';
     w.ctx.costoBolsaEscrito(inp);
