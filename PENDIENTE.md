@@ -1825,7 +1825,7 @@ campos). Push a `main` hasta `f75f08d`, después de una revisión rápida del ú
 sirve los mismos archivos que el repo. La clienta lo ve al recargar (F5). Functions y reglas, sin
 cambios.
 
-### W) Cargar compra: un producto por peso sin otras bolsas también va por bolsa · **HECHO, SIN SUBIR** (30/09/2026)
+### W) Cargar compra: un producto por peso sin otras bolsas también va por bolsa · **SUBIDO A PRODUCCIÓN el 01/10/2026** (30/09/2026)
 
 **Ojo (01/10, ver §AA):** el tamaño de la bolsa del proveedor ya no se guarda en Gramaje /
 Presentación, sino aparte (`bolsaGramos`), y Gramaje volvió a ser como siempre.
@@ -1865,7 +1865,7 @@ sin el tamaño avisa que falta y no guarda; con "1", se guardó la compra y el p
 "1 kg"; la compra siguiente ya la pide por bolsa. Pruebas: `pruebas/t-compras-bolsas.js` (105) y
 se ajustó `t-lector-compra.js`. Total: 3832 en 89 suites.
 
-### X) El tamaño de la bolsa, solo en Cargar compra · **HECHO, SIN SUBIR** (30/09/2026)
+### X) El tamaño de la bolsa, solo en Cargar compra · **SUBIDO A PRODUCCIÓN el 01/10/2026** (30/09/2026)
 
 **Ojo (01/10, ver §AA):** el tamaño de la bolsa del proveedor ya no se guarda en Gramaje /
 Presentación, sino aparte (`bolsaGramos`), y Gramaje volvió a ser como siempre.
@@ -1906,7 +1906,7 @@ bolsa: 2 kg" y la ayuda de siempre ("¿Tenés lo que costó la bolsa?"). Pruebas
 (110), `t-escalas.js` (244: el nombre del campo, por peso y por unidad), `t-variantes.js` (240: la
 ayuda de "Nueva variante") y `t-exportar.js` (58). Total: 3841 en 89 suites.
 
-### Y) Cargar compra: kg o g al lado del tamaño; el aviso de costos y la calculadora de la ficha, más claros · **HECHO, SIN SUBIR** (30/09/2026)
+### Y) Cargar compra: kg o g al lado del tamaño; el aviso de costos y la calculadora de la ficha, más claros · **SUBIDO A PRODUCCIÓN el 01/10/2026** (30/09/2026)
 
 Pedido del dueño, probando en el sandbox:
 - **El tamaño de la bolsa con selector** (`_cpGramosEscritos`, en lugar de `_cpLeerBolsa`): en "¿De
@@ -1936,7 +1936,7 @@ ficha del Mani RC la calculadora dice el texto nuevo; escribiendo $900, el costo
 $300. Nada se guardó. Pruebas: `t-compras-bolsas.js` (114) y `t-escalas.js` (245). Total: 3846 en
 89 suites.
 
-### Z) El tamaño de la bolsa en kilos, y el camino a "Agregar otra bolsa" · **HECHO, SIN SUBIR** (30/09 y 01/10/2026)
+### Z) El tamaño de la bolsa en kilos, y el camino a "Agregar otra bolsa" · **SUBIDO A PRODUCCIÓN el 01/10/2026** (30/09 y 01/10/2026)
 
 **Ojo (01/10, ver §AA):** el tamaño de la bolsa del proveedor ya no se guarda en Gramaje /
 Presentación, sino aparte (`bolsaGramos`), y Gramaje volvió a ser como siempre.
@@ -1963,7 +1963,7 @@ peso el de kilos; en "Nueva variante" de un producto por peso el cursor va al ca
 se guardó. Pruebas: `t-compras-bolsas.js` (114), `t-escalas.js` (255) y `t-variantes.js` (242).
 Total: 3858 en 89 suites.
 
-### AA) El tamaño de la bolsa, aparte de Gramaje; y la lista de precios dice "el kilo" · **HECHO, SIN SUBIR** (01/10/2026)
+### AA) El tamaño de la bolsa, aparte de Gramaje; y la lista de precios dice "el kilo" · **SUBIDO A PRODUCCIÓN el 01/10/2026** (01/10/2026)
 
 Thiago dudaba de usar "Gramaje / Presentación" para la bolsa (la clienta lo usa: había visto "250cc"
 en un producto). Se investigó para qué sirve, probándolo en el sandbox:
@@ -2009,7 +2009,7 @@ etiqueta y el mostrador. Pruebas: `t-escalas.js` (263), `t-compras-bolsas.js` (1
 (238, como en producción) y `t-lista-pdf.js` (11, nuevo: corre la lista de precios de verdad con un
 PDF de mentira). Total: 3875 en 90 suites.
 
-### AB) Las exportaciones con bolsas; los grupos juntos en la lista de precios; "o la bolsa" en Revisar costos · **HECHO, SIN SUBIR** (01/10/2026)
+### AB) Las exportaciones con bolsas; los grupos juntos en la lista de precios; "o la bolsa" en Revisar costos · **SUBIDO A PRODUCCIÓN el 01/10/2026** (01/10/2026)
 
 Thiago pidió revisar cómo salen en las exportaciones los productos con varias bolsas o
 presentaciones. Probado en el sandbox con un grupo armado con "Agregar otra bolsa" ("Mani" de 1 kg y
@@ -2042,7 +2042,7 @@ su ficha) muestra "o la bolsa de 5 kg" y las demás no; $25.000 pone $5.000 el k
 al lado; escribir el kilo a mano vacía la bolsa; "Ahora no" no guardó nada. Pruebas:
 `t-lista-pdf.js` (14) y `t-costos-viejos.js` (107). Total: 3885 en 90 suites.
 
-### AC) "Por peso" o "Unitario" en el Centro de avisos; "Costo por bolsa:", "por kilo:" o "por unidad:" en la ventana de costos · **HECHO, SIN SUBIR** (01/10/2026)
+### AC) "Por peso" o "Unitario" en el Centro de avisos; "Costo por bolsa:", "por kilo:" o "por unidad:" en la ventana de costos · **SUBIDO A PRODUCCIÓN el 01/10/2026** (01/10/2026)
 
 Thiago pidió dos grupos de prueba en el sandbox con el costo de hace 3 meses ("Nuez Mariposa" con
 bolsas de 1, 3 y 5 kg, y "Miel Pura" con presentaciones de 250 g, 500 g y 1 kg) para ver cómo se
@@ -2060,7 +2060,7 @@ muestran los costos, y después dos cambios visuales para evitar confusiones:
 Probado en el sandbox en compu y celular. Pruebas: `t-inicio.js` (92) y `t-costos-viejos.js` (110).
 Total: 3891 en 90 suites.
 
-### AD) Revisión antes de subir · **HECHO, SIN SUBIR** (01/10/2026)
+### AD) Revisión antes de subir · **SUBIDO A PRODUCCIÓN el 01/10/2026** (01/10/2026)
 
 Thiago pidió revisar todo lo que falta subir (13 commits, solo panel: sin cambios en la tienda,
 las funciones ni las reglas). Se revisó a mano y con dos revisores aparte (Cargar compra; ficha y
@@ -2092,7 +2092,7 @@ iniciar sesión (la tienda los necesita), y eso incluye el costo y el porcentaje
 Probado en el sandbox con teclas de verdad (ventana de costos y ficha). Pruebas: 13 nuevas, y cada
 una falla con el código de antes. Total: 3904 en 90 suites.
 
-### AE) La fecha del costo, al instante · **HECHO, SIN SUBIR** (01/10/2026)
+### AE) La fecha del costo, al instante · **SUBIDO A PRODUCCIÓN el 01/10/2026** (01/10/2026)
 
 Thiago pidió una prueba completa en el sandbox: vender un producto por kilo, uno con tamaño de bolsa
 y una bolsa de un grupo; cambiar los costos (compra por bolsa, ficha, "Revisar costos" y "Modificar
@@ -2117,6 +2117,14 @@ Probado en el sandbox con clics de verdad en los tres caminos (Castaña por comp
 por la ficha y Nuez x 5 kg por la tabla de bolsas): el panel ve la fecha de hoy al instante y salen
 del Centro de avisos. Pruebas: 4 nuevas, y cada una falla con el código de antes. Total: 3908 en 90
 suites.
+
+**W a AE, subidos el 01/10/2026** (pedido por Thiago, con la clienta usando el sistema, después de
+la revisión y de la prueba completa en el sandbox: solo cambia el panel, que se carga entero al abrir
+la página; la pestaña abierta sigue con lo viejo hasta recargar; el campo nuevo `bolsaGramos` lo
+aceptan las reglas, y guardar un producto usa `update`, así que una pestaña vieja no lo borra). Push
+a `main` de `f75f08d` a `6206081` (15 commits). Vercel sirve los mismos archivos que el repo; la
+tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesión). La clienta lo ve
+al recargar (F5). Functions y reglas, sin cambios.
 
 ---
 

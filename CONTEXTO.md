@@ -393,7 +393,7 @@ producción (de los "gramajes" viejos).
   proveedor, la cabecera del recuadro dice solo el nombre del producto. Detalle en `PENDIENTE.md`
   §1-bis V.
 
-### 5.7 Lo del 30/09 (en commit local, SIN SUBIR)
+### 5.7 Lo del 30/09 y el 01/10 (subido a producción el 01/10, push hasta `6206081`, verificado)
 
 - **Cargar compra, un producto por peso sin otras bolsas** (pedido del dueño): también se carga
   por bolsa, con el kilo al lado, si el producto dice de cuánto es la bolsa (en el nombre, o
@@ -455,8 +455,10 @@ producción (de los "gramajes" viejos).
 
 ### 7.1 Después de la subida (lo más urgente)
 
-0. **Avisarle a la clienta lo nuevo de Compras y Proveedores** (§5.6, subido el 29/09) y que recargue
-   el panel (F5) si lo tenía abierto.
+0. **Avisarle a la clienta lo nuevo de Compras y Proveedores** (§5.6, subido el 29/09) y lo del 01/10
+   (§5.7: en Cargar compra lo que viene en bolsa se carga con lo que costó la bolsa, y si no dice de
+   cuánto es se pregunta una sola vez; la lista de precios dice "el kilo"), y que recargue el panel
+   (F5) entre una venta y otra si lo tenía abierto.
 1. **Avisarle a la clienta** que desde el 29/09 puede vender sin stock (sale el aviso "Stock
    insuficiente" con "Vender igual") y que el Centro de avisos le muestra lo que quedó en negativo,
    para cargarlo. Del 27/09 al 29/09 estuvo el freno (el 27/09 había 154 de 344 productos a la venta
@@ -549,7 +551,7 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 - Antes de dar por terminado algo grande: revisión de código y prueba en el sandbox.
 
-Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El 29/09 subimos que se pueda vender sin stock con un aviso y que el Centro de avisos muestre los negativos (push hasta a2f3f77, verificado; PENDIENTE.md §1-bis Q). Después subimos también (push hasta f75f08d, verificado) que en Cargar compra las bolsas de un producto vayan juntas y se carguen por bolsa, que en Proveedores al borrar la búsqueda vuelvan todos, que la ficha del proveedor muestre los tamaños de un producto juntos, que una compra guardada muestre sus bolsas juntas, y que los recuadros digan solo el nombre del producto (PENDIENTE.md §1-bis R a V). El sandbox está cerrado.
+Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El 29/09 subimos que se pueda vender sin stock con un aviso y que el Centro de avisos muestre los negativos (push hasta a2f3f77, verificado; PENDIENTE.md §1-bis Q). Después subimos también (push hasta f75f08d, verificado) que en Cargar compra las bolsas de un producto vayan juntas y se carguen por bolsa, que en Proveedores al borrar la búsqueda vuelvan todos, que la ficha del proveedor muestre los tamaños de un producto juntos, que una compra guardada muestre sus bolsas juntas, y que los recuadros digan solo el nombre del producto (PENDIENTE.md §1-bis R a V). El 01/10 subimos (push hasta 6206081, verificado) lo de las bolsas del proveedor: Cargar compra por bolsa también en los granel sueltos (el tamaño va aparte, en bolsaGramos), "el kilo" y los grupos juntos en la lista de precios, "O el costo de la bolsa" y "Costo por bolsa/kilo/unidad" en la ventana de costos, "Por peso/Unitario" en el Centro de avisos, los arreglos de la revisión y la fecha del costo al instante (PENDIENTE.md §1-bis W a AE). El sandbox está cerrado.
 
 Pendientes principales: avisarle a la clienta lo nuevo de Compras y Proveedores, y que ya puede vender sin stock (con el aviso) y que el Centro le muestra los negativos, probar el ticket del pedido en la impresora térmica, decidir qué hacer con las ventas viejas guardadas como "Envío", y la migración (etapa 4), que se hace solo cuando yo lo pida. El resto de los pendientes está en CONTEXTO.md §7.
 
