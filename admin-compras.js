@@ -51,14 +51,17 @@ function _cpEsPeso(p) { return !!(p && p.tipoVenta === 'peso'); }
    (kiloDeBolsa), que es como lo lee todo lo demás. Las cuentas y el agrupado son los de
    admin-variantes.js: gramosDeBolsa, costoDeBolsa, kiloDeBolsa y agruparParaStock. */
 /* Los gramos de la bolsa, si se carga por bolsa. En un producto con varias bolsas, la suya
-   (gramosDeBolsa). En uno por peso sin otras bolsas (pedido del dueño, 30/09/2026), el tamaño
-   que dice el producto: en el nombre ("Lenteja x 5 kg") o en "Tamaño de la bolsa" de su ficha.
-   Si no dice de cuánto es la bolsa, null: la fila lo pregunta. Es solo de Cargar compra: la
-   ventana de costos sigue por kilo en esos productos (Thiago, 30/09: no complicarlo). */
+   (gramosDeBolsa). En uno por peso sin otras bolsas (pedido del dueño, 30/09/2026), la bolsa que
+   se le compra al proveedor: la que quedó anotada aparte (bolsaGramos, de una compra o de su
+   ficha) o la que dice el nombre ("Lenteja x 5 kg"). Gramaje / Presentación no: es lo que ve el
+   cliente en la lista de precios y en las etiquetas (pedido del dueño, 01/10). Si no lo sabe,
+   null: la fila lo pregunta. Es solo de Cargar compra: la ventana de costos sigue por kilo en
+   esos productos (Thiago, 30/09: no complicarlo). */
 function _cpGramosBolsa(p) {
   const g = typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p) : null;
-  if (g || !p || p.tipoVenta !== 'peso' || p.depurado === true || typeof contenidoDeVariante !== 'function') return g;
-  const c = contenidoDeVariante(p);
+  if (g || !p || p.tipoVenta !== 'peso' || p.depurado === true) return g;
+  if (Number(p.bolsaGramos) > 0) return Math.round(Number(p.bolsaGramos));
+  const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ nombre: p.nombre }) : null;
   return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
 }
 /* Un producto por peso, sin otras bolsas, que no dice de cuánto es la bolsa: la compra se lo
@@ -940,10 +943,11 @@ async function guardarCompra() {
   }
 }
 
-/* De cuánto es la bolsa, escrito en la compra: queda anotado en el producto, en "Gramaje /
-   presentación" de su ficha, para que la próxima compra ya pida la bolsa (pedido del dueño,
-   30/09). Solo si el producto sigue sin decirlo. Si falla, la compra ya se guardó: se avisa
-   aparte, sin decir que no se guardó. */
+/* De cuánto es la bolsa, escrito en la compra: queda anotado en el producto, aparte
+   (bolsaGramos), para que la próxima compra ya pida la bolsa (pedido del dueño, 30/09). No en
+   Gramaje / Presentación: eso lo ve el cliente en la lista de precios y en las etiquetas, y ahí
+   "2 kg" al lado del precio del kilo confunde (01/10). Solo si el producto sigue sin decirlo. Si
+   falla, la compra ya se guardó: se avisa aparte, sin decir que no se guardó. */
 async function _cpAnotarBolsas(items) {
   const anotar = items.filter(i => i.sinTam && _cpEsBolsa(i))
     .map(i => ({ i: i, p: (allProducts || []).find(x => x.id === i.id) }))
@@ -951,9 +955,9 @@ async function _cpAnotarBolsas(items) {
   if (!anotar.length) return;
   try {
     const lote = db.batch();
-    anotar.forEach(x => lote.update(db.collection('productos').doc(x.i.id), { gramaje: _cpTamTxt(x.i.gramosBolsa) }));
+    anotar.forEach(x => lote.update(db.collection('productos').doc(x.i.id), { bolsaGramos: Number(x.i.gramosBolsa) }));
     await lote.commit();
-    anotar.forEach(x => { x.p.gramaje = _cpTamTxt(x.i.gramosBolsa); });
+    anotar.forEach(x => { x.p.bolsaGramos = Number(x.i.gramosBolsa); });
     if (typeof logAction === 'function') {
       logAction('editar', 'Tamaño de bolsa anotado desde una compra: ' + anotar.length,
         anotar.map(x => x.i.nombre + ': ' + _cpTamTxt(x.i.gramosBolsa)).join(' | ').slice(0, 900));

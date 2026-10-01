@@ -396,12 +396,12 @@ producción (de los "gramajes" viejos).
 ### 5.7 Lo del 30/09 (en commit local, SIN SUBIR)
 
 - **Cargar compra, un producto por peso sin otras bolsas** (pedido del dueño): también se carga
-  por bolsa, con el kilo al lado, si el producto dice de cuánto es la bolsa (en el nombre o en el
-  campo de tamaño). Si no lo dice (118 en producción), la fila pregunta "¿De cuánto es la
-  bolsa?", y al guardar la compra queda anotado en "Gramaje / presentación" del producto.
+  por bolsa, con el kilo al lado, si el producto dice de cuánto es la bolsa (en el nombre, o
+  anotado aparte). Si no lo dice (118 en producción), la fila pregunta "¿De cuánto es la bolsa?",
+  y al guardar la compra queda anotado en el producto, aparte (`bolsaGramos`, ver §1-bis AA).
   Detalle en `PENDIENTE.md` §1-bis W.
 - **El tamaño de la bolsa, solo en Cargar compra** (pedido del dueño): la compra dice qué bolsa es
-  ("la bolsa de 2 kg") y en la ficha de un producto por peso el campo se llama "Tamaño de la bolsa".
+  ("la bolsa de 2 kg").
   La ventana de costos, los avisos y la ayuda de la ficha siguen por kilo, como en producción: se
   probó llevarlo ahí y Thiago pidió no complicarlo. Detalle en `PENDIENTE.md` §1-bis X.
 - **Cargar compra: kg o g, y el aviso de costos claro** (pedido del dueño): el tamaño de la bolsa se
@@ -409,10 +409,13 @@ producción (de los "gramajes" viejos).
   cargado" y "En esta compra" por producto, con los botones "Dejar como estaba" y "Actualizar". La
   calculadora de la bolsa de la ficha dice qué hace: "¿La factura dice el precio de la bolsa de 3
   kg? Escribilo acá y se calcula solo el costo por kilo." Detalle en `PENDIENTE.md` §1-bis Y.
-- **El tamaño de la bolsa en kilos** (pedido del dueño): en la ficha de un producto por peso,
-  "Tamaño de la bolsa" es un campo angosto de solo números (hasta 5) con "kilos" al lado, y abajo
-  "¿Querés disponer de más tamaños?" baja hasta "Agregar otra bolsa" y lo resalta, sin tocarlo. En
-  Cargar compra el tamaño también acepta hasta 5 caracteres. Detalle en `PENDIENTE.md` §1-bis Z.
+- **El tamaño de la bolsa, aparte de Gramaje** (pedido del dueño): "Gramaje / Presentación" es lo
+  que ve el cliente (lista de precios en PDF, etiquetas, buscador del mostrador, botones de
+  presentación de la tienda) y queda como siempre. La bolsa del proveedor de un producto por peso
+  va aparte (`bolsaGramos`): en la ficha, abajo del costo, un campo en kilos (solo números, hasta
+  5) con "¿Querés disponer de más tamaños?" debajo, que baja a "Agregar otra bolsa" y lo resalta;
+  Cargar compra la anota cuando la pregunta, y su campo acepta hasta 5 caracteres. La lista de
+  precios en PDF dice "el kilo" en los productos por peso. Detalle en `PENDIENTE.md` §1-bis Z y AA.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

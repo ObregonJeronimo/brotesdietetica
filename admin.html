@@ -617,8 +617,9 @@
         .var-tabla-chip.caja{background:rgba(167,139,250,0.15);color:#a78bfa}
         .var-tabla-chip.oculto{background:#5a2d2d;color:#f56c6c}
         .precio-section.resaltar{box-shadow:0 0 0 2px var(--accent);transition:box-shadow 0.3s}
-        /* El tamaño de la bolsa en kilos, en la ficha de un producto por peso: angosto, con "kilos" al lado, y abajo el camino para más tamaños, que resalta el botón (30/09/2026). */
+        /* El tamaño de la bolsa del proveedor, en la ficha de un producto por peso (abajo del costo): angosto, con "kilos" al lado, una nota, y abajo el camino para más tamaños, que resalta el botón (30/09 y 01/10/2026). */
         .tam-kilos{width:150px}
+        .bolsa-nota{display:block;font-size:0.72rem;color:var(--text-dim);margin-top:0.3rem;line-height:1.35}
         .tam-mas{display:block;margin-top:0.45rem;text-align:left}
         .btn.var-agregar.resaltar{box-shadow:0 0 0 3px var(--accent);transition:box-shadow 0.3s}
         .var-op .var-stock{min-width:78px;text-align:right}
@@ -2876,7 +2877,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             if(_chkNom.aviso)showAdminToast(_chkNom.aviso,'info');
             if(_cbCampo)_cbCampo.value=_codBarras;
             if(document.getElementById('pCodigo'))document.getElementById('pCodigo').value=_codigoProd;const btn=document.getElementById('saveBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{let _refId=editingId;let imgUrl=existingImageUrl;if(selectedImageFile){btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Subiendo imagen...';imgUrl=await uploadImage(selectedImageFile);}const costo=montoAR(document.getElementById('pCosto').value)||0;const porcentaje=parseFloat(document.getElementById('pPorcentaje').value)||0;const precioCalc=Math.round(costo*(1+porcentaje/100));const pctMay=parseFloat(document.getElementById('pPorcentajeMay')?.value)||0;const precioMayCalc=_redondearMayorista(Math.round(costo*(1+pctMay/100)));const listaVal=document.getElementById('pLista')?.value||'';const descuentoProd=Math.min(100,Math.max(0,parseInt(document.getElementById('pDescuento')?.value)||0));const nombreMostrado=document.getElementById('pNombreMostrado')?.value.trim()||'';const gramajeProd=document.getElementById('pGramaje')?.value.trim()||'';/* Solo digitos: los lectores a veces mandan basura y un codigo con un espacio invisible al final no vuelve a matchear nunca */
-            const codBarras=(document.getElementById('pCodigoBarras')?.value||'').replace(/[^0-9A-Za-z]/g,'');const data={nombre:document.getElementById('pNombre').value.trim(),nombreMostrado:nombreMostrado||null,gramaje:gramajeProd||null,codigoBarras:codBarras||null,costo:costo,porcentaje:porcentaje,precio:precioCalc,porcentajeMayorista:pctMay,precioMayorista:precioMayCalc,descuento:descuentoProd,stock:parseInt(document.getElementById('pStock').value)||0,categoria:document.getElementById('pCategoria').value.trim(),subcategoria:document.getElementById('pSubcategoria').value.trim()||null,descripcion:document.getElementById('pDescripcion').value.trim(),valoresNutricionales:document.getElementById('pValoresNutricionales').value.trim(),imagenesExtra:_imgExtraUrls.filter(Boolean),imagen:imgUrl||null,lista:listaVal||null,codigo:_codigoProd,tipoVenta:_tipoVentaProd};if(!editingId&&typeof datosDeVarianteNueva==='function')datosDeVarianteNueva(data);if(typeof datosCajaCerrada==='function')datosCajaCerrada(data,editingId);btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando datos...';if(editingId){const old=allProducts.find(x=>x.id===editingId);const cambios=[];if(old){if(old.nombre!==data.nombre)cambios.push('nombre: '+old.nombre+' -> '+data.nombre);if(old.precio!==data.precio)cambios.push('precio: $'+old.precio+' -> $'+data.precio);if((old.costo||0)!==data.costo)cambios.push('costo: $'+(old.costo||0)+' -> $'+data.costo);if(old.stock!==data.stock)cambios.push('stock: '+old.stock+' -> '+data.stock);if(old.categoria!==data.categoria)cambios.push('cat: '+old.categoria+' -> '+data.categoria);if(old.subcategoria!==data.subcategoria)cambios.push('subcat: '+(old.subcategoria||'-')+' -> '+(data.subcategoria||'-'));if(old.imagen!==data.imagen)cambios.push('imagen cambiada');}/* Si nadie toco el campo de stock, NO se escribe. Este update mandaba siempre el numero
+            const codBarras=(document.getElementById('pCodigoBarras')?.value||'').replace(/[^0-9A-Za-z]/g,'');const data={nombre:document.getElementById('pNombre').value.trim(),nombreMostrado:nombreMostrado||null,gramaje:gramajeProd||null,codigoBarras:codBarras||null,costo:costo,porcentaje:porcentaje,precio:precioCalc,porcentajeMayorista:pctMay,precioMayorista:precioMayCalc,descuento:descuentoProd,stock:parseInt(document.getElementById('pStock').value)||0,categoria:document.getElementById('pCategoria').value.trim(),subcategoria:document.getElementById('pSubcategoria').value.trim()||null,descripcion:document.getElementById('pDescripcion').value.trim(),valoresNutricionales:document.getElementById('pValoresNutricionales').value.trim(),imagenesExtra:_imgExtraUrls.filter(Boolean),imagen:imgUrl||null,lista:listaVal||null,codigo:_codigoProd,tipoVenta:_tipoVentaProd};if(!editingId&&typeof datosDeVarianteNueva==='function')datosDeVarianteNueva(data);if(typeof datosCajaCerrada==='function')datosCajaCerrada(data,editingId);if(typeof datosBolsaProveedor==='function')datosBolsaProveedor(data,editingId);btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando datos...';if(editingId){const old=allProducts.find(x=>x.id===editingId);const cambios=[];if(old){if(old.nombre!==data.nombre)cambios.push('nombre: '+old.nombre+' -> '+data.nombre);if(old.precio!==data.precio)cambios.push('precio: $'+old.precio+' -> $'+data.precio);if((old.costo||0)!==data.costo)cambios.push('costo: $'+(old.costo||0)+' -> $'+data.costo);if(old.stock!==data.stock)cambios.push('stock: '+old.stock+' -> '+data.stock);if(old.categoria!==data.categoria)cambios.push('cat: '+old.categoria+' -> '+data.categoria);if(old.subcategoria!==data.subcategoria)cambios.push('subcat: '+(old.subcategoria||'-')+' -> '+(data.subcategoria||'-'));if(old.imagen!==data.imagen)cambios.push('imagen cambiada');}/* Si nadie toco el campo de stock, NO se escribe. Este update mandaba siempre el numero
                absoluto que el formulario habia cargado al abrirse: si el otro admin vendia 12
                unidades mientras este formulario estaba abierto, guardar el producto —aunque
                fuera solo para corregir la descripcion— devolvia el stock al valor viejo y esas
@@ -5813,7 +5814,12 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                         const px=colX();
                         const _p=_getPrice(p);
                         const precio='$'+_p.toLocaleString('es-AR');
-                        const precioW=doc.getTextWidth(precio);
+                        /* Por peso el precio es el del kilo, y se dice al lado, como en la tienda
+                           (01/10/2026): sin eso "Semilla De Chia $21.590" se leia como el precio
+                           del paquete. */
+                        const kilo=esPorPeso(p)?' el kilo':'';
+                        const kiloW=kilo?doc.getTextWidth(kilo):0;
+                        const precioW=doc.getTextWidth(precio)+kiloW;
                         const maxNameW=colW-precioW-4;
                         /* El gramaje va pegado al nombre: una dietetica vende el mismo producto
                            en 250g, 500g y 1kg, y sin el la lista repetia tres veces el mismo
@@ -5832,8 +5838,9 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                            "Chocolate Artesanal 1kg" salia impreso "Chocolate Artesanal 1k...". */
                         if(nombre!==_completo)nombre=nombre.slice(0,-1)+'\u2026';
                         doc.text(nombre,px,y+3);
+                        if(kilo)doc.text(kilo,px+colW,y+3,{align:'right'});
                         doc.setFont('helvetica','bold');
-                        doc.text(precio,px+colW,y+3,{align:'right'});
+                        doc.text(precio,px+colW-kiloW,y+3,{align:'right'});
                         doc.setFont('helvetica','normal');
                         y+=lineH;
                     });

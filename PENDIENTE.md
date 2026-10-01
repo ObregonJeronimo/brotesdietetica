@@ -1827,6 +1827,9 @@ cambios.
 
 ### W) Cargar compra: un producto por peso sin otras bolsas también va por bolsa · **HECHO, SIN SUBIR** (30/09/2026)
 
+**Ojo (01/10, ver §AA):** el tamaño de la bolsa del proveedor ya no se guarda en Gramaje /
+Presentación, sino aparte (`bolsaGramos`), y Gramaje volvió a ser como siempre.
+
 Pedido del dueño: en Cargar compra, un producto por peso sin otras bolsas (por ejemplo "Harina De
 Almendra Tostado") pedía el costo por kilo, y los que tienen bolsas pedían el de la bolsa. Ahora
 también va por bolsa si el producto dice de cuánto es la bolsa: en el nombre ("LENTEJA TURCA x 1
@@ -1863,6 +1866,9 @@ sin el tamaño avisa que falta y no guarda; con "1", se guardó la compra y el p
 se ajustó `t-lector-compra.js`. Total: 3832 en 89 suites.
 
 ### X) El tamaño de la bolsa, solo en Cargar compra · **HECHO, SIN SUBIR** (30/09/2026)
+
+**Ojo (01/10, ver §AA):** el tamaño de la bolsa del proveedor ya no se guarda en Gramaje /
+Presentación, sino aparte (`bolsaGramos`), y Gramaje volvió a ser como siempre.
 
 Pedido del dueño, después de §W: guardó una compra de "Mani RC" diciendo que la bolsa era de 2 kg, y
 al volver a Cargar compra no se veía en ningún lado de cuánto era la bolsa. Además preguntó si
@@ -1932,6 +1938,9 @@ $300. Nada se guardó. Pruebas: `t-compras-bolsas.js` (114) y `t-escalas.js` (24
 
 ### Z) El tamaño de la bolsa en kilos, y el camino a "Agregar otra bolsa" · **HECHO, SIN SUBIR** (30/09 y 01/10/2026)
 
+**Ojo (01/10, ver §AA):** el tamaño de la bolsa del proveedor ya no se guarda en Gramaje /
+Presentación, sino aparte (`bolsaGramos`), y Gramaje volvió a ser como siempre.
+
 Pedido del dueño (probando en el sandbox había escrito "2 kg, 3 kg" en el tamaño de un solo producto):
 - **Cargar compra:** el número del tamaño de la bolsa acepta hasta 5 caracteres (`maxlength`).
 - **La ficha de un producto por peso:** "Tamaño de la bolsa" se escribe en kilos, en un campo
@@ -1953,6 +1962,52 @@ botón sin agregar ninguna fila; un producto nuevo por unidad muestra el campo d
 peso el de kilos; en "Nueva variante" de un producto por peso el cursor va al campo de kilos. Nada
 se guardó. Pruebas: `t-compras-bolsas.js` (114), `t-escalas.js` (255) y `t-variantes.js` (242).
 Total: 3858 en 89 suites.
+
+### AA) El tamaño de la bolsa, aparte de Gramaje; y la lista de precios dice "el kilo" · **HECHO, SIN SUBIR** (01/10/2026)
+
+Thiago dudaba de usar "Gramaje / Presentación" para la bolsa (la clienta lo usa: había visto "250cc"
+en un producto). Se investigó para qué sirve, probándolo en el sandbox:
+- **Lista de precios en PDF** ("Exportar PDF" y "PDF M"): va pegado al nombre, "Aceite De Almendras
+  250 cc $29.600". Es lo más visible: esa lista se les pasa a los clientes.
+- **Etiquetas impresas**: debajo del nombre.
+- **Venta de mostrador**: etiqueta gris al lado del stock, y se puede buscar por eso ("250 cc").
+- **Exportar Costos (Excel)**: columna GRAMAJE.
+- **Tienda**: solo en un producto con presentaciones, como texto de cada botón; en uno suelto no se
+  ve, ni en la tarjeta ni en el detalle.
+- En producción lo tienen 8 de 1.317 productos: 5 por unidad ("250 cc" en un aceite de oliva y
+  "850" en unos canelones, visibles; "360cc" x2 y "350g", ocultos) y 3 por peso (Harina de almendras
+  x 1, 5 y 25 kg, ocultas). Ninguno en un grupo.
+
+El problema: con §W y §Z, la bolsa del proveedor de un producto por peso se guardaba en Gramaje, y
+salía en la lista de precios ("Semilla De Chia 2 kg $21.590", con el precio del kilo), en la etiqueta
+que se pega en la bolsa fraccionada ("2 kg" en una de 250 g) y en el mostrador. No llegó a producción.
+
+Lo que se hizo (Thiago eligió esto):
+- **El tamaño de la bolsa va aparte**, en el producto como `bolsaGramos` (gramos). En la ficha de un
+  producto por peso sin otras bolsas, abajo del costo por kilo: "Tamaño de la bolsa que le comprás al
+  proveedor (opcional)", en kilos (solo el número, hasta 5 caracteres), con "Para cargar las compras
+  por bolsa. No lo ve el cliente." y debajo "¿Querés disponer de más tamaños?" (`_campoBolsa`,
+  `_ponerBolsaDelProducto`, `datosBolsaProveedor`, admin-escalas.js; se guarda con un enganche en
+  saveProduct, como la caja cerrada: si se borra, se borra; uno que nunca lo tuvo no gana el campo).
+  No va por unidad ni en una bolsa de un grupo: ahí el tamaño es su Gramaje, como siempre.
+- **Gramaje / Presentación vuelve a ser como estaba** para todos los productos: mismo nombre, texto
+  libre, a la vista. Se deshizo el nombre "Tamaño de la bolsa" (§X) y el campo en kilos que lo
+  reemplazaba (§Z); admin-variantes.js quedó como en producción, salvo un comentario.
+- **Cargar compra** saca la bolsa de `bolsaGramos` o del nombre ("x 5 kg"), ya no de Gramaje, y al
+  guardar anota `bolsaGramos` (`_cpGramosBolsa`, `_cpAnotarBolsas`). La calculadora de la ficha
+  también (`_gramosBolsaForm`).
+- **La lista de precios en PDF** (minorista y mayorista: exportCatalogoPDF) dice "el kilo" al lado
+  del precio de los productos por peso ("$21.590 el kilo"), como la tienda; el nombre se corta antes
+  contando eso.
+
+Probado en el sandbox con clics de verdad: en la Semilla De Chia se borró el "2 kg" de Gramaje y se
+puso 2 kilos en la bolsa; se guardó `bolsaGramos: 2000` con Gramaje vacío, la calculadora dice "la
+bolsa de 2 kg", Cargar compra la carga por bolsa de 2 kg y la lista de precios dice "Semilla De Chia
+$21.590 el kilo". Una compra de Almendra (FRUTICOR, sin tamaño) con bolsa de 5 kg dejó
+`bolsaGramos: 5000` sin tocar Gramaje. El Aceite De Almendras sigue con "250 cc" en la lista, la
+etiqueta y el mostrador. Pruebas: `t-escalas.js` (263), `t-compras-bolsas.js` (116), `t-variantes.js`
+(238, como en producción) y `t-lista-pdf.js` (11, nuevo: corre la lista de precios de verdad con un
+PDF de mentira). Total: 3875 en 90 suites.
 
 ---
 

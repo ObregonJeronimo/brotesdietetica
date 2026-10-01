@@ -742,19 +742,19 @@ function mezclaDePedido(items) {
 /* ------------------------------------------------ EL COSTO DE LA BOLSA */
 /* El costo de un producto por peso es por kilo, pero lo que está a mano es la
    factura: "la bolsa de 3 kg me salió $2.600". Se carga eso y el costo por kilo sale
-   solo. Aparece en los productos por peso con su tamaño en Gramaje / Presentación (que en
-   un producto por peso se llama "Tamaño de la bolsa"). */
+   solo. Aparece en los productos por peso que dicen de cuánto es la bolsa: en uno suelto, el
+   tamaño de la bolsa del proveedor (el campo de abajo) o el que dice el nombre; en una bolsa
+   de un grupo, su Gramaje / Presentación (_gramosBolsaForm). */
 function pintarCostoBolsa() {
   const cont = document.getElementById('pCostoBolsa');
   if (!cont) return;
   const peso = typeof _tipoVentaProd !== 'undefined' && _tipoVentaProd === 'peso';
-  _etqTamanoBolsa(peso);
-  const gEl = document.getElementById('pGramaje');
-  const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ gramaje: gEl ? gEl.value : '' }) : null;
+  _campoBolsa(peso);
+  const g = _gramosBolsaForm();
   /* Con la tabla de bolsas a la vista sobra: lo que costó la bolsa de este producto va
      en su primera fila (admin-variantes.js). */
   const conTabla = typeof enModoTamanos === 'function' && enModoTamanos();
-  if (!peso || conTabla || !c || c.unidad !== 'g' || !(c.valor > 0)) { cont.hidden = true; cont.innerHTML = ''; return; }
+  if (!peso || conTabla || !g) { cont.hidden = true; cont.innerHTML = ''; return; }
   let inp = cont.querySelector('input');
   if (!inp) {
     /* Texto claro (pedido del dueño, 30/09): qué es y qué hace, en una frase. */
@@ -767,62 +767,94 @@ function pintarCostoBolsa() {
     inp.addEventListener('input', () => costoBolsaEscrito(inp));
   }
   cont.hidden = false;
-  cont.querySelector('.cb-tam').textContent = _escPeso(c.valor);
+  cont.querySelector('.cb-tam').textContent = _escPeso(g);
   if (document.activeElement === inp && inp.value) return;
   const costoKg = typeof montoAR === 'function' ? montoAR((document.getElementById('pCosto') || {}).value) : 0;
   cont.querySelector('.cb-nota').textContent = costoKg > 0
-    ? 'Hoy: ' + _escPlata(costoKg) + ' el kilo = ' + _escPlata(costoKg * c.valor / 1000) + ' la bolsa de ' + _escPeso(c.valor) + '.'
+    ? 'Hoy: ' + _escPlata(costoKg) + ' el kilo = ' + _escPlata(costoKg * g / 1000) + ' la bolsa de ' + _escPeso(g) + '.'
     : '';
 }
 
-/* "Gramaje / Presentación" en un producto por peso es de cuánto es la bolsa que se le compra al
-   proveedor (pedido del dueño, 30/09): se llama así. En la tienda no se muestra, salvo como
-   presentación cuando hay varias. Por unidad sigue como siempre. Es solo el nombre. */
-const _ETQ_TAM_UNIDAD = 'Gramaje / Presentación <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional — ej: 250g, 500g, 1kg)</span>';
-const _ETQ_TAM_PESO = 'Tamaño de la bolsa <span style="font-size:0.75rem;color:var(--text-dim);font-weight:normal">(opcional — la que le comprás al proveedor: 1 kg, 5 kg, 25 kg)</span>';
-function _etqTamanoBolsa(peso) {
-  const wrap = document.getElementById('pGramajeWrap');
-  const lbl = wrap && wrap.querySelector('label');
-  const inp = document.getElementById('pGramaje');
-  if (!lbl || !inp) return;
-  const html = peso ? _ETQ_TAM_PESO : _ETQ_TAM_UNIDAD;
-  if (lbl.innerHTML !== html) lbl.innerHTML = html;
-  inp.placeholder = peso ? 'Ej: 5 kg' : 'Ej: 500g ó 1kg';
-  _campoKilos(wrap, inp, peso);
+/* ------------------------------------- EL TAMAÑO DE LA BOLSA DEL PROVEEDOR */
+/* Pedido del dueño (01/10): de cuántos kilos es la bolsa que se le compra al proveedor va APARTE
+   de Gramaje / Presentación. Gramaje es lo que ve el cliente: la lista de precios en PDF, las
+   etiquetas, el buscador del mostrador y los botones de presentación de la tienda. La bolsa del
+   proveedor es un dato interno: anotada en Gramaje, la lista de precios decía "Semilla De Chia
+   2 kg $21.590", que se leía como el precio de 2 kg y era el del kilo. Se guarda en el producto
+   como bolsaGramos (datosBolsaProveedor). Lo usan Cargar compra, que también lo anota
+   (admin-compras.js), y la calculadora de arriba. Solo en un producto por peso sin otras bolsas:
+   en una bolsa de un grupo, su tamaño es su Gramaje / Presentación, como siempre. */
+function _kilosAGramos(t) {
+  const s = String(t == null ? '' : t).trim().replace(',', '.');
+  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  const g = Math.round(parseFloat(s) * 1000);
+  return g > 0 ? g : null;
+}
+function _gramosAKilos(g) { return Number(g) > 0 ? String(Number(g) / 1000).replace('.', ',') : ''; }
+
+/* De cuánto es la bolsa del producto del formulario, en gramos, o null. En una bolsa de un grupo
+   (abierta o la que se está creando), su Gramaje / Presentación. En uno suelto, el campo de
+   abajo del costo o, si está vacío, el que dice el nombre ("Lenteja x 5 kg"). */
+function _gramosBolsaForm() {
+  const val = id => { const e = document.getElementById(id); return e && e.value != null ? String(e.value) : ''; };
+  const leer = o => { const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante(o) : null; return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null; };
+  if (window._varHijo || window._varianteDeNueva) return leer({ gramaje: val('pGramaje') });
+  return _kilosAGramos(val('pBolsaKilos')) || leer({ nombre: val('pNombre') });
 }
 
-/* En un producto por peso, el tamaño de la bolsa se escribe en kilos: solo el número, con
-   "kilos" al lado y hasta 5 caracteres (pedido del dueño, 30/09: escribían "2 kg, 3 kg" en un
-   solo producto). Es el campo de la tabla de bolsas (_tamPartes, _tamTexto y limpiarNumeroTam,
-   admin-variantes.js). Gramaje / Presentación queda escondido y sigue guardando la etiqueta de
-   siempre ("2 kg"), que es la que lee todo lo demás. Abajo, el camino para tener más tamaños. */
-function _campoKilos(wrap, inp, peso) {
-  let caja = document.getElementById('pTamKilosWrap');
-  if (!caja && peso && typeof document.createElement === 'function' && wrap.appendChild) {
+/* El campo, abajo del costo por kilo: solo el número, hasta 5 caracteres, con "kilos" al lado
+   (como en la tabla de bolsas: limpiarNumeroTam, admin-variantes.js), y abajo el camino para
+   tener más tamaños (irAMasTamanos). Se arma la primera vez que hace falta. */
+function _campoBolsa(peso) {
+  const cb = document.getElementById('pCostoBolsa');
+  let caja = document.getElementById('pBolsaWrap');
+  if (!caja && cb && cb.parentNode && typeof document.createElement === 'function') {
     caja = document.createElement('div');
-    caja.id = 'pTamKilosWrap';
+    caja.id = 'pBolsaWrap';
+    caja.className = 'costo-bolsa';
     caja.innerHTML =
-      '<div class="vfe-tamw tam-kilos"><input type="text" inputmode="decimal" class="form-input" id="pTamKilos" ' +
+      '<label class="cb-lbl" for="pBolsaKilos">Tamaño de la bolsa que le comprás al proveedor (opcional)</label>' +
+      '<div class="vfe-tamw tam-kilos"><input type="text" inputmode="decimal" class="form-input" id="pBolsaKilos" ' +
         'maxlength="5" placeholder="Ej: 5" autocomplete="off"><span class="vfe-unidad">kilos</span></div>' +
+      '<small class="bolsa-nota">Para cargar las compras por bolsa. No lo ve el cliente.</small>' +
       '<button type="button" class="var-link tam-mas" id="pTamMas" onclick="irAMasTamanos()">¿Querés disponer de más tamaños?</button>';
-    wrap.appendChild(caja);
+    cb.parentNode.insertBefore(caja, cb);
     const k = caja.querySelector('input');
     k.addEventListener('input', () => {
       if (typeof limpiarNumeroTam === 'function') limpiarNumeroTam(k);
-      inp.value = typeof _tamTexto === 'function' ? _tamTexto(k.value, 'kg') : (k.value ? k.value + ' kg' : '');
-      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      pintarCostoBolsa();
     });
   }
   if (!caja) return;
-  inp.style.display = peso ? 'none' : '';
-  caja.style.display = peso ? '' : 'none';
-  if (!peso) return;
-  const k = document.getElementById('pTamKilos');
-  if (k && document.activeElement !== k) k.value = typeof _tamPartes === 'function' ? _tamPartes(inp.value, true).num : '';
-  /* Solo si abajo está "Agregar otra bolsa": no está en una bolsa que no es la principal ni en
-     una variante nueva. */
+  const ver = peso && !window._varHijo && !window._varianteDeNueva && !(typeof enModoTamanos === 'function' && enModoTamanos());
+  caja.style.display = ver ? '' : 'none';
+  /* "¿Querés disponer de más tamaños?" solo si abajo está "Agregar otra bolsa". */
   const mas = document.getElementById('pTamMas');
-  if (mas) mas.style.display = document.querySelector('#pVariantes .var-agregar') ? '' : 'none';
+  if (mas) mas.style.display = ver && document.querySelector('#pVariantes .var-agregar') ? '' : 'none';
+}
+
+/* Al abrir la ficha, el tamaño de la bolsa del producto que se abrió (vacío si es nuevo). */
+function _ponerBolsaDelProducto() {
+  _campoBolsa(typeof _tipoVentaProd !== 'undefined' && _tipoVentaProd === 'peso');
+  const k = document.getElementById('pBolsaKilos');
+  if (!k) return;
+  const id = typeof editingId !== 'undefined' ? editingId : null;
+  const p = id ? ((typeof allProducts !== 'undefined' && allProducts) || []).find(x => x && x.id === id) : null;
+  k.value = _gramosAKilos(p && p.bolsaGramos);
+}
+
+/* Lo que guarda saveProduct (admin.html), como datosCajaCerrada: se escribe si está puesto, o si
+   se sacó (para borrarlo); un producto que nunca lo tuvo no gana el campo. Solo con el campo a
+   la vista: por unidad o en una bolsa de un grupo no se toca. */
+function datosBolsaProveedor(data, id) {
+  const k = document.getElementById('pBolsaKilos');
+  const caja = document.getElementById('pBolsaWrap');
+  if (!k || !caja || !data || data.tipoVenta !== 'peso' || (caja.style && caja.style.display === 'none')) return data;
+  const g = _kilosAGramos(k.value);
+  const p = id ? ((typeof allProducts !== 'undefined' && allProducts) || []).find(x => x && x.id === id) : null;
+  if (g) data.bolsaGramos = g;
+  else if (p && Number(p.bolsaGramos) > 0) data.bolsaGramos = null;
+  return data;
 }
 
 /* "¿Querés disponer de más tamaños?": baja hasta "Bolsas y precios por cantidad" y resalta un
@@ -839,13 +871,12 @@ function irAMasTamanos() {
 
 function costoBolsaEscrito(inp) {
   if (typeof limpiarMonto === 'function') limpiarMonto(inp);
-  const gEl = document.getElementById('pGramaje');
-  const c = contenidoDeVariante({ gramaje: gEl ? gEl.value : '' });
+  const g = _gramosBolsaForm();
   const nota = document.querySelector('#pCostoBolsa .cb-nota');
-  if (!c || c.unidad !== 'g' || !(c.valor > 0)) return;
+  if (!g) return;
   const bolsa = typeof montoAR === 'function' ? montoAR(inp.value) : Number(inp.value) || 0;
   if (!bolsa) { if (nota) nota.textContent = ''; return; }
-  const costoKg = Math.round(bolsa * 1000 / c.valor);
+  const costoKg = Math.round(bolsa * 1000 / g);
   const pc = document.getElementById('pCosto');
   if (pc) pc.value = String(costoKg);
   if (typeof calcPrecioModal === 'function') calcPrecioModal();
@@ -861,6 +892,7 @@ if (typeof openModal === 'function') {
     const r = _escOpenModal.apply(this, arguments);
     const inp = document.getElementById('pCostoBolsaInput');
     if (inp) inp.value = '';
+    _ponerBolsaDelProducto();
     pintarCostoBolsa();
     return r;
   };

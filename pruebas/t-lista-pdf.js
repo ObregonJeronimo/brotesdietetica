@@ -1,0 +1,131 @@
+/**
+ * LA LISTA DE PRECIOS EN PDF (exportCatalogoPDF, admin.html).
+ *
+ * Es la que se les pasa a los clientes: la de mostrador con "Exportar PDF" y la mayorista con
+ * "Exportar PDF M" (exportMayoristaPDF llama a la misma). Se corre la funcion de verdad con un
+ * PDF de mentira que anota cada texto: que dice, donde, alineado como y con que letra.
+ *
+ * LO QUE HAY QUE SOSTENER:
+ *
+ *   1. Por peso, el precio es el del kilo, y se dice al lado: "$21.590 el kilo" (01/10/2026).
+ *      Sin eso, "Semilla De Chia $21.590" se leia como el precio del paquete, y la tienda ya
+ *      decia "el kilo".
+ *   2. Gramaje / Presentacion va pegado al nombre ("Aceite De Almendras 250 cc"): es lo que
+ *      distingue el mismo producto en 250 cc y en 500 cc.
+ *   3. El nombre no se pisa con el precio: se corta antes, contando tambien "el kilo".
+ */
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const RAIZ = path.join(__dirname, '..');
+const html = fs.readFileSync(path.join(RAIZ, 'admin.html'), 'utf8');
+
+function cuerpo(src, n) {
+  const i = src.indexOf('function ' + n + '(');
+  if (i < 0) throw new Error('no encontre ' + n);
+  let p = 0, k;
+  for (k = src.indexOf('{', i); k < src.length; k++) {
+    if (src[k] === '{') p++;
+    else if (src[k] === '}') { p--; if (!p) break; }
+  }
+  return src.slice(i, k + 1) + '\n';
+}
+/* Una lista fija (const n=[...]) de admin.html. */
+function constante(src, n) {
+  const i = src.indexOf('const ' + n + '=[');
+  if (i < 0) throw new Error('no encontre ' + n);
+  let p = 0, k;
+  for (k = src.indexOf('[', i); k < src.length; k++) {
+    if (src[k] === '[') p++;
+    else if (src[k] === ']') { p--; if (!p) break; }
+  }
+  return src.slice(i, k + 1) + ';\n';
+}
+
+let ok = 0, fail = 0;
+const t = (d, c, det) => {
+  if (c) { ok++; console.log('  OK   ' + d); } else { fail++; console.log('  FALLA ' + d + (det !== undefined ? '   [' + det + ']' : '')); }
+};
+
+/* El PDF de mentira. Un texto mide 1,8 mm por letra (2 en negrita): alcanza para ver que el
+   nombre se corta antes del precio. */
+function pdfDeMentira(anotados) {
+  return function () {
+    const d = {
+      letra: 'normal', paginas: 1,
+      internal: { pageSize: { getWidth: () => 210, getHeight: () => 297 }, getNumberOfPages: () => d.paginas },
+      setFillColor() {}, rect() {}, setTextColor() {}, setFontSize() {}, setPage() {},
+      setFont(f, estilo) { d.letra = estilo || 'normal'; },
+      getTextWidth(s) { return String(s).length * (d.letra === 'bold' ? 2 : 1.8); },
+      text(s, x, y, o) { anotados.push({ s: String(s), x: x, y: y, align: o && o.align, letra: d.letra }); },
+      addPage() { d.paginas++; },
+      save(n) { anotados.guardado = n; },
+    };
+    return d;
+  };
+}
+
+function correr(productos, mayorista, priceMap) {
+  const anotados = [];
+  const ctx = {
+    console, Math, Number, String, Object, Array, Date, JSON,
+    allProducts: productos,
+    showAdminToast: () => {}, logAction: () => {},
+    precioMostradorDe: p => Number(p.precio || 0),
+  };
+  ctx.window = ctx;
+  ctx.jspdf = { jsPDF: pdfDeMentira(anotados) };
+  vm.createContext(ctx);
+  vm.runInContext(constante(html, '_catalogoOrden') + cuerpo(html, '_catalogoMatchIdx') + cuerpo(html, 'esPorPeso') +
+    cuerpo(html, 'exportCatalogoPDF'), ctx);
+  ctx.exportCatalogoPDF(priceMap || null, !!mayorista);
+  return anotados;
+}
+
+const PRODS = [
+  { id: 'ace', nombre: 'Aceite De Almendras', gramaje: '250 cc', tipoVenta: 'unidad', precio: 29600, precioMayorista: 24050, categoria: 'Aceites' },
+  { id: 'chi', nombre: 'Semilla De Chia', tipoVenta: 'peso', precio: 21590, precioMayorista: 16550, categoria: 'Semillas' },
+  { id: 'len', nombre: 'Lenteja Turca Seleccionada Extra Grande De Turquia x 5 kg', tipoVenta: 'peso', precio: 2000, categoria: 'Legumbres' },
+  { id: 'ocu', nombre: 'Girasol Oculto', tipoVenta: 'peso', precio: 900, categoria: 'Semillas', oculto: true },
+];
+const COL_X = 12, COL_W = (210 - 12 * 2 - 6) / 2;
+const renglon = (a, inicio) => {
+  const i = a.findIndex(x => x.s.indexOf(inicio) === 0);
+  return i < 0 ? null : { nombre: a[i], resto: a.slice(i + 1).filter(x => x.y === a[i].y) };
+};
+
+console.log('\n-- la lista de mostrador --');
+{
+  const a = correr(PRODS, false);
+  t('se arma y se guarda con su nombre de siempre', /^BROTES_catalogo_\d{4}-\d{2}-\d{2}\.pdf$/.test(a.guardado || ''), a.guardado);
+  const chi = renglon(a, 'Semilla De Chia');
+  const kilo = chi && chi.resto.find(x => x.s === ' el kilo');
+  const precio = chi && chi.resto.find(x => x.s === '$21.590');
+  t('por peso, el precio dice "el kilo" al lado (01/10)', !!(kilo && precio), chi && chi.resto.map(x => x.s).join('|'));
+  t('  "el kilo" va al final, en letra normal', !!kilo && kilo.align === 'right' && kilo.x === COL_X + COL_W && kilo.letra === 'normal');
+  t('  y el precio en negrita, justo antes', !!precio && precio.align === 'right' && precio.letra === 'bold' &&
+    Math.abs(precio.x - (COL_X + COL_W - ' el kilo'.length * 1.8)) < 1e-9, precio && precio.x);
+  const ace = renglon(a, 'Aceite De Almendras');
+  t('por unidad, el precio solo, sin "el kilo"', !!ace && ace.resto.length === 1 && ace.resto[0].s === '$29.600' &&
+    ace.resto[0].x === COL_X + COL_W && ace.resto[0].letra === 'bold', ace && ace.resto.map(x => x.s).join('|'));
+  t('Gramaje / Presentación va pegado al nombre: "Aceite De Almendras 250 cc"', !!ace && ace.nombre.s === 'Aceite De Almendras 250 cc', ace && ace.nombre.s);
+  const len = renglon(a, 'Lenteja Turca');
+  const maxNombre = COL_W - ('$2.000'.length * 1.8 + ' el kilo'.length * 1.8) - 4;
+  t('un nombre largo se corta antes del precio y de "el kilo"', !!len && /…$/.test(len.nombre.s) &&
+    len.nombre.s.length * 1.8 <= maxNombre && len.resto.some(x => x.s === ' el kilo'), len && len.nombre.s);
+  t('los ocultos no van', !a.some(x => x.s.indexOf('Girasol Oculto') === 0));
+}
+
+console.log('\n-- la lista mayorista --');
+{
+  const a = correr(PRODS, true, { ace: 24050, chi: 16550 });
+  t('se guarda como mayorista', /^BROTES_mayorista_/.test(a.guardado || ''), a.guardado);
+  const chi = renglon(a, 'Semilla De Chia');
+  t('por peso también dice "el kilo"', !!chi && chi.resto.some(x => x.s === '$16.550') && chi.resto.some(x => x.s === ' el kilo'),
+    chi && chi.resto.map(x => x.s).join('|'));
+  const ace = renglon(a, 'Aceite De Almendras');
+  t('  y por unidad, el precio solo', !!ace && ace.resto.map(x => x.s).join('|') === '$24.050', ace && ace.resto.map(x => x.s).join('|'));
+}
+
+console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
+process.exit(fail ? 1 : 0);

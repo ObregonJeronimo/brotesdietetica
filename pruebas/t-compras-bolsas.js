@@ -264,10 +264,11 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       m3.costoBolsa === 12000 && m3.gramosBolsa === 3000 && m3.costoUnitario === 4000 && m3.subtotal === 12000 && m3.cantidad === 3000);
     t('  la Almendra, como bolsa de 500 g, con el kilo de siempre',
       al.costoBolsa === 7000 && al.gramosBolsa === 500 && al.costoUnitario === 14000 && al.subtotal === 7000);
-    t('  y su bolsa de 500 g queda anotada en el producto, para la próxima',
-      w.escrituras.some(e => e.col === 'productos' && e.id === 'alm' && e.d.gramaje === '500 g') &&
-      w.ctx.allProducts.find(p => p.id === 'alm').gramaje === '500 g');
-    t('  a las que ya decían su tamaño no se les escribe nada', !w.escrituras.some(e => e.d.gramaje !== undefined && e.id !== 'alm'));
+    t('  y su bolsa de 500 g queda anotada en el producto, aparte (bolsaGramos), para la próxima',
+      w.escrituras.some(e => e.col === 'productos' && e.id === 'alm' && e.d.bolsaGramos === 500) &&
+      w.ctx.allProducts.find(p => p.id === 'alm').bolsaGramos === 500);
+    t('  a las que ya decían su tamaño no se les escribe nada', !w.escrituras.some(e => e.d.bolsaGramos !== undefined && e.id !== 'alm'));
+    t('  y Gramaje / Presentación no se toca: es lo que ve el cliente (01/10)', !w.escrituras.some(e => e.d.gramaje !== undefined));
     const stock = w.escrituras.filter(e => e.d.stock).map(e => e.id + '+' + e.d.stock.__inc).join();
     t('el stock sube en gramos, como siempre', stock === 'mrc3+3000,alm+500,mrc1+2000', stock);
     const act = w.preguntas.find(p => p.titulo === '¿Actualizar el costo?');
@@ -408,21 +409,25 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
   console.log('\n-- un producto por peso sin otras bolsas --');
   {
     /* Pedido del dueño (30/09): un producto por peso sin otras bolsas también se carga por
-       bolsa, si dice de cuánto es (en el nombre o en el campo de tamaño). En producción, 470
-       de 588 lo dicen. Al que no lo dice, la compra le pregunta de cuánto es la bolsa, y al
-       guardar queda anotado en el producto. */
+       bolsa, si dice de cuánto es: en el nombre, o anotado aparte (bolsaGramos). En producción,
+       470 de 588 lo dicen en el nombre. Al que no lo dice, la compra le pregunta de cuánto es la
+       bolsa, y al guardar queda anotado en el producto. Gramaje / Presentación no cuenta: es lo
+       que ve el cliente (01/10). */
     const prods = catalogo().concat([
       P('len', { nombre: 'Lenteja Turca x 5 kg', tipoVenta: 'peso', costo: 2000, codigo: 'LEN' }),
-      P('har', { nombre: 'Harina Integral', gramaje: '25 kg', tipoVenta: 'peso', costo: 1800, codigo: 'HAR' }),
+      P('har', { nombre: 'Harina Integral', bolsaGramos: 25000, tipoVenta: 'peso', costo: 1800, codigo: 'HAR' }),
       P('lt1', { nombre: 'Lenteja x 1 kg', tipoVenta: 'peso', costo: 2500, codigo: 'LT1' }),
+      P('pan', { nombre: 'Pan Rallado', gramaje: '500 g', tipoVenta: 'peso', costo: 1000, codigo: 'PAN' }),
     ]);
     const w = armar({ productos: prods });
     w.ctx.openCompraModal('L1');
     const h = w.el('compraLista').innerHTML;
     t('si dice de cuánto es la bolsa ("x 5 kg"), la lista muestra lo que cuesta la bolsa y el kilo',
       h.indexOf('LEN · costo $10.000 la bolsa ($2.000 el kilo)') > 0);
-    t('  también si el tamaño está en el campo de tamaño, y como el nombre no lo dice, se dice: "la bolsa de 25 kg"',
+    t('  también si quedó anotada aparte (bolsaGramos), y como el nombre no lo dice, se dice: "la bolsa de 25 kg"',
       h.indexOf('HAR · costo $45.000 la bolsa de 25 kg ($1.800 el kilo)') > 0);
+    t('  Gramaje / Presentación ("500 g") no es la bolsa: es lo que ve el cliente; ese va por kilo y la compra pregunta (01/10)',
+      h.indexOf('PAN · costo $1.000 el kilo') > 0 && w.ctx._cpSinTam(w.ctx.allProducts.find(p => p.id === 'pan')) === true);
     t('  si el nombre ya lo dice ("x 5 kg"), no se repite', h.indexOf('LEN · costo $10.000 la bolsa ($2.000 el kilo)') > 0);
     const de = (n, g) => w.ctx._cpDeBolsa(n, g);
     t('  " de 2 kg" solo si el nombre no dice ese tamaño',
@@ -504,9 +509,9 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     const len = c.items.find(i => i.id === 'len') || {};
     const al = c.items.find(i => i.id === 'alm') || {};
     t('  la Almendra se guarda como bolsa de 25 kg', al.gramosBolsa === 25000 && al.costoBolsa === 75000 && al.costoUnitario === 3000 && al.subtotal === 75000);
-    t('  y su bolsa queda anotada en el producto ("25 kg"), y a la Lenteja, que ya lo decía, no se le escribe nada',
-      w.escrituras.some(e => e.id === 'alm' && e.d.gramaje === '25 kg') && !w.escrituras.some(e => e.id === 'len' && e.d.gramaje !== undefined) &&
-      w.ctx.allProducts.find(p => p.id === 'alm').gramaje === '25 kg');
+    t('  y su bolsa queda anotada en el producto, aparte (bolsaGramos 25000), y a la Lenteja, que ya lo decía, no se le escribe nada',
+      w.escrituras.some(e => e.id === 'alm' && e.d.bolsaGramos === 25000) && !w.escrituras.some(e => e.id === 'len' && e.d.bolsaGramos !== undefined) &&
+      w.ctx.allProducts.find(p => p.id === 'alm').bolsaGramos === 25000 && !w.escrituras.some(e => e.d.gramaje !== undefined));
     w.ctx.openCompraModal('L1');
     w.ctx.compraAgregar('alm');
     t('  la próxima compra ya la pide por bolsa, sin preguntar',

@@ -467,18 +467,23 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
 
   /* ======================================================= EL COSTO DE LA BOLSA */
   console.log('\n-- el costo de la bolsa --');
-  {
-    const w = armar();
+  /* La calculadora de mentira: al "dibujarse" quedan los hijos. */
+  const calculadora = w => {
     const cont = w.porId.pCostoBolsa;
     const nota = { textContent: '' }, tam = { textContent: '' };
     const inp = w.porId.pCostoBolsaInput = { id: 'pCostoBolsaInput', value: '', handlers: {},
       addEventListener(tp, fn) { this.handlers[tp] = fn; } };
-    /* innerHTML de mentira: al "dibujarse" quedan los hijos. */
     Object.defineProperty(cont, 'innerHTML', { set(v) { this._h = v; this.hijos = v ? { input: inp, '.cb-nota': nota, '.cb-tam': tam } : {}; }, get() { return this._h || ''; } });
-    w.porId.pGramaje.value = '3 kg';
+    return { cont, nota, tam, inp };
+  };
+  {
+    const w = armar();
+    const { cont, nota, tam, inp } = calculadora(w);
+    /* El tamaño de la bolsa del proveedor (01/10): un campo aparte, en kilos. */
+    const kil = w.porId.pBolsaKilos = { value: '3' };
     w.porId.pCosto.value = '4500';
     w.ctx.pintarCostoBolsa();
-    t('en un producto por peso de 3 kg aparece', cont.hidden === false && tam.textContent === '3 kg');
+    t('en un producto por peso con bolsa de 3 kg aparece', cont.hidden === false && tam.textContent === '3 kg');
     t('  dice qué es y qué hace (30/09)', cont.innerHTML.indexOf('¿La factura dice el precio de la bolsa de <span class="cb-tam"></span>? ' +
       'Escribilo acá y se calcula solo el costo por kilo.</label>') > 0);
     t('  y cuánto sale hoy la bolsa con el costo por kilo', nota.textContent === 'Hoy: $4.500 el kilo = $13.500 la bolsa de 3 kg.', nota.textContent);
@@ -487,17 +492,27 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     t('escribir lo que costó la bolsa carga el costo por kilo', w.porId.pCosto.value === '4500' && w.pintados.indexOf('calc') >= 0);
     t('  y lo dice', nota.textContent === '= $4.500 el kilo. Ya quedó puesto arriba, en Costo por kilo.', nota.textContent);
     inp.value = '2600';
-    w.porId.pGramaje.value = '3 kg';
     w.ctx.costoBolsaEscrito(inp);
     t('  redondeado al peso: $2.600 la bolsa de 3 kg son $867 el kilo', w.porId.pCosto.value === '867');
     w.ctx._tipoVentaProd = 'unidad';
     w.ctx.pintarCostoBolsa();
     t('en uno por unidad no aparece', cont.hidden === true);
     w.ctx._tipoVentaProd = 'peso';
-    w.porId.pGramaje.value = '';
+    kil.value = '';
     w.ctx.pintarCostoBolsa();
     t('  ni en uno por peso sin tamaño', cont.hidden === true);
     w.porId.pGramaje.value = '3 kg';
+    w.ctx.pintarCostoBolsa();
+    t('  Gramaje / Presentación no es la bolsa de uno suelto: es lo que ve el cliente (01/10)', cont.hidden === true);
+    w.porId.pNombre = { value: 'Lenteja x 5 kg' };
+    w.ctx.pintarCostoBolsa();
+    t('  si lo dice el nombre ("Lenteja x 5 kg"), esa es la bolsa', cont.hidden === false && tam.textContent === '5 kg', tam.textContent);
+    w.porId.pNombre.value = '';
+    w.ctx.window._varHijo = { id: 'y3' };
+    w.ctx.pintarCostoBolsa();
+    t('  en una bolsa de un grupo, la suya es su Gramaje / Presentación, como siempre', cont.hidden === false && tam.textContent === '3 kg', tam.textContent);
+    w.ctx.window._varHijo = null;
+    kil.value = '3';
     w.ctx.pintarCostoBolsa();
     const seVe = cont.hidden === false;
     w.ctx.window._varFilas = [{ id: null, tam: '5 kg' }];
@@ -506,55 +521,58 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     w.ctx.window._varFilas = [];
   }
   {
-    /* Pedido del dueño (30/09): en un producto por peso, Gramaje / Presentación es de cuánto es la
-       bolsa que se le compra al proveedor, y se llama así. Por unidad, como siempre. */
-    const w = armar();
-    const lbl = { innerHTML: '' };
-    w.porId.pGramajeWrap = { querySelector: sel => (sel === 'label' ? lbl : null) };
-    w.ctx.pintarCostoBolsa();
-    t('en un producto por peso, el campo del tamaño se llama "Tamaño de la bolsa"',
-      lbl.innerHTML.indexOf('Tamaño de la bolsa <span') === 0 && w.porId.pGramaje.placeholder === 'Ej: 5 kg', lbl.innerHTML);
-    w.ctx._tipoVentaProd = 'unidad';
-    w.ctx.pintarCostoBolsa();
-    t('  y por unidad, "Gramaje / Presentación", igual que en el formulario',
-      lbl.innerHTML.indexOf('Gramaje / Presentación <span') === 0 && w.porId.pGramaje.placeholder === 'Ej: 500g ó 1kg' &&
-      html.indexOf('<label>' + lbl.innerHTML + '</label><input type="text" class="form-input" id="pGramaje" placeholder="Ej: 500g ó 1kg">') > 0, lbl.innerHTML);
-  }
-  {
-    /* Pedido del dueño (30/09): en un producto por peso, el tamaño va en kilos, solo el número,
-       con "kilos" al lado; abajo, "¿Querés disponer de más tamaños?" baja hasta "Agregar otra
-       bolsa" y lo resalta, sin tocarlo. */
-    const w = armar();
-    const lbl = { innerHTML: '' }, kil = { value: '', handlers: {}, addEventListener(tp, fn) { this.handlers[tp] = fn; } };
-    const mas = { style: {} }, eventos = [];
-    let creada = null;
-    w.porId.pGramajeWrap = { querySelector: sel => (sel === 'label' ? lbl : null), appendChild: e => { w.porId[e.id] = e; } };
+    /* Pedido del dueño (01/10): el tamaño de la bolsa que se le compra al proveedor va aparte de
+       Gramaje / Presentación (que es lo que ve el cliente): un campo en kilos abajo del costo, solo
+       en un producto por peso sin otras bolsas. Abajo, "¿Querés disponer de más tamaños?" baja
+       hasta "Agregar otra bolsa" y lo resalta, sin tocarlo (30/09). */
+    const w = armar({ productos: catalogo().concat([P('man', { nombre: 'Mani', bolsaGramos: 500 }), P('ave', { nombre: 'Avena' })]) });
+    calculadora(w);
+    const kil = { value: '', handlers: {}, addEventListener(tp, fn) { this.handlers[tp] = fn; } };
+    const mas = { style: {} };
+    let creada = null, antesDe = null;
+    w.porId.pCostoBolsa.parentNode = { insertBefore: (e, ref) => { antesDe = ref; w.porId[e.id] = e; } };
     w.ctx.document.createElement = () => (creada = { style: {}, querySelector: s => (s === 'input' ? kil : null),
-      set innerHTML(v) { this._h = v; w.porId.pTamKilos = kil; w.porId.pTamMas = mas; }, get innerHTML() { return this._h; } });
-    w.ctx.Event = function (tp) { this.type = tp; };
-    const g = w.porId.pGramaje;
-    g.dispatchEvent = ev => eventos.push(ev.type);
-    g.value = '500 g';
-    w.ctx._etqTamanoBolsa(true);
-    t('por peso, el tamaño se escribe en kilos: el campo de siempre se esconde y va uno con "kilos" al lado, de 5 caracteres',
-      creada && creada.id === 'pTamKilosWrap' && g.style.display === 'none' && creada.style.display === '' &&
-      creada.innerHTML.indexOf('id="pTamKilos" maxlength="5" placeholder="Ej: 5"') > 0 && creada.innerHTML.indexOf('<span class="vfe-unidad">kilos</span>') > 0);
-    t('  muestra lo que ya tenía, en kilos: 500 g son 0,5', kil.value === '0,5', kil.value);
+      set innerHTML(v) { this._h = v; w.porId.pBolsaKilos = kil; w.porId.pTamMas = mas; }, get innerHTML() { return this._h; } });
+    w.ctx.editingId = 'man';
+    w.ctx._ponerBolsaDelProducto();
+    t('por peso, abajo del costo va "Tamaño de la bolsa que le comprás al proveedor", en kilos, de 5 caracteres',
+      !!creada && creada.id === 'pBolsaWrap' && antesDe === w.porId.pCostoBolsa && creada.style.display === '' &&
+      creada.innerHTML.indexOf('Tamaño de la bolsa que le comprás al proveedor (opcional)') > 0 &&
+      creada.innerHTML.indexOf('id="pBolsaKilos" maxlength="5" placeholder="Ej: 5"') > 0 &&
+      creada.innerHTML.indexOf('<span class="vfe-unidad">kilos</span>') > 0 && creada.innerHTML.indexOf('No lo ve el cliente.') > 0);
+    t('  con la del producto, en kilos: 500 g son 0,5', kil.value === '0,5', kil.value);
+    t('  y Gramaje / Presentación queda como estaba, a la vista', w.porId.pGramaje.style.display === undefined && w.porId.pGramaje.value === '');
     kil.value = '2 5a';
     kil.handlers.input();
-    t('  solo toma el número (sin espacios ni letras), y guarda la etiqueta de siempre: "25 kg"',
-      kil.value === '25' && g.value === '25 kg' && eventos.join() === 'input', kil.value + ' / ' + g.value);
-    kil.value = '0.5';
-    kil.handlers.input();
-    t('  con coma para medio kilo: "0,5 kg"', kil.value === '0,5' && g.value === '0,5 kg', g.value);
+    t('  solo toma el número (sin espacios ni letras)', kil.value === '25', kil.value);
+    const d1 = w.ctx.datosBolsaProveedor({ tipoVenta: 'peso', gramaje: null }, 'man');
+    t('  al guardar va aparte, en gramos (bolsaGramos 25000), y el gramaje no se toca', d1.bolsaGramos === 25000 && d1.gramaje === null);
+    kil.value = '0,5';
+    t('  con coma para medio kilo: 500 g', w.ctx.datosBolsaProveedor({ tipoVenta: 'peso' }, 'man').bolsaGramos === 500);
+    kil.value = '';
+    t('  si se borra, se borra (en uno que la tenía)', w.ctx.datosBolsaProveedor({ tipoVenta: 'peso' }, 'man').bolsaGramos === null);
+    t('  y uno que nunca la tuvo no gana el campo', !('bolsaGramos' in w.ctx.datosBolsaProveedor({ tipoVenta: 'peso' }, 'ave')));
+    w.ctx.editingId = null;
+    w.ctx._ponerBolsaDelProducto();
+    t('  un producto nuevo arranca vacío', kil.value === '');
     t('  sin "Agregar otra bolsa" abajo, no ofrece más tamaños', mas.style.display === 'none');
     const q0 = w.ctx.document.querySelector;
     w.ctx.document.querySelector = sel => (sel === '#pVariantes .var-agregar' ? {} : q0(sel));
-    w.ctx._etqTamanoBolsa(true);
+    w.ctx.pintarCostoBolsa();
     t('  con el botón abajo, "¿Querés disponer de más tamaños?" aparece', mas.style.display === '' &&
       creada.innerHTML.indexOf('onclick="irAMasTamanos()">¿Querés disponer de más tamaños?</button>') > 0);
-    w.ctx._etqTamanoBolsa(false);
-    t('por unidad, Gramaje / Presentación como siempre, y lo de kilos se esconde', g.style.display === '' && creada.style.display === 'none');
+    w.ctx._tipoVentaProd = 'unidad';
+    w.ctx.pintarCostoBolsa();
+    t('por unidad no va', creada.style.display === 'none' && mas.style.display === 'none' &&
+      !('bolsaGramos' in w.ctx.datosBolsaProveedor({ tipoVenta: 'unidad' }, 'man')));
+    w.ctx._tipoVentaProd = 'peso';
+    w.ctx.window._varHijo = { id: 'y3' };
+    w.ctx.pintarCostoBolsa();
+    t('  ni en una bolsa de un grupo: su tamaño es su Gramaje / Presentación', creada.style.display === 'none' &&
+      !('bolsaGramos' in w.ctx.datosBolsaProveedor({ tipoVenta: 'peso' }, 'man')));
+    w.ctx.window._varHijo = null;
+    t('el guardado de la ficha lo escribe, como la caja cerrada',
+      html.indexOf("if(typeof datosCajaCerrada==='function')datosCajaCerrada(data,editingId);if(typeof datosBolsaProveedor==='function')datosBolsaProveedor(data,editingId);") > 0);
     const cl = () => ({ c: [], add(x) { this.c.push(x); }, remove(x) { this.c = this.c.filter(y => y !== x); } });
     const btn = { classList: cl(), clics: 0, click() { this.clics++; } };
     const sec = { classList: cl(), scrollIntoView(o) { this.bajo = o; }, querySelector: s => (s === '.var-agregar' ? btn : null) };
