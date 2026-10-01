@@ -470,6 +470,10 @@
 .costos-vista b{color:var(--accent-light)}
 .costos-vista .costos-may{color:#a78bfa}
 .costos-vista .costos-falta{color:var(--danger)}
+/* "o la bolsa de 5 kg" (01/10/2026): en su renglon, abajo, solo en los granel que saben de cuanto es su bolsa. */
+.costos-fila:has(.costos-bolsa){flex-wrap:wrap}
+.costos-bolsa{flex-basis:100%;display:flex;align-items:center;gap:0.35rem;font-size:0.78rem;color:var(--text-dim)}
+.costos-bolsa .costos-bolsa-input{width:150px;text-align:right}
 @media(max-width:520px){.costos-fila{flex-wrap:wrap}.costos-nom{flex-basis:100%}}
 /* === INICIO DEL DIA (admin-inicio.js) === */
 .ini-cab{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.9rem}
@@ -5699,11 +5703,19 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             const conPrecio=visibles.filter(p=>_getPrice(p)>0);
             if(!conPrecio.length){showAdminToast('No hay productos con precio','error');return;}
 
+            /* Cada grupo de presentaciones o bolsas sale junto (01/10/2026): en la categoria de su
+               principal, donde iria el principal por nombre, y de menor a mayor, como los botones
+               de la tienda. Antes cada uno iba por su nombre: "Mani Salado" quedaba entre "Mani"
+               y "Mani x 5 kg", y "x 10 kg" antes que "x 3 kg". */
+            const _porId=new Map(allProducts.map(x=>[x.id,x]));
+            const _ppal=p=>(p.gramajePadreId&&_porId.get(p.gramajePadreId))||p;
+            const _tamDe=p=>{const c=typeof contenidoDeVariante==='function'?contenidoDeVariante(p):null;return c&&c.valor>0?c.valor:Infinity;};
             /* Agrupar: { catNombre: { '__sin__': [...], subNombre: [...] } } */
             const grupos={};
             conPrecio.forEach(p=>{
-                const cat=p.categoria||'Sin categoria';
-                const sub=p.subcategoria||'__sin__';
+                const pr=_ppal(p);
+                const cat=pr.categoria||'Sin categoria';
+                const sub=pr.subcategoria||'__sin__';
                 if(!grupos[cat])grupos[cat]={};
                 if(!grupos[cat][sub])grupos[cat][sub]=[];
                 grupos[cat][sub].push(p);
@@ -5791,7 +5803,11 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                 });
 
                 subNames.forEach(subName=>{
-                    const prods=catGroup[subName].slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es'));
+                    const prods=catGroup[subName].slice().sort((a,b)=>{
+                        const pa=_ppal(a),pb=_ppal(b);
+                        if(pa!==pb)return (pa.nombre||'').localeCompare(pb.nombre||'','es')||(pa.id<pb.id?-1:1);
+                        return (esPorPeso(a)-esPorPeso(b))||((_tamDe(a)-_tamDe(b))||0)||(a.nombre||'').localeCompare(b.nombre||'','es');
+                    });
                     if(subName!=='__sin__'){
                         const subH=5.5;
                         ensureSpace(subH+4);

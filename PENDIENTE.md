@@ -2009,6 +2009,37 @@ etiqueta y el mostrador. Pruebas: `t-escalas.js` (263), `t-compras-bolsas.js` (1
 (238, como en producción) y `t-lista-pdf.js` (11, nuevo: corre la lista de precios de verdad con un
 PDF de mentira). Total: 3875 en 90 suites.
 
+### AB) Las exportaciones con bolsas; los grupos juntos en la lista de precios; "o la bolsa" en Revisar costos · **HECHO, SIN SUBIR** (01/10/2026)
+
+Thiago pidió revisar cómo salen en las exportaciones los productos con varias bolsas o
+presentaciones. Probado en el sandbox con un grupo armado con "Agregar otra bolsa" ("Mani" de 1 kg y
+"Mani x 5 kg") y uno por unidad, interceptando las descargas:
+- **Exportar PDF y Exportar PDF M** (exportCatalogoPDF; la mayorista usa la misma): cada bolsa o
+  presentación en su renglón, con su precio, y "el kilo" en las de peso. Los ocultos no van. Bien.
+- **Exportar Costos** (Excel/CSV): una fila por producto con su costo, %, precio y gramaje; se
+  vuelve a importar bien (cada uno tiene su nombre). No dice qué costos son por kilo y las filas de
+  un grupo pueden quedar lejos (se ofreció una columna "SE VENDE" y ordenarlas; no se eligió).
+- **Exportar de la ficha del proveedor y de las compras** (exportarDoc): ya agrupan (§T, §U).
+
+Lo que se hizo (eligió dos de cuatro):
+- **La lista de precios en PDF, con cada grupo junto** (minorista y mayorista): en la categoría de su
+  principal, donde iría el principal por nombre, y de menor a mayor, unidad antes que peso, como los
+  botones de la tienda (`_ppal`, `_tamDe`). Antes se ordenaba por nombre: "Mani Salado" quedaba entre
+  "Mani" y "Mani x 5 kg", y "x 10 kg" antes que "x 3 kg".
+- **"o la bolsa de 5 kg" en la ventana de costos** ("Revisar costos" del Centro de avisos, "Cambiar
+  costos" y el aviso al vender): en un granel sin otras bolsas que sabe de cuánto es su bolsa
+  (`bolsaGramos` o el nombre), un renglón opcional abajo de la fila: lo que dice la factura, y el
+  costo por kilo sale solo en el campo de siempre (`_costoBolsaSuelto`, `costoBolsaEnEditor`,
+  admin-costos.js). Escribir el kilo a mano lo vacía. Se guarda el kilo, como siempre. No va con
+  bolsa de 1 kg (es lo mismo), por unidad ni en una bolsa de un grupo (ahí ya se carga por bolsa).
+- No elegidos: "Mani desde 5 kg" en el PDF y la columna "SE VENDE" en el Excel.
+
+Probado en el sandbox con clics de verdad: en la lista de precios, "Mani 1 kg" y "Mani x 5 kg"
+salen juntos; en "Revisar estos 8 costos", la Semilla De Lino Tostado (con bolsa de 5 kg puesta en
+su ficha) muestra "o la bolsa de 5 kg" y las demás no; $25.000 pone $5.000 el kilo, con su precio
+al lado; escribir el kilo a mano vacía la bolsa; "Ahora no" no guardó nada. Pruebas:
+`t-lista-pdf.js` (14) y `t-costos-viejos.js` (106). Total: 3884 en 90 suites.
+
 ---
 
 ## 2. Decisiones tuyas

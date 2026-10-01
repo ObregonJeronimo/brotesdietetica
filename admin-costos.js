@@ -93,6 +93,20 @@ const _costoGramos = p => (typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p
 const _costoEscrito = (p, g) => (g ? costoDeBolsa(p && p.costo, g) : Math.round(Number((p && p.costo) || 0)));
 const _costoGuardado = (n, g) => (g ? kiloDeBolsa(n, g) : n);
 
+/* EL COSTO DE LA BOLSA, OPCIONAL (pedido del dueño, 01/10). En un granel sin otras bolsas que
+   sabe de cuánto es su bolsa -la anotada aparte (bolsaGramos, de la ficha o de una compra) o la
+   que dice el nombre, como en Cargar compra (_cpGramosBolsa)-, al lado del costo por kilo va
+   "o la bolsa de 5 kg": lo que dice la factura, y el kilo sale solo (costoBolsaEnEditor). Se
+   guarda el kilo, como siempre. Con 1 kg no hace falta (es lo mismo), y en una bolsa de un
+   grupo tampoco: ahí ya se carga por bolsa. */
+const _costoTam = g => (g >= 1000 ? (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg' : g + ' g');
+function _costoBolsaSuelto(p) {
+  if (!p || p.tipoVenta !== 'peso' || _costoGramos(p)) return null;
+  if (Number(p.bolsaGramos) > 0) return Math.round(Number(p.bolsaGramos));
+  const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ nombre: p.nombre }) : null;
+  return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+}
+
 /* El costo por kilo que se guardaría con lo escrito en una fila. Si es lo mismo que se
    mostró, el que ya tiene: la cuenta de la bolsa al kilo y de vuelta no es exacta (una bolsa
    de 500 g a $3.001 el kilo se muestra $1.501, que vuelve como $3.002), y una fila sin tocar
@@ -214,7 +228,7 @@ function abrirEditorCostos(viejos, ctx, focoId) {
               'confirmado con la fecha de hoy.') + ' El precio se recalcula con el mismo porcentaje de siempre.' +
           (hayBolsas ? ' En las bolsas va lo que costó la bolsa entera, como al cargar el producto.' : '') + '</p>' +
         viejos.map((v, i) => {
-          const p = v.producto, g = _costoGramos(p), nom = _costoEsc(_costoNombre(p));
+          const p = v.producto, g = _costoGramos(p), nom = _costoEsc(_costoNombre(p)), gb = _costoBolsaSuelto(p);
           return '<div class="costos-fila">' +
             '<div class="costos-nom"><b>' + nom + '</b>' +
               '<div class="costos-sub">Costo actual ' + costoActualTxt(p) + (v.fecha
@@ -224,6 +238,9 @@ function abrirEditorCostos(viejos, ctx, focoId) {
             '<div class="costos-vista" data-i="' + i + '" aria-live="polite">' + _costoVistaHtml(p, _costoDeFila(v, escritos[i], escritos[i]), g) + '</div>' +
             (soloTocados ? '<label class="costos-igual" title="El proveedor no aumentó: deja de avisar por un mes">' +
               '<input type="checkbox" class="costos-sigue" data-i="' + i + '"> Sigue igual</label>' : '') +
+            (gb && gb !== 1000 ? '<div class="costos-bolsa">o la bolsa de ' + _costoTam(gb) + ': <span class="cb-signo">$</span>' +
+              '<input type="text" inputmode="numeric" class="form-input costos-bolsa-input" data-i="' + i + '" ' +
+              'placeholder="lo que dice la factura" aria-label="Costo de la bolsa de ' + _costoTam(gb) + ' de ' + nom + '"></div>' : '') +
           '</div>';
         }).join('') +
       '</div>' +
@@ -245,16 +262,40 @@ function abrirEditorCostos(viejos, ctx, focoId) {
       if (typeof limpiarMonto === 'function') limpiarMonto(inp);
       /* Cómo queda, mientras se escribe: con la misma cuenta que al guardar. */
       const i = Number(inp.getAttribute('data-i')), fila = viejos[i];
+      /* El kilo escrito a mano manda: "o la bolsa" se vacía. */
+      const bi = ov.querySelector('.costos-bolsa-input[data-i="' + i + '"]');
+      if (bi && document.activeElement === inp) bi.value = '';
       const vista = ov.querySelector('.costos-vista[data-i="' + i + '"]');
       if (!fila || !vista) return;
       vista.innerHTML = _costoVistaHtml(fila.producto, _costoDeFila(fila, escritos[i], _costoLeer(inp.value)), _costoGramos(fila.producto));
     });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); guardarEditorCostos(); } });
   });
+  ov.querySelectorAll('.costos-bolsa-input').forEach(bi => {
+    bi.addEventListener('input', () => costoBolsaEnEditor(bi));
+    bi.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); guardarEditorCostos(); } });
+  });
   document.addEventListener('keydown', _costosTecla, true);
   /* El foco en la que se tocó (desde el panel de bolsas) o en la primera. */
   const k = focoId ? viejos.findIndex(v => v.producto && v.producto.id === focoId) : -1;
   setTimeout(() => { const i = ov.querySelector('.costos-input[data-i="' + Math.max(0, k) + '"]'); if (i) { i.focus(); i.select(); } }, 30);
+}
+
+/* "o la bolsa de 5 kg": lo que dice la factura, y el costo por kilo sale solo en el campo de al
+   lado, como en la calculadora de la ficha. El campo de al lado avisa que cambió: así se ve cómo
+   queda el precio, y al guardar va el kilo, como siempre. */
+function costoBolsaEnEditor(bi) {
+  const ov = document.getElementById('costosEditor');
+  if (!ov || !bi || !_costosEditor) return;
+  if (typeof limpiarMonto === 'function') limpiarMonto(bi);
+  const i = Number(bi.getAttribute('data-i'));
+  const fila = _costosEditor.filas[i];
+  const g = fila ? _costoBolsaSuelto(fila.producto) : null;
+  const bolsa = _costoLeer(bi.value);
+  const inp = ov.querySelector('.costos-input[data-i="' + i + '"]');
+  if (!g || !inp || !(bolsa > 0)) return;
+  inp.value = String(typeof kiloDeBolsa === 'function' ? kiloDeBolsa(bolsa, g) : Math.round(bolsa * 1000 / g));
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function _costosTecla(e) {

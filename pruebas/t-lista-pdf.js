@@ -13,12 +13,16 @@
  *   2. Gramaje / Presentacion va pegado al nombre ("Aceite De Almendras 250 cc"): es lo que
  *      distingue el mismo producto en 250 cc y en 500 cc.
  *   3. El nombre no se pisa con el precio: se corta antes, contando tambien "el kilo".
+ *   4. Cada grupo de presentaciones o bolsas sale junto, en la categoria de su principal, donde
+ *      iria el principal y de menor a mayor (01/10/2026). Por nombre, "Mani Salado" quedaba
+ *      entre "Mani" y "Mani x 5 kg", y "x 10 kg" antes que "x 3 kg".
  */
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const RAIZ = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(RAIZ, 'admin.html'), 'utf8');
+const VAR = fs.readFileSync(path.join(RAIZ, 'admin-variantes.js'), 'utf8');
 
 function cuerpo(src, n) {
   const i = src.indexOf('function ' + n + '(');
@@ -76,7 +80,7 @@ function correr(productos, mayorista, priceMap) {
   ctx.window = ctx;
   ctx.jspdf = { jsPDF: pdfDeMentira(anotados) };
   vm.createContext(ctx);
-  vm.runInContext(constante(html, '_catalogoOrden') + cuerpo(html, '_catalogoMatchIdx') + cuerpo(html, 'esPorPeso') +
+  vm.runInContext(cuerpo(VAR, 'contenidoDeVariante') + constante(html, '_catalogoOrden') + cuerpo(html, '_catalogoMatchIdx') + cuerpo(html, 'esPorPeso') +
     cuerpo(html, 'exportCatalogoPDF'), ctx);
   ctx.exportCatalogoPDF(priceMap || null, !!mayorista);
   return anotados;
@@ -125,6 +129,27 @@ console.log('\n-- la lista mayorista --');
     chi && chi.resto.map(x => x.s).join('|'));
   const ace = renglon(a, 'Aceite De Almendras');
   t('  y por unidad, el precio solo', !!ace && ace.resto.map(x => x.s).join('|') === '$24.050', ace && ace.resto.map(x => x.s).join('|'));
+}
+
+console.log('\n-- los grupos, juntos --');
+{
+  const GRUPOS = [
+    { id: 'man', nombre: 'Mani', gramaje: '1 kg', tipoVenta: 'peso', precio: 13490, precioMayorista: 9250, categoria: 'Frutos secos' },
+    { id: 'man10', nombre: 'Mani x 10 kg', gramaje: '10 kg', tipoVenta: 'peso', precio: 11000, precioMayorista: 8000, categoria: 'Otra cosa', gramajePadreId: 'man' },
+    { id: 'man5', nombre: 'Mani x 5 kg', gramaje: '5 kg', tipoVenta: 'peso', precio: 12350, precioMayorista: 8450, categoria: 'Frutos secos', gramajePadreId: 'man' },
+    { id: 'sal', nombre: 'Mani Salado', tipoVenta: 'peso', precio: 9000, precioMayorista: 7000, categoria: 'Frutos secos' },
+    { id: 'alm', nombre: 'Almendra', tipoVenta: 'peso', precio: 15000, precioMayorista: 12000, categoria: 'Frutos secos' },
+    { id: 'alf12', nombre: 'Alfajor x12', gramaje: 'x12', tipoVenta: 'unidad', precio: 9000, precioMayorista: 8000, categoria: 'Golosinas', gramajePadreId: 'alf1' },
+    { id: 'alf1', nombre: 'Alfajor', gramaje: 'x1', tipoVenta: 'unidad', precio: 900, precioMayorista: 800, categoria: 'Golosinas' },
+    { id: 'alf6', nombre: 'Alfajor x6', gramaje: 'x6', tipoVenta: 'unidad', precio: 5000, precioMayorista: 4500, categoria: 'Golosinas', gramajePadreId: 'alf1' },
+  ];
+  const nombres = a => a.filter(x => /^(Mani|Almendra|Alfajor)/.test(x.s)).map(x => x.s).join(' | ');
+  const ESPERADO = 'Almendra | Mani 1 kg | Mani x 5 kg | Mani x 10 kg | Mani Salado | Alfajor x1 | Alfajor x6 | Alfajor x12';
+  const a = correr(GRUPOS, false);
+  t('cada grupo sale junto, donde iría su principal y de menor a mayor (01/10)', nombres(a) === ESPERADO, nombres(a));
+  t('  una bolsa con otra categoría va en la de su principal', !a.some(x => x.s === 'OTRA COSA'));
+  const may = correr(GRUPOS, true, { man: 9250, man10: 8000, man5: 8450, sal: 7000, alm: 12000, alf12: 8000, alf1: 800, alf6: 4500 });
+  t('  y en la mayorista, igual', nombres(may) === ESPERADO, nombres(may));
 }
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');

@@ -56,6 +56,7 @@ function armar(opts) {
   const inputs = [], casillas = [];
   const ctx = {
     console, Date, Math, Number, String, Object, Array, Set, isNaN, Promise,
+    Event: function (tp) { this.type = tp; },
     setTimeout: () => 0,
     window: { _pedidoOrigenVentaId: o.desdePedido ? 'pedido-1' : null },
     allProducts: o.productos || [],
@@ -88,6 +89,7 @@ function armar(opts) {
           id: '', className: '', style: {}, innerHTML: '',
           addEventListener: () => {},
           querySelector: sel => (sel === '.costos-input' ? inputs[0] || null
+            : /^\.costos-input\[data-i="\d+"\]$/.test(sel) ? inputs[Number(sel.replace(/\D/g, ''))] || null
             : { addEventListener: () => {}, focus: () => {}, select: () => {}, disabled: false, innerHTML: '' }),
           querySelectorAll: sel => (sel === '.costos-input' ? inputs : sel === '.costos-sigue' ? casillas : []),
           remove: () => { delete elementos[el.id]; },
@@ -104,19 +106,19 @@ function armar(opts) {
   /* Las cajas cerradas y las escalas viven en admin-variantes.js y admin-escalas.js. */
   if (o.conVariantes) { vm.runInContext(leer('admin-variantes.js'), ctx); vm.runInContext(leer('admin-escalas.js'), ctx); }
   vm.runInContext(SRC + '\n;this.__api = { fechaDeCosto, costosViejos, preciosDesdeCosto, avisoCostosViejos, ' +
-    'abrirEditorCostos, guardarEditorCostos, cerrarEditorCostos };', ctx);
+    'abrirEditorCostos, guardarEditorCostos, cerrarEditorCostos, costoBolsaEnEditor };', ctx);
   /* Las filas del editor: un input por producto, con el valor que se escribe en la prueba. */
   const conInputs = valores => {
     inputs.length = 0;
-    valores.forEach((v, i) => inputs.push({ value: String(v), getAttribute: () => String(i),
-      addEventListener: () => {}, focus: () => {}, select: () => {} }));
+    valores.forEach((v, i) => inputs.push({ value: String(v), getAttribute: () => String(i), eventos: [],
+      addEventListener: () => {}, focus: () => {}, select: () => {}, dispatchEvent(ev) { this.eventos.push(ev.type); } }));
   };
   /* Las casillas "Sigue igual" del editor abierto desde Inicio del día. */
   const conCasillas = tildadas => {
     casillas.length = 0;
     tildadas.forEach((v, i) => casillas.push({ checked: !!v, getAttribute: () => String(i) }));
   };
-  return { ctx, api: ctx.__api, escrituras, avisos, historial, repintados, elementos, conInputs, conCasillas };
+  return { ctx, api: ctx.__api, escrituras, avisos, historial, repintados, elementos, conInputs, conCasillas, inputs };
 }
 
 (async () => {
@@ -376,6 +378,45 @@ console.log('\n-- el editor de costos --');
   await (m2.api.guardarEditorCostos());
   t('volver a escribir $2.000 (lo que se cargó) no cambia nada: da el mismo kilo', m2.escrituras.length === 1 &&
     Object.keys(m2.escrituras[0].campos).join() === 'costoActualizadoEn');
+}
+{
+  /* Pedido del dueño (01/10): en un granel sin otras bolsas que sabe de cuánto es su bolsa (anotada
+     aparte, bolsaGramos, o en el nombre), al lado del costo por kilo va "o la bolsa de 5 kg",
+     opcional: lo que dice la factura, y el costo por kilo sale solo. Se guarda el kilo. */
+  const al = { id: 'al', nombre: 'Almendra', tipoVenta: 'peso', bolsaGramos: 5000, costo: 9000, porcentaje: 50, porcentajeMayorista: 20,
+    precio: 13500, precioMayorista: 10800, costoActualizadoEn: hace(40) };
+  const len = { id: 'len', nombre: 'Lenteja x 25 kg', tipoVenta: 'peso', costo: 1800, porcentaje: 50, porcentajeMayorista: 20,
+    precio: 2700, precioMayorista: 2160, costoActualizadoEn: hace(40) };
+  const ave = { id: 'ave', nombre: 'Avena', tipoVenta: 'peso', costo: 2000, porcentaje: 50, porcentajeMayorista: 20,
+    precio: 3000, precioMayorista: 2400, costoActualizadoEn: hace(40) };
+  const arr = { id: 'arr', nombre: 'Arroz', tipoVenta: 'peso', bolsaGramos: 1000, costo: 1500, porcentaje: 50, porcentajeMayorista: 20,
+    precio: 2250, precioMayorista: 1800, costoActualizadoEn: hace(40) };
+  const gal = { id: 'gal', nombre: 'Galletitas', tipoVenta: 'unidad', bolsaGramos: 5000, costo: 900, porcentaje: 50, porcentajeMayorista: 20,
+    precio: 1350, precioMayorista: 1080, costoActualizadoEn: hace(40) };
+  const b1 = { id: 'b1', nombre: 'Prueba1', gramaje: '1 kg', tipoVenta: 'peso', costo: 2000, porcentaje: 45, porcentajeMayorista: 43,
+    precio: 2900, precioMayorista: 2900, costoActualizadoEn: hace(92) };
+  const b3 = { id: 'b3', nombre: 'Prueba1 x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', gramajePadreId: 'b1', costo: 667, porcentaje: 45,
+    porcentajeMayorista: 45, precio: 967, precioMayorista: 1000, costoActualizadoEn: hace(92) };
+  const m = armar({ productos: [al, len, ave, arr, gal, b1, b3], conVariantes: true });
+  m.api.abrirEditorCostos([al, len, ave, arr, gal, b3].map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'inicio');
+  const h = m.elementos.costosEditor.innerHTML;
+  t('un granel con su bolsa anotada (5 kg) suma "o la bolsa de 5 kg", opcional; el costo por kilo sigue igual (01/10)',
+    h.indexOf('value="9000" aria-label="Nuevo costo de Almendra"') > 0 &&
+    h.indexOf('<div class="costos-bolsa">o la bolsa de 5 kg: <span class="cb-signo">$</span><input type="text" inputmode="numeric" ' +
+      'class="form-input costos-bolsa-input" data-i="0" placeholder="lo que dice la factura" aria-label="Costo de la bolsa de 5 kg de Almendra"></div>') > 0, h);
+  t('  también si la bolsa la dice el nombre ("x 25 kg")', h.indexOf('o la bolsa de 25 kg: ') > 0 && /costos-bolsa-input" data-i="1"/.test(h));
+  t('  sin tamaño, de 1 kg (es lo mismo que el kilo), por unidad o en una bolsa de un grupo (ya va por bolsa), no',
+    !/costos-bolsa-input" data-i="[2-5]"/.test(h));
+  m.conInputs(['9000', '1800', '2000', '1500', '900', '2001']);
+  m.api.costoBolsaEnEditor({ value: '32.500', getAttribute: () => '0' });
+  t('  escribir lo que costó la bolsa pone el costo por kilo: $32.500 la de 5 kg son $6.500, y avisa que cambió',
+    m.inputs[0].value === '6500' && m.inputs[0].eventos.join() === 'input', m.inputs[0].value);
+  m.api.costoBolsaEnEditor({ value: '', getAttribute: () => '1' });
+  t('  vacío no toca nada', m.inputs[1].value === '1800' && !m.inputs[1].eventos.length);
+  await (m.api.guardarEditorCostos());
+  const wa = m.escrituras.find(x => x.id === 'al');
+  t('  y se guarda el kilo, como siempre: $6.500, con su precio', !!wa && wa.campos.costo === 6500 && wa.campos.precio === 9750 &&
+    m.escrituras.length === 1, JSON.stringify(m.escrituras));
 }
 {
   /* Desde el panel de bolsas de Productos (admin-variantes.js, 27/09): "Cambiar costos". */

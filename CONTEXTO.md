@@ -416,6 +416,11 @@ producción (de los "gramajes" viejos).
   5) con "¿Querés disponer de más tamaños?" debajo, que baja a "Agregar otra bolsa" y lo resalta;
   Cargar compra la anota cuando la pregunta, y su campo acepta hasta 5 caracteres. La lista de
   precios en PDF dice "el kilo" en los productos por peso. Detalle en `PENDIENTE.md` §1-bis Z y AA.
+- **Los grupos juntos en la lista de precios; la bolsa en Revisar costos** (pedido del dueño): en
+  la lista de precios en PDF (minorista y mayorista) cada grupo de bolsas o presentaciones sale
+  junto, de menor a mayor. En la ventana de costos, un granel que sabe de cuánto es su bolsa tiene
+  "o la bolsa de 5 kg", opcional, que calcula el costo por kilo. Las demás exportaciones ya salían
+  bien con las bolsas. Detalle en `PENDIENTE.md` §1-bis AB.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
