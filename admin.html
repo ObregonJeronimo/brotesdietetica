@@ -470,10 +470,17 @@
 .costos-vista b{color:var(--accent-light)}
 .costos-vista .costos-may{color:#a78bfa}
 .costos-vista .costos-falta{color:var(--danger)}
-/* "o la bolsa de 5 kg" (01/10/2026): en su renglon, abajo, solo en los granel que saben de cuanto es su bolsa. */
-.costos-fila:has(.costos-bolsa){flex-wrap:wrap}
-.costos-bolsa{flex-basis:100%;display:flex;align-items:center;gap:0.35rem;font-size:0.78rem;color:var(--text-dim)}
-.costos-bolsa .costos-bolsa-input{width:150px;text-align:right}
+/* "O el costo de la bolsa de 5 kg" (01/10/2026), en los granel que saben de cuanto es su bolsa: un renglon mas, con una flecha que sale del nombre, el campo justo abajo del costo por kilo y "Sigue igual" en el medio de los dos. En el celular, uno abajo del otro. */
+.costos-fila.con-bolsa{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:0.75rem;row-gap:0.5rem;align-items:center}
+.costos-fila.con-bolsa .costos-nom{grid-column:1;grid-row:1}
+.costos-fila.con-bolsa .costos-input{grid-column:2;grid-row:1}
+.costos-fila.con-bolsa .costos-vista{grid-column:3;grid-row:1;width:150px}
+.costos-fila.con-bolsa .costos-igual{grid-column:4;grid-row:1 / span 2}
+.costos-fila.con-bolsa .costos-bolsa{display:contents}
+.costos-bolsa-lbl{grid-column:1;grid-row:2;display:flex;align-items:center;gap:0.45rem;font-size:0.86rem;font-weight:600;color:var(--text)}
+.costos-bolsa-lbl .bi{color:var(--accent-light);font-size:1.1rem}
+.costos-bolsa-input{grid-column:2;grid-row:2;width:120px;text-align:right;padding-left:0.5rem}
+@media(max-width:520px){.costos-fila.con-bolsa{display:flex}.costos-fila.con-bolsa .costos-bolsa{display:flex;flex-wrap:wrap;flex-basis:100%;gap:0.4rem}.costos-bolsa-lbl{flex-basis:100%}}
 @media(max-width:520px){.costos-fila{flex-wrap:wrap}.costos-nom{flex-basis:100%}}
 /* === INICIO DEL DIA (admin-inicio.js) === */
 .ini-cab{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.9rem}

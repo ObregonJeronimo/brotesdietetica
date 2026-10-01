@@ -229,7 +229,8 @@ function abrirEditorCostos(viejos, ctx, focoId) {
           (hayBolsas ? ' En las bolsas va lo que costó la bolsa entera, como al cargar el producto.' : '') + '</p>' +
         viejos.map((v, i) => {
           const p = v.producto, g = _costoGramos(p), nom = _costoEsc(_costoNombre(p)), gb = _costoBolsaSuelto(p);
-          return '<div class="costos-fila">' +
+          const conBolsa = !!(gb && gb !== 1000);
+          return '<div class="costos-fila' + (conBolsa ? ' con-bolsa' : '') + '">' +
             '<div class="costos-nom"><b>' + nom + '</b>' +
               '<div class="costos-sub">Costo actual ' + costoActualTxt(p) + (v.fecha
                 ? ' · cambiado el ' + _costoFechaTxt(v.fecha) + ' (' + _costoHace(v.dias) + ')' : ' · sin fecha de cambio') + '</div></div>' +
@@ -238,9 +239,12 @@ function abrirEditorCostos(viejos, ctx, focoId) {
             '<div class="costos-vista" data-i="' + i + '" aria-live="polite">' + _costoVistaHtml(p, _costoDeFila(v, escritos[i], escritos[i]), g) + '</div>' +
             (soloTocados ? '<label class="costos-igual" title="El proveedor no aumentó: deja de avisar por un mes">' +
               '<input type="checkbox" class="costos-sigue" data-i="' + i + '"> Sigue igual</label>' : '') +
-            (gb && gb !== 1000 ? '<div class="costos-bolsa">o la bolsa de ' + _costoTam(gb) + ': <span class="cb-signo">$</span>' +
+            /* Un renglón más, con una flecha que sale del nombre y el campo justo abajo del costo
+               por kilo (pedido del dueño, 01/10). */
+            (conBolsa ? '<div class="costos-bolsa"><span class="costos-bolsa-lbl"><i class="bi bi-arrow-return-right"></i>' +
+              'O el costo de la bolsa de ' + _costoTam(gb) + ':</span>' +
               '<input type="text" inputmode="numeric" class="form-input costos-bolsa-input" data-i="' + i + '" ' +
-              'placeholder="lo que dice la factura" aria-label="Costo de la bolsa de ' + _costoTam(gb) + ' de ' + nom + '"></div>' : '') +
+              'placeholder="de la factura" aria-label="Costo de la bolsa de ' + _costoTam(gb) + ' de ' + nom + '"></div>' : '') +
           '</div>';
         }).join('') +
       '</div>' +

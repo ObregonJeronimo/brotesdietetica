@@ -400,11 +400,14 @@ console.log('\n-- el editor de costos --');
   const m = armar({ productos: [al, len, ave, arr, gal, b1, b3], conVariantes: true });
   m.api.abrirEditorCostos([al, len, ave, arr, gal, b3].map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'inicio');
   const h = m.elementos.costosEditor.innerHTML;
-  t('un granel con su bolsa anotada (5 kg) suma "o la bolsa de 5 kg", opcional; el costo por kilo sigue igual (01/10)',
+  t('un granel con su bolsa anotada (5 kg) suma "O el costo de la bolsa de 5 kg", opcional; el costo por kilo sigue igual (01/10)',
     h.indexOf('value="9000" aria-label="Nuevo costo de Almendra"') > 0 &&
-    h.indexOf('<div class="costos-bolsa">o la bolsa de 5 kg: <span class="cb-signo">$</span><input type="text" inputmode="numeric" ' +
-      'class="form-input costos-bolsa-input" data-i="0" placeholder="lo que dice la factura" aria-label="Costo de la bolsa de 5 kg de Almendra"></div>') > 0, h);
-  t('  también si la bolsa la dice el nombre ("x 25 kg")', h.indexOf('o la bolsa de 25 kg: ') > 0 && /costos-bolsa-input" data-i="1"/.test(h));
+    h.indexOf('<div class="costos-bolsa"><span class="costos-bolsa-lbl"><i class="bi bi-arrow-return-right"></i>O el costo de la bolsa de 5 kg:</span>' +
+      '<input type="text" inputmode="numeric" class="form-input costos-bolsa-input" data-i="0" placeholder="de la factura" ' +
+      'aria-label="Costo de la bolsa de 5 kg de Almendra"></div>') > 0, h);
+  t('  esa fila va en dos renglones (con-bolsa); las demás, como siempre', (h.match(/<div class="costos-fila con-bolsa">/g) || []).length === 2 &&
+    (h.match(/<div class="costos-fila">/g) || []).length === 4);
+  t('  también si la bolsa la dice el nombre ("x 25 kg")', h.indexOf('O el costo de la bolsa de 25 kg:') > 0 && /costos-bolsa-input" data-i="1"/.test(h));
   t('  sin tamaño, de 1 kg (es lo mismo que el kilo), por unidad o en una bolsa de un grupo (ya va por bolsa), no',
     !/costos-bolsa-input" data-i="[2-5]"/.test(h));
   m.conInputs(['9000', '1800', '2000', '1500', '900', '2001']);

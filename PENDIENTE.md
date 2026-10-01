@@ -2028,9 +2028,11 @@ Lo que se hizo (eligió dos de cuatro):
   "Mani" y "Mani x 5 kg", y "x 10 kg" antes que "x 3 kg".
 - **"o la bolsa de 5 kg" en la ventana de costos** ("Revisar costos" del Centro de avisos, "Cambiar
   costos" y el aviso al vender): en un granel sin otras bolsas que sabe de cuánto es su bolsa
-  (`bolsaGramos` o el nombre), un renglón opcional abajo de la fila: lo que dice la factura, y el
-  costo por kilo sale solo en el campo de siempre (`_costoBolsaSuelto`, `costoBolsaEnEditor`,
-  admin-costos.js). Escribir el kilo a mano lo vacía. Se guarda el kilo, como siempre. No va con
+  (`bolsaGramos` o el nombre), un renglón opcional abajo de la fila: "O el costo de la bolsa de 5
+  kg:" con una flecha que sale del nombre, el campo justo abajo del costo por kilo (mismo ancho,
+  "de la factura" de ayuda) y "Sigue igual" en el medio de los dos; en el celular, el texto arriba
+  y el campo abajo. Lo que dice la factura, y el costo por kilo sale solo en el campo de siempre
+  (`_costoBolsaSuelto`, `costoBolsaEnEditor`, admin-costos.js). Escribir el kilo a mano lo vacía. Se guarda el kilo, como siempre. No va con
   bolsa de 1 kg (es lo mismo), por unidad ni en una bolsa de un grupo (ahí ya se carga por bolsa).
 - No elegidos: "Mani desde 5 kg" en el PDF y la columna "SE VENDE" en el Excel.
 
@@ -2038,7 +2040,7 @@ Probado en el sandbox con clics de verdad: en la lista de precios, "Mani 1 kg" y
 salen juntos; en "Revisar estos 8 costos", la Semilla De Lino Tostado (con bolsa de 5 kg puesta en
 su ficha) muestra "o la bolsa de 5 kg" y las demás no; $25.000 pone $5.000 el kilo, con su precio
 al lado; escribir el kilo a mano vacía la bolsa; "Ahora no" no guardó nada. Pruebas:
-`t-lista-pdf.js` (14) y `t-costos-viejos.js` (106). Total: 3884 en 90 suites.
+`t-lista-pdf.js` (14) y `t-costos-viejos.js` (107). Total: 3885 en 90 suites.
 
 ---
 
