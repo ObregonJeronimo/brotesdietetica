@@ -734,6 +734,12 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  y la forma de venta del principal', w.llamadas.indexOf('tipo:unidad') > 0);
     t('  el título lo dice', w.porId.modalTitle.textContent === 'Nueva variante');
     t('  y la sección explica qué poner', w.porId.pVariantes.innerHTML.indexOf('Nueva variante de <b>Maní</b>') > 0);
+    t('  con el nombre del campo: por unidad, "Gramaje / Presentación"', w.porId.pVariantes.innerHTML.indexOf('Poné arriba, en <b>Gramaje / Presentación</b>') > 0);
+    w.ctx._tipoVentaProd = 'peso';
+    w.ctx.pintarVariantesForm();
+    t('  y por peso, "Tamaño de la bolsa", que es como se llama ahí el campo (30/09)', w.porId.pVariantes.innerHTML.indexOf('Poné arriba, en <b>Tamaño de la bolsa</b>') > 0);
+    w.ctx._tipoVentaProd = 'unidad';
+    w.ctx.pintarVariantesForm();
 
     t('guardar sin su presentación no deja', w.ctx.faltaPresentacionDeVariante() === true && /error: Poné la presentación/.test(w.avisos.join()));
     w.porId.pGramaje.value = '160 g';

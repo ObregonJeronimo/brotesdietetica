@@ -378,18 +378,6 @@ console.log('\n-- el editor de costos --');
     Object.keys(m2.escrituras[0].campos).join() === 'costoActualizadoEn');
 }
 {
-  /* Pedido del dueño (30/09): un granel sin otras bolsas que dice de cuánto es la bolsa también va
-     por bolsa en la ventana de costos, como en Cargar compra, y dice qué bolsa es ("Mani RC" no lo
-     dice en el nombre). */
-  const mr = { id: 'mr', nombre: 'Mani RC', gramaje: '2 kg', tipoVenta: 'peso', costo: 500, porcentaje: 100, porcentajeMayorista: 50,
-    precio: 1000, precioMayorista: 750, costoActualizadoEn: hace(40) };
-  const m = armar({ productos: [mr], conVariantes: true });
-  m.api.abrirEditorCostos([{ producto: mr, fecha: hace(40), dias: 40 }], 'min');
-  const h = m.elementos.costosEditor.innerHTML;
-  t('un granel sin otras bolsas que dice su tamaño (2 kg) pide lo que costó la bolsa, y dice cuál es (30/09)',
-    h.indexOf('value="1000" aria-label="Nuevo costo de la bolsa de Mani RC"') > 0 && h.indexOf('Costo actual $1.000 la bolsa de 2 kg ($500 el kilo) ·') > 0, h);
-}
-{
   /* Desde el panel de bolsas de Productos (admin-variantes.js, 27/09): "Cambiar costos". */
   const b1 = { id: 'b1', nombre: 'Prueba1', gramaje: '1 kg', tipoVenta: 'peso', costo: 2000, porcentaje: 45, porcentajeMayorista: 43,
     precio: 2900, precioMayorista: 2900, costoActualizadoEn: hace(92) };

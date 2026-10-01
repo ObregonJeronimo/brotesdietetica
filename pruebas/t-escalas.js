@@ -479,13 +479,11 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     w.porId.pCosto.value = '4500';
     w.ctx.pintarCostoBolsa();
     t('en un producto por peso de 3 kg aparece', cont.hidden === false && tam.textContent === '3 kg');
-    t('  como en Cargar compra: "Costo de la bolsa de 3 kg", ya cargado desde el kilo ($13.500), y al lado el kilo (30/09)',
-      cont.innerHTML.indexOf('Costo de la bolsa de <span class="cb-tam"></span>') > 0 && inp.value === '13500' && nota.textContent === '= $4.500 el kilo',
-      inp.value + ' / ' + nota.textContent);
+    t('  con lo que sale la bolsa según el costo por kilo', nota.textContent === 'Con $4.500 el kilo, la bolsa de 3 kg sale $13.500.');
     inp.value = '13.500';
     w.ctx.costoBolsaEscrito(inp);
     t('escribir lo que costó la bolsa carga el costo por kilo', w.porId.pCosto.value === '4500' && w.pintados.indexOf('calc') >= 0);
-    t('  y lo dice', nota.textContent === '= $4.500 el kilo. Queda cargado arriba, en el costo por kilo.');
+    t('  y lo dice', nota.textContent === '= $4.500 el kilo. Queda cargado arriba, en el costo.');
     inp.value = '2600';
     w.porId.pGramaje.value = '3 kg';
     w.ctx.costoBolsaEscrito(inp);
@@ -504,6 +502,21 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     w.ctx.pintarCostoBolsa();
     t('  y se esconde con la tabla de bolsas a la vista: lo que costó la bolsa va en su primera fila', seVe && cont.hidden === true);
     w.ctx.window._varFilas = [];
+  }
+  {
+    /* Pedido del dueño (30/09): en un producto por peso, Gramaje / Presentación es de cuánto es la
+       bolsa que se le compra al proveedor, y se llama así. Por unidad, como siempre. */
+    const w = armar();
+    const lbl = { innerHTML: '' };
+    w.porId.pGramajeWrap = { querySelector: sel => (sel === 'label' ? lbl : null) };
+    w.ctx.pintarCostoBolsa();
+    t('en un producto por peso, el campo del tamaño se llama "Tamaño de la bolsa"',
+      lbl.innerHTML.indexOf('Tamaño de la bolsa <span') === 0 && w.porId.pGramaje.placeholder === 'Ej: 5 kg', lbl.innerHTML);
+    w.ctx._tipoVentaProd = 'unidad';
+    w.ctx.pintarCostoBolsa();
+    t('  y por unidad, "Gramaje / Presentación", igual que en el formulario',
+      lbl.innerHTML.indexOf('Gramaje / Presentación <span') === 0 && w.porId.pGramaje.placeholder === 'Ej: 500g ó 1kg' &&
+      html.indexOf('<label>' + lbl.innerHTML + '</label><input type="text" class="form-input" id="pGramaje" placeholder="Ej: 500g ó 1kg">') > 0, lbl.innerHTML);
   }
 
   /* ============================================== EL AVISO DE LOS PEDIDOS WEB */

@@ -50,11 +50,17 @@ function _cpEsPeso(p) { return !!(p && p.tipoVenta === 'peso'); }
    del producto, con lo que queda el kilo al lado. El costo se sigue guardando por kilo
    (kiloDeBolsa), que es como lo lee todo lo demás. Las cuentas y el agrupado son los de
    admin-variantes.js: gramosDeBolsa, costoDeBolsa, kiloDeBolsa y agruparParaStock. */
-/* Los gramos de la bolsa, si se carga por bolsa: la regla de gramosDeBolsa (admin-variantes.js),
-   la misma de la ventana de costos. En un producto con varias bolsas, la suya; en uno por peso
-   sin otras bolsas (pedido del dueño, 30/09/2026), el tamaño que dice: en el nombre ("Lenteja
-   x 5 kg") o en "Tamaño de la bolsa" de su ficha. Si no lo dice, null: la fila lo pregunta. */
-function _cpGramosBolsa(p) { return typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p) : null; }
+/* Los gramos de la bolsa, si se carga por bolsa. En un producto con varias bolsas, la suya
+   (gramosDeBolsa). En uno por peso sin otras bolsas (pedido del dueño, 30/09/2026), el tamaño
+   que dice el producto: en el nombre ("Lenteja x 5 kg") o en "Tamaño de la bolsa" de su ficha.
+   Si no dice de cuánto es la bolsa, null: la fila lo pregunta. Es solo de Cargar compra: la
+   ventana de costos sigue por kilo en esos productos (Thiago, 30/09: no complicarlo). */
+function _cpGramosBolsa(p) {
+  const g = typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p) : null;
+  if (g || !p || p.tipoVenta !== 'peso' || p.depurado === true || typeof contenidoDeVariante !== 'function') return g;
+  const c = contenidoDeVariante(p);
+  return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+}
 /* Un producto por peso, sin otras bolsas, que no dice de cuánto es la bolsa: la compra se lo
    pregunta en la fila, y al guardar queda anotado en el producto (pedido del dueño, 30/09).
    Con otras bolsas no: ahí el tamaño de cada una se pone en el producto. */

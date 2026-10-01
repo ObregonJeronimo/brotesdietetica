@@ -1862,43 +1862,43 @@ sin el tamaño avisa que falta y no guarda; con "1", se guardó la compra y el p
 "1 kg"; la compra siguiente ya la pide por bolsa. Pruebas: `pruebas/t-compras-bolsas.js` (105) y
 se ajustó `t-lector-compra.js`. Total: 3832 en 89 suites.
 
-### X) El tamaño de la bolsa, sin baches · **HECHO, SIN SUBIR** (30/09/2026)
+### X) El tamaño de la bolsa, solo en Cargar compra · **HECHO, SIN SUBIR** (30/09/2026)
 
 Pedido del dueño, después de §W: guardó una compra de "Mani RC" diciendo que la bolsa era de 2 kg, y
-al volver a Cargar compra no se veía en ningún lado de cuánto era la bolsa. Además preguntó para qué
-sirve la ayuda "¿Tenés lo que costó la bolsa?" de la ficha, y si "Gramaje / presentación" es lo que
-ve el cliente.
+al volver a Cargar compra no se veía en ningún lado de cuánto era la bolsa. Además preguntó si
+"Gramaje / presentación" es lo que ve el cliente.
 
 **Qué es "Gramaje / presentación"** (lo que se le respondió): un solo tamaño por producto, no una
 lista. Las opciones para el cliente son las presentaciones: cada una es su propio producto (se arma
-con "Agregar presentación"), y su tamaño es el botón que elige el cliente. En un producto sin
-presentaciones la tienda no lo muestra. En uno por peso es la bolsa que se le compra al proveedor;
-el cliente compra por gramos (y si hay varias bolsas, con las escalas de precio).
+con "Agregar otra presentación", en la sección Presentaciones de la ficha), y su tamaño es el botón
+que elige el cliente. En un producto sin presentaciones la tienda no lo muestra. En uno por peso es
+la bolsa que se le compra al proveedor; el cliente compra por gramos (y si hay varias bolsas, con
+las escalas de precio).
 
-Lo que se cambió:
+Lo que quedó:
 - **Cargar compra dice qué bolsa es**, cuando el nombre no lo dice (`_cpDeBolsa`): en la lista,
   "costo $1.000 la bolsa de 2 kg ($500 el kilo)"; en la fila, "Costo de la bolsa de 2 kg"; al ver la
   compra, en Deudas y en la exportación, "3 kg (1,5 bolsas de 2 kg)"; en el resumen al guardar y en
   el aviso de costos, "la bolsa de 2 kg". "Mani RC x 3 kg" o "Lenteja x 5 kg" no lo repiten.
-- **Una sola regla de qué es una bolsa** (`gramosDeBolsa`, admin-variantes.js): un producto por
-  peso sin otras bolsas que dice de cuánto es la bolsa también es una bolsa en la ventana de costos
-  (Centro de avisos, aviso al vender) y en sus textos ("Costo actual $1.000 la bolsa de 2 kg ($500
-  el kilo)"), como en Cargar compra. Antes la compra pedía la bolsa y esa ventana el kilo. Los
-  productos con varias bolsas siguen igual.
-- **La ficha:** en un producto por peso, "Gramaje / Presentación" se llama "Tamaño de la bolsa
-  (opcional — la que le comprás al proveedor: 1 kg, 5 kg, 25 kg)"; por unidad sigue como siempre.
-  La ayuda pasó de "¿Tenés lo que costó la bolsa? Bolsa de 2 kg: $ [lo que dice la factura]" a
-  "Costo de la bolsa de 2 kg: $1000", ya cargado desde el kilo de arriba, con "= $500 el kilo" al
-  lado, como en Cargar compra. Si se escribe otro, carga el kilo arriba y lo dice; si se cambia el
-  kilo a mano, la bolsa vuelve a salir de él.
+- **En la ficha, solo el nombre:** en un producto por peso, "Gramaje / Presentación" se llama
+  "Tamaño de la bolsa (opcional — la que le comprás al proveedor: 1 kg, 5 kg, 25 kg)"
+  (`_etqTamanoBolsa`, admin-escalas.js); por unidad sigue como siempre. Ahí se ve el tamaño que
+  anotó la compra. La ayuda de "Nueva variante" lo nombra igual (`_pintarVariantes`).
+
+**Lo que se deshizo** (Thiago, 30/09: "nos la estamos complicando demasiado"; eligió dejarlo solo en
+Cargar compra). En `ad364f2` lo de la bolsa se había llevado también a la ventana de costos y los
+avisos (`gramosDeBolsa` contaba como bolsa un granel sin otras bolsas que dice su tamaño) y a la
+ayuda de la ficha ("Costo de la bolsa de 2 kg", ya cargada). Se volvió atrás: `gramosDeBolsa`, la
+ventana de costos, los avisos y la ayuda "¿Tenés lo que costó la bolsa?" quedan como en producción,
+por kilo, y Cargar compra vuelve a su propia regla (`_cpGramosBolsa`, la de §W). Lo que se resigna:
+en la ventana de costos esos productos se siguen cargando por kilo. Si a la clienta le molesta, se
+agrega después.
 
 Probado en el sandbox con clics de verdad: en Cargar compra de ANDNUTS, el Mani RC dice "costo
-$1.000 la bolsa de 2 kg ($500 el kilo)" y "Costo de la bolsa de 2 kg"; en su ficha, "Tamaño de la
-bolsa: 2 kg" y "Costo de la bolsa de 2 kg: $1000 = $500 el kilo"; escribiendo $1.200, el costo por
-kilo pasa a $600 (sin guardar). Un producto nuevo por unidad dice "Gramaje / Presentación", y al
-pasarlo a por peso, "Tamaño de la bolsa". Pruebas: `t-compras-bolsas.js` (110), `t-escalas.js` (242),
-`t-tabla-presentaciones.js` (41), `t-costos-viejos.js` (101) y `t-exportar.js` (58). Total: 3839 en
-89 suites.
+$1.000 la bolsa de 2 kg ($500 el kilo)" y "Costo de la bolsa de 2 kg"; su ficha dice "Tamaño de la
+bolsa: 2 kg" y la ayuda de siempre ("¿Tenés lo que costó la bolsa?"). Pruebas: `t-compras-bolsas.js`
+(110), `t-escalas.js` (244: el nombre del campo, por peso y por unidad), `t-variantes.js` (240: la
+ayuda de "Nueva variante") y `t-exportar.js` (58). Total: 3841 en 89 suites.
 
 ---
 
