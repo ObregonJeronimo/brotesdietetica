@@ -18,6 +18,7 @@ const RAIZ = path.join(__dirname, '..');
 const leer = f => fs.readFileSync(path.join(RAIZ, f), 'utf8');
 const VAR = leer('admin-variantes.js');
 const COMP = leer('admin-compras.js');
+const COSTOS = leer('admin-costos.js');
 
 let ok = 0, fail = 0;
 const t = (d, c, extra) => {
@@ -88,6 +89,8 @@ function armar(opts) {
   ctx.window = ctx;
   vm.createContext(ctx);
   if (o.sinVariantes !== true) vm.runInContext(VAR, ctx);
+  /* La cuenta de los precios (preciosDesdeCosto) y lo de al lado del costo (_costoVistaHtml). */
+  vm.runInContext(COSTOS, ctx);
   vm.runInContext(COMP, ctx);
   const items = () => vm.runInContext('_compraItems', ctx);
   return { ctx, campos, el, items, guardadas, escrituras, preguntas, avisos };
@@ -199,9 +202,9 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       (r[0].match(/<span>Costo de la bolsa<\/span>/g) || []).length === 2 &&
       /value="9999" oninput="compraCampo\(0,'costoBolsa',this.value\)"/.test(r[0]) &&
       /value="4000" oninput="compraCampo\(2,'costoBolsa',this.value\)"/.test(r[0]));
-    t('  y al lado, cómo queda el kilo',
-      r[0].indexOf('<span class="cp-kilo" id="cpKilo0">$3.333 el kilo</span>') > 0 &&
-      r[0].indexOf('<span class="cp-kilo" id="cpKilo2">$4.000 el kilo</span>') > 0);
+    t('  y al lado, cómo queda: el kilo, el precio y el mayorista (01/10)',
+      r[0].indexOf('<span class="cp-kilo cp-vista" id="cpKilo0"><span>Costo $3.333 el kilo</span><span>Precio <b>$') > 0 &&
+      r[0].indexOf('<span class="cp-kilo cp-vista" id="cpKilo2"><span>Costo $4.000 el kilo</span><span>Precio <b>$') > 0, r[0]);
     t('  con el "?" del redondeo, una vez', (r[0].match(/muestra unos pesos de más o de menos/g) || []).length === 1);
     t('la Almendra, que no dice de cuánto es la bolsa, la pregunta en la fila (30/09): el número y al lado kg o g, de entrada kg',
       /<span id="cpBolsaEtq1">¿De cuánto es la bolsa\?<\/span><span class="cp-bolsa-tam"><input type="text"[^>]*placeholder="Ej: 5"[^>]*oninput="compraCampo\(1,'bolsa',this.value\)"><select[^>]*onchange="compraCampo\(1,'bolsaUnidad',this.value\)"><option value="kg" selected>kg<\/option><option value="g">g<\/option><\/select><\/span>/.test(h) &&
@@ -214,7 +217,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     const it = w.items()[0];
     t('escribir lo que costó la bolsa pasa el kilo solo: $12.000 la de 3 kg son $4.000 el kilo',
       it.costoBolsa === 12000 && it.costoUnitario === 4000);
-    t('  y el kilo de al lado se actualiza', w.el('cpKilo0').textContent === '$4.000 el kilo', w.el('cpKilo0').textContent);
+    t('  y lo de al lado se actualiza', w.el('cpKilo0').innerHTML.indexOf('<span>Costo $4.000 el kilo</span>') === 0, w.el('cpKilo0').innerHTML);
     w.ctx.compraCampo(0, 'cantidad', '6000');
     t('  dos bolsas (6.000 g) a $12.000 son $24.000', w.el('cpSub0').textContent === '$24.000', w.el('cpSub0').textContent);
     w.ctx.compraCampo(0, 'costoBolsa', '10000');
@@ -237,7 +240,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('una bolsa de 500 g a $3.001 el kilo se muestra a $1.501', it.costoBolsa === 1501 && it.costoUnitario === 3001);
     v.ctx.compraCampo(0, 'costoBolsa', '1501');
     t('  volver a escribir $1.501 deja el kilo en $3.001 (la cuenta daría $3.002 y parecería un cambio)',
-      v.items()[0].costoUnitario === 3001 && v.el('cpKilo0').textContent === '$3.001 el kilo');
+      v.items()[0].costoUnitario === 3001 && v.el('cpKilo0').innerHTML.indexOf('<span>Costo $3.001 el kilo</span>') === 0);
     v.ctx.compraCampo(0, 'costoBolsa', '1600');
     t('  y $1.600 sí lo cambia: $3.200 el kilo', v.items()[0].costoUnitario === 3200);
     v.ctx.compraCampo(0, 'costoBolsa', '');
@@ -276,7 +279,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       act && act.m.indexOf('Mani RC x 3 kg\n- Tenía cargado: $9.999 la bolsa ($3.333 el kilo)\n- En esta compra: $12.000 la bolsa ($4.000 el kilo)') >= 0, act && act.m);
     t('  sin flechas, dice qué pasa al actualizar, y los botones se entienden',
       act && act.m.indexOf('→') < 0 && act.m.indexOf('En esta compra pagaste distinto de lo que tenía cargado el producto:') === 0 &&
-      act.m.indexOf('Si tocás "Actualizar", el producto queda con el costo de esta compra. El precio de venta no cambia: lo que cambia es cuánto ganás en cada venta.') > 0 &&
+      act.m.indexOf('Si tocás "Actualizar", el producto queda con el costo de esta compra, y el precio y el mayorista se recalculan con el mismo porcentaje de siempre.') > 0 &&
       act.aceptar === 'Actualizar' && act.cancelar === 'Dejar como estaba', act && act.m);
     t('  y no nombra a los que no cambiaron', act && act.m.indexOf('Almendra') < 0 && act.m.indexOf('x 1 kg') < 0);
     const costos = w.escrituras.filter(e => e.d.costo !== undefined).map(e => e.id + '=' + e.d.costo).join();
@@ -450,7 +453,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     const filas = w.el('compraItems').innerHTML;
     t('  la fila pide "Costo de la bolsa" y al lado dice el kilo',
       /<span>Costo de la bolsa<\/span><input [^>]*value="10000" oninput="compraCampo\(0,'costoBolsa',this.value\)"/.test(filas) &&
-      filas.indexOf('<span class="cp-kilo" id="cpKilo0">$2.000 el kilo</span>') > 0);
+      filas.indexOf('<span class="cp-kilo cp-vista" id="cpKilo0"><span>Costo $2.000 el kilo</span>') > 0);
     t('  suelta, sin recuadro', recuadros(filas).length === 0);
     t('la Almendra, que no dice de cuánto es la bolsa, la pregunta: "¿De cuánto es la bolsa?"',
       w.items()[1].sinTam === true && w.items()[1].gramosBolsa === undefined &&
@@ -461,8 +464,8 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     w.ctx.compraCampo(0, 'costoBolsa', '12500');
     w.ctx.compraCampo(0, 'cantidad', '10000');
     t('$12.500 la bolsa de 5 kg son $2.500 el kilo, y dos bolsas (10.000 g) $25.000',
-      w.items()[0].costoUnitario === 2500 && w.el('cpKilo0').textContent === '$2.500 el kilo' && w.el('cpSub0').textContent === '$25.000',
-      w.el('cpKilo0').textContent + ' / ' + w.el('cpSub0').textContent);
+      w.items()[0].costoUnitario === 2500 && w.el('cpKilo0').innerHTML.indexOf('<span>Costo $2.500 el kilo</span>') === 0 && w.el('cpSub0').textContent === '$25.000',
+      w.el('cpKilo0').innerHTML + ' / ' + w.el('cpSub0').textContent);
     w.ctx.compraCampo(1, 'cantidad', '25000');
     await w.ctx.guardarCompra();
     t('sin decir de cuánto es la bolsa, no se guarda: lo pide',
@@ -480,9 +483,9 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('escrito "5": bolsa de 5 kg, con el costo de la bolsa desde el kilo que tenía ($70.000)',
       a1.gramosBolsa === 5000 && a1.costoBolsa === 70000 && a1.costoUnitario === 14000 &&
       w.el('cpBolsaEtq1').textContent === 'Bolsa de 5 kg' && w.el('cpBolsa1').disabled === false && w.el('cpBolsa1').value === 70000 &&
-      w.el('cpKilo1').textContent === '$14.000 el kilo' && w.el('cpKilo1').className === 'cp-kilo');
+      w.el('cpKilo1').innerHTML.indexOf('<span>Costo $14.000 el kilo</span>') === 0 && w.el('cpKilo1').className === 'cp-kilo cp-vista');
     w.ctx.compraCampo(1, 'costoBolsa', '75000');
-    t('  $75.000 la bolsa de 5 kg son $15.000 el kilo', w.items()[1].costoUnitario === 15000 && w.el('cpKilo1').textContent === '$15.000 el kilo');
+    t('  $75.000 la bolsa de 5 kg son $15.000 el kilo', w.items()[1].costoUnitario === 15000 && w.el('cpKilo1').innerHTML.indexOf('<span>Costo $15.000 el kilo</span>') === 0);
     w.ctx.compraCampo(1, 'bolsa', '25');
     t('  si se corrige a 25 kg, el costo que se escribió se respeta: $75.000 la de 25 kg son $3.000 el kilo',
       w.items()[1].gramosBolsa === 25000 && w.items()[1].costoBolsa === 75000 && w.items()[1].costoUnitario === 3000 &&
@@ -490,7 +493,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     w.ctx.compraCampo(1, 'bolsa', '');
     t('  si se borra, vuelve a faltar: el costo se apaga y el kilo vuelve al de siempre',
       w.items()[1].gramosBolsa === undefined && w.items()[1].costoUnitario === 14000 && w.el('cpBolsa1').disabled === true &&
-      w.el('cpKilo1').textContent === 'falta la bolsa' && w.el('cpKilo1').className === 'cp-kilo falta');
+      w.el('cpKilo1').innerHTML === 'falta la bolsa' && w.el('cpKilo1').className === 'cp-kilo falta');
     w.ctx.compraCampo(1, 'bolsa', '25');
     t('  y al volver a escribirlo, vuelve el costo que se había puesto', w.items()[1].costoBolsa === 75000 && w.el('cpBolsa1').value === 75000);
     w.ctx.renderCompraItems();
@@ -498,7 +501,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('  si la lista se vuelve a dibujar, queda lo escrito',
       otra.indexOf('<span id="cpBolsaEtq1">Bolsa de 25 kg</span>') > 0 && otra.indexOf('placeholder="Ej: 5" value="25"') > 0 &&
       otra.indexOf('<option value="kg" selected>kg</option>') > 0 &&
-      /id="cpBolsa1" value="75000" oninput/.test(otra) && otra.indexOf('<span class="cp-kilo" id="cpKilo1">$3.000 el kilo</span>') > 0);
+      /id="cpBolsa1" value="75000" oninput/.test(otra) && otra.indexOf('<span class="cp-kilo cp-vista" id="cpKilo1"><span>Costo $3.000 el kilo</span>') > 0);
     w.ctx.compraCampo(1, 'bolsaUnidad', 'g');
     t('  con "g" en el selector, el mismo 25 son 25 g: "Bolsa de 25 g", y el costo escrito se respeta',
       w.items()[1].gramosBolsa === 25 && w.items()[1].costoBolsa === 75000 && w.el('cpBolsaEtq1').textContent === 'Bolsa de 25 g');
@@ -537,7 +540,8 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       act && act.m.indexOf('Lenteja Turca x 5 kg\n- Tenía cargado: $10.000 la bolsa ($2.000 el kilo)\n- En esta compra: $12.500 la bolsa ($2.500 el kilo)') >= 0 &&
       act.m.indexOf('Almendra\n- Tenía cargado: $350.000 la bolsa de 25 kg ($14.000 el kilo)\n- En esta compra: $75.000 la bolsa de 25 kg ($3.000 el kilo)') >= 0 &&
       act.m.indexOf('En esta compra pagaste distinto de lo que tenían cargado estos productos:') === 0 &&
-      act.m.indexOf('Si tocás "Actualizar", quedan con el costo de esta compra.') > 0, act && act.m);
+      act.m.indexOf('Si tocás "Actualizar", quedan con el costo de esta compra, y el precio y el mayorista se recalculan con el mismo porcentaje de siempre.') > 0 &&
+      (act.m.match(/- Precio nuevo: /g) || []).length === 2 && (act.m.match(/- Mayorista nuevo: /g) || []).length === 2, act && act.m);
   }
   {
     const v = armar({ productos: catalogo().concat([P('len', { nombre: 'Lenteja Turca x 5 kg', tipoVenta: 'peso', costo: 2000 })]),
@@ -548,6 +552,49 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     await v.ctx.guardarCompra();
     t('escribir 2 pensando en 2 bolsas también avisa que es menos de una bolsa',
       v.preguntas.some(p => p.titulo === 'Revisá la cantidad' && p.m.indexOf('Lenteja Turca x 5 kg: 2 g (una bolsa son 5 kg)') > 0) && v.guardadas.length === 0);
+  }
+
+  console.log('\n-- actualizar el costo recalcula el precio (01/10) --');
+  {
+    /* Pedido del dueño (01/10): "Actualizar" en la compra cambiaba solo el costo y el precio quedaba
+       atrasado sin aviso (en la prueba, el mayorista del Lino quedó igual al costo). Ahora el precio y
+       el mayorista se recalculan con el mismo porcentaje, y se ven antes de confirmar. */
+    const lin = () => [P('lin', { nombre: 'Semilla De Lino', tipoVenta: 'peso', costo: 4600, porcentaje: 90, precio: 8740,
+      porcentajeMayorista: 30, precioMayorista: 6000, bolsaGramos: 5000, codigo: 'LIN' })];
+    const w = armar({ productos: lin() });
+    w.ctx.openCompraModal('L1');
+    w.ctx.compraAgregar('lin');
+    const antes = w.el('compraItems').innerHTML;
+    t('al lado del costo de la bolsa: el kilo, el precio y el mayorista que tiene',
+      antes.indexOf('<span class="cp-kilo cp-vista" id="cpKilo0"><span>Costo $4.600 el kilo</span><span>Precio <b>$8.740</b> el kilo</span>' +
+        '<span class="vfe-may">Mayorista $6.000 el kilo</span></span>') > 0, antes);
+    w.ctx.compraCampo(0, 'cantidad', '10000');
+    w.ctx.compraCampo(0, 'costoBolsa', '30000');
+    t('  con otro costo, los que va a tener: $30.000 la bolsa de 5 kg son $6.000 el kilo, precio $11.400 y mayorista $7.800',
+      w.el('cpKilo0').innerHTML === '<span>Costo $6.000 el kilo</span><span>Precio <b>$11.400</b> el kilo</span><span class="vfe-may">Mayorista $7.800 el kilo</span>',
+      w.el('cpKilo0').innerHTML);
+    await w.ctx.guardarCompra();
+    const act = w.preguntas.find(p => p.titulo === '¿Actualizar el costo?');
+    t('el aviso dice el precio y el mayorista nuevos, con los de antes',
+      !!act && act.m.indexOf('Semilla De Lino\n- Tenía cargado: $23.000 la bolsa de 5 kg ($4.600 el kilo)\n- En esta compra: $30.000 la bolsa de 5 kg ($6.000 el kilo)\n' +
+        '- Precio nuevo: $11.400 el kilo (antes $8.740)\n- Mayorista nuevo: $7.800 el kilo (antes $6.000)') >= 0 &&
+      act.m.indexOf('el precio y el mayorista se recalculan con el mismo porcentaje de siempre') > 0, act && act.m);
+    const e = w.escrituras.find(x => x.id === 'lin' && x.d.costo !== undefined);
+    t('  al actualizar se guardan el costo, el precio y el mayorista (antes, solo el costo)',
+      !!e && e.d.costo === 6000 && e.d.precio === 11400 && e.d.precioMayorista === 7800 && e.d.costoActualizadoEn === 'ahora', JSON.stringify(e && e.d));
+    const p = w.ctx.allProducts.find(x => x.id === 'lin');
+    t('  y quedan en memoria', p.costo === 6000 && p.precio === 11400 && p.precioMayorista === 7800);
+    t('  y el aviso de listo lo dice', w.avisos.some(a => a.indexOf('1 costo actualizado, con su precio nuevo') >= 0), w.avisos.join(' / '));
+    const v = armar({ productos: lin(), respuestas: { '¿Actualizar el costo?': false } });
+    v.ctx.openCompraModal('L1');
+    v.ctx.compraAgregar('lin');
+    v.ctx.compraCampo(0, 'cantidad', '10000');
+    v.ctx.compraCampo(0, 'costoBolsa', '30000');
+    await v.ctx.guardarCompra();
+    const pv = v.ctx.allProducts.find(x => x.id === 'lin');
+    t('"Dejar como estaba" no toca ni el costo ni el precio, y la compra se guarda igual',
+      !v.escrituras.some(x => x.d.costo !== undefined || x.d.precio !== undefined) && pv.costo === 4600 && pv.precio === 8740 &&
+      v.guardadas.length === 1);
   }
 
   console.log('\n-- la bolsa que dice el nombre (revisión del 01/10) --');

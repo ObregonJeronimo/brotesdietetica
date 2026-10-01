@@ -2111,7 +2111,7 @@ de subir.
 Visto en la prueba, de diseño (en producción ya es así): "Actualizar" en una compra cambia solo el
 costo, no el precio. Si el proveedor aumentó, el margen se achica sin que cambie el precio (en la
 prueba, el mayorista del Lino quedó igual al costo). Para recalcular el precio: "Revisar costos" o la
-ficha. Queda para hablar con la clienta.
+ficha. Resuelto el mismo día, a pedido de Thiago: ver §AF.
 
 Probado en el sandbox con clics de verdad en los tres caminos (Castaña por compra, Aceite De Girasol
 por la ficha y Nuez x 5 kg por la tabla de bolsas): el panel ve la fecha de hoy al instante y salen
@@ -2125,6 +2125,39 @@ aceptan las reglas, y guardar un producto usa `update`, así que una pestaña vi
 a `main` de `f75f08d` a `6206081` (15 commits). Vercel sirve los mismos archivos que el repo; la
 tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesión). La clienta lo ve
 al recargar (F5). Functions y reglas, sin cambios.
+
+### AF) Cargar compra: "Actualizar" también recalcula el precio; al lado del costo, el kilo, el precio y el mayorista · **HECHO, SIN SUBIR** (01/10/2026)
+
+Thiago, al saber que "Actualizar" en una compra cambiaba solo el costo: "¿eso no es un error
+gravísimo?". Para el negocio, sí. Si el proveedor aumentaba, se seguía vendiendo al precio viejo sin
+aviso (en la prueba, el mayorista del Lino quedó igual al costo), y al abrir después la ficha el
+precio saltaba al guardar. Venía así desde que se creó Cargar compra (29/08). En producción todavía
+no había hecho daño: de 1219 productos activos, ninguno tenía el precio atrasado respecto de su
+costo y su porcentaje (lectura del 01/10).
+- "Actualizar" guarda el costo, el precio y el mayorista recalculados con el mismo porcentaje
+  (`preciosDesdeCosto`, la misma cuenta que la ventana de costos y la ficha), con la fecha del costo.
+  El aviso dice "Precio nuevo: $X (antes $Y)" y "Mayorista nuevo: ...". "Dejar como estaba" no toca
+  nada.
+- Al lado del costo de la bolsa, en vez de solo "$X el kilo", van el kilo, el precio y el
+  mayorista, como en la ventana de costos (`_cpVistaHtml` usa `_costoVistaHtml`): con el costo de
+  siempre, los precios que tiene; con otro, los que va a tener. Los renglones por unidad no lo tienen
+  (no se pidió).
+- La fila quedó más ancha: el nombre se angosta antes (110 px) y, si igual no entra, el subtotal
+  baja a la derecha.
+- Datos de producción a tener en cuenta: 64 productos tienen un mayorista cargado a mano que no
+  coincide con su porcentaje (p. ej. ANIS ESTRELLADO x 10 Kg). Al actualizarles el costo desde una
+  compra (o al guardar su ficha), el mayorista se recalcula con su porcentaje, y el aviso lo muestra
+  antes. "HARINA DE SESAMO x 25 Kg" tiene mayorista $746 con costo $2.828: dato viejo, para corregir.
+
+Probado en el sandbox con clics de verdad:
+- una compra con una bolsa que preguntó el tamaño (Lino) y un unitario (Azúcar), con "Actualizar";
+- otra con "Dejar como estaba" (Castaña);
+- una bolsa de grupo (Nuez x 3 kg);
+- y una venta con los precios nuevos, sin aviso de costo viejo.
+
+Todos los números bien (ventas, costos, stock y compras), y en el celular la fila se acomoda bien.
+Pruebas: 7 nuevas, y las que miraban "$X el kilo", actualizadas; con el código de antes fallan 17.
+Total: 3915 en 90 suites.
 
 ---
 

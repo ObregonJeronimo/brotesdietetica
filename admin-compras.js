@@ -89,6 +89,15 @@ function _cpGramosEscritos(numero, unidad) {
 }
 /* El tamaño de una bolsa para leer: "5 kg", "2,5 kg", "500 g". */
 function _cpTamTxt(g) { return _cpCant({ tipoVenta: 'peso', cantidad: g }); }
+/* Al lado del costo de la bolsa: el kilo, y el precio y el mayorista con los que queda el producto
+   si se actualiza el costo (pedido del dueño, 01/10), como en la ventana de costos (_costoVistaHtml,
+   admin-costos.js): con el costo de siempre, los precios que ya tiene; con otro, los que salen con
+   el mismo porcentaje. */
+function _cpVistaHtml(it) {
+  const p = ((typeof allProducts !== 'undefined' && allProducts) || []).find(x => x && x.id === it.id);
+  if (!p || typeof _costoVistaHtml !== 'function') return _cpPesos(it.costoUnitario) + ' el kilo';
+  return _costoVistaHtml(p, Math.round(Number(it.costoUnitario || 0)), Number(it.gramosBolsa) || null);
+}
 /* " de 2 kg": de cuánto es la bolsa, si el nombre no lo dice ya (pedido del dueño, 30/09). En
    "Mani RC" no se veía en ningún lado que la bolsa guardada era de 2 kg; en "Lenteja x 5 kg" o
    "Mani RC x 3 kg" ya se lee, y no se repite. */
@@ -619,7 +628,7 @@ function compraCampo(i, campo, valor) {
       it.costoUnitario = it.costoBolsa === costoDeBolsa(it.costoAnterior, it.gramosBolsa)
         ? Number(it.costoAnterior || 0) : kiloDeBolsa(it.costoBolsa, it.gramosBolsa);
       const k = document.getElementById('cpKilo' + i);
-      if (k) k.textContent = _cpPesos(it.costoUnitario) + ' el kilo';
+      if (k) k.innerHTML = _cpVistaHtml(it);
     }
   } else if (campo === 'bolsa' || campo === 'bolsaUnidad') {
     /* De cuánto es la bolsa, escrito en la compra (30/09): el número, o kg / g en el selector
@@ -644,8 +653,8 @@ function compraCampo(i, campo, valor) {
     if (cb) { cb.disabled = !g; cb.value = g ? (it.costoBolsa || '') : ''; }
     const k = document.getElementById('cpKilo' + i);
     if (k) {
-      k.textContent = g ? _cpPesos(it.costoUnitario) + ' el kilo' : 'falta la bolsa';
-      k.className = 'cp-kilo' + (g ? '' : ' falta');
+      k.innerHTML = g ? _cpVistaHtml(it) : 'falta la bolsa';
+      k.className = 'cp-kilo' + (g ? ' cp-vista' : ' falta');
     }
   } else {
     it[campo] = Math.max(0, Number(valor) || 0);
@@ -696,8 +705,9 @@ function renderCompraItems() {
               '<input type="number" min="0" step="0.01" class="form-input" id="cpBolsa' + i + '" value="' +
                 (_cpEsBolsa(it) ? (it.costoBolsa || '') : '') + '"' + (_cpEsBolsa(it) ? '' : ' disabled') + ' ' +
               'oninput="compraCampo(' + i + ',\'costoBolsa\',this.value)"></label>' +
-            '<span class="cp-kilo' + (_cpEsBolsa(it) ? '' : ' falta') + '" id="cpKilo' + i + '">' +
-              (_cpEsBolsa(it) ? _cpPesos(it.costoUnitario) + ' el kilo' : 'falta la bolsa') + '</span>'
+            /* Al lado: el kilo, el precio y el mayorista con los que queda (01/10). */
+            '<span class="cp-kilo' + (_cpEsBolsa(it) ? ' cp-vista' : ' falta') + '" id="cpKilo' + i + '">' +
+              (_cpEsBolsa(it) ? _cpVistaHtml(it) : 'falta la bolsa') + '</span>'
           : '<label class="cp-f"><span>Costo' + (it.tipoVenta === 'peso' ? ' por kilo' : ' c/u') + '</span>' +
               '<input type="number" min="0" step="0.01" class="form-input" value="' + (it.costoUnitario || '') + '" ' +
               'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>') +
@@ -976,13 +986,22 @@ async function _cpAnotarBolsas(items) {
 
 /* Los costos NO se pisan solos: se muestran los que cambiaron y decide la
    persona. Un costo que se mueve solo mueve el margen de toda la pantalla de
-   Ganancia sin que nadie lo haya decidido. */
+   Ganancia sin que nadie lo haya decidido.
+   Al actualizar, el precio y el mayorista se recalculan con el mismo porcentaje, como en la
+   ventana de costos y en la ficha (pedido del dueño, 01/10): antes cambiaba solo el costo, y si el
+   proveedor aumentaba se seguía vendiendo al precio viejo sin que nada avisara (en la prueba, el
+   mayorista quedó igual al costo); y al abrir después la ficha, el precio saltaba al guardar. El
+   aviso muestra los precios nuevos, con los de antes. */
 async function ofrecerActualizarCostos(items) {
   const cambian = items.filter(i => {
     const p = (allProducts || []).find(x => x.id === i.id);
     return p && Math.round(Number(p.costo || 0)) !== Math.round(Number(i.costoUnitario || 0));
   });
   if (!cambian.length) return;
+  /* Sin la cuenta de la ventana de costos (admin-costos.js) no se ofrece: actualizar solo el costo
+     dejaría el precio atrasado. */
+  if (typeof preciosDesdeCosto !== 'function') return;
+  const nuevos = new Map();
   const detalle = cambian.map(i => {
     const p = (allProducts || []).find(x => x.id === i.id);
     /* Cada producto con lo que tenía cargado y lo que se pagó, en dos renglones (pedido del
@@ -992,16 +1011,21 @@ async function ofrecerActualizarCostos(items) {
       ? _cpPesos(bolsa) + ' la bolsa' + _cpDeBolsa(i.nombre, Number(i.gramosBolsa)) +
         (Number(i.gramosBolsa) !== 1000 ? ' (' + _cpPesos(kilo) + ' el kilo)' : '')
       : _cpPesos(kilo) + (i.tipoVenta === 'peso' ? ' el kilo' : '');
+    const r = preciosDesdeCosto(p, Number(i.costoUnitario));
+    nuevos.set(i.id, r);
+    const kg = i.tipoVenta === 'peso' ? ' el kilo' : '';
     return i.nombre + '\n' +
       '- Tenía cargado: ' + costo(p.costo, _cpEsBolsa(i) ? costoDeBolsa(p.costo, i.gramosBolsa) : 0) + '\n' +
-      '- En esta compra: ' + costo(i.costoUnitario, i.costoBolsa);
+      '- En esta compra: ' + costo(i.costoUnitario, i.costoBolsa) + '\n' +
+      '- Precio nuevo: ' + _cpPesos(r.precio) + kg + ' (antes ' + _cpPesos(p.precio) + ')\n' +
+      '- Mayorista nuevo: ' + _cpPesos(r.precioMayorista) + kg + ' (antes ' + _cpPesos(p.precioMayorista) + ')';
   }).join('\n\n');
   const uno = cambian.length === 1;
   if (!await pedirConfirmacion(
       'En esta compra pagaste distinto de lo que ' + (uno ? 'tenía cargado el producto' : 'tenían cargado estos productos') + ':\n\n' +
       detalle + '\n\n' +
-      'Si tocás "Actualizar", ' + (uno ? 'el producto queda' : 'quedan') + ' con el costo de esta compra. ' +
-      'El precio de venta no cambia: lo que cambia es cuánto ganás en cada venta.',
+      'Si tocás "Actualizar", ' + (uno ? 'el producto queda' : 'quedan') + ' con el costo de esta compra, ' +
+      'y el precio y el mayorista se recalculan con el mismo porcentaje de siempre.',
       { titulo: uno ? '¿Actualizar el costo?' : '¿Actualizar los costos?', aceptar: 'Actualizar', cancelar: 'Dejar como estaba' })) return;
   try {
     /* La fecha del costo va en la misma escritura y en memoria, como en la ventana de costos
@@ -1009,17 +1033,20 @@ async function ofrecerActualizarCostos(items) {
        de avisos y el aviso al vender lo daban por desactualizado (revisión del 01/10). */
     const hora = firebase.firestore.FieldValue.serverTimestamp();
     const lote = db.batch();
-    cambian.forEach(i => lote.update(db.collection('productos').doc(i.id), { costo: Number(i.costoUnitario), costoActualizadoEn: hora }));
+    const campos = i => ({ costo: Number(i.costoUnitario), precio: nuevos.get(i.id).precio, precioMayorista: nuevos.get(i.id).precioMayorista });
+    cambian.forEach(i => lote.update(db.collection('productos').doc(i.id), Object.assign(campos(i), { costoActualizadoEn: hora })));
     await lote.commit();
     cambian.forEach(i => {
       const p = (allProducts || []).find(x => x.id === i.id);
-      if (p) { p.costo = Number(i.costoUnitario); p.costoActualizadoEn = new Date(); }
+      if (p) Object.assign(p, campos(i), { costoActualizadoEn: new Date() });
     });
     if (typeof logAction === 'function') {
-      logAction('editar', 'Costos actualizados desde una compra: ' + cambian.length,
-        cambian.map(i => i.nombre).join(' | ').slice(0, 900));
+      logAction('editar', 'Costos y precios actualizados desde una compra: ' + cambian.length,
+        cambian.map(i => i.nombre + ' -> costo ' + _cpPesos(i.costoUnitario) + ', precio ' + _cpPesos(nuevos.get(i.id).precio) +
+          ', mayorista ' + _cpPesos(nuevos.get(i.id).precioMayorista)).join(' | ').slice(0, 900));
     }
-    showAdminToast(cambian.length + ' costo' + (cambian.length === 1 ? '' : 's') + ' actualizado' + (cambian.length === 1 ? '' : 's'), 'success');
+    showAdminToast(cambian.length + ' costo' + (cambian.length === 1 ? '' : 's') + ' actualizado' + (cambian.length === 1 ? '' : 's') +
+      ', con su precio nuevo', 'success');
     if (typeof _reRenderProductos === 'function') _reRenderProductos();
   } catch (e) {
     showAdminToast('No se pudieron actualizar los costos: ' + e.message, 'error');

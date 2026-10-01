@@ -431,6 +431,9 @@ producción (de los "gramajes" viejos).
 - **La fecha del costo al instante (01/10)**: al cambiar un costo desde una compra, la ficha o la
   tabla de bolsas, la fecha va en la misma escritura; antes el panel la veía vieja hasta F5. Falta
   en Importar Costos y el PDF semanal. Detalle en `PENDIENTE.md` §1-bis AE.
+- **"Actualizar" en Cargar compra recalcula el precio (01/10, sin subir)**: antes cambiaba solo el
+  costo; ahora también el precio y el mayorista con el mismo porcentaje, y el aviso los muestra. Al
+  lado del costo de la bolsa, el kilo, el precio y el mayorista. Detalle en `PENDIENTE.md` §1-bis AF.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
