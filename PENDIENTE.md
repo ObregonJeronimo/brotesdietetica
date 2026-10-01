@@ -1900,7 +1900,7 @@ bolsa: 2 kg" y la ayuda de siempre ("¿Tenés lo que costó la bolsa?"). Pruebas
 (110), `t-escalas.js` (244: el nombre del campo, por peso y por unidad), `t-variantes.js` (240: la
 ayuda de "Nueva variante") y `t-exportar.js` (58). Total: 3841 en 89 suites.
 
-### Y) Cargar compra: kg o g al lado del tamaño, y el aviso de costos más claro · **HECHO, SIN SUBIR** (30/09/2026)
+### Y) Cargar compra: kg o g al lado del tamaño; el aviso de costos y la calculadora de la ficha, más claros · **HECHO, SIN SUBIR** (30/09/2026)
 
 Pedido del dueño, probando en el sandbox:
 - **El tamaño de la bolsa con selector** (`_cpGramosEscritos`, en lugar de `_cpLeerBolsa`): en "¿De
@@ -1915,12 +1915,20 @@ Pedido del dueño, probando en el sandbox:
   venta no cambia: lo que cambia es cuánto ganás en cada venta." Los botones: "Dejar como estaba" y
   "Actualizar". Antes: "$1.000 → $500 la bolsa de 2 kg ($500 → $250 el kilo)" y "Si los actualizó,
   el precio de venta NO cambia: cambia el margen que muestra Ganancia", con "Cancelar".
+- **La calculadora de la bolsa en la ficha, con texto claro** (el dueño preguntó para qué servía; se
+  le explicó y eligió dejarla con texto claro): "¿La factura dice el precio de la bolsa de 3 kg?
+  Escribilo acá y se calcula solo el costo por kilo."; abajo, sin escribir nada, "Hoy: $250 el kilo
+  = $750 la bolsa de 3 kg."; escribiendo, "= $300 el kilo. Ya quedó puesto arriba, en Costo por
+  kilo." Solo cambió el texto (antes: "¿Tenés lo que costó la bolsa? Bolsa de 3 kg:" y "Con $250 el
+  kilo, la bolsa de 3 kg sale $750.").
 
 Probado en el sandbox con clics de verdad: en Cargar compra de FRUTICOR, la Almendra (sin tamaño)
 pide el número con "kg" al lado; con 5 queda "Bolsa de 5 kg", $7.500 y $1.500 el kilo; con "g" y
 500, "Bolsa de 500 g" y $750; la fila entra en un renglón (con 114 px la × bajaba al otro). El aviso
-se abrió con un Mani RC de prueba y se cerró con "Dejar como estaba": el costo no cambió. Nada se
-guardó. Pruebas: `t-compras-bolsas.js` (114). Total: 3845 en 89 suites.
+se abrió con un Mani RC de prueba y se cerró con "Dejar como estaba": el costo no cambió. En la
+ficha del Mani RC la calculadora dice el texto nuevo; escribiendo $900, el costo por kilo pasa a
+$300. Nada se guardó. Pruebas: `t-compras-bolsas.js` (114) y `t-escalas.js` (245). Total: 3846 en
+89 suites.
 
 ---
 

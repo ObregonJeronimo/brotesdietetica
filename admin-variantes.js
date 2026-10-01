@@ -979,7 +979,7 @@ function pintarVariantesForm() {
   _pintarVariantes();
   pintarModoTamanos();
   /* Con la tabla a la vista, lo que costó la bolsa de este producto va en su primera
-     fila: el "¿Tenés lo que costó la bolsa?" de arriba no va (admin-escalas.js). */
+     fila: la calculadora de la bolsa de arriba no va (admin-escalas.js). */
   if (typeof pintarCostoBolsa === 'function') pintarCostoBolsa();
 }
 

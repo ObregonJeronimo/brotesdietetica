@@ -479,11 +479,13 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     w.porId.pCosto.value = '4500';
     w.ctx.pintarCostoBolsa();
     t('en un producto por peso de 3 kg aparece', cont.hidden === false && tam.textContent === '3 kg');
-    t('  con lo que sale la bolsa según el costo por kilo', nota.textContent === 'Con $4.500 el kilo, la bolsa de 3 kg sale $13.500.');
+    t('  dice qué es y qué hace (30/09)', cont.innerHTML.indexOf('¿La factura dice el precio de la bolsa de <span class="cb-tam"></span>? ' +
+      'Escribilo acá y se calcula solo el costo por kilo.</label>') > 0);
+    t('  y cuánto sale hoy la bolsa con el costo por kilo', nota.textContent === 'Hoy: $4.500 el kilo = $13.500 la bolsa de 3 kg.', nota.textContent);
     inp.value = '13.500';
     w.ctx.costoBolsaEscrito(inp);
     t('escribir lo que costó la bolsa carga el costo por kilo', w.porId.pCosto.value === '4500' && w.pintados.indexOf('calc') >= 0);
-    t('  y lo dice', nota.textContent === '= $4.500 el kilo. Queda cargado arriba, en el costo.');
+    t('  y lo dice', nota.textContent === '= $4.500 el kilo. Ya quedó puesto arriba, en Costo por kilo.', nota.textContent);
     inp.value = '2600';
     w.porId.pGramaje.value = '3 kg';
     w.ctx.costoBolsaEscrito(inp);
@@ -962,7 +964,7 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     const w2 = armar({ ventaItems: [{ id: 'y500', nombre: 'y500', precio: 1000, cantidad: 12, tipoVenta: 'unidad' }] });
     await w2.ctx.avisoStockInsuficiente(w2.ctx.ventaItems, 'min');
     t('al frenar al registrar se repintan las líneas (se ve cuál no alcanza)', w2.pintados.indexOf('min') >= 0);
-    t('"¿Tenés lo que costó la bolsa?" usa enModoTamanos, no su copia', ESC.indexOf('const conTabla = typeof enModoTamanos === \'function\' && enModoTamanos();') > 0);
+    t('la calculadora de la bolsa usa enModoTamanos, no su copia', ESC.indexOf('const conTabla = typeof enModoTamanos === \'function\' && enModoTamanos();') > 0);
     t('"el stock se mira" en un solo lugar (stockSeMira), y "frena" en otro (stockFrena)', (ESC.match(/_stockNoAplica/g) || []).length === 0 &&
       (ESC.match(/_escFrena\(|_escMira\(/g) || []).length >= 4 && /const _escMira = ctx => typeof stockSeMira === 'function' && stockSeMira\(ctx\);/.test(ESC) &&
       /const _escFrena = ctx => typeof stockFrena === 'function' && stockFrena\(ctx\);/.test(ESC));

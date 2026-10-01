@@ -757,7 +757,9 @@ function pintarCostoBolsa() {
   if (!peso || conTabla || !c || c.unidad !== 'g' || !(c.valor > 0)) { cont.hidden = true; cont.innerHTML = ''; return; }
   let inp = cont.querySelector('input');
   if (!inp) {
-    cont.innerHTML = '<label class="cb-lbl" for="pCostoBolsaInput">¿Tenés lo que costó la bolsa? Bolsa de <span class="cb-tam"></span>:</label>' +
+    /* Texto claro (pedido del dueño, 30/09): qué es y qué hace, en una frase. */
+    cont.innerHTML = '<label class="cb-lbl" for="pCostoBolsaInput">¿La factura dice el precio de la bolsa de <span class="cb-tam"></span>? ' +
+      'Escribilo acá y se calcula solo el costo por kilo.</label>' +
       '<div class="cb-fila"><span class="cb-signo">$</span>' +
       '<input type="text" inputmode="numeric" class="form-input cb-input" id="pCostoBolsaInput" autocomplete="off" placeholder="lo que dice la factura"></div>' +
       '<small class="cb-nota"></small>';
@@ -769,7 +771,7 @@ function pintarCostoBolsa() {
   if (document.activeElement === inp && inp.value) return;
   const costoKg = typeof montoAR === 'function' ? montoAR((document.getElementById('pCosto') || {}).value) : 0;
   cont.querySelector('.cb-nota').textContent = costoKg > 0
-    ? 'Con ' + _escPlata(costoKg) + ' el kilo, la bolsa de ' + _escPeso(c.valor) + ' sale ' + _escPlata(costoKg * c.valor / 1000) + '.'
+    ? 'Hoy: ' + _escPlata(costoKg) + ' el kilo = ' + _escPlata(costoKg * c.valor / 1000) + ' la bolsa de ' + _escPeso(c.valor) + '.'
     : '';
 }
 
@@ -800,7 +802,7 @@ function costoBolsaEscrito(inp) {
   const pc = document.getElementById('pCosto');
   if (pc) pc.value = String(costoKg);
   if (typeof calcPrecioModal === 'function') calcPrecioModal();
-  if (nota) nota.textContent = '= ' + _escPlata(costoKg) + ' el kilo. Queda cargado arriba, en el costo.';
+  if (nota) nota.textContent = '= ' + _escPlata(costoKg) + ' el kilo. Ya quedó puesto arriba, en Costo por kilo.';
 }
 
 /* Se repinta al abrir el formulario, al cambiar la forma de venta, la presentación o
