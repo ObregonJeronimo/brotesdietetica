@@ -234,11 +234,11 @@ function abrirEditorCostos(viejos, ctx, focoId) {
             '<div class="costos-nom"><b>' + nom + '</b>' +
               '<div class="costos-sub">Costo actual ' + costoActualTxt(p) + (v.fecha
                 ? ' · cambiado el ' + _costoFechaTxt(v.fecha) + ' (' + _costoHace(v.dias) + ')' : ' · sin fecha de cambio') + '</div></div>' +
-            /* En una bolsa, arriba del campo, que va lo que costó la bolsa (pedido del dueño, 01/10). */
-            (g ? '<label class="costos-campo"><span class="costos-campo-tit">Costo por bolsa:</span>' : '') +
+            /* Arriba del campo, qué costo va: el de la bolsa, el del kilo o el de la unidad (pedido del dueño, 01/10). */
+            '<label class="costos-campo"><span class="costos-campo-tit">' +
+              (g ? 'Costo por bolsa:' : p.tipoVenta === 'peso' ? 'Costo por kilo:' : 'Costo por unidad:') + '</span>' +
             '<input type="text" inputmode="numeric" class="form-input costos-input" data-i="' + i + '" value="' +
-              escritos[i] + '" aria-label="' + (g ? 'Nuevo costo de la bolsa de ' : 'Nuevo costo de ') + nom + '">' +
-            (g ? '</label>' : '') +
+              escritos[i] + '" aria-label="' + (g ? 'Nuevo costo de la bolsa de ' : 'Nuevo costo de ') + nom + '"></label>' +
             '<div class="costos-vista" data-i="' + i + '" aria-live="polite">' + _costoVistaHtml(p, _costoDeFila(v, escritos[i], escritos[i]), g) + '</div>' +
             (soloTocados ? '<label class="costos-igual" title="El proveedor no aumentó: deja de avisar por un mes">' +
               '<input type="checkbox" class="costos-sigue" data-i="' + i + '"> Sigue igual</label>' : '') +

@@ -470,7 +470,7 @@
 .costos-vista b{color:var(--accent-light)}
 .costos-vista .costos-may{color:#a78bfa}
 .costos-vista .costos-falta{color:var(--danger)}
-/* "Costo por bolsa:" arriba del campo de una bolsa (pedido del dueño, 01/10/2026). El precio y "Sigue igual" bajan lo mismo que ese texto, para quedar a la altura del campo; en el celular "Sigue igual" va en su renglon y no baja. */
+/* Arriba de cada campo, el costo que va: "Costo por bolsa:", "Costo por kilo:" o "Costo por unidad:" (pedido del dueño, 01/10/2026). El precio y "Sigue igual" bajan lo mismo que ese texto, para quedar a la altura del campo; en el celular "Sigue igual" va en su renglon y no baja. */
 .costos-campo{flex:0 0 auto;display:flex;flex-direction:column;gap:4px}
 .costos-campo-tit{font-size:0.78rem;line-height:1.2;font-weight:600;color:var(--text)}
 .costos-campo~.costos-vista,.costos-campo~.costos-igual{margin-top:calc(0.78rem * 1.2 + 4px)}
@@ -478,7 +478,7 @@
 /* "O el costo de la bolsa de 5 kg" (01/10/2026), en los granel que saben de cuanto es su bolsa: un renglon mas, con una flecha que sale del nombre, el campo justo abajo del costo por kilo y "Sigue igual" en el medio de los dos. En el celular, uno abajo del otro. */
 .costos-fila.con-bolsa{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:0.75rem;row-gap:0.5rem;align-items:center}
 .costos-fila.con-bolsa .costos-nom{grid-column:1;grid-row:1}
-.costos-fila.con-bolsa .costos-input{grid-column:2;grid-row:1}
+.costos-fila.con-bolsa .costos-campo{grid-column:2;grid-row:1}
 .costos-fila.con-bolsa .costos-vista{grid-column:3;grid-row:1;width:150px}
 .costos-fila.con-bolsa .costos-igual{grid-column:4;grid-row:1 / span 2}
 .costos-fila.con-bolsa .costos-bolsa{display:contents}

@@ -2042,7 +2042,7 @@ su ficha) muestra "o la bolsa de 5 kg" y las demás no; $25.000 pone $5.000 el k
 al lado; escribir el kilo a mano vacía la bolsa; "Ahora no" no guardó nada. Pruebas:
 `t-lista-pdf.js` (14) y `t-costos-viejos.js` (107). Total: 3885 en 90 suites.
 
-### AC) "Por peso" o "Unitario" en el Centro de avisos; "Costo por bolsa:" en la ventana de costos · **HECHO, SIN SUBIR** (01/10/2026)
+### AC) "Por peso" o "Unitario" en el Centro de avisos; "Costo por bolsa:", "por kilo:" o "por unidad:" en la ventana de costos · **HECHO, SIN SUBIR** (01/10/2026)
 
 Thiago pidió dos grupos de prueba en el sandbox con el costo de hace 3 meses ("Nuez Mariposa" con
 bolsas de 1, 3 y 5 kg, y "Miel Pura" con presentaciones de 250 g, 500 g y 1 kg) para ver cómo se
@@ -2050,11 +2050,12 @@ muestran los costos, y después dos cambios visuales para evitar confusiones:
 - **En la tarjeta de costos viejos del Centro de avisos**, al lado del nombre, un cuadradito verde
   que dice "Por peso" o "Unitario" (`ini-tipo`, admin-inicio.js). Solo en esa tarjeta: las demás
   (sin stock, por terminarse) siguen como estaban.
-- **En la ventana de costos**, arriba del campo de cada bolsa de un grupo, "Costo por bolsa:"
-  (`costos-campo`, admin-costos.js). Es la misma ventana de "Revisar costos", "Cambiar costos" y el
-  aviso al vender. Los que se cargan por kilo o por unidad no lo tienen (no son bolsas). El precio y
-  "Sigue igual" quedan a la altura del campo; en el celular "Sigue igual" va en su renglón, como en
-  las demás filas.
+- **En la ventana de costos**, arriba de cada campo, qué costo va: "Costo por bolsa:" en las bolsas
+  de un grupo, "Costo por kilo:" en los granel y "Costo por unidad:" en el resto (`costos-campo`,
+  admin-costos.js; primero fue solo el de bolsa, y Thiago pidió los otros dos al verlo). Es la misma
+  ventana de "Revisar costos", "Cambiar costos" y el aviso al vender. El precio y "Sigue igual"
+  quedan a la altura del campo; en el celular "Sigue igual" va en su renglón, como en las demás
+  filas.
 
 Probado en el sandbox en compu y celular. Pruebas: `t-inicio.js` (92) y `t-costos-viejos.js` (110).
 Total: 3891 en 90 suites.
