@@ -103,8 +103,7 @@ const _costoTam = g => (g >= 1000 ? (g / 1000).toLocaleString('es-AR', { maximum
 function _costoBolsaSuelto(p) {
   if (!p || p.tipoVenta !== 'peso' || _costoGramos(p)) return null;
   if (Number(p.bolsaGramos) > 0) return Math.round(Number(p.bolsaGramos));
-  const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ nombre: p.nombre }) : null;
-  return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+  return typeof bolsaDelNombre === 'function' ? bolsaDelNombre(p.nombre) : null;
 }
 
 /* El costo por kilo que se guardaría con lo escrito en una fila. Si es lo mismo que se
@@ -271,7 +270,10 @@ function abrirEditorCostos(viejos, ctx, focoId) {
       const i = Number(inp.getAttribute('data-i')), fila = viejos[i];
       /* El kilo escrito a mano manda: "o la bolsa" se vacía. */
       const bi = ov.querySelector('.costos-bolsa-input[data-i="' + i + '"]');
-      if (bi && document.activeElement === inp) bi.value = '';
+      if (bi && document.activeElement === inp) {
+        bi.value = '';
+        if (_costosEditor && _costosEditor.kiloAntes) delete _costosEditor.kiloAntes[i];
+      }
       const vista = ov.querySelector('.costos-vista[data-i="' + i + '"]');
       if (!fila || !vista) return;
       vista.innerHTML = _costoVistaHtml(fila.producto, _costoDeFila(fila, escritos[i], _costoLeer(inp.value)), _costoGramos(fila.producto));
@@ -300,8 +302,19 @@ function costoBolsaEnEditor(bi) {
   const g = fila ? _costoBolsaSuelto(fila.producto) : null;
   const bolsa = _costoLeer(bi.value);
   const inp = ov.querySelector('.costos-input[data-i="' + i + '"]');
-  if (!g || !inp || !(bolsa > 0)) return;
-  inp.value = String(typeof kiloDeBolsa === 'function' ? kiloDeBolsa(bolsa, g) : Math.round(bolsa * 1000 / g));
+  if (!g || !inp) return;
+  /* Si se borra lo de la bolsa, el kilo vuelve a como estaba antes de escribirla: borrando de a
+     un número quedaba la cuenta del último ("3" de una bolsa de 5 kg dejaba $1 el kilo, y se
+     podía guardar así; revisión del 01/10). */
+  const antes = _costosEditor.kiloAntes || (_costosEditor.kiloAntes = {});
+  if (!(bolsa > 0)) {
+    if (!(i in antes)) return;
+    inp.value = antes[i];
+    delete antes[i];
+  } else {
+    if (!(i in antes)) antes[i] = inp.value;
+    inp.value = String(typeof kiloDeBolsa === 'function' ? kiloDeBolsa(bolsa, g) : Math.round(bolsa * 1000 / g));
+  }
   inp.dispatchEvent(new Event('input', { bubbles: true }));
 }
 

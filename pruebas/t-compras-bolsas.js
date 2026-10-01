@@ -468,6 +468,8 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('  sin adivinar: "500" con kg son 500 kg, y "5" con g son 5 g', lee('500', 'kg') === 500000 && lee('5', 'g') === 5);
     t('  lo que no es un número, nada (la unidad va en el selector)',
       lee('', 'kg') === null && lee('abc', 'kg') === null && lee('0', 'kg') === null && lee('-3', 'kg') === null && lee('5 kg', 'kg') === null);
+    t('  en gramos el punto es de miles: "1.500" g son 1.500 g, no 2 g (revisión del 01/10)', lee('1.500', 'g') === 1500 && lee('1.500', 'kg') === 1500);
+    t('  "5," y ",5", a medio escribir, se entienden: 5 kg y medio kilo', lee('5,', 'kg') === 5000 && lee(',5', 'kg') === 500);
     w.ctx.compraCampo(1, 'bolsa', '5');
     const a1 = w.items()[1];
     t('escrito "5": bolsa de 5 kg, con el costo de la bolsa desde el kilo que tenía ($70.000)',
@@ -543,6 +545,26 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       v.preguntas.some(p => p.titulo === 'Revisá la cantidad' && p.m.indexOf('Lenteja Turca x 5 kg: 2 g (una bolsa son 5 kg)') > 0) && v.guardadas.length === 0);
   }
 
+  console.log('\n-- la bolsa que dice el nombre (revisión del 01/10) --');
+  {
+    const w = armar();
+    const b = n => w.ctx._cpGramosBolsa({ id: 'x', nombre: n, tipoVenta: 'peso' });
+    t('se leen bien "x 5 kg", "x 2,5 kg", "x 400grs", "38/42 x 25 kg" (un calibre) y "x 22.680 kg" (la caja de castañas)',
+      b('Lenteja x 5 kg') === 5000 && b('Chia x 2,5 kg') === 2500 && b('Avena x 400grs') === 400 &&
+      b('Mani Runer 38/42 x 25 kg') === 25000 && b('Castaña x 22.680 kg') === 22680);
+    t('  "1/2 kg" o "1.500 g" no se toman: se leían como 2 kg y 2 g; la compra pregunta',
+      b('Yerba 1/2 kg') === null && b('Cafe 1/4 Kg') === null && b('Coco Rallado x 1.000 grs') === null && b('Mani x 1.500 g') === null);
+  }
+  {
+    const w = armar({ productos: [P('raro', { nombre: 'Yerba <sin palo>', tipoVenta: 'peso', costo: 1000 })] });
+    w.ctx.openCompraModal('L1');
+    w.ctx.compraAgregar('raro');
+    w.ctx.compraCampo(0, 'cantidad', '5000');
+    await w.ctx.guardarCompra();
+    t('el aviso de la bolsa que falta dice el nombre escapado (el aviso es HTML)',
+      w.avisos.some(a => a.indexOf('Falta de cuánto es la bolsa de: Yerba &lt;sin palo&gt;') >= 0), w.avisos.join(' / '));
+  }
+
   console.log('\n-- sin admin-variantes.js --');
   {
     const v = armar({ sinVariantes: true });
@@ -554,6 +576,16 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     const it = v.items()[0];
     t('  agregar anda, por kilo', it.nombre === 'Mani RC x 3 kg' && it.gramosBolsa === undefined && it.costoUnitario === 3333);
     t('  y la fila pide el costo por kilo', v.el('compraItems').innerHTML.indexOf('<span>Costo por kilo</span>') > 0);
+  }
+  {
+    /* Revisión del 01/10: un granel con su bolsa anotada rompía Cargar compra sin admin-variantes.js
+       (las cuentas de la bolsa viven ahí). Como antes: por kilo. */
+    const v = armar({ sinVariantes: true, productos: [P('chs', { nombre: 'Chia Suelta', tipoVenta: 'peso', costo: 9000, bolsaGramos: 5000 })] });
+    let error = null;
+    try { v.ctx.openCompraModal('L1'); v.ctx.compraAgregar('chs'); } catch (e) { error = e; }
+    const it = v.items()[0];
+    t('  un granel con su bolsa anotada (bolsaGramos) no rompe: va por kilo, como antes',
+      !error && !!it && it.gramosBolsa === undefined && it.costoUnitario === 9000, error ? error.message : JSON.stringify(it));
   }
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');

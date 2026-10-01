@@ -2060,6 +2060,38 @@ muestran los costos, y después dos cambios visuales para evitar confusiones:
 Probado en el sandbox en compu y celular. Pruebas: `t-inicio.js` (92) y `t-costos-viejos.js` (110).
 Total: 3891 en 90 suites.
 
+### AD) Revisión antes de subir · **HECHO, SIN SUBIR** (01/10/2026)
+
+Thiago pidió revisar todo lo que falta subir (13 commits, solo panel: sin cambios en la tienda,
+las funciones ni las reglas). Se revisó a mano y con dos revisores aparte (Cargar compra; ficha y
+lista de precios), y cada hallazgo se comprobó antes de arreglarlo:
+- **Borrar lo de la bolsa dejaba el kilo mal** (ventana de costos y calculadora de la ficha):
+  borrando de a un número quedaba la cuenta del último ("3" de una bolsa de 5 kg dejaba $1 el kilo,
+  y se podía guardar así). Ahora vuelve a lo que tenía antes de escribir la bolsa. En la ficha ya
+  pasaba en producción, pero solo con Gramaje; con la bolsa aparte aparece en muchos más productos.
+- **Ficha: si se corregía el tamaño de la bolsa, el kilo no se volvía a sacar** (quedaba el de la
+  bolsa anterior). Ahora se recalcula.
+- **Ficha: "5," o ",5" en el tamaño no se leían**, y al guardar se borraba el que tenía.
+- **La bolsa que dice el nombre:** "1/2 kg" se leía como 2 kg y "1.500 g" como 2 g. Esos no se
+  toman y la compra pregunta (`bolsaDelNombre`, admin-variantes.js: Cargar compra, la ventana de
+  costos y la calculadora). En producción no hay ninguno así hoy: de los 471 que la toman del nombre,
+  todos se leen bien ("38/42 x 25 kg" y "x 22.680 kg" también).
+- **Cargar compra, en gramos: "1.500" eran 2 g** (el punto como decimal); ahora es de miles. Y "5,"
+  o ",5" se leen.
+- **El aviso "Falta de cuánto es la bolsa de: ..." no escapaba los nombres** (el aviso es HTML). El
+  de "Falta el costo de: ..." ya estaba así en producción y no se tocó.
+- **Lista de precios en PDF: una bolsa cuyo principal no sale (oculto o sin precio)** iba a la
+  categoría del principal; ahora va sola, en la suya, como en la tienda.
+- Sin admin-variantes.js, un granel con su bolsa anotada rompía Cargar compra; vuelve a ir por kilo.
+
+Revisado y bien: las reglas de la base aceptan `bolsaGramos`; guardar un producto usa `update`, así
+que una pestaña vieja (sin F5) no lo borra; las cuentas kg/g y bolsa/kilo, el stock en gramos, y el
+PDF (orden, "el kilo", mayorista). Visto de paso, viejo y aparte: los productos se pueden leer sin
+iniciar sesión (la tienda los necesita), y eso incluye el costo y el porcentaje.
+
+Probado en el sandbox con teclas de verdad (ventana de costos y ficha). Pruebas: 13 nuevas, y cada
+una falla con el código de antes. Total: 3904 en 90 suites.
+
 ---
 
 ## 2. Decisiones tuyas

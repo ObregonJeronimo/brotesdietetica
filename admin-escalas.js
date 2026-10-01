@@ -745,6 +745,8 @@ function mezclaDePedido(items) {
    solo. Aparece en los productos por peso que dicen de cuánto es la bolsa: en uno suelto, el
    tamaño de la bolsa del proveedor (el campo de abajo) o el que dice el nombre; en una bolsa
    de un grupo, su Gramaje / Presentación (_gramosBolsaForm). */
+/* El costo por kilo que había antes de escribir lo de la bolsa: si se borra, vuelve (revisión del 01/10). */
+let _kiloAntesDeBolsa = null;
 function pintarCostoBolsa() {
   const cont = document.getElementById('pCostoBolsa');
   if (!cont) return;
@@ -754,7 +756,7 @@ function pintarCostoBolsa() {
   /* Con la tabla de bolsas a la vista sobra: lo que costó la bolsa de este producto va
      en su primera fila (admin-variantes.js). */
   const conTabla = typeof enModoTamanos === 'function' && enModoTamanos();
-  if (!peso || conTabla || !g) { cont.hidden = true; cont.innerHTML = ''; return; }
+  if (!peso || conTabla || !g) { cont.hidden = true; cont.innerHTML = ''; _kiloAntesDeBolsa = null; return; }
   let inp = cont.querySelector('input');
   if (!inp) {
     /* Texto claro (pedido del dueño, 30/09): qué es y qué hace, en una frase. */
@@ -769,6 +771,9 @@ function pintarCostoBolsa() {
   cont.hidden = false;
   cont.querySelector('.cb-tam').textContent = _escPeso(g);
   if (document.activeElement === inp && inp.value) return;
+  /* Con lo de la bolsa escrito, si se corrige el tamaño se vuelve a sacar el kilo: quedaba el de
+     la bolsa de antes (revisión del 01/10). */
+  if (inp.value) { costoBolsaEscrito(inp); return; }
   const costoKg = typeof montoAR === 'function' ? montoAR((document.getElementById('pCosto') || {}).value) : 0;
   cont.querySelector('.cb-nota').textContent = costoKg > 0
     ? 'Hoy: ' + _escPlata(costoKg) + ' el kilo = ' + _escPlata(costoKg * g / 1000) + ' la bolsa de ' + _escPeso(g) + '.'
@@ -786,7 +791,8 @@ function pintarCostoBolsa() {
    en una bolsa de un grupo, su tamaño es su Gramaje / Presentación, como siempre. */
 function _kilosAGramos(t) {
   const s = String(t == null ? '' : t).trim().replace(',', '.');
-  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  /* "5," o ",5", a medio escribir, también: si no, al guardar se borraba la que tenía (revisión del 01/10). */
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(s)) return null;
   const g = Math.round(parseFloat(s) * 1000);
   return g > 0 ? g : null;
 }
@@ -799,7 +805,7 @@ function _gramosBolsaForm() {
   const val = id => { const e = document.getElementById(id); return e && e.value != null ? String(e.value) : ''; };
   const leer = o => { const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante(o) : null; return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null; };
   if (window._varHijo || window._varianteDeNueva) return leer({ gramaje: val('pGramaje') });
-  return _kilosAGramos(val('pBolsaKilos')) || leer({ nombre: val('pNombre') });
+  return _kilosAGramos(val('pBolsaKilos')) || (typeof bolsaDelNombre === 'function' ? bolsaDelNombre(val('pNombre')) : null);
 }
 
 /* El campo, abajo del costo por kilo: solo el número, hasta 5 caracteres, con "kilos" al lado
@@ -875,9 +881,20 @@ function costoBolsaEscrito(inp) {
   const nota = document.querySelector('#pCostoBolsa .cb-nota');
   if (!g) return;
   const bolsa = typeof montoAR === 'function' ? montoAR(inp.value) : Number(inp.value) || 0;
-  if (!bolsa) { if (nota) nota.textContent = ''; return; }
-  const costoKg = Math.round(bolsa * 1000 / g);
   const pc = document.getElementById('pCosto');
+  if (!bolsa) {
+    /* Borrar lo de la bolsa vuelve el costo por kilo a como estaba: borrando de a un número
+       quedaba la cuenta del último ("3" de una bolsa de 5 kg dejaba $1 el kilo; revisión del 01/10). */
+    if (pc && _kiloAntesDeBolsa !== null) {
+      pc.value = _kiloAntesDeBolsa;
+      if (typeof calcPrecioModal === 'function') calcPrecioModal();
+    }
+    _kiloAntesDeBolsa = null;
+    if (nota) nota.textContent = '';
+    return;
+  }
+  if (pc && _kiloAntesDeBolsa === null) _kiloAntesDeBolsa = pc.value;
+  const costoKg = Math.round(bolsa * 1000 / g);
   if (pc) pc.value = String(costoKg);
   if (typeof calcPrecioModal === 'function') calcPrecioModal();
   if (nota) nota.textContent = '= ' + _escPlata(costoKg) + ' el kilo. Ya quedó puesto arriba, en Costo por kilo.';
@@ -892,6 +909,7 @@ if (typeof openModal === 'function') {
     const r = _escOpenModal.apply(this, arguments);
     const inp = document.getElementById('pCostoBolsaInput');
     if (inp) inp.value = '';
+    _kiloAntesDeBolsa = null;
     _ponerBolsaDelProducto();
     pintarCostoBolsa();
     return r;
@@ -911,7 +929,7 @@ if (typeof setTipoVenta === 'function') {
   const c = document.getElementById('pCosto');
   if (c) c.addEventListener('input', () => {
     const inp = document.getElementById('pCostoBolsaInput');
-    if (inp && document.activeElement !== inp) inp.value = '';
+    if (inp && document.activeElement !== inp) { inp.value = ''; _kiloAntesDeBolsa = null; }
     pintarCostoBolsa();
   });
 })();

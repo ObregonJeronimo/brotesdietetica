@@ -151,6 +151,20 @@ console.log('\n-- los grupos, juntos --');
   const may = correr(GRUPOS, true, { man: 9250, man10: 8000, man5: 8450, sal: 7000, alm: 12000, alf12: 8000, alf1: 800, alf6: 4500 });
   t('  y en la mayorista, igual', nombres(may) === ESPERADO, nombres(may));
 }
+{
+  /* Revisión del 01/10: si el principal no sale en la lista (oculto o sin precio), su bolsa va sola,
+     en su categoría, como en la tienda. Antes iba a la categoría del principal. */
+  const OCU = [
+    { id: 'man', nombre: 'Mani', gramaje: '1 kg', tipoVenta: 'peso', precio: 13490, categoria: 'Frutos secos', oculto: true },
+    { id: 'man5', nombre: 'Mani x 5 kg', gramaje: '5 kg', tipoVenta: 'peso', precio: 12350, categoria: 'Snacks', gramajePadreId: 'man' },
+    { id: 'alm', nombre: 'Almendra', tipoVenta: 'peso', precio: 15000, categoria: 'Frutos secos' },
+  ];
+  const a = correr(OCU, false);
+  const donde = s => a.findIndex(x => x.s === s);
+  t('  si el principal no sale (oculto), su bolsa va sola, en su categoría, como en la tienda (revisión del 01/10)',
+    donde('SNACKS') >= 0 && donde('SNACKS') < a.findIndex(x => x.s.indexOf('Mani x 5 kg') === 0) && !a.some(x => x.s.indexOf('Mani 1 kg') === 0),
+    a.map(x => x.s).join(' | '));
+}
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

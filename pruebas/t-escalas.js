@@ -494,6 +494,20 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     inp.value = '2600';
     w.ctx.costoBolsaEscrito(inp);
     t('  redondeado al peso: $2.600 la bolsa de 3 kg son $867 el kilo', w.porId.pCosto.value === '867');
+    inp.value = '';
+    w.ctx.costoBolsaEscrito(inp);
+    t('  borrarlo vuelve el costo por kilo a como estaba ($4.500), no a la cuenta del último número (revisión del 01/10)',
+      w.porId.pCosto.value === '4500' && nota.textContent === '', w.porId.pCosto.value);
+    inp.value = '13500';
+    w.ctx.costoBolsaEscrito(inp);
+    kil.value = '5';
+    w.ctx.pintarCostoBolsa();
+    t('  si se corrige el tamaño (de 3 a 5 kg), se vuelve a sacar el kilo: $13.500 la de 5 kg son $2.700 (revisión del 01/10)',
+      w.porId.pCosto.value === '2700' && tam.textContent === '5 kg' && nota.textContent === '= $2.700 el kilo. Ya quedó puesto arriba, en Costo por kilo.',
+      w.porId.pCosto.value + ' / ' + nota.textContent);
+    inp.value = '';
+    w.ctx.costoBolsaEscrito(inp);
+    kil.value = '3';
     w.ctx._tipoVentaProd = 'unidad';
     w.ctx.pintarCostoBolsa();
     t('en uno por unidad no aparece', cont.hidden === true);
@@ -507,6 +521,9 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     w.porId.pNombre = { value: 'Lenteja x 5 kg' };
     w.ctx.pintarCostoBolsa();
     t('  si lo dice el nombre ("Lenteja x 5 kg"), esa es la bolsa', cont.hidden === false && tam.textContent === '5 kg', tam.textContent);
+    w.porId.pNombre.value = 'Yerba 1/2 kg';
+    w.ctx.pintarCostoBolsa();
+    t('  pero "1/2 kg" no, que se leía como 2 kg (revisión del 01/10)', cont.hidden === true);
     w.porId.pNombre.value = '';
     w.ctx.window._varHijo = { id: 'y3' };
     w.ctx.pintarCostoBolsa();
@@ -549,6 +566,12 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     t('  al guardar va aparte, en gramos (bolsaGramos 25000), y el gramaje no se toca', d1.bolsaGramos === 25000 && d1.gramaje === null);
     kil.value = '0,5';
     t('  con coma para medio kilo: 500 g', w.ctx.datosBolsaProveedor({ tipoVenta: 'peso' }, 'man').bolsaGramos === 500);
+    kil.value = '5,';
+    const d5 = w.ctx.datosBolsaProveedor({ tipoVenta: 'peso' }, 'man').bolsaGramos;
+    kil.value = ',5';
+    const dm = w.ctx.datosBolsaProveedor({ tipoVenta: 'peso' }, 'man').bolsaGramos;
+    t('  "5," y ",5" se entienden (5 kg y medio kilo): antes no se leían y se borraba la que tenía (revisión del 01/10)',
+      d5 === 5000 && dm === 500, d5 + ' / ' + dm);
     kil.value = '';
     t('  si se borra, se borra (en uno que la tenía)', w.ctx.datosBolsaProveedor({ tipoVenta: 'peso' }, 'man').bolsaGramos === null);
     t('  y uno que nunca la tuvo no gana el campo', !('bolsaGramos' in w.ctx.datosBolsaProveedor({ tipoVenta: 'peso' }, 'ave')));

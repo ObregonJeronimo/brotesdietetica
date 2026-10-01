@@ -425,6 +425,9 @@ producción (de los "gramajes" viejos).
   de costos viejos del Centro de avisos, un cuadradito verde al lado del nombre; en la ventana de
   costos, "Costo por bolsa:", "Costo por kilo:" o "Costo por unidad:" arriba de cada campo. Detalle
   en `PENDIENTE.md` §1-bis AC.
+- **Revisión antes de subir (01/10)**: arreglos chicos de lo nuevo (borrar la bolsa dejaba el kilo
+  mal, "1/2 kg" en el nombre, "1.500" en gramos, el tamaño que no recalculaba, el PDF con un
+  principal oculto). Detalle en `PENDIENTE.md` §1-bis AD.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

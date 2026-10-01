@@ -428,10 +428,29 @@ console.log('\n-- el editor de costos --');
     m.inputs[0].value === '6500' && m.inputs[0].eventos.join() === 'input', m.inputs[0].value);
   m.api.costoBolsaEnEditor({ value: '', getAttribute: () => '1' });
   t('  vacío no toca nada', m.inputs[1].value === '1800' && !m.inputs[1].eventos.length);
+  /* Revisión del 01/10: borrando de a un número, el kilo quedaba con la cuenta del último. */
+  m.api.costoBolsaEnEditor({ value: '20000', getAttribute: () => '1' });
+  m.api.costoBolsaEnEditor({ value: '2000', getAttribute: () => '1' });
+  const aMedias = m.inputs[1].value;
+  m.api.costoBolsaEnEditor({ value: '', getAttribute: () => '1' });
+  t('  borrar lo de la bolsa vuelve el kilo a como estaba ($1.800), no a la cuenta del último número', aMedias === '80' &&
+    m.inputs[1].value === '1800' && m.inputs[1].eventos.join() === 'input,input,input', m.inputs[1].value);
   await (m.api.guardarEditorCostos());
   const wa = m.escrituras.find(x => x.id === 'al');
   t('  y se guarda el kilo, como siempre: $6.500, con su precio', !!wa && wa.campos.costo === 6500 && wa.campos.precio === 9750 &&
     m.escrituras.length === 1, JSON.stringify(m.escrituras));
+}
+{
+  /* Revisión del 01/10: "1/2 kg" o "x 1.000 grs" en el nombre se leían como 2 kg y 1 g: no se toman. */
+  const yer = { id: 'yer', nombre: 'Yerba 1/2 kg', tipoVenta: 'peso', costo: 8000, porcentaje: 50, porcentajeMayorista: 20,
+    precio: 12000, precioMayorista: 9600, costoActualizadoEn: hace(40) };
+  const coc = { id: 'coc', nombre: 'Coco Rallado x 1.000 grs', tipoVenta: 'peso', costo: 6000, porcentaje: 50, porcentajeMayorista: 20,
+    precio: 9000, precioMayorista: 7200, costoActualizadoEn: hace(40) };
+  const m = armar({ productos: [yer, coc], conVariantes: true });
+  m.api.abrirEditorCostos([yer, coc].map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'inicio');
+  const h = m.elementos.costosEditor.innerHTML;
+  t('"Yerba 1/2 kg" o "x 1.000 grs" no suman "O el costo de la bolsa": se leían como 2 kg y 1 g (revisión del 01/10)',
+    h.indexOf('costos-bolsa-input') < 0 && (h.match(/Costo por kilo:/g) || []).length === 2, h);
 }
 {
   /* Desde el panel de bolsas de Productos (admin-variantes.js, 27/09): "Cambiar costos". */

@@ -58,11 +58,13 @@ function _cpEsPeso(p) { return !!(p && p.tipoVenta === 'peso'); }
    null: la fila lo pregunta. Es solo de Cargar compra: la ventana de costos sigue por kilo en
    esos productos (Thiago, 30/09: no complicarlo). */
 function _cpGramosBolsa(p) {
-  const g = typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p) : null;
+  /* Sin admin-variantes.js no hay bolsas, como antes: las cuentas de la bolsa viven ahí
+     (costoDeBolsa; revisión del 01/10). */
+  if (typeof gramosDeBolsa !== 'function') return null;
+  const g = gramosDeBolsa(p);
   if (g || !p || p.tipoVenta !== 'peso' || p.depurado === true) return g;
   if (Number(p.bolsaGramos) > 0) return Math.round(Number(p.bolsaGramos));
-  const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ nombre: p.nombre }) : null;
-  return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+  return typeof bolsaDelNombre === 'function' ? bolsaDelNombre(p.nombre) : null;
 }
 /* Un producto por peso, sin otras bolsas, que no dice de cuánto es la bolsa: la compra se lo
    pregunta en la fila, y al guardar queda anotado en el producto (pedido del dueño, 30/09).
@@ -76,8 +78,11 @@ function _cpSinTam(p) {
    carga, no se adivina por el número. "2,5" kg son 2.500 g. En gramos, o null si no es un
    número. */
 function _cpGramosEscritos(numero, unidad) {
-  const s = String(numero == null ? '' : numero).trim();
-  if (!/^\d+([.,]\d+)?$/.test(s)) return null;
+  let s = String(numero == null ? '' : numero).trim();
+  /* En gramos el punto es de miles: "1.500" son 1.500 g, no 1,5 (revisión del 01/10). */
+  if (unidad === 'g') s = s.replace(/\.(?=\d{3}(?!\d))/g, '');
+  /* "5," o ",5", a medio escribir, también. */
+  if (!/^(\d+([.,]\d*)?|[.,]\d+)$/.test(s)) return null;
   const n = Number(s.replace(',', '.'));
   const g = Math.round(unidad === 'g' ? n : n * 1000);
   return g > 0 ? g : null;
@@ -780,7 +785,8 @@ async function guardarCompra() {
   /* De cuánto es la bolsa (30/09): sin eso no se sabe el kilo. Si se compró suelto, "1 kg". */
   const sinBolsa = conCantidad.filter(i => i.sinTam && !_cpEsBolsa(i));
   if (sinBolsa.length) {
-    return showAdminToast('Falta de cuánto es la bolsa de: ' + sinBolsa.map(i => i.nombre).join(', '), 'error');
+    /* Los nombres escapados: el aviso es HTML (revisión del 01/10). */
+    return showAdminToast('Falta de cuánto es la bolsa de: ' + sinBolsa.map(i => esc(i.nombre)).join(', '), 'error');
   }
   /* Los renglones en cero se descartan. Si eso pasa callado, el que leyo un
      remito cree que cargo todo y no cargo todo: hay que avisarlo. */

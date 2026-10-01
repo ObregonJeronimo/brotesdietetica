@@ -5720,8 +5720,10 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             /* Cada grupo de presentaciones o bolsas sale junto (01/10/2026): en la categoria de su
                principal, donde iria el principal por nombre, y de menor a mayor, como los botones
                de la tienda. Antes cada uno iba por su nombre: "Mani Salado" quedaba entre "Mani"
-               y "Mani x 5 kg", y "x 10 kg" antes que "x 3 kg". */
-            const _porId=new Map(allProducts.map(x=>[x.id,x]));
+               y "Mani x 5 kg", y "x 10 kg" antes que "x 3 kg". Solo con un principal que sale en la
+               lista: si esta oculto o sin precio, la bolsa va sola, en su categoria, como en la tienda
+               (revision del 01/10). */
+            const _porId=new Map(conPrecio.map(x=>[x.id,x]));
             const _ppal=p=>(p.gramajePadreId&&_porId.get(p.gramajePadreId))||p;
             const _tamDe=p=>{const c=typeof contenidoDeVariante==='function'?contenidoDeVariante(p):null;return c&&c.valor>0?c.valor:Infinity;};
             /* Agrupar: { catNombre: { '__sin__': [...], subNombre: [...] } } */

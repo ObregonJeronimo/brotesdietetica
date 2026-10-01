@@ -426,6 +426,16 @@ function gramosDeBolsa(p, productos) {
    distintas, la tabla y la ventana que abre mostraban $1 de diferencia (revisión del 27/09). */
 function costoDeBolsa(costoKilo, gramos) { return Math.round(Number(costoKilo || 0) * gramos / 1000); }
 function kiloDeBolsa(costoBolsa, gramos) { return Math.round(Number(costoBolsa || 0) * 1000 / gramos); }
+/* La bolsa que dice el nombre de un granel suelto ("Lenteja x 5 kg"), en gramos, o null. Lo usan
+   Cargar compra, la ventana de costos y la calculadora de la ficha. "1/2 kg" y "1.500 g" no se
+   toman: contenidoDeVariante los lee como 2 kg y 2 g, y la bolsa se cargaba mal; así la compra
+   pregunta (revisión del 01/10). "38/42 x 25 kg" (un calibre) y "x 22.680 kg" se leen bien. */
+function bolsaDelNombre(nombre) {
+  const n = String(nombre == null ? '' : nombre);
+  if (/\d\s*\/\s*\d+\s*(?:kg|kilos?|g|gr|grs|gramos)\b/i.test(n) || /\d[.,]\d{3}\s*(?:g|gr|grs|gramos)\b/i.test(n)) return null;
+  const c = contenidoDeVariante({ nombre: n });
+  return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+}
 /* Lo que dice la línea de la venta: con el freno, que así no se puede; sin freno (29/09),
    que el stock va a quedar en negativo. */
 function textoFaltaStock(f) {
