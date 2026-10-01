@@ -121,7 +121,7 @@ function armar(opts) {
     _origAddVentaItem: id => agregados.push('min:' + id),
     _origAddVentaMayItem: id => agregados.push('may:' + id),
     _agregarItemVenta: (id, c) => elegidos.push(id + '@' + c),
-    firebase: { firestore: { FieldValue: { delete: () => '__BORRAR__' } } },
+    firebase: { firestore: { FieldValue: { delete: () => '__BORRAR__', serverTimestamp: () => '__AHORA__' } } },
     db: {
       collection: () => ({
         doc: id => ({ id, update: async d => { if (o.fallaEscribir) throw new Error('sin red'); escrituras.push(['update', id, d]); } }),
@@ -621,6 +621,7 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
       ups.mani320.precio === 0 && ups.mani320.costo === undefined);
     t('  o el descuento', JSON.stringify(ups.mani500) === '{"descuento":20}');
     t('  la que no se tocó no se escribe, ni se crea ninguna', Object.keys(ups).length === 3 && w.escrituras.filter(e => e[0] === 'add').length === 0);
+    t('  sin cambiar el costo, su fecha no se toca (revisión del 01/10)', Object.values(ups).every(u => u.costoActualizadoEn === undefined));
   }
   {
     const w = armar({ editingId: 'mani80' });
@@ -684,6 +685,8 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     const up = w.escrituras.find(e => e[0] === 'update');
     t('la bolsa de $13.500 pasa de 3 kg a 5 kg: se guarda lo que mostraba la fila, $2.700 el kilo, con sus precios',
       !!up && up[2].gramaje === '5 kg' && up[2].costo === 2700 && up[2].precio === 4320 && up[2].precioMayorista > 0, JSON.stringify(up && up[2]));
+    t('  y como cambió el costo, su fecha va en la misma escritura: la relectura ya la trae (revisión del 01/10)',
+      !!up && up[2].costoActualizadoEn === '__AHORA__' && !w.historial.some(x => /costoActualizadoEn/.test(x)), JSON.stringify(up && up[2]));
     const w2 = armar({ tipo: 'peso', productos: conBolsas(), editingId: 'g1' });
     w2.ctx.openModal('g1');
     w2.ctx.varFilaCambio(0, 'tam', '3 kg');

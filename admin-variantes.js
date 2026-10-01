@@ -1476,7 +1476,13 @@ async function guardarVariantesForm(principalId, data) {
         if (old.nombre && f.tamAntes && old.nombre === _nombreConTam(base, f.tamAntes)) upd.nombre = _nombreConTam(base, tam);
       }
       if (!Object.keys(upd).length) continue;
-      await db.collection('productos').doc(f.id).update(upd);
+      /* Si cambió el costo, su fecha va en la misma escritura: la relectura de abajo
+         (refrescarProductoLocal) ya la trae. Antes la ponía después registrarCambioDeCosto y el
+         panel la seguía viendo vieja hasta F5 (revisión del 01/10). Fuera de upd: el historial no
+         la nombra. */
+      const conFecha = 'costo' in upd && upd.costo !== Number(old.costo || 0);
+      await db.collection('productos').doc(f.id).update(conFecha
+        ? Object.assign({}, upd, { costoActualizadoEn: firebase.firestore.FieldValue.serverTimestamp() }) : upd);
       hechos.push(f.id);
       if (typeof logAction === 'function') {
         logAction('editar', 'Editado: ' + (upd.nombre || old.nombre || f.id), Object.keys(upd).map(k => k + ': ' + upd[k]).join(' | '));

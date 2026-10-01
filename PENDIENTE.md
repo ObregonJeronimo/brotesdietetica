@@ -2092,6 +2092,32 @@ iniciar sesión (la tienda los necesita), y eso incluye el costo y el porcentaje
 Probado en el sandbox con teclas de verdad (ventana de costos y ficha). Pruebas: 13 nuevas, y cada
 una falla con el código de antes. Total: 3904 en 90 suites.
 
+### AE) La fecha del costo, al instante · **HECHO, SIN SUBIR** (01/10/2026)
+
+Thiago pidió una prueba completa en el sandbox: vender un producto por kilo, uno con tamaño de bolsa
+y una bolsa de un grupo; cambiar los costos (compra por bolsa, ficha, "Revisar costos" y "Modificar
+costos" en plena venta, con "O el costo de la bolsa") y volver a vender. Todos los números dieron
+bien: totales, el costo guardado en cada venta, el stock y la compra.
+
+Apareció un detalle viejo (ya estaba en producción): después de cambiar un costo desde una compra
+("Actualizar"), la ficha o la tabla de bolsas, el panel seguía viendo la fecha vieja hasta apretar F5.
+La anota después `registrarCambioDeCosto`, y la ficha relee el producto antes. Entonces el Centro de
+avisos lo seguía mostrando como viejo y al venderlo saltaba "Costos desactualizados". Ahora, si el
+costo cambia, la fecha va en la misma escritura (y en memoria), como en la ventana de costos
+(admin-costos.js); la función ve que ya viene y no la toca. **Pendiente:** Importar Costos (Excel) y
+el PDF semanal siguen igual (ahí se corrige con F5); no tienen pruebas armadas y no se tocaron antes
+de subir.
+
+Visto en la prueba, de diseño (en producción ya es así): "Actualizar" en una compra cambia solo el
+costo, no el precio. Si el proveedor aumentó, el margen se achica sin que cambie el precio (en la
+prueba, el mayorista del Lino quedó igual al costo). Para recalcular el precio: "Revisar costos" o la
+ficha. Queda para hablar con la clienta.
+
+Probado en el sandbox con clics de verdad en los tres caminos (Castaña por compra, Aceite De Girasol
+por la ficha y Nuez x 5 kg por la tabla de bolsas): el panel ve la fecha de hoy al instante y salen
+del Centro de avisos. Pruebas: 4 nuevas, y cada una falla con el código de antes. Total: 3908 en 90
+suites.
+
 ---
 
 ## 2. Decisiones tuyas

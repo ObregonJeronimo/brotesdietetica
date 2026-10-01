@@ -1004,12 +1004,16 @@ async function ofrecerActualizarCostos(items) {
       'El precio de venta no cambia: lo que cambia es cuánto ganás en cada venta.',
       { titulo: uno ? '¿Actualizar el costo?' : '¿Actualizar los costos?', aceptar: 'Actualizar', cancelar: 'Dejar como estaba' })) return;
   try {
+    /* La fecha del costo va en la misma escritura y en memoria, como en la ventana de costos
+       (admin-costos.js): sin eso el panel la seguía viendo vieja hasta apretar F5, y el Centro
+       de avisos y el aviso al vender lo daban por desactualizado (revisión del 01/10). */
+    const hora = firebase.firestore.FieldValue.serverTimestamp();
     const lote = db.batch();
-    cambian.forEach(i => lote.update(db.collection('productos').doc(i.id), { costo: Number(i.costoUnitario) }));
+    cambian.forEach(i => lote.update(db.collection('productos').doc(i.id), { costo: Number(i.costoUnitario), costoActualizadoEn: hora }));
     await lote.commit();
     cambian.forEach(i => {
       const p = (allProducts || []).find(x => x.id === i.id);
-      if (p) p.costo = Number(i.costoUnitario);
+      if (p) { p.costo = Number(i.costoUnitario); p.costoActualizadoEn = new Date(); }
     });
     if (typeof logAction === 'function') {
       logAction('editar', 'Costos actualizados desde una compra: ' + cambian.length,

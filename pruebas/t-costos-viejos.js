@@ -638,6 +638,14 @@ t('el formulario muestra la fecha del último cambio de costo', html.indexOf('<s
 t('  al abrir un producto y al crear uno nuevo', /value=p\.costo\|\|0;if\(typeof pintarFechaCosto==='function'\)pintarFechaCosto\(p\);/.test(html) &&
   /value='0';if\(typeof pintarFechaCosto==='function'\)pintarFechaCosto\(null\);/.test(html));
 t('la fecha la anota una Cloud Function que escucha la base', /exports\.registrarCambioDeCosto = onDocumentWritten\(/.test(leer('functions/index.js')));
+{
+  /* Revisión del 01/10: la ficha relee el producto apenas guarda (refrescarProductoLocal), antes de que
+     la función anote la fecha, y el panel la seguía viendo vieja hasta F5. Ahora va en la misma escritura. */
+  const i = html.indexOf("if((old.costo||0)!==data.costo){cambios.push('costo: $'+(old.costo||0)+' -> $'+data.costo);");
+  const j = html.indexOf('data.costoActualizadoEn=firebase.firestore.FieldValue.serverTimestamp();}', i);
+  t('  al guardar la ficha con otro costo, su fecha va en la misma escritura: la relectura ya la trae (revisión del 01/10)',
+    i > 0 && j > i && j - i < 400);
+}
 t('el diálogo de varias opciones devuelve null al cerrarlo con Escape', /function pedirOpcion\(/.test(leer('admin-dialogo.js')) &&
   /if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\); cerrar\(null\); \}/.test(leer('admin-dialogo.js')));
 

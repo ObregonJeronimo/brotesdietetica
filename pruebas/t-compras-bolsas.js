@@ -282,6 +282,11 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     const costos = w.escrituras.filter(e => e.d.costo !== undefined).map(e => e.id + '=' + e.d.costo).join();
     t('  al aceptar, se guarda el kilo', costos === 'mrc3=4000', costos);
     t('  y queda en memoria', w.ctx.allProducts.find(p => p.id === 'mrc3').costo === 4000);
+    const conFecha = w.escrituras.find(e => e.id === 'mrc3' && e.d.costo !== undefined);
+    const enMemoria = w.ctx.allProducts.find(p => p.id === 'mrc3').costoActualizadoEn;
+    t('  con la fecha del cambio en la misma escritura y en memoria: no queda "desactualizado" hasta F5 (revisión del 01/10)',
+      !!conFecha && conFecha.d.costoActualizadoEn === 'ahora' && enMemoria instanceof Date && Date.now() - enMemoria.getTime() < 60000,
+      JSON.stringify(conFecha && conFecha.d));
   }
   {
     const v = armar();
