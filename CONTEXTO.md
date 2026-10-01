@@ -421,6 +421,9 @@ producción (de los "gramajes" viejos).
   junto, de menor a mayor. En la ventana de costos, un granel que sabe de cuánto es su bolsa tiene
   "o la bolsa de 5 kg", opcional, que calcula el costo por kilo. Las demás exportaciones ya salían
   bien con las bolsas. Detalle en `PENDIENTE.md` §1-bis AB.
+- **"Por peso" / "Unitario" y "Costo por bolsa:"** (pedido del dueño, visual): en la tarjeta de
+  costos viejos del Centro de avisos, un cuadradito verde al lado del nombre; en la ventana de
+  costos, "Costo por bolsa:" arriba del campo de cada bolsa. Detalle en `PENDIENTE.md` §1-bis AC.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

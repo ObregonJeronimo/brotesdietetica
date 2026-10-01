@@ -277,6 +277,8 @@ console.log('\n-- costos viejos de lo que se vende --');
   const h = r.cuerpoIni.innerHTML;
   t('la tarjeta de costos dice lo de la bolsa, como lo pide la ventana: "$1.600 la bolsa ($800 el kilo)"',
     h.indexOf('Costo: $1.600 la bolsa ($800 el kilo)') > 0 && h.indexOf('Costo: $1.000 la bolsa') > 0);
+  t('  y al lado del nombre, en un cuadradito, que es por peso (01/10)', h.indexOf('<b>Nuez x 1 kg</b><span class="ini-tipo">Por peso</span>') > 0 &&
+    h.indexOf('<b>Nuez x 2 kg</b><span class="ini-tipo">Por peso</span>') > 0, h);
 }
 
 /* ================================================= POR TERMINARSE */
@@ -369,6 +371,10 @@ console.log('\n-- lo que se ve --');
     h.indexOf('Revisar estos 3 costos') > 0 && h.indexOf('Hoy ya se revisó 1 costo.') > 0 &&
     h.indexOf('esos salen de la lista. Los que no cambies siguen acá.') > 0 &&
     h.indexOf('Hay otro con el costo viejo que no se vendió en el último mes') > 0);
+  t('  cada uno dice al lado si es por peso o unitario, en un cuadradito (01/10)', h.indexOf('<b>Alfajor</b><span class="ini-tipo">Unitario</span>') > 0 &&
+    h.indexOf('<b>Galletas</b><span class="ini-tipo">Unitario</span>') > 0 && h.indexOf('<b>Almendra</b><span class="ini-tipo">Por peso</span>') > 0, h);
+  t('  solo en la tarjeta de costos: en las demás, el nombre como siempre', (h.match(/class="ini-tipo"/g) || []).length === 3 &&
+    h.indexOf('<b>Alfajor</b><small>') > 0);
   t('por terminarse: cuánto queda y para cuántos días', h.indexOf('Quedan 3 unidades') > 0 && h.indexOf('alcanza para unos 3 días') > 0);
   t('sin caja vieja no hay cartel de caja', h.indexOf('La caja quedó abierta') < 0);
 

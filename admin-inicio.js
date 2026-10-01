@@ -370,9 +370,9 @@ function _iniBotonesStock(p) {
 
 const _iniVendidoTxt = v => (v ? v.veces + _iniS(v.veces, ' venta', ' ventas') + ' en el último mes' : '');
 
-function _iniFila(nombre, sub, dato, datoSub, acciones) {
+function _iniFila(nombre, sub, dato, datoSub, acciones, marca) {
   return '<div class="ini-fila">' +
-    '<div class="ini-fila-nom"><b>' + _iniEsc(nombre) + '</b>' + (sub ? '<small>' + _iniEsc(sub) + '</small>' : '') + '</div>' +
+    '<div class="ini-fila-nom"><b>' + _iniEsc(nombre) + '</b>' + (marca || '') + (sub ? '<small>' + _iniEsc(sub) + '</small>' : '') + '</div>' +
     '<div class="ini-fila-dato">' + _iniEsc(dato) + (datoSub ? '<small>' + _iniEsc(datoSub) + '</small>' : '') + '</div>' +
     '<div class="ini-fila-acc">' + (acciones || '') + '</div>' +
   '</div>';
@@ -500,7 +500,9 @@ function _iniHtmlCostos(c) {
     /* En una bolsa, lo de la bolsa: la ventana que abre "Revisar" la pide así (revisión del 27/09). */
     'Costo: ' + (typeof costoActualTxt === 'function' ? costoActualTxt(x.producto)
       : _iniPlata(x.producto.costo) + (_iniPeso(x.producto) ? ' el kilo' : '')),
-    'sin revisar hace ' + x.dias + ' días', '')).join('');
+    'sin revisar hace ' + x.dias + ' días', '',
+    /* Al lado del nombre, si se vende por peso o por unidad, en un cuadradito verde (pedido del dueño, 01/10). */
+    '<span class="ini-tipo">' + (_iniPeso(x.producto) ? 'Por peso' : 'Unitario') + '</span>')).join('');
   const boton = '<button type="button" class="btn btn-primary btn-sm" data-ini="costos"><i class="bi bi-pencil-square"></i> ' +
     (t === 1 ? 'Revisar este costo' : 'Revisar estos ' + t + ' costos') + '</button>';
   const sigue = n > t ? '<span>Son los ' + t + ' que más se venden; hay ' + (n - t) + ' más.</span>' : '';

@@ -470,6 +470,11 @@
 .costos-vista b{color:var(--accent-light)}
 .costos-vista .costos-may{color:#a78bfa}
 .costos-vista .costos-falta{color:var(--danger)}
+/* "Costo por bolsa:" arriba del campo de una bolsa (pedido del dueño, 01/10/2026). El precio y "Sigue igual" bajan lo mismo que ese texto, para quedar a la altura del campo; en el celular "Sigue igual" va en su renglon y no baja. */
+.costos-campo{flex:0 0 auto;display:flex;flex-direction:column;gap:4px}
+.costos-campo-tit{font-size:0.78rem;line-height:1.2;font-weight:600;color:var(--text)}
+.costos-campo~.costos-vista,.costos-campo~.costos-igual{margin-top:calc(0.78rem * 1.2 + 4px)}
+@media(max-width:520px){.costos-campo~.costos-igual{margin-top:0}}
 /* "O el costo de la bolsa de 5 kg" (01/10/2026), en los granel que saben de cuanto es su bolsa: un renglon mas, con una flecha que sale del nombre, el campo justo abajo del costo por kilo y "Sigue igual" en el medio de los dos. En el celular, uno abajo del otro. */
 .costos-fila.con-bolsa{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:0.75rem;row-gap:0.5rem;align-items:center}
 .costos-fila.con-bolsa .costos-nom{grid-column:1;grid-row:1}
@@ -521,6 +526,8 @@
 .ini-sub{font-size:0.76rem;font-weight:700;color:var(--text-dim);margin:0.9rem 0 0.1rem;text-transform:uppercase;letter-spacing:0.05em}
 .ini-fila{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) auto;gap:0.8rem;align-items:center;padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.05)}
 .ini-fila-nom{min-width:0;overflow-wrap:break-word}
+/* "Por peso" o "Unitario" al lado del nombre, en la tarjeta de costos viejos (pedido del dueño, 01/10/2026). */
+.ini-tipo{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:5px;border:1px solid rgba(95,168,122,0.45);background:rgba(95,168,122,0.12);color:#8FCBA3;font-size:0.7rem;font-weight:700;line-height:1.5;vertical-align:middle;white-space:nowrap}
 .ini-fila small{display:block;font-size:0.76rem;font-weight:400;color:var(--text-dim);margin-top:2px}
 .ini-fila-dato{font-size:0.88rem;font-weight:600}
 .ini-fila-acc{display:flex;gap:6px;align-items:center;justify-content:flex-end}

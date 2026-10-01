@@ -357,6 +357,11 @@ console.log('\n-- el editor de costos --');
   t('  la de 1 kg, lo mismo que el kilo, sin repetirlo', h.indexOf('value="2000" aria-label="Nuevo costo de la bolsa de Prueba1 x 1 kg"') > 0 &&
     h.indexOf('Costo actual $2.000 la bolsa ·') > 0);
   t('  un granel sin bolsas sigue por kilo', h.indexOf('value="9000" aria-label="Nuevo costo de Almendra"') > 0 && h.indexOf('Costo actual $9.000 el kilo') > 0);
+  t('arriba del campo de cada bolsa dice "Costo por bolsa:" (01/10)', h.indexOf('<label class="costos-campo"><span class="costos-campo-tit">Costo por bolsa:</span>' +
+    '<input type="text" inputmode="numeric" class="form-input costos-input" data-i="1" value="2001" aria-label="Nuevo costo de la bolsa de Prueba1 x 3 kg"></label>') > 0 &&
+    h.indexOf('<span class="costos-campo-tit">Costo por bolsa:</span><input type="text" inputmode="numeric" class="form-input costos-input" data-i="0" value="2000"') > 0, h);
+  t('  el granel sin bolsas no lo tiene: se carga por kilo', (h.match(/Costo por bolsa:/g) || []).length === 2 &&
+    h.indexOf('</div></div><input type="text" inputmode="numeric" class="form-input costos-input" data-i="2" value="9000"') > 0);
   t('  y lo dice arriba', h.indexOf('En las bolsas va lo que costó la bolsa entera, como al cargar el producto.') > 0);
   t('  con el "?" del redondeo abajo, afuera de la lista (adentro se cortaba), abriéndose hacia arriba: NO SE PIERDE DINERO',
     h.indexOf('</div></div><p class="ayuda-linea"><span class="ayuda-tip der ancho" tabindex="0"') > 0 &&
@@ -410,6 +415,8 @@ console.log('\n-- el editor de costos --');
   t('  también si la bolsa la dice el nombre ("x 25 kg")', h.indexOf('O el costo de la bolsa de 25 kg:') > 0 && /costos-bolsa-input" data-i="1"/.test(h));
   t('  sin tamaño, de 1 kg (es lo mismo que el kilo), por unidad o en una bolsa de un grupo (ya va por bolsa), no',
     !/costos-bolsa-input" data-i="[2-5]"/.test(h));
+  t('  "Costo por bolsa:" va solo en la bolsa del grupo; por kilo y por unidad, no (01/10)', (h.match(/Costo por bolsa:/g) || []).length === 1 &&
+    h.indexOf('<span class="costos-campo-tit">Costo por bolsa:</span><input type="text" inputmode="numeric" class="form-input costos-input" data-i="5"') > 0);
   m.conInputs(['9000', '1800', '2000', '1500', '900', '2001']);
   m.api.costoBolsaEnEditor({ value: '32.500', getAttribute: () => '0' });
   t('  escribir lo que costó la bolsa pone el costo por kilo: $32.500 la de 5 kg son $6.500, y avisa que cambió',
