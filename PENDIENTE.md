@@ -1825,6 +1825,28 @@ campos). Push a `main` hasta `f75f08d`, después de una revisión rápida del ú
 sirve los mismos archivos que el repo. La clienta lo ve al recargar (F5). Functions y reglas, sin
 cambios.
 
+### W) Cargar compra: un producto por peso sin otras bolsas también va por bolsa · **HECHO, SIN SUBIR** (30/09/2026)
+
+Pedido del dueño: en Cargar compra, un producto por peso sin otras bolsas (por ejemplo "Harina De
+Almendra Tostado") pedía el costo por kilo, y los que tienen bolsas pedían el de la bolsa. Ahora
+también va por bolsa si el producto dice de cuánto es la bolsa: en el nombre ("LENTEJA TURCA x 1
+kg") o en el campo "Gramaje / presentación" de su ficha. La fila pide "Costo de la bolsa" y al lado
+dice cómo queda el kilo, como los productos con bolsas. Con eso vienen las cuentas por bolsa, el
+aviso de "menos de una bolsa", y la compra guardada y el aviso de costos por bolsa
+(`_cpGramosBolsa` en `admin-compras.js`). El costo se sigue guardando por kilo.
+
+En producción, de 588 productos por peso sin otras bolsas, 470 dicen de cuánto es la bolsa (467 en
+el nombre y 3 en el tamaño) y 118 no lo dicen, por ejemplo "Avellana" o "Quinoa Inflada". Esos
+siguen por kilo, porque sin el tamaño no se puede sacar el kilo, y la fila lo aclara con "sin
+tamaño de bolsa". Para pasarlos a bolsa alcanza con ponerles el tamaño en la ficha (o en el
+nombre). En el sandbox ninguno lo dice: para probarlo hay que ponérselo.
+
+Probado en el sandbox con clics de verdad: a "Harina De Almendra Tostado" se le puso "5 kg" en la
+ficha. En Cargar compra de VERDEDIET dice "costo $51.000 la bolsa ($10.200 el kilo)", y dos bolsas
+(10.000 g) a $55.000 dan "$11.000 el kilo" y $110.000. "Tostada Integral" (ANDNUTS, sin tamaño)
+sigue por kilo, con la aclaración. Pruebas: 14 nuevas en `pruebas/t-compras-bolsas.js` (87; 11
+fallan contra el commit anterior). Total: 3814 en 89 suites.
+
 ---
 
 ## 2. Decisiones tuyas

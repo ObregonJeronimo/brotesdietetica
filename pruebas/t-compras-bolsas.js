@@ -387,6 +387,66 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('escanear una bolsa la agrega igual que tocarla en la lista', it.gramosBolsa === 3000 && it.costoBolsa === 9999 && it.nombre === 'Mani RC x 3 kg');
   }
 
+  console.log('\n-- un producto por peso sin otras bolsas --');
+  {
+    /* Pedido del dueño (30/09): un producto por peso sin otras bolsas también se carga por
+       bolsa, si dice de cuánto es (en el nombre o en el campo de tamaño). En producción, 470
+       de 588 lo dicen. El que no lo dice sigue por kilo, y la fila lo aclara. */
+    const prods = catalogo().concat([
+      P('len', { nombre: 'Lenteja Turca x 5 kg', tipoVenta: 'peso', costo: 2000, codigo: 'LEN' }),
+      P('har', { nombre: 'Harina Integral', gramaje: '25 kg', tipoVenta: 'peso', costo: 1800, codigo: 'HAR' }),
+      P('lt1', { nombre: 'Lenteja x 1 kg', tipoVenta: 'peso', costo: 2500, codigo: 'LT1' }),
+    ]);
+    const w = armar({ productos: prods });
+    w.ctx.openCompraModal('L1');
+    const h = w.el('compraLista').innerHTML;
+    t('si dice de cuánto es la bolsa ("x 5 kg"), la lista muestra lo que cuesta la bolsa y el kilo',
+      h.indexOf('LEN · costo $10.000 la bolsa ($2.000 el kilo)') > 0);
+    t('  también si el tamaño está en el campo de tamaño (25 kg)', h.indexOf('HAR · costo $45.000 la bolsa ($1.800 el kilo)') > 0);
+    t('  la de 1 kg, solo la bolsa (el kilo es lo mismo)', h.indexOf('LT1 · costo $2.500 la bolsa<') > 0);
+    t('  el que no dice de cuánto es la bolsa sigue por kilo', h.indexOf('ALM · costo $14.000 el kilo') > 0);
+    t('  y ninguno va en un recuadro: no tienen otras bolsas',
+      botones(h).filter(x => /^(len|har|lt1)/.test(x)).join() === 'len,har,lt1', botones(h).join());
+    w.ctx.compraAgregar('len');
+    w.ctx.compraAgregar('alm');
+    const it = w.items();
+    t('al agregarlo entra como bolsa de 5 kg, con lo que cuesta la bolsa',
+      it[0].gramosBolsa === 5000 && it[0].costoBolsa === 10000 && it[0].costoUnitario === 2000);
+    const filas = w.el('compraItems').innerHTML;
+    t('  la fila pide "Costo de la bolsa" y al lado dice el kilo',
+      /<span>Costo de la bolsa<\/span><input [^>]*value="10000" oninput="compraCampo\(0,'costoBolsa',this.value\)"/.test(filas) &&
+      filas.indexOf('<span class="cp-kilo" id="cpKilo0">$2.000 el kilo</span>') > 0);
+    t('  suelta, sin recuadro', recuadros(filas).length === 0);
+    t('la Almendra, que no dice de cuánto es la bolsa, sigue por kilo y lo aclara',
+      /<span>Costo por kilo<\/span><input [^>]*oninput="compraCampo\(1,'costoUnitario',this.value\)"/.test(filas) &&
+      filas.indexOf('>sin tamaño de bolsa</span>') > 0);
+    t('  la aclaración va solo en esa fila', (filas.match(/sin tamaño de bolsa<\/span>/g) || []).length === 1);
+    w.ctx.compraCampo(0, 'costoBolsa', '12500');
+    w.ctx.compraCampo(0, 'cantidad', '10000');
+    t('$12.500 la bolsa de 5 kg son $2.500 el kilo, y dos bolsas (10.000 g) $25.000',
+      w.items()[0].costoUnitario === 2500 && w.el('cpKilo0').textContent === '$2.500 el kilo' && w.el('cpSub0').textContent === '$25.000',
+      w.el('cpKilo0').textContent + ' / ' + w.el('cpSub0').textContent);
+    w.ctx.compraCampo(1, 'cantidad', '500');
+    await w.ctx.guardarCompra();
+    const c = w.guardadas[0] || { items: [] };
+    const len = c.items.find(i => i.id === 'len') || {};
+    t('se guarda como bolsa: lo que costó la bolsa, de cuánto era y el kilo',
+      len.costoBolsa === 12500 && len.gramosBolsa === 5000 && len.costoUnitario === 2500 && len.subtotal === 25000);
+    const act = w.preguntas.find(p => p.titulo === 'Actualizar costos');
+    t('  y el aviso de costos lo dice por bolsa',
+      act && act.m.indexOf('- Lenteja Turca x 5 kg: $10.000 → $12.500 la bolsa ($2.000 → $2.500 el kilo)') >= 0, act && act.m);
+  }
+  {
+    const v = armar({ productos: catalogo().concat([P('len', { nombre: 'Lenteja Turca x 5 kg', tipoVenta: 'peso', costo: 2000 })]),
+      respuestas: { 'Revisá la cantidad': false } });
+    v.ctx.openCompraModal('L1');
+    v.ctx.compraAgregar('len');
+    v.ctx.compraCampo(0, 'cantidad', '2');
+    await v.ctx.guardarCompra();
+    t('escribir 2 pensando en 2 bolsas también avisa que es menos de una bolsa',
+      v.preguntas.some(p => p.titulo === 'Revisá la cantidad' && p.m.indexOf('Lenteja Turca x 5 kg: 2 g (una bolsa son 5 kg)') > 0) && v.guardadas.length === 0);
+  }
+
   console.log('\n-- sin admin-variantes.js --');
   {
     const v = armar({ sinVariantes: true });

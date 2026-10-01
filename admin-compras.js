@@ -50,7 +50,16 @@ function _cpEsPeso(p) { return !!(p && p.tipoVenta === 'peso'); }
    del producto, con lo que queda el kilo al lado. El costo se sigue guardando por kilo
    (kiloDeBolsa), que es como lo lee todo lo demás. Las cuentas y el agrupado son los de
    admin-variantes.js: gramosDeBolsa, costoDeBolsa, kiloDeBolsa y agruparParaStock. */
-function _cpGramosBolsa(p) { return typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p) : null; }
+/* Los gramos de la bolsa, si se carga por bolsa. En un producto con varias bolsas, la suya
+   (gramosDeBolsa). En uno por peso sin otras bolsas (pedido del dueño, 30/09/2026), el tamaño
+   que dice el producto: en el nombre ("Lenteja x 5 kg") o en el campo de tamaño. Si no dice de
+   cuánto es la bolsa, null: va por kilo, como siempre. */
+function _cpGramosBolsa(p) {
+  const g = typeof gramosDeBolsa === 'function' ? gramosDeBolsa(p) : null;
+  if (g || !p || p.tipoVenta !== 'peso' || p.depurado === true || typeof contenidoDeVariante !== 'function') return g;
+  const c = contenidoDeVariante(p);
+  return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+}
 function _cpEsBolsa(it) { return !!it && it.tipoVenta === 'peso' && Number(it.gramosBolsa) > 0; }
 /* El nombre: en un producto con tamaños, el interno con su tamaño ("Mani RC x 1 kg"); en
    los demás, el de siempre. */
@@ -601,7 +610,13 @@ function renderCompraItems() {
             '<span class="cp-kilo" id="cpKilo' + i + '">' + _cpPesos(it.costoUnitario) + ' el kilo</span>'
           : '<label class="cp-f"><span>Costo' + (it.tipoVenta === 'peso' ? ' por kilo' : ' c/u') + '</span>' +
               '<input type="number" min="0" step="0.01" class="form-input" value="' + (it.costoUnitario || '') + '" ' +
-              'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>') +
+              'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>' +
+            /* Por peso y por kilo: el producto no dice de cuánto es la bolsa (30/09). Se dice, para
+               que se entienda por qué este pide el kilo y los otros la bolsa. */
+            (it.tipoVenta === 'peso' && typeof contenidoDeVariante === 'function'
+              ? '<span class="cp-kilo" title="Este producto no dice de cuánto es la bolsa (ni en el nombre ni en el tamaño), ' +
+                'así que el costo va por kilo. Con el tamaño en el producto, se carga por bolsa.">sin tamaño de bolsa</span>'
+              : '')) +
         '<span class="cp-sub" id="cpSub' + i + '">' + _cpPesos(_cpSubtotal(it)) + '</span>' +
         '<button type="button" class="cp-x" onclick="compraQuitar(' + i + ')" title="Sacar de la compra">&times;</button>' +
       '</div>';
