@@ -240,6 +240,11 @@
         .cp-grupo .cp-row:last-of-type{border-bottom:none}
         .cp-grupo .cp-prod{margin-bottom:0.3rem}
         .cp-kilo{font-size:0.74rem;color:var(--text-dim);white-space:nowrap;padding-bottom:0.55rem;min-width:5.8rem}
+        /* Falta de cuánto es la bolsa (30/09/2026). */
+        .cp-kilo.falta{color:#EDB833}
+        /* La pregunta de cuánto es la bolsa: más angosta, y en dos renglones si hace falta, para que la fila entre (30/09/2026). */
+        .cp-f.cp-f-bolsa{max-width:96px}
+        .cp-f.cp-f-bolsa .form-input{width:96px}
         /* Una compra guardada: el total del producto a la derecha de su recuadro (29/09/2026). */
         .cp-grupo-tot{margin-left:auto;font-size:0.84rem;font-weight:700;color:var(--text);white-space:nowrap}
         .cp-x{background:none;border:none;color:var(--danger);font-size:1.2rem;cursor:pointer;padding:0 0.3rem 0.3rem}

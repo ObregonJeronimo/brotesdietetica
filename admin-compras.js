@@ -60,6 +60,29 @@ function _cpGramosBolsa(p) {
   const c = contenidoDeVariante(p);
   return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
 }
+/* Un producto por peso, sin otras bolsas, que no dice de cuánto es la bolsa: la compra se lo
+   pregunta en la fila, y al guardar queda anotado en el producto (pedido del dueño, 30/09).
+   Con otras bolsas no: ahí el tamaño de cada una se pone en el producto. */
+function _cpSinTam(p) {
+  return _cpEsPeso(p) && typeof contenidoDeVariante === 'function' && typeof tieneVariantes === 'function' &&
+    !tieneVariantes(p, (typeof allProducts !== 'undefined' && allProducts) || []) && !_cpGramosBolsa(p);
+}
+/* De cuánto es la bolsa, como se escribe en la compra: "5", "5 kg", "500 g", "2,5". Un número
+   solo son kilos, y de 100 para arriba gramos ("500" es una bolsa de 500 g, no de 500 kg). En
+   gramos, o null si no se entiende. */
+function _cpLeerBolsa(texto) {
+  const s = String(texto || '').trim().toLowerCase();
+  if (!s) return null;
+  if (/[a-z]/.test(s)) {
+    const c = typeof contenidoDeVariante === 'function' ? contenidoDeVariante({ gramaje: s }) : null;
+    return c && c.unidad === 'g' && c.valor > 0 ? c.valor : null;
+  }
+  const n = Number(s.replace(',', '.'));
+  if (!(n > 0)) return null;
+  return n >= 100 ? Math.round(n) : Math.round(n * 1000);
+}
+/* El tamaño de una bolsa para leer: "5 kg", "2,5 kg", "500 g". */
+function _cpTamTxt(g) { return _cpCant({ tipoVenta: 'peso', cantidad: g }); }
 function _cpEsBolsa(it) { return !!it && it.tipoVenta === 'peso' && Number(it.gramosBolsa) > 0; }
 /* El nombre: en un producto con tamaños, el interno con su tamaño ("Mani RC x 1 kg"); en
    los demás, el de siempre. */
@@ -132,6 +155,8 @@ function _cpRenglonesGuardados(items) {
    subtotalItem() hace del lado de las ventas. */
 function _cpSubtotal(it) {
   const c = Number(it.costoUnitario || 0), q = Number(it.cantidad || 0);
+  /* Sin saber todavía de cuánto es la bolsa (30/09), no hay costo: $0, no el kilo de antes. */
+  if (it.sinTam && !(Number(it.gramosBolsa) > 0)) return 0;
   /* Una bolsa (29/09) se paga por bolsa: lo que costó la bolsa por las bolsas que entraron,
      sin pasar por el kilo redondeado (3 kg a $1.000 son $1.000, no $999). */
   if (it.tipoVenta === 'peso' && Number(it.gramosBolsa) > 0 && it.costoBolsa != null) {
@@ -355,8 +380,10 @@ function compraAgregar(id) {
        cambió, y así solo hay que tocar los que sí. */
     costoUnitario: Number(p.costo || 0),
     costoAnterior: Number(p.costo || 0),
-  /* Una bolsa: sus gramos y lo que cuesta la bolsa, desde el kilo que tiene cargado. */
-  }, g ? { gramosBolsa: g, costoBolsa: costoDeBolsa(p.costo, g) } : {}));
+  /* Una bolsa: sus gramos y lo que cuesta la bolsa, desde el kilo que tiene cargado. Por peso
+     y sin decir de cuánto es la bolsa (30/09): se pregunta en la fila (sinTam). */
+  }, g ? { gramosBolsa: g, costoBolsa: costoDeBolsa(p.costo, g) } : {},
+     !g && _cpSinTam(p) ? { sinTam: true } : {}));
   renderCompraItems();
   compraBuscarProd((document.getElementById('compraBuscar') || {}).value || '');
 }
@@ -572,10 +599,37 @@ function compraCampo(i, campo, valor) {
        exacta ($3.001 el kilo en 500 g se ve $1.501, que vuelve como $3.002), y salía
        como un costo que cambió (como _costoDeFila, admin-costos.js). */
     it.costoBolsa = Math.max(0, Number(valor) || 0);
-    it.costoUnitario = it.costoBolsa === costoDeBolsa(it.costoAnterior, it.gramosBolsa)
-      ? Number(it.costoAnterior || 0) : kiloDeBolsa(it.costoBolsa, it.gramosBolsa);
+    it.costoTocado = true;
+    if (Number(it.gramosBolsa) > 0) {
+      it.costoUnitario = it.costoBolsa === costoDeBolsa(it.costoAnterior, it.gramosBolsa)
+        ? Number(it.costoAnterior || 0) : kiloDeBolsa(it.costoBolsa, it.gramosBolsa);
+      const k = document.getElementById('cpKilo' + i);
+      if (k) k.textContent = _cpPesos(it.costoUnitario) + ' el kilo';
+    }
+  } else if (campo === 'bolsa') {
+    /* De cuánto es la bolsa, escrito en la compra (30/09). Mientras no se entienda, no hay
+       bolsa: el costo de la bolsa espera apagado. Si todavía no se escribió el costo, arranca
+       con el del kilo que tiene el producto; si ya se escribió, se respeta. */
+    it.bolsaTxt = String(valor || '');
+    const g = _cpLeerBolsa(valor);
+    if (g) {
+      it.gramosBolsa = g;
+      if (!it.costoTocado || it.costoBolsa == null) it.costoBolsa = costoDeBolsa(it.costoAnterior, g);
+      it.costoUnitario = it.costoBolsa === costoDeBolsa(it.costoAnterior, g)
+        ? Number(it.costoAnterior || 0) : kiloDeBolsa(it.costoBolsa, g);
+    } else {
+      delete it.gramosBolsa;
+      it.costoUnitario = Number(it.costoAnterior || 0);
+    }
+    const etq = document.getElementById('cpBolsaEtq' + i);
+    if (etq) etq.textContent = g ? 'Bolsa de ' + _cpTamTxt(g) : '¿De cuánto es la bolsa?';
+    const cb = document.getElementById('cpBolsa' + i);
+    if (cb) { cb.disabled = !g; cb.value = g ? (it.costoBolsa || '') : ''; }
     const k = document.getElementById('cpKilo' + i);
-    if (k) k.textContent = _cpPesos(it.costoUnitario) + ' el kilo';
+    if (k) {
+      k.textContent = g ? _cpPesos(it.costoUnitario) + ' el kilo' : 'falta la bolsa';
+      k.className = 'cp-kilo' + (g ? '' : ' falta');
+    }
   } else {
     it[campo] = Math.max(0, Number(valor) || 0);
   }
@@ -602,21 +656,26 @@ function renderCompraItems() {
           '<input type="number" min="0" step="1" class="form-input" id="cpCant' + i + '" ' +
           'value="' + (it.cantidad || '') + '" ' +
           'oninput="compraCampo(' + i + ',\'cantidad\',this.value)"></label>' +
-        /* Una bolsa (29/09): lo que costó la bolsa, como en el formulario, y al lado el kilo. */
-        (_cpEsBolsa(it)
+        /* De cuánto es la bolsa, si el producto no lo dice (30/09): se escribe acá, y al guardar
+           queda anotado en el producto. */
+        (it.sinTam
+          ? '<label class="cp-f cp-f-bolsa"><span id="cpBolsaEtq' + i + '">' +
+              (_cpEsBolsa(it) ? 'Bolsa de ' + _cpTamTxt(it.gramosBolsa) : '¿De cuánto es la bolsa?') + '</span>' +
+              '<input type="text" inputmode="decimal" class="form-input" placeholder="Ej: 5 kg" value="' + esc(it.bolsaTxt || '') + '" ' +
+              'oninput="compraCampo(' + i + ',\'bolsa\',this.value)"></label>'
+          : '') +
+        /* Una bolsa (29/09): lo que costó la bolsa, como en el formulario, y al lado el kilo. Sin
+           saber todavía de cuánto es la bolsa, el costo espera apagado. */
+        (_cpEsBolsa(it) || it.sinTam
           ? '<label class="cp-f"><span>Costo de la bolsa</span>' +
-              '<input type="number" min="0" step="0.01" class="form-input" value="' + (it.costoBolsa || '') + '" ' +
+              '<input type="number" min="0" step="0.01" class="form-input" id="cpBolsa' + i + '" value="' +
+                (_cpEsBolsa(it) ? (it.costoBolsa || '') : '') + '"' + (_cpEsBolsa(it) ? '' : ' disabled') + ' ' +
               'oninput="compraCampo(' + i + ',\'costoBolsa\',this.value)"></label>' +
-            '<span class="cp-kilo" id="cpKilo' + i + '">' + _cpPesos(it.costoUnitario) + ' el kilo</span>'
+            '<span class="cp-kilo' + (_cpEsBolsa(it) ? '' : ' falta') + '" id="cpKilo' + i + '">' +
+              (_cpEsBolsa(it) ? _cpPesos(it.costoUnitario) + ' el kilo' : 'falta la bolsa') + '</span>'
           : '<label class="cp-f"><span>Costo' + (it.tipoVenta === 'peso' ? ' por kilo' : ' c/u') + '</span>' +
               '<input type="number" min="0" step="0.01" class="form-input" value="' + (it.costoUnitario || '') + '" ' +
-              'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>' +
-            /* Por peso y por kilo: el producto no dice de cuánto es la bolsa (30/09). Se dice, para
-               que se entienda por qué este pide el kilo y los otros la bolsa. */
-            (it.tipoVenta === 'peso' && typeof contenidoDeVariante === 'function'
-              ? '<span class="cp-kilo" title="Este producto no dice de cuánto es la bolsa (ni en el nombre ni en el tamaño), ' +
-                'así que el costo va por kilo. Con el tamaño en el producto, se carga por bolsa.">sin tamaño de bolsa</span>'
-              : '')) +
+              'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>') +
         '<span class="cp-sub" id="cpSub' + i + '">' + _cpPesos(_cpSubtotal(it)) + '</span>' +
         '<button type="button" class="cp-x" onclick="compraQuitar(' + i + ')" title="Sacar de la compra">&times;</button>' +
       '</div>';
@@ -698,6 +757,11 @@ async function guardarCompra() {
   if (!prov) return showAdminToast('Elegí el proveedor', 'error');
   const conCantidad = _compraItems.filter(i => Number(i.cantidad || 0) > 0);
   if (!conCantidad.length) return showAdminToast('Cargá al menos un producto con cantidad', 'error');
+  /* De cuánto es la bolsa (30/09): sin eso no se sabe el kilo. Si se compró suelto, "1 kg". */
+  const sinBolsa = conCantidad.filter(i => i.sinTam && !_cpEsBolsa(i));
+  if (sinBolsa.length) {
+    return showAdminToast('Falta de cuánto es la bolsa de: ' + sinBolsa.map(i => i.nombre).join(', '), 'error');
+  }
   /* Los renglones en cero se descartan. Si eso pasa callado, el que leyo un
      remito cree que cargo todo y no cargo todo: hay que avisarlo. */
   const enCero = _compraItems.filter(i => Number(i.cantidad || 0) <= 0);
@@ -745,7 +809,8 @@ async function guardarCompra() {
   const lista = (listasData || []).find(l => l.id === prov);
   const total = conCantidad.reduce((s, i) => s + _cpSubtotal(i), 0);
 
-  const resumen = conCantidad.map(i => '- ' + i.nombre + ': ' + _cpCant(i) + ' a ' + _cpCostoTxt(i)).join('\n');
+  const resumen = conCantidad.map(i => '- ' + i.nombre + ': ' + _cpCant(i) + ' a ' + _cpCostoTxt(i) +
+    (i.sinTam && _cpEsBolsa(i) ? ' (bolsa de ' + _cpTamTxt(i.gramosBolsa) + ', queda anotada en el producto)' : '')).join('\n');
   const aviso = sumaStock
     ? '\nEl stock de esos productos va a subir.'
     : '\nOJO: el stock NO se va a tocar, porque destildaste la casilla.';
@@ -823,6 +888,8 @@ async function guardarCompra() {
       });
     }
 
+    await _cpAnotarBolsas(conCantidad);
+
     if (typeof logAction === 'function') {
       logAction('crear', 'Compra #' + String(numero).padStart(4, '0') + ' - ' + _cpPesos(total),
         ((lista && lista.nombre) || '') + ' | ' + items.length + ' items' + (sumaStock ? ' | stock sumado' : ' | sin tocar stock'));
@@ -853,6 +920,30 @@ async function guardarCompra() {
     showAdminToast('No se pudo guardar: ' + e.message, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar compra'; }
+  }
+}
+
+/* De cuánto es la bolsa, escrito en la compra: queda anotado en el producto, en "Gramaje /
+   presentación" de su ficha, para que la próxima compra ya pida la bolsa (pedido del dueño,
+   30/09). Solo si el producto sigue sin decirlo. Si falla, la compra ya se guardó: se avisa
+   aparte, sin decir que no se guardó. */
+async function _cpAnotarBolsas(items) {
+  const anotar = items.filter(i => i.sinTam && _cpEsBolsa(i))
+    .map(i => ({ i: i, p: (allProducts || []).find(x => x.id === i.id) }))
+    .filter(x => x.p && _cpSinTam(x.p));
+  if (!anotar.length) return;
+  try {
+    const lote = db.batch();
+    anotar.forEach(x => lote.update(db.collection('productos').doc(x.i.id), { gramaje: _cpTamTxt(x.i.gramosBolsa) }));
+    await lote.commit();
+    anotar.forEach(x => { x.p.gramaje = _cpTamTxt(x.i.gramosBolsa); });
+    if (typeof logAction === 'function') {
+      logAction('editar', 'Tamaño de bolsa anotado desde una compra: ' + anotar.length,
+        anotar.map(x => x.i.nombre + ': ' + _cpTamTxt(x.i.gramosBolsa)).join(' | ').slice(0, 900));
+    }
+    if (typeof _reRenderProductos === 'function') _reRenderProductos();
+  } catch (e) {
+    showAdminToast('La compra se guardó, pero no se pudo anotar de cuánto es la bolsa: ' + e.message, 'error');
   }
 }
 

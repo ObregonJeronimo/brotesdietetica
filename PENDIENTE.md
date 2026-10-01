@@ -1836,16 +1836,31 @@ aviso de "menos de una bolsa", y la compra guardada y el aviso de costos por bol
 (`_cpGramosBolsa` en `admin-compras.js`). El costo se sigue guardando por kilo.
 
 En producción, de 588 productos por peso sin otras bolsas, 470 dicen de cuánto es la bolsa (467 en
-el nombre y 3 en el tamaño) y 118 no lo dicen, por ejemplo "Avellana" o "Quinoa Inflada". Esos
-siguen por kilo, porque sin el tamaño no se puede sacar el kilo, y la fila lo aclara con "sin
-tamaño de bolsa". Para pasarlos a bolsa alcanza con ponerles el tamaño en la ficha (o en el
-nombre). En el sandbox ninguno lo dice: para probarlo hay que ponérselo.
+el nombre y 3 en el tamaño) y 118 no lo dicen, por ejemplo "Avellana" o "Quinoa Inflada".
+
+**Si el producto no dice de cuánto es la bolsa, la compra lo pregunta** (lo eligió el dueño; la
+primera versión, con la aclaración "sin tamaño de bolsa" y el costo por kilo, no se entendía):
+- la fila muestra "¿De cuánto es la bolsa?". Se escribe "5", "5 kg", "500 g" o "2,5": un número
+  solo son kilos, y de 100 para arriba gramos ("500" es una bolsa de 500 g);
+- al escribirlo, dice "Bolsa de 5 kg", se habilita "Costo de la bolsa" (arranca con el del kilo que
+  tenía el producto) y al lado sale el kilo. Mientras falta, el costo está apagado, al lado dice
+  "falta la bolsa" en amarillo y la fila cuenta $0;
+- sin el tamaño no se guarda ("Falta de cuánto es la bolsa de: ..."). Si se compró suelto, "1 kg";
+- al guardar, el tamaño queda anotado en "Gramaje / presentación" del producto (solo si sigue sin
+  decirlo), y el resumen lo avisa: "(bolsa de 5 kg, queda anotada en el producto)". La próxima
+  compra ya lo pide por bolsa. Ese campo, en un producto sin otras bolsas, no se ve en la tienda
+  ni cambia precios (las escalas necesitan dos bolsas o más);
+- solo para productos sin otras bolsas: con otras bolsas, el tamaño de cada una se pone en el
+  producto, como siempre.
 
 Probado en el sandbox con clics de verdad: a "Harina De Almendra Tostado" se le puso "5 kg" en la
-ficha. En Cargar compra de VERDEDIET dice "costo $51.000 la bolsa ($10.200 el kilo)", y dos bolsas
-(10.000 g) a $55.000 dan "$11.000 el kilo" y $110.000. "Tostada Integral" (ANDNUTS, sin tamaño)
-sigue por kilo, con la aclaración. Pruebas: 14 nuevas en `pruebas/t-compras-bolsas.js` (87; 11
-fallan contra el commit anterior). Total: 3814 en 89 suites.
+ficha, y en Cargar compra de VERDEDIET dice "costo $51.000 la bolsa ($10.200 el kilo)"; dos bolsas
+(10.000 g) a $55.000 dan "$11.000 el kilo" y $110.000. El "Mani RC" que creó el dueño (sin tamaño)
+pregunta la bolsa: con "5" queda "Bolsa de 5 kg", $500 la bolsa y $100 el kilo, y a $600, $120 el
+kilo (sin guardar, para no tocarle el producto). Con "Tostada Integral" (ANDNUTS, sin tamaño):
+sin el tamaño avisa que falta y no guarda; con "1", se guardó la compra y el producto quedó con
+"1 kg"; la compra siguiente ya la pide por bolsa. Pruebas: `pruebas/t-compras-bolsas.js` (105) y
+se ajustó `t-lector-compra.js`. Total: 3832 en 89 suites.
 
 ---
 

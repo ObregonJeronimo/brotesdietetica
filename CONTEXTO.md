@@ -397,8 +397,9 @@ producción (de los "gramajes" viejos).
 
 - **Cargar compra, un producto por peso sin otras bolsas** (pedido del dueño): también se carga
   por bolsa, con el kilo al lado, si el producto dice de cuánto es la bolsa (en el nombre o en el
-  campo de tamaño). Los que no lo dicen (118 en producción) siguen por kilo, con la aclaración
-  "sin tamaño de bolsa". Detalle en `PENDIENTE.md` §1-bis W.
+  campo de tamaño). Si no lo dice (118 en producción), la fila pregunta "¿De cuánto es la
+  bolsa?", y al guardar la compra queda anotado en "Gramaje / presentación" del producto.
+  Detalle en `PENDIENTE.md` §1-bis W.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
