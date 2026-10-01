@@ -1900,6 +1900,28 @@ bolsa: 2 kg" y la ayuda de siempre ("¿Tenés lo que costó la bolsa?"). Pruebas
 (110), `t-escalas.js` (244: el nombre del campo, por peso y por unidad), `t-variantes.js` (240: la
 ayuda de "Nueva variante") y `t-exportar.js` (58). Total: 3841 en 89 suites.
 
+### Y) Cargar compra: kg o g al lado del tamaño, y el aviso de costos más claro · **HECHO, SIN SUBIR** (30/09/2026)
+
+Pedido del dueño, probando en el sandbox:
+- **El tamaño de la bolsa con selector** (`_cpGramosEscritos`, en lugar de `_cpLeerBolsa`): en "¿De
+  cuánto es la bolsa?" va el número y al lado un selector kg / g, de entrada kg. Ya no se adivina la
+  unidad por el número (antes "500" eran 500 g y "50" eran 50 kg; ahora "500" con kg son 500 kg).
+  El campo toma solo números ("2,5" o "2.5"); la unidad va en el selector. Entra en la fila con el
+  mismo ancho que antes (96 px).
+- **El aviso de costos, más claro** (`ofrecerActualizarCostos`): el título pregunta ("¿Actualizar el
+  costo?" o "¿Actualizar los costos?"); cada producto va con dos renglones, "Tenía cargado: $750 la
+  bolsa de 3 kg ($250 el kilo)" y "En esta compra: $900 la bolsa de 3 kg ($300 el kilo)", sin
+  flechas; abajo, "Si tocás "Actualizar", el producto queda con el costo de esta compra. El precio de
+  venta no cambia: lo que cambia es cuánto ganás en cada venta." Los botones: "Dejar como estaba" y
+  "Actualizar". Antes: "$1.000 → $500 la bolsa de 2 kg ($500 → $250 el kilo)" y "Si los actualizó,
+  el precio de venta NO cambia: cambia el margen que muestra Ganancia", con "Cancelar".
+
+Probado en el sandbox con clics de verdad: en Cargar compra de FRUTICOR, la Almendra (sin tamaño)
+pide el número con "kg" al lado; con 5 queda "Bolsa de 5 kg", $7.500 y $1.500 el kilo; con "g" y
+500, "Bolsa de 500 g" y $750; la fila entra en un renglón (con 114 px la × bajaba al otro). El aviso
+se abrió con un Mani RC de prueba y se cerró con "Dejar como estaba": el costo no cambió. Nada se
+guardó. Pruebas: `t-compras-bolsas.js` (114). Total: 3845 en 89 suites.
+
 ---
 
 ## 2. Decisiones tuyas

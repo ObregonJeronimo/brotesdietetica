@@ -404,6 +404,10 @@ producción (de los "gramajes" viejos).
   ("la bolsa de 2 kg") y en la ficha de un producto por peso el campo se llama "Tamaño de la bolsa".
   La ventana de costos, los avisos y la ayuda de la ficha siguen por kilo, como en producción: se
   probó llevarlo ahí y Thiago pidió no complicarlo. Detalle en `PENDIENTE.md` §1-bis X.
+- **Cargar compra: kg o g, y el aviso de costos claro** (pedido del dueño): el tamaño de la bolsa se
+  escribe con un selector kg / g al lado (sin adivinar la unidad), y el aviso de costos dice "Tenía
+  cargado" y "En esta compra" por producto, con los botones "Dejar como estaba" y "Actualizar".
+  Detalle en `PENDIENTE.md` §1-bis Y.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
