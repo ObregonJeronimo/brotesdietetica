@@ -671,7 +671,7 @@ function renderCompraItems() {
           ? '<label class="cp-f cp-f-bolsa"><span id="cpBolsaEtq' + i + '">' +
               (_cpEsBolsa(it) ? 'Bolsa de ' + _cpTamTxt(it.gramosBolsa) : '¿De cuánto es la bolsa?') + '</span>' +
               '<span class="cp-bolsa-tam">' +
-                '<input type="text" inputmode="decimal" class="form-input" placeholder="Ej: 5" value="' + esc(it.bolsaTxt || '') + '" ' +
+                '<input type="text" inputmode="decimal" maxlength="5" class="form-input" placeholder="Ej: 5" value="' + esc(it.bolsaTxt || '') + '" ' +
                 'oninput="compraCampo(' + i + ',\'bolsa\',this.value)">' +
                 '<select class="form-input" aria-label="Kilos o gramos" onchange="compraCampo(' + i + ',\'bolsaUnidad\',this.value)">' +
                   '<option value="kg"' + (it.bolsaUnidad === 'g' ? '' : ' selected') + '>kg</option>' +

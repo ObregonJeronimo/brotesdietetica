@@ -409,6 +409,10 @@ producción (de los "gramajes" viejos).
   cargado" y "En esta compra" por producto, con los botones "Dejar como estaba" y "Actualizar". La
   calculadora de la bolsa de la ficha dice qué hace: "¿La factura dice el precio de la bolsa de 3
   kg? Escribilo acá y se calcula solo el costo por kilo." Detalle en `PENDIENTE.md` §1-bis Y.
+- **El tamaño de la bolsa en kilos** (pedido del dueño): en la ficha de un producto por peso,
+  "Tamaño de la bolsa" es un campo angosto de solo números (hasta 5) con "kilos" al lado, y abajo
+  "¿Querés disponer de más tamaños?" baja hasta "Agregar otra bolsa" y lo resalta, sin tocarlo. En
+  Cargar compra el tamaño también acepta hasta 5 caracteres. Detalle en `PENDIENTE.md` §1-bis Z.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

@@ -1020,7 +1020,8 @@ function _pintarVariantes() {
   if (window._varianteDeNueva) {
     const pr = prods.find(x => x && x.id === window._varianteDeNueva);
     el.innerHTML = '<p class="var-ayuda">Nueva variante de <b>' + _varEsc(nombreDeGrupo(pr)) + '</b>. ' +
-      'Poné arriba, en <b>' + (peso ? 'Tamaño de la bolsa' : 'Gramaje / Presentación') + '</b>, lo que la distingue: 160 g, 3 kg, x12.</p>';
+      'Poné arriba, en <b>' + (peso ? 'Tamaño de la bolsa' : 'Gramaje / Presentación') + '</b>, ' +
+      (peso ? 'de cuántos kilos es: 1, 3, 5...' : 'lo que la distingue: 160 g, 3 kg, x12.') + '</p>';
     return;
   }
   const hijo = window._varHijo;
@@ -1107,6 +1108,13 @@ function varFilaQuitar(i) {
   pintarVariantesForm();
 }
 
+/* El campo donde se escribe el tamaño: en un producto por peso, el de kilos (admin-escalas.js,
+   30/09), porque Gramaje / Presentación queda escondido; si no, Gramaje / Presentación. */
+function _campoTamVisible() {
+  const k = document.getElementById('pTamKilos');
+  return _varEsPeso() && k ? k : document.getElementById('pGramaje');
+}
+
 /* El tamaño de la primera fila (este producto) es el mismo campo que Gramaje / Presentación.
    Recibe el campo (el número o la unidad) o directamente la etiqueta. */
 function varTamPrincipal(v) {
@@ -1140,7 +1148,7 @@ function nuevaVariante(principalId) {
   const t = document.getElementById('modalTitle');
   if (t) t.textContent = 'Nueva variante';
   pintarVariantesForm();
-  setTimeout(() => { const g = document.getElementById('pGramaje'); if (g) g.focus(); }, 60);
+  setTimeout(() => { const g = _campoTamVisible(); if (g) g.focus(); }, 60);
 }
 
 /* Se envuelven openModal y setTipoVenta en vez de tocarlos por dentro: openModal es una
@@ -1317,8 +1325,9 @@ function faltaPresentacionDeVariante() {
   if (window._varianteDeNueva) {
     const g = document.getElementById('pGramaje');
     if (g && g.value.trim()) return false;
-    aviso('Poné la presentación de la variante: 160 g, 3 kg, x12...');
-    if (g) g.focus();
+    aviso(_varEsPeso() ? 'Poné de cuántos kilos es la bolsa (ej. 3).' : 'Poné la presentación de la variante: 160 g, 3 kg, x12...');
+    const f = _campoTamVisible();
+    if (f) f.focus();
     return true;
   }
   const filas = window._varFilas || [];

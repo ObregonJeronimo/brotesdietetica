@@ -1930,6 +1930,30 @@ ficha del Mani RC la calculadora dice el texto nuevo; escribiendo $900, el costo
 $300. Nada se guardó. Pruebas: `t-compras-bolsas.js` (114) y `t-escalas.js` (245). Total: 3846 en
 89 suites.
 
+### Z) El tamaño de la bolsa en kilos, y el camino a "Agregar otra bolsa" · **HECHO, SIN SUBIR** (30/09 y 01/10/2026)
+
+Pedido del dueño (probando en el sandbox había escrito "2 kg, 3 kg" en el tamaño de un solo producto):
+- **Cargar compra:** el número del tamaño de la bolsa acepta hasta 5 caracteres (`maxlength`).
+- **La ficha de un producto por peso:** "Tamaño de la bolsa" se escribe en kilos, en un campo
+  angosto con "kilos" al lado: solo el número (sin espacios ni letras; con coma para medio kilo,
+  "0,5"), hasta 5 caracteres (`_campoKilos`, admin-escalas.js). Es el campo de la tabla de bolsas
+  (`_tamPartes`, `_tamTexto`, `limpiarNumeroTam`); Gramaje / Presentación queda escondido y sigue
+  guardando "5 kg", que es lo que lee todo lo demás. Por unidad, el campo de siempre.
+- Abajo, **"¿Querés disponer de más tamaños?"** (`irAMasTamanos`): baja hasta "Bolsas y precios por
+  cantidad" y resalta un segundo la sección y el botón "Agregar otra bolsa", sin tocarlo. Aparece
+  solo si abajo está ese botón (no en una bolsa que no es la principal ni en una variante nueva).
+- Por el campo nuevo: en "Nueva variante" de un producto por peso, la ayuda dice "de cuántos kilos
+  es: 1, 3, 5...", el cursor va al campo de kilos y, si falta, el aviso dice "Poné de cuántos kilos
+  es la bolsa (ej. 3)." (`_campoTamVisible`, admin-variantes.js).
+
+Probado en el sandbox con clics de verdad: en Cargar compra de FRUTICOR, "1234567" en el tamaño
+queda "12345"; en la ficha de Semilla De Chia (por peso), "5 kg" queda "5" con "kilos" al lado y se
+guarda "5 kg"; "2,5" guarda "2,5 kg"; el link baja a "Bolsas y precios por cantidad" y resalta el
+botón sin agregar ninguna fila; un producto nuevo por unidad muestra el campo de siempre, y por
+peso el de kilos; en "Nueva variante" de un producto por peso el cursor va al campo de kilos. Nada
+se guardó. Pruebas: `t-compras-bolsas.js` (114), `t-escalas.js` (255) y `t-variantes.js` (242).
+Total: 3858 en 89 suites.
+
 ---
 
 ## 2. Decisiones tuyas

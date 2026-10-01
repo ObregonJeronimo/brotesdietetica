@@ -738,6 +738,10 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     w.ctx._tipoVentaProd = 'peso';
     w.ctx.pintarVariantesForm();
     t('  y por peso, "Tamaño de la bolsa", que es como se llama ahí el campo (30/09)', w.porId.pVariantes.innerHTML.indexOf('Poné arriba, en <b>Tamaño de la bolsa</b>') > 0);
+    t('  en kilos, como el campo: "de cuántos kilos es: 1, 3, 5..."', w.porId.pVariantes.innerHTML.indexOf('</b>, de cuántos kilos es: 1, 3, 5...</p>') > 0);
+    const n0 = w.avisos.length;
+    t('  y si falta, lo pide en kilos', w.ctx.faltaPresentacionDeVariante() === true &&
+      /error: Poné de cuántos kilos es la bolsa \(ej\. 3\)\./.test(w.avisos.slice(n0).join()), w.avisos.slice(n0).join());
     w.ctx._tipoVentaProd = 'unidad';
     w.ctx.pintarVariantesForm();
 

@@ -520,6 +520,56 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
       lbl.innerHTML.indexOf('Gramaje / Presentación <span') === 0 && w.porId.pGramaje.placeholder === 'Ej: 500g ó 1kg' &&
       html.indexOf('<label>' + lbl.innerHTML + '</label><input type="text" class="form-input" id="pGramaje" placeholder="Ej: 500g ó 1kg">') > 0, lbl.innerHTML);
   }
+  {
+    /* Pedido del dueño (30/09): en un producto por peso, el tamaño va en kilos, solo el número,
+       con "kilos" al lado; abajo, "¿Querés disponer de más tamaños?" baja hasta "Agregar otra
+       bolsa" y lo resalta, sin tocarlo. */
+    const w = armar();
+    const lbl = { innerHTML: '' }, kil = { value: '', handlers: {}, addEventListener(tp, fn) { this.handlers[tp] = fn; } };
+    const mas = { style: {} }, eventos = [];
+    let creada = null;
+    w.porId.pGramajeWrap = { querySelector: sel => (sel === 'label' ? lbl : null), appendChild: e => { w.porId[e.id] = e; } };
+    w.ctx.document.createElement = () => (creada = { style: {}, querySelector: s => (s === 'input' ? kil : null),
+      set innerHTML(v) { this._h = v; w.porId.pTamKilos = kil; w.porId.pTamMas = mas; }, get innerHTML() { return this._h; } });
+    w.ctx.Event = function (tp) { this.type = tp; };
+    const g = w.porId.pGramaje;
+    g.dispatchEvent = ev => eventos.push(ev.type);
+    g.value = '500 g';
+    w.ctx._etqTamanoBolsa(true);
+    t('por peso, el tamaño se escribe en kilos: el campo de siempre se esconde y va uno con "kilos" al lado, de 5 caracteres',
+      creada && creada.id === 'pTamKilosWrap' && g.style.display === 'none' && creada.style.display === '' &&
+      creada.innerHTML.indexOf('id="pTamKilos" maxlength="5" placeholder="Ej: 5"') > 0 && creada.innerHTML.indexOf('<span class="vfe-unidad">kilos</span>') > 0);
+    t('  muestra lo que ya tenía, en kilos: 500 g son 0,5', kil.value === '0,5', kil.value);
+    kil.value = '2 5a';
+    kil.handlers.input();
+    t('  solo toma el número (sin espacios ni letras), y guarda la etiqueta de siempre: "25 kg"',
+      kil.value === '25' && g.value === '25 kg' && eventos.join() === 'input', kil.value + ' / ' + g.value);
+    kil.value = '0.5';
+    kil.handlers.input();
+    t('  con coma para medio kilo: "0,5 kg"', kil.value === '0,5' && g.value === '0,5 kg', g.value);
+    t('  sin "Agregar otra bolsa" abajo, no ofrece más tamaños', mas.style.display === 'none');
+    const q0 = w.ctx.document.querySelector;
+    w.ctx.document.querySelector = sel => (sel === '#pVariantes .var-agregar' ? {} : q0(sel));
+    w.ctx._etqTamanoBolsa(true);
+    t('  con el botón abajo, "¿Querés disponer de más tamaños?" aparece', mas.style.display === '' &&
+      creada.innerHTML.indexOf('onclick="irAMasTamanos()">¿Querés disponer de más tamaños?</button>') > 0);
+    w.ctx._etqTamanoBolsa(false);
+    t('por unidad, Gramaje / Presentación como siempre, y lo de kilos se esconde', g.style.display === '' && creada.style.display === 'none');
+    const cl = () => ({ c: [], add(x) { this.c.push(x); }, remove(x) { this.c = this.c.filter(y => y !== x); } });
+    const btn = { classList: cl(), clics: 0, click() { this.clics++; } };
+    const sec = { classList: cl(), scrollIntoView(o) { this.bajo = o; }, querySelector: s => (s === '.var-agregar' ? btn : null) };
+    w.porId.pVariantesSec = sec;
+    const timers = [];
+    w.ctx.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+    w.ctx.irAMasTamanos();
+    t('"¿Querés disponer de más tamaños?" baja hasta la sección, sin tocar el botón',
+      sec.bajo && sec.bajo.behavior === 'smooth' && btn.clics === 0 && !sec.classList.c.length && timers.length === 1 && timers[0].ms === 450);
+    timers[0].fn();
+    t('  al llegar, resalta la sección y el botón', sec.classList.c.join() === 'resaltar' && btn.classList.c.join() === 'resaltar' &&
+      timers.length === 2 && timers[1].ms === 1000);
+    timers[1].fn();
+    t('  un segundo, y se apaga', !sec.classList.c.length && !btn.classList.c.length && btn.clics === 0);
+  }
 
   /* ============================================== EL AVISO DE LOS PEDIDOS WEB */
   console.log('\n-- el aviso de los pedidos web --');

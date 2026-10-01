@@ -788,6 +788,53 @@ function _etqTamanoBolsa(peso) {
   const html = peso ? _ETQ_TAM_PESO : _ETQ_TAM_UNIDAD;
   if (lbl.innerHTML !== html) lbl.innerHTML = html;
   inp.placeholder = peso ? 'Ej: 5 kg' : 'Ej: 500g ó 1kg';
+  _campoKilos(wrap, inp, peso);
+}
+
+/* En un producto por peso, el tamaño de la bolsa se escribe en kilos: solo el número, con
+   "kilos" al lado y hasta 5 caracteres (pedido del dueño, 30/09: escribían "2 kg, 3 kg" en un
+   solo producto). Es el campo de la tabla de bolsas (_tamPartes, _tamTexto y limpiarNumeroTam,
+   admin-variantes.js). Gramaje / Presentación queda escondido y sigue guardando la etiqueta de
+   siempre ("2 kg"), que es la que lee todo lo demás. Abajo, el camino para tener más tamaños. */
+function _campoKilos(wrap, inp, peso) {
+  let caja = document.getElementById('pTamKilosWrap');
+  if (!caja && peso && typeof document.createElement === 'function' && wrap.appendChild) {
+    caja = document.createElement('div');
+    caja.id = 'pTamKilosWrap';
+    caja.innerHTML =
+      '<div class="vfe-tamw tam-kilos"><input type="text" inputmode="decimal" class="form-input" id="pTamKilos" ' +
+        'maxlength="5" placeholder="Ej: 5" autocomplete="off"><span class="vfe-unidad">kilos</span></div>' +
+      '<button type="button" class="var-link tam-mas" id="pTamMas" onclick="irAMasTamanos()">¿Querés disponer de más tamaños?</button>';
+    wrap.appendChild(caja);
+    const k = caja.querySelector('input');
+    k.addEventListener('input', () => {
+      if (typeof limpiarNumeroTam === 'function') limpiarNumeroTam(k);
+      inp.value = typeof _tamTexto === 'function' ? _tamTexto(k.value, 'kg') : (k.value ? k.value + ' kg' : '');
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+  if (!caja) return;
+  inp.style.display = peso ? 'none' : '';
+  caja.style.display = peso ? '' : 'none';
+  if (!peso) return;
+  const k = document.getElementById('pTamKilos');
+  if (k && document.activeElement !== k) k.value = typeof _tamPartes === 'function' ? _tamPartes(inp.value, true).num : '';
+  /* Solo si abajo está "Agregar otra bolsa": no está en una bolsa que no es la principal ni en
+     una variante nueva. */
+  const mas = document.getElementById('pTamMas');
+  if (mas) mas.style.display = document.querySelector('#pVariantes .var-agregar') ? '' : 'none';
+}
+
+/* "¿Querés disponer de más tamaños?": baja hasta "Bolsas y precios por cantidad" y resalta un
+   segundo la sección y el botón "Agregar otra bolsa", sin tocarlo: lo toca el que carga
+   (pedido del dueño, 30/09). Se resalta al terminar de bajar: antes casi no se ve. */
+function irAMasTamanos() {
+  const sec = document.getElementById('pVariantesSec');
+  if (!sec) return;
+  const btn = sec.querySelector('.var-agregar');
+  if (sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const marcar = si => [sec, btn].forEach(e => { if (e && e.classList) e.classList[si ? 'add' : 'remove']('resaltar'); });
+  setTimeout(() => { marcar(true); setTimeout(() => marcar(false), 1000); }, 450);
 }
 
 function costoBolsaEscrito(inp) {

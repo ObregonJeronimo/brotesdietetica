@@ -205,6 +205,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('  con el "?" del redondeo, una vez', (r[0].match(/muestra unos pesos de más o de menos/g) || []).length === 1);
     t('la Almendra, que no dice de cuánto es la bolsa, la pregunta en la fila (30/09): el número y al lado kg o g, de entrada kg',
       /<span id="cpBolsaEtq1">¿De cuánto es la bolsa\?<\/span><span class="cp-bolsa-tam"><input type="text"[^>]*placeholder="Ej: 5"[^>]*oninput="compraCampo\(1,'bolsa',this.value\)"><select[^>]*onchange="compraCampo\(1,'bolsaUnidad',this.value\)"><option value="kg" selected>kg<\/option><option value="g">g<\/option><\/select><\/span>/.test(h) &&
+      h.indexOf('<span class="cp-bolsa-tam"><input type="text" inputmode="decimal" maxlength="5" class="form-input" placeholder="Ej: 5"') > 0 &&
       /id="cpBolsa1" value="" disabled oninput="compraCampo\(1,'costoBolsa',this.value\)"/.test(h) &&
       h.indexOf('<span class="cp-kilo falta" id="cpKilo1">falta la bolsa</span>') > 0);
   }
