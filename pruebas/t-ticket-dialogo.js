@@ -313,6 +313,24 @@ async function abrirDialogo() {
   r = await fn('reimprimirTicket', T.sb)('NO-EXISTE');
   t('una venta que no está no imprime nada', r === false && !T.est.impresos.length);
 
+  grupo('Los avisos que cuidan plata arrancan en Volver (revisión del 01/10)');
+  {
+    const D2 = panelDialogo();
+    const p2 = vm.runInContext("pedirConfirmacion('Con este precio no ganás nada', {titulo:'Se vende sin ganancia', aceptar:'Registrar igual', cancelar:'Volver', focoEnNo:true})", D2.sb);
+    await esperar(60);
+    t('el foco arranca en Volver', !!D2.doc.activeElement && D2.doc.activeElement.className === 'dlg-no');
+    D2.doc.activeElement = null;
+    D2.est.teclados.slice().forEach(f => f(tecla('Enter', 500)));
+    t('y un Enter que no está sobre un botón dice que no', (await p2) === false);
+    const D3 = panelDialogo();
+    const p3 = vm.runInContext("pedirConfirmacion('x', {titulo:'x', aceptar:'Sí', cancelar:'No'})", D3.sb);
+    await esperar(60);
+    t('los demás siguen como siempre: arrancan en el de sí', !!D3.doc.activeElement && D3.doc.activeElement.className === 'dlg-si');
+    D3.doc.activeElement = null;
+    D3.est.teclados.slice().forEach(f => f(tecla('Enter', 500)));
+    t('  y el Enter acepta', (await p3) === true);
+  }
+
   console.log('\n' + ok + ' pasaron, ' + mal + ' fallaron');
   process.exit(mal ? 1 : 0);
 })().catch(e => {

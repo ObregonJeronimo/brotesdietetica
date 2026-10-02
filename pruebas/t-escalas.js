@@ -1203,8 +1203,11 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
       JSON.stringify(s1.map(s => [s.chica.id, s.grande.id, s.ctx, s.kgChica, s.kgGrande])));
     t('  sin pasarse, nada: la de 3 kg a $7.900', salta({ y3: { precio: 7900, precioMayorista: 5850 } }).length === 0);
     t('  igual tampoco: la de 3 kg a $8.000, lo mismo que la de 1 kg', salta({ y3: { precio: 8000, precioMayorista: 5850 } }).length === 0);
-    const s2 = salta({ y3: { precio: 7200, precioMayorista: 6600 } });
+    /* El mayorista se compara si las dos tienen su % mayorista (revisión del 01/10). */
+    const conPct = armar({ productos: catalogo().map(p => (['y1', 'y3', 'y5'].indexOf(p.id) >= 0 ? Object.assign(p, { porcentajeMayorista: 30 }) : p)) });
+    const s2 = conPct.ctx.bolsasMasCarasPorKilo(new Map([['y3', { precio: 7200, precioMayorista: 6600 }]]));
     t('  el mayorista también: $6.600 el kilo la de 3 kg contra $6.500 la de 1 kg', s2.length === 1 && s2[0].ctx === 'may' && s2[0].kgGrande === 6600);
+    t('  sin el % mayorista en las dos, el mayorista no se compara (revisión del 01/10)', salta({ y3: { precio: 7200, precioMayorista: 6600 } }).length === 0);
     const s3 = salta({ y5: { precio: 7300, precioMayorista: 4900 } });
     t('  la de 5 kg se compara con la de al lado, la de 3 kg', s3.length === 1 && s3[0].chica.id === 'y3' && s3[0].grande.id === 'y5');
     const s4 = salta({ y1: { precio: 7000, precioMayorista: 6500 } });
@@ -1221,6 +1224,21 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     const s6 = sinMay.ctx.bolsasMasCarasPorKilo(new Map([['y3', { precio: 8400, precioMayorista: 0 }]]));
     t('  sin precio mayorista en ninguna de las dos, solo la de mostrador: la mayorista cobra lo mismo (01/10)',
       s6.length === 1 && s6[0].ctx === 'min', JSON.stringify(s6.map(s => [s.chica.id, s.grande.id, s.ctx])));
+    const viejo = armar({ productos: catalogo().map(p => (p.id === 'y1' ? Object.assign(p, { porcentajeMayorista: 0, precioMayorista: 5000 })
+      : p.id === 'y3' ? Object.assign(p, { porcentajeMayorista: 0, precioMayorista: 4500 }) : p)) });
+    t('  con el % mayorista en 0 y el mayorista viejo igual al costo, actualizar la de 3 kg no avisa de más (revisión del 01/10)',
+      viejo.ctx.bolsasMasCarasPorKilo(new Map([['y3', { precio: 7400, precioMayorista: 0 }]])).length === 0);
+    const ya = armar({ productos: catalogo().map(p => (p.id === 'y3' ? Object.assign(p, { precio: 8600 }) : p)) });
+    t('  si el salto ya estaba ($8.600 contra $8.000) y el cambio lo achica ($8.300), no avisa (revisión del 01/10)',
+      ya.ctx.bolsasMasCarasPorKilo(new Map([['y3', { precio: 8300, precioMayorista: 5850 }]])).length === 0);
+    const peor = ya.ctx.bolsasMasCarasPorKilo(new Map([['y3', { precio: 8900, precioMayorista: 5850 }]]));
+    t('  si lo agranda ($8.900), sí', peor.length === 1 && peor[0].kgGrande === 8900);
+    const sinPrecio = armar({ productos: catalogo().map(p => (p.id === 'y1' ? Object.assign(p, { precio: 0 }) : p)) });
+    const s7 = sinPrecio.ctx.bolsasMasCarasPorKilo(new Map([['y1', { precio: 7000, precioMayorista: 6500 }]]));
+    t('  si la de 1 kg no tenía precio y queda a $7.000, con la de 3 kg a $7.200, avisa: el salto es nuevo',
+      s7.length === 1 && s7[0].chica.id === 'y1' && s7[0].grande.id === 'y3' && s7[0].ctx === 'min' && s7[0].kgChica === 7000 && s7[0].kgGrande === 7200,
+      JSON.stringify(s7.map(s => [s.chica.id, s.grande.id, s.ctx, s.kgChica, s.kgGrande])));
+    t('  y dice qué bolsas son del producto, para dejarlas como estaban', s1[0].grupo.join() === 'y1,y3,y5', JSON.stringify(s1[0].grupo));
     const txt = w.ctx.textoBolsasMasCaras(s1);
     t('el aviso lo dice claro: cada bolsa con su kilo, la más cara marcada, y qué conviene',
       txt === 'Con este cambio, una bolsa más grande sale más cara por kilo que una más chica:\n\n' +

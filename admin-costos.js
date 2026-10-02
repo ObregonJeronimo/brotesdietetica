@@ -198,39 +198,59 @@ async function avisoCostosViejos(items, ctx) {
 /* ------------------------------------------- VENDER AL MAYORISTA SIN GANANCIA
    Pedido del dueño (01/10). Con el % mayorista en 0, la ficha daba de mayorista el costo
    redondeado a $50: en la venta mayorista se cobraba lo mismo que costó, sin aviso (el 01/10,
-   250 productos estaban así). Sin ganancia es cobrar eso o menos: el costo redondeado a $50. */
+   250 productos estaban así). Sin ganancia es cobrar menos del 5% por encima del costo: el costo
+   redondeado a $50 en uno de miles es el costo o casi, pero en uno de $101 son $150 y sí deja
+   ganancia (revisión del 01/10: se comparaba con el redondeo y lo marcaba). */
 function _mayoristaSinGanancia(precio, costo) {
-  const redondear = (typeof _redondearMayorista === 'function')
-    ? _redondearMayorista : (n => (n ? Math.ceil(n / 50) * 50 : 0));
-  return Number(costo) > 0 && Number(precio) <= redondear(Math.round(Number(costo)));
+  return Number(costo) > 0 && Number(precio) < Number(costo) * 1.05;
 }
-/* Al registrar una venta mayorista: si algún renglón se cobra sin ganancia (con su descuento),
-   lo dice con el precio y el costo, y pregunta. Devuelve true si la venta sigue. */
-async function avisoMayoristaSinGanancia(items) {
+/* Al registrar una venta mayorista: si algún renglón se cobra sin ganancia, lo dice y pregunta.
+   `dscVenta`: el % de descuento de toda la venta, que también cuenta (revisión del 01/10). Cada
+   renglón dice por qué: un descuento que lo deja así (con el texto que pidió el dueño), un precio
+   por debajo del costo (cuánto se pierde) o un precio igual al costo o casi. Arranca en "Volver".
+   Devuelve true si la venta sigue. */
+async function avisoMayoristaSinGanancia(items, dscVenta) {
   /* Si el diálogo no cargó, la venta no se frena: un aviso nunca puede impedir cobrar. */
   if (typeof pedirConfirmacion !== 'function') return true;
   const prods = typeof allProducts !== 'undefined' ? allProducts : [];
+  const general = Math.min(100, Math.max(0, Number(dscVenta) || 0));
   const vistos = new Set();
   const malos = [];
   (items || []).forEach(it => {
     if (!it || vistos.has(it.id)) return;
-    const cobra = typeof precioConDsc === 'function' ? precioConDsc(it)
-      : Math.round(Number(it.precio || 0) * (1 - (Number(it.descuento) || 0) / 100));
-    if (!_mayoristaSinGanancia(cobra, it.costo)) return;
+    const lista = Number(it.precio || 0);
+    const linea = Math.min(100, Math.max(0, Number(it.descuento) || 0));
+    const conLinea = typeof precioConDsc === 'function' ? precioConDsc(it) : Math.round(lista * (1 - linea / 100));
+    const cobra = Math.round(conLinea * (1 - general / 100));
+    const costo = Number(it.costo || 0);
+    if (!_mayoristaSinGanancia(cobra, costo)) return;
     vistos.add(it.id);
     const p = prods.find(x => x && x.id === it.id) || it;
-    malos.push({ nombre: _costoNombre(p), cobra: cobra, costo: Number(it.costo), kg: _costoUnidad(p) });
+    const nombre = _costoNombre(p), kg = _costoUnidad(p);
+    const quedaEn = _costoPesos(cobra) + kg + ' por ' + (linea > 0 && general > 0 ? 'los descuentos aplicados' : 'el descuento aplicado') +
+      ' (costó ' + _costoPesos(costo) + kg + ')';
+    if (!_mayoristaSinGanancia(lista, costo) && (linea > 0 || general > 0)) {
+      malos.push({ dsc: true, txt: linea > 0 && general > 0
+        ? nombre + ' tiene un descuento del ' + linea + '% y la venta otro del ' + general + '%: se va a vender a ' + quedaEn
+        : linea > 0 ? nombre + ' tiene un descuento del ' + linea + '%: se va a vender a ' + quedaEn
+          : nombre + ': la venta tiene un descuento del ' + general + '%, se va a vender a ' + quedaEn });
+      return;
+    }
+    const cant = Number(it.cantidad || 0) / (it.tipoVenta === 'peso' ? 1000 : 1);
+    malos.push({ dsc: false, txt: nombre + ': se cobra ' + _costoPesos(cobra) + kg + ' y costó ' + _costoPesos(costo) + kg +
+      (cobra < costo ? ': perdés ' + _costoPesos((costo - cobra) * cant) : '') });
   });
   if (!malos.length) return true;
   const NL = String.fromCharCode(10);
-  const uno = malos.length === 1;
+  const nPct = malos.filter(m => !m.dsc).length;
   return pedirConfirmacion(
-    (uno ? 'Este producto se cobra lo mismo que costó (o casi): no ganás nada con él.'
-      : 'Estos productos se cobran lo mismo que costaron (o casi): no ganás nada con ellos.') + NL + NL +
-    malos.slice(0, 8).map(m => '- ' + m.nombre + ': se cobra ' + _costoPesos(m.cobra) + m.kg + ' y costó ' + _costoPesos(m.costo) + m.kg).join(NL) +
+    (malos.length === 1 ? 'Con este precio no ganás nada (o casi nada):' : 'Con estos precios no ganás nada (o casi nada):') + NL + NL +
+    malos.slice(0, 8).map(m => '- ' + m.txt).join(NL) +
     (malos.length > 8 ? NL + '- y ' + (malos.length - 8) + ' más' : '') + NL + NL +
-    (uno ? 'Revisá su' : 'Revisales el') + ' % de ganancia mayorista en Productos. ¿Registrar la venta igual?',
-    { titulo: 'Se vende sin ganancia', aceptar: 'Registrar igual', cancelar: 'Volver', icono: 'bi-exclamation-triangle', cuidado: true });
+    [nPct ? (nPct === 1 ? 'Revisá su' : 'Revisales el') + ' % de ganancia mayorista en Productos.' : '',
+      malos.length > nPct ? 'Si no querés venderlo así, cambiá el descuento.' : '',
+      '¿Registrar la venta igual?'].filter(Boolean).join(' '),
+    { titulo: 'Se vende sin ganancia', aceptar: 'Registrar igual', cancelar: 'Volver', icono: 'bi-exclamation-triangle', cuidado: true, focoEnNo: true });
 }
 
 /* ------------------------------------------------------------ EL EDITOR */
@@ -431,7 +451,7 @@ async function guardarEditorCostos() {
     const seguir = await pedirConfirmacion(textoBolsasMasCaras(saltos) + NL + NL +
       'Si tocás "Volver", no se guarda nada y podés corregirlo. ¿Querés guardar igual?',
       { titulo: 'Ojo: la bolsa más grande quedaría más cara', aceptar: 'Guardar igual', cancelar: 'Volver',
-        icono: 'bi-exclamation-triangle', cuidado: true });
+        icono: 'bi-exclamation-triangle', cuidado: true, focoEnNo: true });
     ed.guardando = false;
     if (!seguir) return;
   }

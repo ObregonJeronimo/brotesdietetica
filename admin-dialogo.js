@@ -25,11 +25,15 @@ let _dlgAbiertos = 0;
 
 /**
  * @param {string} mensaje  Texto principal. Los saltos de línea se respetan.
- * @param {Object} [opts]   { titulo, aceptar, cancelar, peligro, icono, alerta, cuidado }
+ * @param {Object} [opts]   { titulo, aceptar, cancelar, peligro, icono, alerta, cuidado, focoEnNo }
  *                          alerta: el ícono en rojo, sin volver rojo el botón (un aviso
  *                          que frena, como "Stock insuficiente", no borra nada).
  *                          cuidado: el ícono en amarillo (un aviso que deja seguir, como
  *                          vender sin stock suficiente: 29/09).
+ *                          focoEnNo: el foco arranca en el botón de no, y un Enter que no
+ *                          está sobre un botón dice que no. Para los avisos que cuidan
+ *                          plata ("Se vende sin ganancia"): un doble Enter no los acepta
+ *                          sin leerlos (revisión del 01/10).
  * @returns {Promise<boolean>}
  */
 function pedirConfirmacion(mensaje, opts) {
@@ -42,6 +46,7 @@ function pedirConfirmacion(mensaje, opts) {
      "Cancelar" igual, y en un aviso no hay nada que cancelar (chequeo del 25/09). */
   const sinNo = opts.cancelar === null;
   const icono = opts.icono || (peligro ? 'bi-exclamation-octagon' : 'bi-question-circle');
+  const focoNo = !!opts.focoEnNo && !sinNo;
 
   return new Promise(resolve => {
     const ov = document.createElement('div');
@@ -106,7 +111,7 @@ function pedirConfirmacion(mensaje, opts) {
         /* Si el foco está en un botón, que decida el botón. */
         if (document.activeElement && document.activeElement.classList &&
             (document.activeElement.classList.contains('dlg-si') || document.activeElement.classList.contains('dlg-no'))) return;
-        e.preventDefault(); cerrar(true);
+        e.preventDefault(); cerrar(!focoNo);
       }
       /* Son dos botones y una sola fila: las flechas son la forma natural de
          elegir sin soltar el teclado, que es como se atiende el mostrador. */
@@ -125,7 +130,7 @@ function pedirConfirmacion(mensaje, opts) {
     document.addEventListener('keydown', onTecla, true);
 
     setTimeout(() => {
-      const b = ov.querySelector(peligro ? '.dlg-no' : '.dlg-si');
+      const b = ov.querySelector(peligro || focoNo ? '.dlg-no' : '.dlg-si');
       if (b) b.focus();
     }, 30);
   });

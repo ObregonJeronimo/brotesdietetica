@@ -199,7 +199,7 @@ console.log('\n-- los grupos, juntos --');
     const q = a.preguntas[0];
     t('si hay productos con el mayorista igual al costo (o casi), avisa cuáles y que quedan afuera',
       a.preguntas.length === 1 && q.op.titulo === 'Mayorista sin ganancia' && q.op.aceptar === 'Exportar sin esos' && q.op.cancelar === 'Cancelar' &&
-      q.m.indexOf('2 productos tienen el precio mayorista igual al costo (o casi): en la lista, el cliente los vería a precio de costo.') === 0 &&
+      q.m.indexOf('2 productos tienen un precio mayorista que no deja ganancia, y no van en la lista:') === 0 &&
       q.m.indexOf('- Almendras: mayorista $21.500 el kilo, costó $21.500 el kilo\n- Mula Cafe: mayorista $10.150, costó $10.110') > 0 &&
       q.m.indexOf('¿Exportar la lista sin ellos (queda 1 producto)?') > 0, q && q.m);
     t('  "Exportar sin esos": la lista sale solo con los que dejan ganancia',
@@ -210,6 +210,9 @@ console.log('\n-- los grupos, juntos --');
     t('  "Cancelar" no exporta nada', b.preguntas.length === 1 && !b.anotados.guardado);
     const c = await correrMay(MAY.filter(p => p.id === 'chi'), true);
     t('  si todos dejan ganancia, no pregunta y exporta', c.preguntas.length === 0 && /^BROTES_mayorista_/.test(c.anotados.guardado || ''));
+    const e = await correrMay([{ id: 'car', nombre: 'Caramelo', tipoVenta: 'unidad', costo: 101, precio: 160, precioMayorista: 150, categoria: 'Semillas' }], true);
+    t('  uno barato con ganancia de verdad (costo $101, mayorista $150) va en la lista, sin preguntar (revisión del 01/10)',
+      e.preguntas.length === 0 && e.anotados.some(x => x.s.indexOf('Caramelo') === 0), e.anotados.map(x => x.s).join(' | '));
     const d = await correrMay(MAY.filter(p => p.id !== 'chi'), true);
     t('  si ninguno deja ganancia, lo dice y no exporta',
       d.preguntas.length === 1 && d.preguntas[0].op.cancelar === null && d.preguntas[0].m.indexOf('No queda ninguno con ganancia para la lista.') > 0 &&

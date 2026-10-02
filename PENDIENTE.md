@@ -2137,7 +2137,7 @@ costo y su porcentaje (lectura del 01/10).
 - "Actualizar" guarda el costo, el precio y el mayorista recalculados con el mismo porcentaje
   (`preciosDesdeCosto`, la misma cuenta que la ventana de costos y la ficha), con la fecha del costo.
   El aviso dice "Precio nuevo: $X (antes $Y)" y "Mayorista nuevo: ...". "Dejar como estaba" no toca
-  nada.
+  nada. Desde §AI, sin % de ganancia el precio no se toca, y si un precio baja, el aviso lo marca.
 - Al lado del costo de la bolsa, en vez de solo "$X el kilo", van el kilo, el precio y el
   mayorista, como en la ventana de costos (`_cpVistaHtml` usa `_costoVistaHtml`): con el costo de
   siempre, los precios que tiene; con otro, los que va a tener. Los renglones por unidad no lo tenían
@@ -2170,7 +2170,8 @@ por kilo.
   que se cambia, y solo bolsas que se venden juntas (las de `escalasDe`: sin ocultas, por unidad ni
   sin tamaño). `textoBolsasMasCaras` arma el texto, con el kilo de las dos bolsas.
 - Cargar compra: después de "Actualizar", si pasa, "Ojo: la bolsa más grande quedaría más cara", con
-  "Actualizar igual" / "No actualizar" (no toca costos ni precios; la compra ya quedó guardada).
+  "Actualizar igual" / "No actualizar" (no toca costos ni precios; la compra ya quedó guardada;
+  desde §AI, deja como estaban solo las bolsas de ese producto y el resto se actualiza).
 - Ventana de costos: al guardar, el mismo aviso, con "Guardar igual" / "Volver" (no guarda nada y la
   ventana sigue abierta). Con el aviso encima, el Escape cerraba también la ventana: ya no.
 - No lo tienen (no se pidió): la ficha, la tabla de bolsas, Importar Costos y el PDF semanal.
@@ -2200,7 +2201,8 @@ cajas cerradas. El precio mayorista solo se usa en Ventas > Mayoristas, en la li
 las cajas cerradas (mostrador y tienda); el mostrador y la tienda cobran siempre el de mostrador.
 Thiago aprobó los tres puntos:
 1. Aviso al registrar una venta mayorista (`avisoMayoristaSinGanancia`, admin-costos.js): si algún renglón
-   se cobra igual o menos que el costo redondeado a $50 (con su descuento), "Se vende sin ganancia",
+   se cobra igual o menos que el costo redondeado a $50 (con su descuento; desde §AI, menos del 5% sobre
+   el costo, y cuenta también el descuento de toda la venta), "Se vende sin ganancia",
    con el precio y el costo de cada uno, y "Registrar igual" / "Volver". Al crear y al editar, junto al
    de "Falta el precio mayorista", que sigue igual. Cubre los 222 sin tocar datos.
 2. Con el % mayorista en 0, sin precio mayorista (0): en la ficha (y su tabla de bolsas), la ventana de
@@ -2214,7 +2216,8 @@ Thiago aprobó los tres puntos:
 3. Lista PDF mayorista: los que tienen el mayorista igual al costo (o casi) quedan afuera, con un aviso
    que dice cuáles y cuántos quedan ("Exportar sin esos" / "Cancelar"); si no queda ninguno, lo dice y
    no exporta.
-- El aviso de la bolsa más cara (§AG) no compara precios mayoristas si ninguna de las dos bolsas tiene.
+- El aviso de la bolsa más cara (§AG) no compara precios mayoristas si ninguna de las dos bolsas tiene
+  (desde §AI, si alguna de las dos no tiene el % mayorista).
 - Ojo, para hablar: en un grupo de bolsas, si una queda sin % mayorista y las otras con, en la venta
   mayorista esa bolsa se cobra al de mostrador y puede quedar más cara por kilo que una más chica (en
   la prueba, la de 5 kg a $12.800 el kilo contra $11.050 la de 3 kg). Antes se vendía al costo. Conviene
@@ -2230,6 +2233,85 @@ Castaña de Cajú sin mayorista, Aceite De Oliva con 30%, Maní, y las bolsas de
   el precio nuevo, $1.520), compra con "Actualizar" (Nuez Orgánico a $7.000: precio $13.300,
   mayorista 0, stock +3), ficha del Maní (mayorista 0) y tabla de bolsas (5 kg con 0%: mayorista 0).
 Pruebas: 32 nuevas; con el código de antes fallan. Total: 3972 en 90 suites.
+
+### AI) Revisión antes de subir AF a AH · **HECHO, SIN SUBIR** (01/10/2026)
+
+Thiago pidió revisar todo antes de subir y avisarle si había algo. Se revisó a mano y con dos
+revisores aparte (cuentas y plata; textos y pruebas), y cada hallazgo se comprobó antes de
+arreglarlo. Thiago aprobó los arreglos; los menores quedan anotados abajo, sin hacer (pedido suyo).
+- **El aviso de la bolsa más cara (§AG) salía de más.** Con el % mayorista en 0 y el mayorista viejo
+  igual al costo, comparaba el de mostrador como si fuera un mayorista (Nuez de 1 y 3 kg: "mayorista
+  1 kg $10.000, 3 kg $14.880"). Ahora el mayorista se compara solo si las dos bolsas tienen su %.
+  Tampoco avisa si el salto ya estaba y el cambio lo achica; sí si es nuevo (también si la chica no
+  tenía precio) o si lo agranda.
+- **Compra, "No actualizar" en ese aviso:** no actualizaba nada de la compra, tampoco otros productos
+  (un aumento del proveedor podía quedar sin aplicar). Ahora deja como estaban solo las bolsas de ese
+  producto y el resto se actualiza; el aviso lo dice.
+- **"Se vende sin ganancia" (§AH):**
+  - decía "lo mismo que costó (o casi)" aunque se perdiera plata (en producción, HARINA DE SESAMO x
+    25 Kg: mayorista $746, costo $2.828). Ahora: "se cobra $X y costó $Y: perdés $Z" (el renglón);
+  - si es por un descuento, lo dice con el texto que pidió Thiago, sin "perdés": "Aceite De Oliva
+    tiene un descuento del 25%: se va a vender a $15.300 por el descuento aplicado (costó $15.654)", y
+    al final "Si no querés venderlo así, cambiá el descuento";
+  - cuenta también el descuento de toda la venta (con 25%, el Aceite De Oliva quedaba debajo del
+    costo sin aviso);
+  - sin ganancia es cobrar menos del 5% por encima del costo (`_mayoristaSinGanancia`; también la lista
+    PDF mayorista). Antes era el costo redondeado a $50: uno de $101 con mayorista $150, un 48%, salía
+    marcado y quedaba afuera de la lista. En producción da lo mismo: los mismos 222 marcados y los 6
+    con ganancia (del 20% al 100%) en la lista (lectura del 01/10).
+- **Compra, al lado de un costo con centavos:** mostraba otro mayorista que el que se guardaba
+  ($1.154,40: mostraba $1.500 y guardaba $1.550). Ahora usa la misma cuenta que el aviso.
+- **"Actualizar" en la compra podía bajar el precio:** a un producto sin % de ganancia le dejaba el
+  precio igual al costo, y a uno redondeado a mano le sacaba el redondeo (en producción, solo
+  ocultos: 69 sin % y 85 redondeados). Ahora, sin %, el precio no se toca y el aviso lo dice ("queda
+  en $X (no tiene % de ganancia cargado)"); si un precio nuevo queda más bajo que el que tiene, lo
+  marca ("ojo, baja aunque el costo subió").
+- **Un doble Enter aceptaba los avisos sin leerlos:** "Se vende sin ganancia" y los de la bolsa más
+  cara (compra y ventana de costos) arrancan en "Volver" o "No actualizar" (`focoEnNo` en
+  `pedirConfirmacion`), y un Enter que no está sobre un botón dice que no.
+- Lista PDF mayorista: el aviso dice "no deja ganancia, y no va en la lista".
+
+Menores, anotados sin hacer (Thiago: "son cosas que no van a molestar"):
+- El aviso de la lista PDF mayorista con un solo producto: "cargales" y "Exportar sin esos" quedan en
+  plural.
+- El Historial anota "mayorista $0" cuando no tiene mayorista.
+- En la ficha, el mayorista se ve "0" y la explicación sale solo al pasar el mouse (en el celular no
+  se ve).
+- Pruebas que solo miran el texto del código: la del Escape de la ventana de costos pasa aunque se
+  borre la línea; `calcPrecioModal`, `aplicarMayoristaPct`, `_valoresPpal` y `ed.guardando` no tienen pruebas que
+  corran la función.
+
+Vienen de antes, para más adelante:
+- Importar Costos (Excel) y los "reaparecidos" del PDF semanal cambian el costo y el precio, pero no
+  el mayorista: si el costo sube, el mayorista viejo puede quedar debajo del costo nuevo (lo atajan
+  el aviso de la venta mayorista y la lista PDF).
+- La vista previa de productos nuevos del PDF semanal, con May% 0, muestra "→ $costo" de mayorista,
+  pero guarda 0 (es solo lo que se ve).
+- La ventana de costos y la ficha, a un producto sin % de ganancia, le siguen poniendo el precio igual
+  al costo (la compra ya no).
+- Envasado propio (`padreId`): "Actualizar" en la compra y la ventana de costos no pasan el costo
+  nuevo del padre a los hijos; el PDF semanal sí. No se sabe si se espera eso.
+- Para hablar con la clienta (lectura del 01/10): "Chalitas integrales DeliRe" se vende en mostrador
+  a $12.000, lo mismo que costó, y en mayorista a $19.800; "Alfajor de Maicena" tiene mayorista
+  $2.700 y mostrador $2.690; "Nugget de atun" y "Tarta de pollo", el mismo en los dos.
+
+Probado en el sandbox con clics de verdad (todos los números bien: compras, costos, precios, ventas
+y stock):
+- compra de la bolsa de 3 kg de Nuez, con el mayorista viejo al costo: sin aviso de más (costo
+  $8.900, precio $14.240, mayorista 0, stock +3 kg);
+- compra con un salto de verdad en esas bolsas y Nuez Orgánico: el aviso arrancó en "No actualizar";
+  la bolsa quedó como estaba ($8.900, $14.240, mayorista $11.600; stock +3 kg) y Nuez Orgánico se
+  actualizó ($7.050, $13.395, mayorista 0; stock +2), con "Precio nuevo: $13.395 (antes $13.500: ojo,
+  baja aunque el costo subió)". Compra $42.600;
+- compra con Castaña de Cajú (sin %: "queda en $12.920", y se guardó así) y Aceite De Oliva a
+  $15.654,40 (lo de al lado, $29.743 y $20.400, igual a lo que se guardó). Compra $52.309;
+- venta mayorista con 25% en un renglón y después en toda la venta: los textos del descuento y
+  "perdés $550" / "perdés $613"; arranca en "Volver" y el Enter no guarda. Con "Registrar igual":
+  $20.800 menos 25%, $15.600, y el stock bien. Uno de costo $101 con mayorista $150 no salió marcado;
+- ventana de costos: el aviso de la bolsa arranca en "Volver" y el Enter no guarda;
+- lista PDF mayorista: el aviso nuevo, "Cancelar" (no exporta) y "Exportar sin esos" (91 productos,
+  sin el de mayorista al costo y con el de $150; sin descargar el archivo).
+Pruebas: 23 más y algunas cambiadas; con el código de antes fallan. Total: 3995 en 90 suites.
 
 ---
 

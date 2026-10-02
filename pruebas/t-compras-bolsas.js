@@ -70,7 +70,7 @@ function armar(opts) {
     fmtPeso: g => (Math.abs(g) < 1000 ? g + ' g' : (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg'),
     showAdminToast: (m, tipo) => avisos.push((tipo || '') + ': ' + m),
     pedirConfirmacion: async (m, op) => {
-      preguntas.push({ titulo: op && op.titulo, m, aceptar: op && op.aceptar, cancelar: op && op.cancelar });
+      preguntas.push({ titulo: op && op.titulo, m, aceptar: op && op.aceptar, cancelar: op && op.cancelar, foco: op && op.focoEnNo });
       const r = respuestas[op && op.titulo];
       return r === undefined ? true : r;
     },
@@ -544,7 +544,9 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       act.m.indexOf('Almendra\n- Tenía cargado: $350.000 la bolsa de 25 kg ($14.000 el kilo)\n- En esta compra: $75.000 la bolsa de 25 kg ($3.000 el kilo)') >= 0 &&
       act.m.indexOf('En esta compra pagaste distinto de lo que tenían cargado estos productos:') === 0 &&
       act.m.indexOf('Si tocás "Actualizar", quedan con el costo de esta compra, y el precio y el mayorista se recalculan con el mismo porcentaje de siempre.') > 0 &&
-      (act.m.match(/- Precio nuevo: /g) || []).length === 2 && (act.m.match(/- Mayorista nuevo: /g) || []).length === 2, act && act.m);
+      /* Sin % de ganancia cargado (estos no lo tienen), el precio no se toca (revisión del 01/10). */
+      act.m.split('- Precio: queda en $0 el kilo (no tiene % de ganancia cargado)').length === 3 &&
+      (act.m.match(/- Mayorista nuevo: /g) || []).length === 2, act && act.m);
   }
   {
     const v = armar({ productos: catalogo().concat([P('len', { nombre: 'Lenteja Turca x 5 kg', tipoVenta: 'peso', costo: 2000 })]),
@@ -636,14 +638,17 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('si la bolsa de 3 kg queda más cara por kilo que la de 1 kg, avisa con los dos precios y pregunta (01/10)',
       !!ojo && ojo.m.indexOf('Yerba:\n- Bolsa de 1 kg: $6.000 el kilo\n- Bolsa de 3 kg: $6.750 el kilo, más cara') > 0 &&
       ojo.m.indexOf('Yerba (precio mayorista):\n- Bolsa de 1 kg: $4.800 el kilo\n- Bolsa de 3 kg: $5.400 el kilo, más cara') > 0 &&
-      ojo.m.indexOf('Si tocás "No actualizar", los costos y los precios quedan como estaban (la compra ya quedó guardada). ¿Querés actualizar igual?') > 0 &&
-      ojo.aceptar === 'Actualizar igual' && ojo.cancelar === 'No actualizar', ojo && ojo.m);
+      ojo.m.indexOf('Si tocás "No actualizar", esas bolsas quedan con el costo y el precio de antes y lo demás de la compra se actualiza igual. ' +
+        'La compra ya quedó guardada. ¿Querés actualizar igual?') > 0 &&
+      ojo.aceptar === 'Actualizar igual' && ojo.cancelar === 'No actualizar' && ojo.foco === true, ojo && ojo.m);
     t('  después del "¿Actualizar los costos?", que ya mostró los precios nuevos',
       w.preguntas.map(p => p.titulo).join(' > ') === 'Guardar compra > ¿Actualizar los costos? > ' + OJO, w.preguntas.map(p => p.titulo).join(' > '));
     const pw = id => w.ctx.allProducts.find(x => x.id === id);
-    t('  "No actualizar" no toca costos ni precios, y la compra queda guardada con su total ($13.500 + $30.000)',
-      !w.escrituras.some(x => x.d.costo !== undefined || x.d.precio !== undefined) && w.guardadas.length === 1 && w.guardadas[0].total === 43500 &&
-      pw('g3').costo === 3500 && pw('g3').precio === 5250 && pw('azu').costo === 13400 && pw('azu').precio === 25460, JSON.stringify(w.guardadas[0] && w.guardadas[0].total));
+    const eaw = w.escrituras.find(x => x.id === 'azu' && x.d.costo !== undefined);
+    t('  "No actualizar" deja la bolsa como estaba y actualiza lo demás: el azúcar a $15.000 ($28.500 y $19.500) (revisión del 01/10)',
+      !w.escrituras.some(x => x.id === 'g3' && (x.d.costo !== undefined || x.d.precio !== undefined)) && !!eaw && eaw.d.costo === 15000 &&
+      eaw.d.precio === 28500 && eaw.d.precioMayorista === 19500 && pw('g3').costo === 3500 && pw('g3').precio === 5250 && pw('azu').precio === 28500 &&
+      w.guardadas.length === 1 && w.guardadas[0].total === 43500, JSON.stringify(w.escrituras.map(x => [x.id, x.d.costo, x.d.precio])));
     const v = armar({ productos: prods() });
     cargar(v);
     v.ctx.compraCampo(1, 'costoUnitario', '15000');
@@ -685,6 +690,72 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     const e = w.escrituras.find(x => x.id === 'gal' && x.d.costo !== undefined);
     t('  y guarda el mayorista en 0: la venta mayorista cobra el de mostrador, con su aviso',
       !!e && e.d.costo === 1800 && e.d.precio === 2970 && e.d.precioMayorista === 0, JSON.stringify(e && e.d));
+  }
+  {
+    /* Revisión del 01/10: el aviso de la bolsa más cara no salta con el mayorista viejo igual al costo,
+       y si en la compra solo están las bolsas, "No actualizar" no actualiza nada. */
+    const OJO = 'Ojo: la bolsa más grande quedaría más cara';
+    const nuez = () => [
+      P('n1', { nombre: 'Nuez', gramaje: '1 kg', tipoVenta: 'peso', costo: 10000, porcentaje: 60, precio: 16000, porcentajeMayorista: 0, precioMayorista: 10000, codigo: 'N1' }),
+      P('n3', { nombre: 'Nuez x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', gramajePadreId: 'n1', costo: 9000, porcentaje: 60, precio: 14400,
+        porcentajeMayorista: 0, precioMayorista: 9000, codigo: 'N3' }),
+    ];
+    const w = armar({ productos: nuez() });
+    w.ctx.openCompraModal('L1');
+    w.ctx.compraAgregar('n3');
+    w.ctx.compraCampo(0, 'cantidad', '3000');
+    w.ctx.compraCampo(0, 'costoBolsa', '27900');
+    await w.ctx.guardarCompra();
+    const e3 = w.escrituras.find(x => x.id === 'n3' && x.d.costo !== undefined);
+    t('bolsas con el % mayorista en 0 y el mayorista viejo igual al costo: actualizar la de 3 kg no avisa de más',
+      !w.preguntas.some(p => p.titulo === OJO) && !!e3 && e3.d.costo === 9300 && e3.d.precio === 14880 && e3.d.precioMayorista === 0,
+      w.preguntas.map(p => p.titulo).join(' > '));
+    const yerba = () => [
+      P('g1', { nombre: 'Yerba', gramaje: '1 kg', tipoVenta: 'peso', costo: 4000, porcentaje: 50, precio: 6000, porcentajeMayorista: 20, precioMayorista: 4800, codigo: 'G1' }),
+      P('g3', { nombre: 'Yerba x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', gramajePadreId: 'g1', costo: 3500, porcentaje: 50, precio: 5250,
+        porcentajeMayorista: 20, precioMayorista: 4200, codigo: 'G3' }),
+    ];
+    const v = armar({ productos: yerba(), respuestas: { [OJO]: false } });
+    v.ctx.openCompraModal('L1');
+    v.ctx.compraAgregar('g3');
+    v.ctx.compraCampo(0, 'cantidad', '3000');
+    v.ctx.compraCampo(0, 'costoBolsa', '13500');
+    await v.ctx.guardarCompra();
+    const ov = v.preguntas.find(p => p.titulo === OJO);
+    t('  con solo la bolsa en la compra, "No actualizar" no actualiza nada y no habla de "lo demás"',
+      !!ov && ov.m.indexOf('Si tocás "No actualizar", esas bolsas quedan con el costo y el precio de antes. La compra ya quedó guardada.') > 0 &&
+      !v.escrituras.some(x => x.d.costo !== undefined), ov && ov.m);
+  }
+  {
+    /* Revisión del 01/10: sin % de ganancia el precio no se toca; si un precio baja, se marca; y con
+       centavos, lo de al lado del costo da lo mismo que lo que se guarda. */
+    const prods = () => [
+      P('sp', { nombre: 'Chalitas Keto', costo: 0, porcentaje: 0, precio: 1800, precioMayorista: 0, codigo: 'SP' }),
+      P('rd', { nombre: 'Te Verde', costo: 1000, porcentaje: 53, precio: 1600, precioMayorista: 0, codigo: 'RD' }),
+      P('ct', { nombre: 'Barrita', costo: 1100, porcentaje: 50, precio: 1650, porcentajeMayorista: 30, precioMayorista: 1450, codigo: 'CT' }),
+    ];
+    const w = armar({ productos: prods() });
+    w.ctx.openCompraModal('L1');
+    ['sp', 'rd', 'ct'].forEach(id => w.ctx.compraAgregar(id));
+    w.ctx.compraCampo(0, 'cantidad', '2'); w.ctx.compraCampo(0, 'costoUnitario', '1000');
+    w.ctx.compraCampo(1, 'cantidad', '2'); w.ctx.compraCampo(1, 'costoUnitario', '1040');
+    w.ctx.compraCampo(2, 'cantidad', '2'); w.ctx.compraCampo(2, 'costoUnitario', '1154.4');
+    t('sin % de ganancia, al lado del costo: el precio que tiene, que no cambia', w.el('cpKilo0').innerHTML ===
+      '<span>Precio <b>$1.800</b></span><span class="vfe-may">Sin mayorista: se cobra el de mostrador</span>', w.el('cpKilo0').innerHTML);
+    t('con centavos en el costo, lo de al lado da lo mismo que lo que se guarda: $1.732 y $1.550', w.el('cpKilo2').innerHTML ===
+      '<span>Precio <b>$1.732</b></span><span class="vfe-may">Mayorista $1.550</span>', w.el('cpKilo2').innerHTML);
+    await w.ctx.guardarCompra();
+    const act = w.preguntas.find(p => p.titulo === '¿Actualizar los costos?');
+    t('  el aviso: sin %, "Precio: queda en $1.800 (no tiene % de ganancia cargado)"',
+      !!act && act.m.indexOf('Chalitas Keto\n- Tenía cargado: $0\n- En esta compra: $1.000\n- Precio: queda en $1.800 (no tiene % de ganancia cargado)\n') >= 0, act && act.m);
+    t('  un precio redondeado a mano que baja aunque el costo suba, lo marca',
+      !!act && act.m.indexOf('- Precio nuevo: $1.591 (antes $1.600: ojo, baja aunque el costo subió)') > 0, act && act.m);
+    t('  y con centavos dice lo mismo que se ve al lado', !!act && act.m.indexOf('- Precio nuevo: $1.732 (antes $1.650)\n- Mayorista nuevo: $1.550 (antes $1.450)') > 0, act && act.m);
+    const es = w.escrituras.find(x => x.id === 'sp' && x.d.costo !== undefined);
+    const ec = w.escrituras.find(x => x.id === 'ct' && x.d.costo !== undefined);
+    t('  al actualizar: el de sin % guarda el costo y deja el precio; el de centavos, $1.732 y $1.550',
+      !!es && es.d.costo === 1000 && es.d.precio === 1800 && es.d.precioMayorista === 0 && !!ec && ec.d.precio === 1732 && ec.d.precioMayorista === 1550,
+      JSON.stringify([es && es.d, ec && ec.d]));
   }
 
   console.log('\n-- la bolsa que dice el nombre (revisión del 01/10) --');

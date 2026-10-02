@@ -96,7 +96,18 @@ function _cpTamTxt(g) { return _cpCant({ tipoVenta: 'peso', cantidad: g }); }
 function _cpVistaHtml(it) {
   const p = ((typeof allProducts !== 'undefined' && allProducts) || []).find(x => x && x.id === it.id);
   if (!p || typeof _costoVistaHtml !== 'function') return _cpPesos(it.costoUnitario) + (_cpEsPeso(it) ? ' el kilo' : '');
-  return _costoVistaHtml(p, Math.round(Number(it.costoUnitario || 0)), Number(it.gramosBolsa) || null);
+  const g = Number(it.gramosBolsa) || null;
+  /* El costo como se va a guardar, con centavos si los tiene: así da lo mismo que el aviso de
+     "Actualizar" (revisión del 01/10: con $1.154,40 mostraba $1.500 de mayorista y se guardaba
+     $1.550). Con el de siempre, redondeado, para que muestre los precios que ya tiene. */
+  const c = Number(it.costoUnitario || 0) === Number(p.costo || 0) ? Math.round(Number(p.costo || 0)) : Number(it.costoUnitario || 0);
+  /* Sin % de ganancia el precio no cambia al actualizar (ver ofrecerActualizarCostos): el que
+     tiene, con el mayorista que quedaría. */
+  if (!(Number(p.porcentaje) > 0) && typeof preciosDesdeCosto === 'function') {
+    const cr = Math.round(c);
+    return _costoVistaHtml(Object.assign({}, p, { costo: cr, precioMayorista: preciosDesdeCosto(p, c).precioMayorista }), cr, g);
+  }
+  return _costoVistaHtml(p, c, g);
 }
 /* " de 2 kg": de cuánto es la bolsa, si el nombre no lo dice ya (pedido del dueño, 30/09). En
    "Mani RC" no se veía en ningún lado que la bolsa guardada era de 2 kg; en "Lenteja x 5 kg" o
@@ -1018,17 +1029,26 @@ async function ofrecerActualizarCostos(items) {
       ? _cpPesos(bolsa) + ' la bolsa' + _cpDeBolsa(i.nombre, Number(i.gramosBolsa)) +
         (Number(i.gramosBolsa) !== 1000 ? ' (' + _cpPesos(kilo) + ' el kilo)' : '')
       : _cpPesos(kilo) + (i.tipoVenta === 'peso' ? ' el kilo' : '');
-    const r = preciosDesdeCosto(p, Number(i.costoUnitario));
+    const calc = preciosDesdeCosto(p, Number(i.costoUnitario));
+    /* Sin % de ganancia el precio no se toca: la cuenta daría el costo, y se vendería sin ganar
+       nada (revisión del 01/10: 69 productos ocultos tienen precio y ningún %). */
+    const sinPct = !(Number(p.porcentaje) > 0);
+    const r = { precio: sinPct ? Number(p.precio || 0) : calc.precio, precioMayorista: calc.precioMayorista };
     nuevos.set(i.id, r);
     const kg = i.tipoVenta === 'peso' ? ' el kilo' : '';
     /* Sin % mayorista no hay precio mayorista (01/10): se dice, no "$0". */
     const may = n => (Number(n) > 0 ? _cpPesos(n) : '');
+    /* Si un precio nuevo queda más bajo que el que tiene, se marca: uno redondeado a mano baja
+       aunque el costo suba (revisión del 01/10). */
+    const sube = Number(i.costoUnitario) > Number(p.costo || 0);
+    const baja = (nuevo, antes) => (nuevo < antes ? (sube ? ': ojo, baja aunque el costo subió' : ', baja') : '');
     return i.nombre + '\n' +
       '- Tenía cargado: ' + costo(p.costo, _cpEsBolsa(i) ? costoDeBolsa(p.costo, i.gramosBolsa) : 0) + '\n' +
       '- En esta compra: ' + costo(i.costoUnitario, i.costoBolsa) + '\n' +
-      '- Precio nuevo: ' + _cpPesos(r.precio) + kg + ' (antes ' + _cpPesos(p.precio) + ')\n' +
+      (sinPct ? '- Precio: queda en ' + _cpPesos(p.precio) + kg + ' (no tiene % de ganancia cargado)\n'
+        : '- Precio nuevo: ' + _cpPesos(r.precio) + kg + ' (antes ' + _cpPesos(p.precio) + baja(r.precio, Number(p.precio || 0)) + ')\n') +
       '- Mayorista nuevo: ' + (may(r.precioMayorista) ? may(r.precioMayorista) + kg : 'ninguno, se cobra el de mostrador') +
-        ' (antes ' + (may(p.precioMayorista) || 'ninguno') + ')';
+        ' (antes ' + (may(p.precioMayorista) || 'ninguno') + (may(r.precioMayorista) ? baja(r.precioMayorista, Number(p.precioMayorista || 0)) : '') + ')';
   }).join('\n\n');
   const uno = cambian.length === 1;
   if (!await pedirConfirmacion(
@@ -1038,13 +1058,22 @@ async function ofrecerActualizarCostos(items) {
       'y el precio y el mayorista se recalculan con el mismo porcentaje de siempre.',
       { titulo: uno ? '¿Actualizar el costo?' : '¿Actualizar los costos?', aceptar: 'Actualizar', cancelar: 'Dejar como estaba' })) return;
   /* Si una bolsa queda más cara por kilo que una más chica del mismo producto, se avisa y se
-     pregunta (pedido del dueño, 01/10): al vender, el que lleva más pagaría más por kilo. */
+     pregunta (pedido del dueño, 01/10): al vender, el que lleva más pagaría más por kilo.
+     "No actualizar" deja como estaban solo las bolsas de ese producto y el resto se actualiza:
+     antes no se actualizaba nada, y el aumento de los otros quedaba sin aplicar (revisión del
+     01/10). Arranca en "No actualizar": un doble Enter no lo acepta sin leerlo. */
+  let aActualizar = cambian;
   const saltos = typeof bolsasMasCarasPorKilo === 'function' ? bolsasMasCarasPorKilo(nuevos) : [];
-  if (saltos.length && !await pedirConfirmacion(textoBolsasMasCaras(saltos) + '\n\n' +
-      'Si tocás "No actualizar", ' + (uno ? 'el costo y el precio quedan' : 'los costos y los precios quedan') +
-      ' como estaban (la compra ya quedó guardada). ¿Querés actualizar igual?',
-      { titulo: 'Ojo: la bolsa más grande quedaría más cara', aceptar: 'Actualizar igual', cancelar: 'No actualizar',
-        icono: 'bi-exclamation-triangle', cuidado: true })) return;
+  if (saltos.length) {
+    const bolsas = new Set([].concat(...saltos.map(s => s.grupo || [s.chica.id, s.grande.id])));
+    const resto = cambian.filter(i => !bolsas.has(i.id));
+    if (!await pedirConfirmacion(textoBolsasMasCaras(saltos) + '\n\n' +
+        'Si tocás "No actualizar", esas bolsas quedan con el costo y el precio de antes' +
+        (resto.length ? ' y lo demás de la compra se actualiza igual' : '') + '. La compra ya quedó guardada. ¿Querés actualizar igual?',
+        { titulo: 'Ojo: la bolsa más grande quedaría más cara', aceptar: 'Actualizar igual', cancelar: 'No actualizar',
+          icono: 'bi-exclamation-triangle', cuidado: true, focoEnNo: true })) aActualizar = resto;
+  }
+  if (!aActualizar.length) return;
   try {
     /* La fecha del costo va en la misma escritura y en memoria, como en la ventana de costos
        (admin-costos.js): sin eso el panel la seguía viendo vieja hasta apretar F5, y el Centro
@@ -1052,18 +1081,18 @@ async function ofrecerActualizarCostos(items) {
     const hora = firebase.firestore.FieldValue.serverTimestamp();
     const lote = db.batch();
     const campos = i => ({ costo: Number(i.costoUnitario), precio: nuevos.get(i.id).precio, precioMayorista: nuevos.get(i.id).precioMayorista });
-    cambian.forEach(i => lote.update(db.collection('productos').doc(i.id), Object.assign(campos(i), { costoActualizadoEn: hora })));
+    aActualizar.forEach(i => lote.update(db.collection('productos').doc(i.id), Object.assign(campos(i), { costoActualizadoEn: hora })));
     await lote.commit();
-    cambian.forEach(i => {
+    aActualizar.forEach(i => {
       const p = (allProducts || []).find(x => x.id === i.id);
       if (p) Object.assign(p, campos(i), { costoActualizadoEn: new Date() });
     });
     if (typeof logAction === 'function') {
-      logAction('editar', 'Costos y precios actualizados desde una compra: ' + cambian.length,
-        cambian.map(i => i.nombre + ' -> costo ' + _cpPesos(i.costoUnitario) + ', precio ' + _cpPesos(nuevos.get(i.id).precio) +
+      logAction('editar', 'Costos y precios actualizados desde una compra: ' + aActualizar.length,
+        aActualizar.map(i => i.nombre + ' -> costo ' + _cpPesos(i.costoUnitario) + ', precio ' + _cpPesos(nuevos.get(i.id).precio) +
           ', mayorista ' + _cpPesos(nuevos.get(i.id).precioMayorista)).join(' | ').slice(0, 900));
     }
-    showAdminToast(cambian.length + ' costo' + (cambian.length === 1 ? '' : 's') + ' actualizado' + (cambian.length === 1 ? '' : 's') +
+    showAdminToast(aActualizar.length + ' costo' + (aActualizar.length === 1 ? '' : 's') + ' actualizado' + (aActualizar.length === 1 ? '' : 's') +
       ', con su precio nuevo', 'success');
     if (typeof _reRenderProductos === 'function') _reRenderProductos();
   } catch (e) {

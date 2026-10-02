@@ -443,6 +443,12 @@ producción (de los "gramajes" viejos).
   ventana de costos y la compra; la venta mayorista avisa si algo se cobra al costo; la lista PDF
   mayorista los deja afuera, avisando. Los 222 se arreglan solos al tocarlos; todos juntos, solo con OK.
   Detalle en `PENDIENTE.md` §1-bis AH.
+- **Revisión antes de subir AF a AH (01/10, sin subir)**: el aviso de la bolsa más cara ya no salta de
+  más (el mayorista, solo con el % en las dos bolsas; solo saltos nuevos o peores) y "No actualizar"
+  deja como estaban solo esas bolsas; "Se vende sin ganancia" cuenta el descuento de toda la venta,
+  dice "perdés $X" o el descuento que lo causa, y marca lo que gana menos del 5%; "Actualizar" en la
+  compra no toca el precio de los que no tienen % y marca si un precio baja; esos avisos arrancan en
+  "Volver" o "No actualizar". Los menores, anotados. Detalle en `PENDIENTE.md` §1-bis AI.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

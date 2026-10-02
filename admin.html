@@ -5985,8 +5985,8 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
         }
 
         async function exportMayoristaPDF(){
-            /* Usar precioMayorista guardado en cada producto directamente. Los que lo tienen igual
-               al costo (o casi) no van: el cliente los vería a precio de costo. Pasaba con el %
+            /* Usar precioMayorista guardado en cada producto directamente. Los que no dejan ganancia
+               (menos del 5% sobre el costo) no van: el cliente los veria al costo. Pasaba con el %
                mayorista en 0, que daba de mayorista el costo redondeado: el 01/10, 222 de los 228
                de la lista estaban asi. Se avisa cuales quedan afuera (pedido del dueño, 01/10). */
             const priceMap={},sinGanancia=[];
@@ -6004,8 +6004,8 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                 const pesos=n=>'$'+Math.round(Number(n||0)).toLocaleString('es-AR');
                 const nombre=p=>(typeof _costoNombre==='function'?_costoNombre(p):(p.nombreMostrado||p.nombre));
                 const uno=sinGanancia.length===1;
-                const txt=(uno?'1 producto tiene el precio mayorista igual al costo (o casi): en la lista, el cliente lo vería a precio de costo.'
-                        :sinGanancia.length+' productos tienen el precio mayorista igual al costo (o casi): en la lista, el cliente los vería a precio de costo.')+NL+NL+
+                const txt=(uno?'1 producto tiene un precio mayorista que no deja ganancia, y no va en la lista:'
+                        :sinGanancia.length+' productos tienen un precio mayorista que no deja ganancia, y no van en la lista:')+NL+NL+
                     sinGanancia.slice(0,8).map(p=>'- '+nombre(p)+': mayorista '+pesos(p.precioMayorista)+kg(p)+', costó '+pesos(p.costo)+kg(p)).join(NL)+
                     (sinGanancia.length>8?NL+'- y '+(sinGanancia.length-8)+' más':'')+NL+NL;
                 if(!quedan){await pedirConfirmacion(txt+'No queda ninguno con ganancia para la lista. Cargales el % de ganancia mayorista en Productos.',{titulo:'Mayorista sin ganancia',aceptar:'Entendido',cancelar:null,icono:'bi-exclamation-triangle',cuidado:true});return;}
@@ -7486,9 +7486,10 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                     'Registrar la venta igual?';
                 if(!await pedirConfirmacion(_msg,{titulo:'Falta el precio mayorista',aceptar:'Registrar igual'}))return;
             }
-            /* Lo que se cobra igual o menos que lo que costo (o casi), sin ganar nada (pedido del
-               dueño, 01/10): avisa y pregunta. Ver avisoMayoristaSinGanancia en admin-costos.js. */
-            if(typeof avisoMayoristaSinGanancia==='function'&&!(await avisoMayoristaSinGanancia(ventaMayItems)))return;
+            /* Lo que se cobra sin ganar nada (pedido del dueño, 01/10): avisa y pregunta. Cuenta el
+               descuento del renglon y el de toda la venta (revision del 01/10). Ver
+               avisoMayoristaSinGanancia en admin-costos.js. */
+            if(typeof avisoMayoristaSinGanancia==='function'&&!(await avisoMayoristaSinGanancia(ventaMayItems,typeof calcVentaMayTotales==='function'?calcVentaMayTotales().descuentoPct:0)))return;
             /* Validar stock de insumos */
             const originalInsumosMay={};
             let _mayItemsPrevios=null,_mayPoseiaStock=false;

@@ -125,8 +125,9 @@ function cobroEscala(e, gramos, ctx, dsc) {
    que la de 1 kg, llevar 3 kg sale más caro por kilo que llevar 2,9. Pasa si se cambia el costo de
    una sola bolsa. `nuevos`: Map de id -> { precio, precioMayorista } con lo que se va a guardar.
    Devuelve los saltos entre dos bolsas seguidas del mismo producto en los que la más grande queda
-   más cara por kilo, solo los que tocan alguna de `nuevos`: { chica, grande, ctx ('min' mostrador,
-   'may' mayorista), kgChica, kgGrande }, con lo que se cobra el kilo (en mostrador, con su oferta). */
+   más cara por kilo, solo los que tocan alguna de `nuevos` y son nuevos o peores: { chica, grande,
+   ctx ('min' mostrador, 'may' mayorista), kgChica, kgGrande, grupo (las bolsas del producto) }, con
+   lo que se cobra el kilo (en mostrador, con su oferta). */
 function bolsasMasCarasPorKilo(nuevos, productos) {
   const prods = productos || _escProds();
   const grupos = new Set();
@@ -142,11 +143,17 @@ function bolsasMasCarasPorKilo(nuevos, productos) {
       for (let k = 1; k < con.length; k++) {
         const chica = con[k - 1], grande = con[k];
         if (!nuevos.has(chica.id) && !nuevos.has(grande.id)) continue;
-        /* Sin precio mayorista en ninguna de las dos, la mayorista cobra el de mostrador: ya lo
-           dice la cuenta de mostrador (01/10). */
-        if (ctx === 'may' && !(Number(chica.producto.precioMayorista) > 0) && !(Number(grande.producto.precioMayorista) > 0)) continue;
+        /* El mayorista se compara solo si las dos tienen su % mayorista: sin él, una cobra el de
+           mostrador o tiene guardado el costo (de antes del 01/10), y el aviso salía de más y
+           confundía (revisión del 01/10). La cuenta de mostrador dice lo suyo igual. */
+        if (ctx === 'may' && !(Number(chica.producto.porcentajeMayorista) > 0 && Number(grande.producto.porcentajeMayorista) > 0)) continue;
         const kgChica = precioFinalKg(chica, ctx), kgGrande = precioFinalKg(grande, ctx);
-        if (kgChica > 0 && kgGrande > kgChica) saltos.push({ chica, grande, ctx, kgChica, kgGrande });
+        if (!(kgChica > 0 && kgGrande > kgChica)) continue;
+        /* Solo si el salto es nuevo o empeora: si ya estaba y el cambio lo achica, no se avisa
+           (revisión del 01/10). Si la chica no tenía precio, no había salto: es nuevo. */
+        const antesChica = precioFinalKg(esc[k - 1], ctx), antesGrande = precioFinalKg(esc[k], ctx);
+        if (antesChica > 0 && antesGrande > antesChica && kgGrande - kgChica <= antesGrande - antesChica) continue;
+        saltos.push({ chica, grande, ctx, kgChica, kgGrande, grupo: esc.map(e => e.id) });
       }
     });
   });

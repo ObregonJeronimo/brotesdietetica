@@ -649,7 +649,7 @@ console.log('\n-- la cuenta del precio es la del formulario --');
   await a.m.api.guardarEditorCostos();
   const p0 = a.preguntas[0];
   t('si la bolsa de 3 kg queda más cara por kilo que la de 1 kg ($6.750 contra $6.000), pregunta antes de guardar (01/10)',
-    a.preguntas.length === 1 && p0.op.titulo === 'Ojo: la bolsa más grande quedaría más cara' && p0.op.aceptar === 'Guardar igual' &&
+    a.preguntas.length === 1 && p0.op.titulo === 'Ojo: la bolsa más grande quedaría más cara' && p0.op.aceptar === 'Guardar igual' && p0.op.focoEnNo === true &&
     p0.op.cancelar === 'Volver' && p0.txt.indexOf('Yerba:\n- Bolsa de 1 kg: $6.000 el kilo\n- Bolsa de 3 kg: $6.750 el kilo, más cara') > 0 &&
     /Si tocás "Volver", no se guarda nada y podés corregirlo\. ¿Querés guardar igual\?$/.test(p0.txt), JSON.stringify(a.preguntas));
   const g3a = a.m.ctx.allProducts.find(x => x.id === 'g3');
@@ -696,41 +696,54 @@ console.log('\n-- el % mayorista en 0 y vender al mayorista sin ganancia (01/10)
   t('  sin la tabla de bolsas, lo mismo', hs === '<span>Precio <b>$300</b></span><span class="costos-may">Sin mayorista: se cobra el de mostrador</span>', hs);
 }
 {
-  /* Al registrar una venta mayorista, lo que se cobra lo mismo que costó (o casi) se avisa. */
+  /* Al registrar una venta mayorista, lo que se cobra sin ganancia (menos del 5% sobre el costo) se
+     avisa: por el % mayorista, por debajo del costo (cuánto se pierde) o por un descuento, con el texto
+     que pidió el dueño (revisión del 01/10). */
   const prods = [
     { id: 'alm', nombre: 'Almendras', tipoVenta: 'peso', costo: 21500, porcentajeMayorista: 0, precio: 35475, precioMayorista: 21500 },
     { id: 'caf', nombre: 'Mula Cafe', costo: 10110, porcentajeMayorista: 0, precio: 16682, precioMayorista: 10150 },
     { id: 'ace', nombre: 'Aceite', costo: 16400, porcentajeMayorista: 30, precio: 31160, precioMayorista: 21350 },
+    { id: 'har', nombre: 'Harina De Sesamo', tipoVenta: 'peso', costo: 2828, porcentajeMayorista: 30, precio: 5000, precioMayorista: 746 },
+    { id: 'car', nombre: 'Caramelo', costo: 101, porcentajeMayorista: 0, precio: 160, precioMayorista: 150 },
   ];
-  const items = () => [
-    { id: 'alm', nombre: 'Almendras', precio: 21500, costo: 21500, cantidad: 2000, descuento: 0, tipoVenta: 'peso' },
-    { id: 'caf', nombre: 'Mula Cafe', precio: 10150, costo: 10110, cantidad: 3, descuento: 0, tipoVenta: 'unidad' },
-    { id: 'ace', nombre: 'Aceite', precio: 21350, costo: 16400, cantidad: 1, descuento: 0, tipoVenta: 'unidad' },
-  ];
+  const it = (id, extra) => Object.assign({
+    alm: { id: 'alm', nombre: 'Almendras', precio: 21500, costo: 21500, cantidad: 2000, tipoVenta: 'peso' },
+    caf: { id: 'caf', nombre: 'Mula Cafe', precio: 10150, costo: 10110, cantidad: 3, tipoVenta: 'unidad' },
+    ace: { id: 'ace', nombre: 'Aceite', precio: 21350, costo: 16400, cantidad: 1, tipoVenta: 'unidad' },
+    har: { id: 'har', nombre: 'Harina De Sesamo', precio: 746, costo: 2828, cantidad: 25000, tipoVenta: 'peso' },
+    car: { id: 'car', nombre: 'Caramelo', precio: 150, costo: 101, cantidad: 10, tipoVenta: 'unidad' },
+  }[id], { descuento: 0 }, extra || {});
   const preguntas = [];
   const m = armar({ productos: prods, pedirConfirmacion: async (txt, op) => { preguntas.push({ txt, op }); return false; } });
-  const sigue = await m.ctx.avisoMayoristaSinGanancia(items());
+  const sigue = await m.ctx.avisoMayoristaSinGanancia([it('alm'), it('caf'), it('ace'), it('har')], 0);
   const q = preguntas[0];
-  t('venta mayorista: lo que se cobra lo mismo que costó (o casi) se avisa con el precio y el costo, y pregunta',
+  t('venta mayorista sin ganancia: avisa con el precio y el costo, y cuánto se pierde si es menos que el costo (revisión del 01/10)',
     sigue === false && preguntas.length === 1 && q.op.titulo === 'Se vende sin ganancia' && q.op.aceptar === 'Registrar igual' && q.op.cancelar === 'Volver' &&
-    q.txt === 'Estos productos se cobran lo mismo que costaron (o casi): no ganás nada con ellos.\n\n' +
-      '- Almendras: se cobra $21.500 el kilo y costó $21.500 el kilo\n- Mula Cafe: se cobra $10.150 y costó $10.110\n\n' +
+    q.op.focoEnNo === true && q.txt === 'Con estos precios no ganás nada (o casi nada):\n\n' +
+      '- Almendras: se cobra $21.500 el kilo y costó $21.500 el kilo\n- Mula Cafe: se cobra $10.150 y costó $10.110\n' +
+      '- Harina De Sesamo: se cobra $746 el kilo y costó $2.828 el kilo: perdés $52.050\n\n' +
       'Revisales el % de ganancia mayorista en Productos. ¿Registrar la venta igual?', JSON.stringify(preguntas));
   t('  el que deja ganancia (Aceite: $21.350 contra $16.400) no aparece', q.txt.indexOf('Aceite') < 0);
   const m2 = armar({ productos: prods, pedirConfirmacion: async () => { throw new Error('no tenía que preguntar'); } });
-  t('  sin ninguno así, no pregunta y la venta sigue', (await m2.ctx.avisoMayoristaSinGanancia([items()[2]])) === true);
-  t('  sin costo cargado no se sabe: no avisa', (await m2.ctx.avisoMayoristaSinGanancia([{ id: 'x', nombre: 'X', precio: 500, costo: 0, cantidad: 1 }])) === true);
+  t('  sin ninguno así, no pregunta y la venta sigue', (await m2.ctx.avisoMayoristaSinGanancia([it('ace')], 0)) === true);
+  t('  uno barato con ganancia de verdad (costo $101, mayorista $150) no se marca', (await m2.ctx.avisoMayoristaSinGanancia([it('car')], 0)) === true);
+  t('  sin costo cargado no se sabe: no avisa', (await m2.ctx.avisoMayoristaSinGanancia([{ id: 'x', nombre: 'X', precio: 500, costo: 0, cantidad: 1 }], 0)) === true);
+  t('  con un descuento chico de la venta (5%) que deja ganancia, tampoco', (await m2.ctx.avisoMayoristaSinGanancia([it('ace')], 5)) === true);
   const m3 = armar({ productos: prods, pedirConfirmacion: async txt => { preguntas.push({ txt }); return true; } });
-  const conDsc = [{ id: 'ace', nombre: 'Aceite', precio: 21350, costo: 16400, cantidad: 1, descuento: 25, tipoVenta: 'unidad' }];
   const ult = () => preguntas[preguntas.length - 1].txt;
-  t('  "Registrar igual" deja seguir; y un descuento que lo deja en el costo o menos también se avisa ($16.013 contra $16.400)',
-    (await m3.ctx.avisoMayoristaSinGanancia(conDsc)) === true &&
-    ult() === 'Este producto se cobra lo mismo que costó (o casi): no ganás nada con él.\n\n- Aceite: se cobra $16.013 y costó $16.400\n\n' +
-      'Revisá su % de ganancia mayorista en Productos. ¿Registrar la venta igual?', ult());
+  t('por el descuento del renglón, lo dice así (texto del dueño), y "Registrar igual" deja seguir',
+    (await m3.ctx.avisoMayoristaSinGanancia([it('ace', { descuento: 25 })], 0)) === true &&
+    ult() === 'Con este precio no ganás nada (o casi nada):\n\n- Aceite tiene un descuento del 25%: se va a vender a $16.013 por el descuento aplicado (costó $16.400)\n\n' +
+      'Si no querés venderlo así, cambiá el descuento. ¿Registrar la venta igual?', ult());
+  await m3.ctx.avisoMayoristaSinGanancia([it('ace')], 25);
+  t('  por el descuento de toda la venta, igual', ult().indexOf('- Aceite: la venta tiene un descuento del 25%, se va a vender a $16.013 por el descuento aplicado (costó $16.400)') > 0, ult());
+  await m3.ctx.avisoMayoristaSinGanancia([it('ace', { descuento: 10 })], 20);
+  t('  y con los dos', ult().indexOf('- Aceite tiene un descuento del 10% y la venta otro del 20%: se va a vender a $15.372 por los descuentos aplicados (costó $16.400)') > 0, ult());
   const s = armar({ productos: prods });
-  t('  si el diálogo no cargó, la venta no se frena', (await s.ctx.avisoMayoristaSinGanancia(items())) === true);
-  t('sin ganancia es el costo redondeado a $50 o menos: 10.150 con costo 10.110 sí, 10.200 no', s.ctx._mayoristaSinGanancia(10150, 10110) === true &&
-    s.ctx._mayoristaSinGanancia(10200, 10110) === false && s.ctx._mayoristaSinGanancia(21500, 21500) === true && s.ctx._mayoristaSinGanancia(500, 0) === false);
+  t('  si el diálogo no cargó, la venta no se frena', (await s.ctx.avisoMayoristaSinGanancia([it('alm')], 0)) === true);
+  t('sin ganancia es menos del 5% sobre el costo: $10.150 con costo $10.110 sí, $10.700 no, $150 con costo $101 no',
+    s.ctx._mayoristaSinGanancia(10150, 10110) === true && s.ctx._mayoristaSinGanancia(10700, 10110) === false &&
+    s.ctx._mayoristaSinGanancia(150, 101) === false && s.ctx._mayoristaSinGanancia(21500, 21500) === true && s.ctx._mayoristaSinGanancia(500, 0) === false);
 }
 
 /* ======================================================== ENCHUFADO */
@@ -745,10 +758,10 @@ t('admin.html carga el módulo', html.indexOf('<script src="admin-costos.js"></s
   const iAvisoM = sm.indexOf("avisoCostosViejos(ventaMayItems,'may')");
   t('la mayorista también, antes de escribir', iAvisoM > 0 && iAvisoM < sm.indexOf('btn.disabled=true'));
   t('  y también solo al crear', /if\(!editingVentaMayId&&typeof avisoCostosViejos==='function'&&!\(await avisoCostosViejos\(ventaMayItems,'may'\)\)\)return;/.test(sm));
-  const iSin = sm.indexOf('avisoMayoristaSinGanancia(ventaMayItems)');
+  const iSin = sm.indexOf('avisoMayoristaSinGanancia(ventaMayItems,');
   t('la venta mayorista avisa lo que se cobra sin ganancia antes de escribir (01/10)', iSin > 0 && iSin < sm.indexOf('btn.disabled=true'));
-  t('  al crear y al editar, como el de "Falta el precio mayorista"',
-    /if\(typeof avisoMayoristaSinGanancia==='function'&&!\(await avisoMayoristaSinGanancia\(ventaMayItems\)\)\)return;/.test(sm));
+  t('  al crear y al editar, como el de "Falta el precio mayorista", con el descuento de toda la venta (revisión del 01/10)',
+    sm.indexOf("if(typeof avisoMayoristaSinGanancia==='function'&&!(await avisoMayoristaSinGanancia(ventaMayItems,typeof calcVentaMayTotales==='function'?calcVentaMayTotales().descuentoPct:0)))return;") > 0);
 }
 t('el formulario muestra la fecha del último cambio de costo', html.indexOf('<small id="pCostoFecha" class="costo-fecha"></small>') > 0);
 t('  al abrir un producto y al crear uno nuevo', /value=p\.costo\|\|0;if\(typeof pintarFechaCosto==='function'\)pintarFechaCosto\(p\);/.test(html) &&
