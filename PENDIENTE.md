@@ -2291,9 +2291,11 @@ Vienen de antes, para más adelante:
   al costo (la compra ya no).
 - Envasado propio (`padreId`): "Actualizar" en la compra y la ventana de costos no pasan el costo
   nuevo del padre a los hijos; el PDF semanal sí. No se sabe si se espera eso.
-- Para hablar con la clienta (lectura del 01/10): "Chalitas integrales DeliRe" se vende en mostrador
-  a $12.000, lo mismo que costó, y en mayorista a $19.800; "Alfajor de Maicena" tiene mayorista
-  $2.700 y mostrador $2.690; "Nugget de atun" y "Tarta de pollo", el mismo en los dos.
+- Para hablar con la clienta (lectura del 01/10): 6 productos visibles se venden en mostrador a lo
+  mismo que costaron (precio igual al costo, sin % de ganancia): Tortilla de espinaca mediana
+  ($22.000), Chalitas integrales DeliRe ($12.000; su mayorista, con 65%, es $19.800: ¿los % al
+  revés?), Tarta brocoli o 3 cebollas ($20.000), Crepes de Pollo ($17.000), Canelones ($15.000) y
+  Pastel de quinoa y mani ($15.000). Vienen de antes: el costo no cambia desde el 27/09.
 
 Probado en el sandbox con clics de verdad (todos los números bien: compras, costos, precios, ventas
 y stock):

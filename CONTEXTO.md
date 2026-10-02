@@ -493,7 +493,10 @@ producción (de los "gramajes" viejos).
 5. **Los 222 productos con el mayorista igual al costo** (`PENDIENTE.md` §1-bis AH y AI): hablar con la
    clienta si les pone un % mayorista. Se arreglan solos al tocarlos; todos juntos es una escritura en
    producción, solo con OK de Thiago. Mientras, la venta mayorista avisa y la lista PDF los deja afuera.
-   De paso: "Chalitas integrales DeliRe" se vende en mostrador a lo mismo que costó ($12.000).
+6. **6 productos visibles se venden en mostrador a lo mismo que costaron** (precio igual al costo, sin
+   % de ganancia): Tortilla de espinaca mediana, Chalitas integrales DeliRe, Tarta brocoli o 3
+   cebollas, Crepes de Pollo, Canelones y Pastel de quinoa y mani (`PENDIENTE.md` §1-bis AI). Que la
+   clienta les cargue el % de ganancia; tocarlos desde acá es una escritura en producción, solo con OK.
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 
