@@ -206,7 +206,9 @@ function _cpSubtotal(it) {
   return it.tipoVenta === 'peso' ? Math.round(c * q / 1000) : Math.round(c * q);
 }
 
-function _cpTotal() { return _compraItems.reduce((s, i) => s + _cpSubtotal(i), 0); }
+/* El total de la compra: los renglones con cantidad, que son los que se guardan. Un total escrito sin
+   la cantidad no cuenta hasta que la tenga, como al guardar (revisión del 02/10). */
+function _cpTotal() { return _compraItems.reduce((s, i) => s + (Number(i.cantidad || 0) > 0 ? _cpSubtotal(i) : 0), 0); }
 
 /* EL TOTAL DEL RENGLÓN (pedido del dueño, 02/10). Hay proveedores que no pasan lo que costó cada
    bolsa (o cada unidad), sino el total: "4 bolsas de 2,5 kg, $40.000". Se escribe el total y sale
@@ -249,13 +251,16 @@ function _cpTotalEtq(it) {
    renglón explica por qué (_cpNoDaTxt). Por kilo suelto, los gramos que den. */
 function _cpCantidadDesdeTotal(it) {
   if (it.totalEscrito == null) return false;
+  /* Queda marcado aunque todavía no se pueda sacar (sin costo, o sin saber la bolsa): así, cuando
+     aparece el costo, sale la cantidad y no se pierde el total escrito (revisión del 02/10). */
+  it.cantidadSale = true;
+  delete it.noDaJusto;
   const g = Number(it.gramosBolsa || 0);
   if (it.tipoVenta === 'peso' && !g && it.sinTam) return false;   /* sin saber la bolsa, espera */
   const cada = Number((_cpEsBolsa(it) ? it.costoBolsa : it.costoUnitario) || 0);
-  if (!(cada > 0)) return false;
+  /* Sin costo no hay de dónde sacarla: la que había salido con otro costo ya no vale. */
+  if (!(cada > 0)) { it.cantidad = 0; return true; }
   const n = it.totalEscrito / cada;
-  it.cantidadSale = true;
-  delete it.noDaJusto;
   if (it.tipoVenta === 'peso' && !g) { it.cantidad = Math.round(n * 1000); return true; }
   const enteras = Math.round(n);
   if (enteras > 0 && Math.abs(enteras * cada - it.totalEscrito) < 1) it.cantidad = _cpEsBolsa(it) ? enteras * g : enteras;
@@ -782,6 +787,8 @@ function compraCampo(i, campo, valor) {
     } else {
       delete it.gramosBolsa;
       delete it.noDaJusto;
+      /* Si la cantidad había salido del total con esa bolsa, ya no vale (revisión del 02/10). */
+      if (it.cantidadSale) it.cantidad = 0;
       it.costoUnitario = Number(it.costoAnterior || 0);
     }
     const etq = document.getElementById('cpBolsaEtq' + i);

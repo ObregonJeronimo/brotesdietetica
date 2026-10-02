@@ -1044,7 +1044,8 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       w.items()[0].cantidad === 0 && w.el('cpCant0').value === '' && w.el('cpNoDa0').style.display === '' &&
       w.el('cpNoDa0').innerHTML === '<i class="bi bi-exclamation-triangle"></i> Las cuentas no dan: $10.000 ÷ $1.500 (lo que cuesta cada una) = ' +
         '6,67 unidades, y no se compran unidades partidas. Revisá el total o el costo, o escribí las unidades.', w.el('cpNoDa0').innerHTML);
-    t('  el total igual queda ($10.000)', w.ctx._cpSubtotal(w.items()[0]) === 10000 && w.el('compraTotal').textContent === '$10.000');
+    t('  el total del renglón queda ($10.000), pero no cuenta en el de la compra hasta que tenga la cantidad, como al guardar',
+      w.ctx._cpSubtotal(w.items()[0]) === 10000 && w.el('compraTotal').textContent === '$0', w.el('compraTotal').textContent);
     w.ctx.compraCampo(0, 'costoUnitario', '2000');
     t('  con otro costo ($2.000) sale otra vez: 5 unidades, y en vez de "no dan" dice de dónde salió',
       w.items()[0].cantidad === 5 && w.items()[0].totalEscrito === 10000 && w.el('cpCant0').value === '5' &&
@@ -1098,6 +1099,127 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
   }
   t('arriba de lo que entró, qué hacer para que los números den bien: primero la cantidad (02/10)',
     /<label class="form-label">Lo que entr&oacute;<\/label>\s*<p [^>]*>\s*<i class="bi bi-info-circle"[^>]*><\/i>\s*<span>Para que los n&uacute;meros den bien: escrib&iacute; primero <b>la cantidad que entr&oacute;<\/b>, y despu&eacute;s el costo o el total \(el otro sale solo\)\.<\/span>\s*<\/p>\s*<div id="compraItems"><\/div>/.test(ADMIN));
+
+  console.log('\n-- revisión antes de subir (02/10): que los números siempre cierren --');
+  {
+    const w = armar({ productos: [P('nv', { nombre: 'Producto Nuevo', costo: 0 })] });
+    w.ctx.openCompraModal('L1');
+    w.ctx.compraAgregar('nv');
+    w.ctx.compraCampo(0, 'total', '50000');
+    t('sin costo cargado, el total sin la cantidad espera el costo (no hay de dónde sacarla)',
+      w.items()[0].cantidad === 0 && w.items()[0].totalEscrito === 50000 && w.el('compraTotal').textContent === '$0');
+    w.ctx.compraCampo(0, 'costoUnitario', '12500');
+    t('  al escribir el costo sale la cantidad (4) y no se pierde el total escrito',
+      w.items()[0].cantidad === 4 && w.items()[0].totalEscrito === 50000 && w.el('cpCant0').value === '4' && w.el('cpSub0').value === '50000' &&
+      w.el('compraTotal').textContent === '$50.000', JSON.stringify(w.items()[0]));
+    w.ctx.compraCampo(0, 'costoUnitario', '');
+    t('  si después se borra el costo, la cantidad que había salido se borra también',
+      w.items()[0].cantidad === 0 && w.el('cpCant0').value === '' && w.el('cpNoDa0').style.display === 'none', JSON.stringify(w.items()[0]));
+  }
+  {
+    const g = armar();
+    g.ctx.openCompraModal('L1');
+    g.ctx.compraAgregar('alm');
+    g.ctx.compraCampo(0, 'total', '70000');
+    g.ctx.compraCampo(0, 'bolsa', '5');
+    g.ctx.compraCampo(0, 'bolsa', '');
+    t('si se borra la bolsa con la que salió la cantidad, la cantidad se borra también',
+      g.items()[0].cantidad === 0 && g.el('cpCant0').value === '' && g.el('cpNoDa0').style.display === 'none', JSON.stringify(g.items()[0]));
+  }
+  {
+    /* Muchas ediciones al azar (con una semilla fija, siempre las mismas), con puntos y letras en el medio,
+       y después de cada una se mira que todo cierre. */
+    let semilla = 20261002;
+    const azar = () => {
+      semilla = semilla + 0x6D2B79F5 | 0;
+      let x = Math.imul(semilla ^ semilla >>> 15, 1 | semilla);
+      x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x;
+      return ((x ^ x >>> 14) >>> 0) / 4294967296;
+    };
+    const uno = l => l[Math.floor(azar() * l.length)];
+    const w = armar();
+    w.ctx.openCompraModal('L1');
+    ['mrc3', 'gal', 'alm', 'alf1'].forEach(id => w.ctx.compraAgregar(id));
+    const c = w.ctx, fallas = [];
+    const formula = x => {
+      const q = Number(x.cantidad || 0), g = Number(x.gramosBolsa || 0);
+      if (x.totalEscrito != null) return x.totalEscrito;
+      if (x.sinTam && !(g > 0)) return 0;
+      if (x.tipoVenta === 'peso' && g > 0 && x.costoBolsa != null) return Math.round(Number(x.costoBolsa || 0) * q / g);
+      const cu = Number(x.costoUnitario || 0);
+      return x.tipoVenta === 'peso' ? Math.round(cu * q / 1000) : Math.round(cu * q);
+    };
+    for (let paso = 0; paso < 600 && fallas.length < 5; paso++) {
+      const i = Math.floor(azar() * 4), it = w.items()[i], peso = it.tipoVenta === 'peso';
+      const op = uno(['cantidad', 'cantidad', 'costo', 'total', 'total', 'salir'].concat(it.sinTam ? ['bolsa', 'bolsa', 'bolsaUnidad'] : []));
+      let desc = op;
+      if (op === 'cantidad') {
+        const v = uno(peso ? ['', '0', '1000', '2500', '3000', '4500', '6000', '9000', '12000', '10.000', '3a000']
+          : ['', '0', '1', '3', '4', '7', '12', '300', '1.0']);
+        c.compraCampo(i, 'cantidad', v); desc += ' ' + v;
+      } else if (op === 'costo') {
+        const v = uno(['', '0', '999', '1500', '7143', '12000', '13.333', '20400', '9o00']);
+        if (c._cpEsBolsa(it)) { c.compraCampo(i, 'costoBolsa', v); desc = 'costoBolsa ' + v; }
+        else if (!it.sinTam) { c.compraCampo(i, 'costoUnitario', v); desc = 'costoUnitario ' + v; }
+        else desc = 'costo (apagado, sin bolsa)';
+      } else if (op === 'total') {
+        const v = uno(['', '0', '100', '9000', '40000', '50000', '84000', '102.000', '7a00']);
+        c.compraCampo(i, 'total', v); desc += ' ' + v;
+      } else if (op === 'bolsa') {
+        const v = uno(['', '2', '2,5', '2.5', '5', '0,5', '1500', 'kg']);
+        c.compraCampo(i, 'bolsa', v); desc += ' ' + v;
+      } else if (op === 'bolsaUnidad') {
+        const v = uno(['kg', 'g']);
+        c.compraCampo(i, 'bolsaUnidad', v); desc += ' ' + v;
+      } else c.compraSalir(i);
+      const mal = m => fallas.push('paso ' + paso + ' (renglón ' + i + ', ' + desc + '): ' + m);
+      const lista = w.items();
+      const suma = lista.reduce((s, x) => s + (Number(x.cantidad || 0) > 0 ? c._cpSubtotal(x) : 0), 0);
+      if (c._cpTotal() !== suma) mal('el total de la compra ' + c._cpTotal() + ' no es la suma de los renglones con cantidad ' + suma);
+      if (op !== 'salir' && w.el('compraTotal').textContent !== '$' + Math.round(suma).toLocaleString('es-AR')) mal('en pantalla dice ' + w.el('compraTotal').textContent);
+      lista.forEach((x, k) => {
+        const q = Number(x.cantidad || 0), g = Number(x.gramosBolsa || 0), bolsa = c._cpEsBolsa(x);
+        const cada = Number((bolsa ? x.costoBolsa : x.costoUnitario) || 0);
+        if (c._cpSubtotal(x) !== formula(x)) mal('renglón ' + k + ': subtotal ' + c._cpSubtotal(x) + ', y la cuenta da ' + formula(x));
+        if (x.totalEscrito != null && q > 0 && x.cantidadSale) {
+          if (x.tipoVenta !== 'peso' || bolsa) {
+            const n = x.tipoVenta !== 'peso' ? q : q / g;
+            if (n !== Math.round(n) || Math.abs(n * cada - x.totalEscrito) >= 1) mal('renglón ' + k + ': la cantidad que salió no da: ' + n + ' × ' + cada + ' contra ' + x.totalEscrito);
+          } else if (Math.abs(q / 1000 * cada - x.totalEscrito) > cada / 2000 + 0.5) mal('renglón ' + k + ': los gramos que salieron no dan');
+        }
+        if (x.totalEscrito != null && q > 0 && !x.cantidadSale) {
+          const n = x.tipoVenta !== 'peso' ? q : g > 0 ? q / g : x.sinTam ? 0 : q / 1000;
+          if (n > 0 && cada !== Math.round(x.totalEscrito / n)) mal('renglón ' + k + ': el costo que salió ' + cada + ' no es ' + Math.round(x.totalEscrito / n));
+        }
+        if (bolsa) {
+          const kilo = x.costoBolsa === c.costoDeBolsa(x.costoAnterior, g) ? Number(x.costoAnterior || 0) : c.kiloDeBolsa(x.costoBolsa, g);
+          if (x.costoUnitario !== kilo) mal('renglón ' + k + ': el kilo ' + x.costoUnitario + ' no es el de la bolsa ' + kilo);
+        }
+        if (x.noDaJusto && (!x.cantidadSale || q > 0)) mal('renglón ' + k + ': dice que no da justo y tiene cantidad');
+        if (x.cantidadSale && x.totalEscrito == null) mal('renglón ' + k + ': cantidad que salió de un total que ya no está');
+        if (k === i) {
+          if (w.el('cpCant' + k).value !== (q > 0 ? String(q) : '')) mal('la cantidad en pantalla "' + w.el('cpCant' + k).value + '" no es ' + q);
+          if (w.el('cpSub' + k).value !== c._cpTotalValor(x)) mal('el total en pantalla "' + w.el('cpSub' + k).value + '" no es ' + c._cpTotalValor(x));
+          if ((bolsa || !x.sinTam) && w.el((bolsa ? 'cpBolsa' : 'cpCosto') + k).value !== c._cpImporteTxt(cada)) mal('el costo en pantalla no es ' + cada);
+        }
+      });
+    }
+    t('600 ediciones al azar (cantidad, costo, total, bolsa; con puntos y letras): los subtotales, el total de la compra, ' +
+      'lo que sale del total y lo que se ve siempre cierran', fallas.length === 0, fallas.join(' || '));
+    /* Y al guardar: todo en orden (bolsa, costo y cantidad), se guarda lo mismo que se ve. */
+    w.items().forEach((x, k) => {
+      if (x.sinTam && !c._cpEsBolsa(x)) { c.compraCampo(k, 'bolsaUnidad', 'kg'); c.compraCampo(k, 'bolsa', '5'); }
+      if (!(Number(x.cantidad) > 0)) { c.compraCampo(k, 'total', ''); c.compraCampo(k, 'cantidad', x.tipoVenta === 'peso' ? '6000' : '3'); }
+      if (!(Number(x.costoUnitario) > 0)) c.compraCampo(k, c._cpEsBolsa(x) ? 'costoBolsa' : 'costoUnitario', '2000');
+    });
+    const enPantalla = c._cpTotal(), subt = w.items().map(x => c._cpSubtotal(x));
+    await c.guardarCompra();
+    const g = w.guardadas[0] || { items: [] };
+    t('  y al guardar, la compra queda con los mismos subtotales y el mismo total que se veían',
+      w.guardadas.length === 1 && g.total === enPantalla && g.items.length === 4 &&
+      g.items.every((x, k) => x.subtotal === subt[k]) && g.items.reduce((s, x) => s + x.subtotal, 0) === g.total,
+      JSON.stringify({ enPantalla, subt, guardado: g.total, items: g.items.map(x => x.subtotal), avisos: w.avisos }));
+  }
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);

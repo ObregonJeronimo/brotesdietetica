@@ -2556,6 +2556,19 @@ se va (`_cpSalioTxt`, `_cpAvisoFilaHtml`). Probado en el sandbox con la Galleta 
 unidades salieron 5 y el aviso; con 4, el costo quedó en $12.500 y el aviso se fue. Pruebas: 2 más y 7
 ajustadas; 4 cambios a propósito quedan atrapados. Total: 4142 en 91 suites.
 
+Revisión antes de subir (Thiago: "que den números correctos, que no haya inconsistencias"):
+- El total de la compra en pantalla contaba un renglón con el total escrito y sin cantidad ("las cuentas no
+  dan"), que al guardar se descarta. Ahora cuenta solo los renglones con cantidad, como al guardar.
+- En un producto sin costo cargado, el total escrito sin la cantidad se perdía al escribir el costo; ahora
+  sale la cantidad. Y una cantidad que salió del total se borra si se borra el costo o la bolsa con que salió.
+- Una prueba de 600 ediciones al azar (cantidad, costo, total, bolsa, con puntos y letras) mira después de
+  cada una que todo cierre: los subtotales, el total de la compra, lo que sale del total, lo que se ve y, al
+  guardar, lo guardado. Aparte se corrió con 30 semillas (18.000 ediciones): sin fallas, y también el stock
+  que sube y el costo que pone "Actualizar" son los de la compra guardada.
+Probado en el sandbox: la Galleta De Arroz con $85.000 y sin unidades (8,5, no da): el renglón dice $85.000
+y el total de la compra $0; con 8 unidades, $10.625 c/u y el total de la compra $85.000. Pruebas: 6 más.
+Total: 4156 en 91 suites.
+
 ### AN) Ventas: el renglón dice qué presentación se vendió · **HECHO, SIN SUBIR** (02/10/2026)
 
 Pedido de Thiago: vendiendo el Mani RC de 80 g, en Ventas el renglón decía "Mani RC  2 u × $1.530" y no
