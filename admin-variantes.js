@@ -1420,6 +1420,32 @@ function nombreQueSeGuarda(nombre) {
 /* Crea las filas nuevas y guarda las que se tocaron. El producto ya está guardado:
    si algo falla acá se avisa y NO se corta, porque volver a guardar crearía el
    producto otra vez. Lo que no se guardó se vuelve a cargar desde su ficha. */
+/* Las filas de la tabla que se van a guardar con precio, con el costo y el precio que les quedan
+   (la misma cuenta que guardarVariantesForm, abajo): las usa el aviso "Se vende sin ganancia" de
+   saveProduct (pedido del dueño, 02/10). `nombre`: el del producto, para nombrar las filas nuevas. */
+function filasVarConPrecio(nombre) {
+  const peso = _varEsPeso();
+  const base = baseDeNombre(nombre || '') || nombre || '';
+  return (window._varFilas || []).filter(f => !f.id || Object.keys(f.tocado || {}).length).map(f => {
+    const r = _calcFilaVar(f, peso);
+    const tam = String(f.tam || '').trim();
+    if (!f.id) {
+      if (r.costo === null || !tam) return null;
+      return { nombre: _nombreConTam(base, tam), costo: r.costo, precio: r.precio, porcentaje: Number(f.pct) || 0, peso: peso };
+    }
+    const old = _varProds().find(x => x && x.id === f.id) || {};
+    if ((old.tipoVenta === 'peso') !== peso) return null;
+    const t = f.tocado || {};
+    const tamNuevo = !!(t.tam && tam && tam !== String(f.tamAntes || '').trim());
+    const recalcular = !!(t.costoIn || (peso && tamNuevo));
+    if (!(recalcular || t.pct || t.pctMay)) return null;
+    const costo = recalcular && r.costo !== null ? r.costo : Number(old.costo || 0);
+    const pct = t.pct ? (Number(f.pct) || 0) : Number(old.porcentaje || 0);
+    return { nombre: old.nombreMostrado || old.nombre || tam, costo: costo, precio: Math.round(costo * (1 + pct / 100)),
+      porcentaje: pct, peso: peso, antes: Number(old.precio || 0) };
+  }).filter(Boolean);
+}
+
 async function guardarVariantesForm(principalId, data) {
   const filas = (window._varFilas || []).filter(f => !f.id || Object.keys(f.tocado || {}).length);
   window._varFilas = [];

@@ -624,6 +624,29 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  sin cambiar el costo, su fecha no se toca (revisión del 01/10)', Object.values(ups).every(u => u.costoActualizadoEn === undefined));
   }
   {
+    /* Para el aviso "Se vende sin ganancia" de la ficha (02/10): las filas que se van a guardar con
+       precio, con el costo y el precio que les quedan (la misma cuenta que guardarVariantesForm). */
+    const w = armar({ tipo: 'peso' });
+    w.ctx.openModal();
+    w.ctx.varFilaAgregar();
+    Object.assign(w.ctx.window._varFilas[0], { tam: '3 kg', costoIn: '13500', pct: 0, pctMay: 0, stock: '0', tocado: { tam: true } });
+    w.ctx.varFilaAgregar();
+    Object.assign(w.ctx.window._varFilas[1], { tam: '5 kg', costoIn: '18750', pct: 55, pctMay: 30, stock: '0', tocado: { tam: true } });
+    const f = w.ctx.filasVarConPrecio('Yerba Mate');
+    t('la ficha sabe con qué precio quedan las bolsas nuevas de la tabla (aviso de sin ganancia, 02/10)', JSON.stringify(f) === JSON.stringify([
+      { nombre: 'Yerba Mate x 3 kg', costo: 4500, precio: 4500, porcentaje: 0, peso: true },
+      { nombre: 'Yerba Mate x 5 kg', costo: 3750, precio: 5813, porcentaje: 55, peso: true }]), JSON.stringify(f));
+  }
+  {
+    const w = armar({ editingId: 'mani80' });
+    w.ctx.openModal('mani80');
+    w.ctx.varFilaCambio(0, 'stock', '25');
+    w.ctx.varFilaCambio(1, 'pct', '45');
+    const f = w.ctx.filasVarConPrecio('Maní x 80 g');
+    t('  y de las que ya existen, solo las que cambian de precio (no el stock), con el de antes: sin costo queda en $0',
+      JSON.stringify(f) === JSON.stringify([{ nombre: 'Maní x 320 g', costo: 0, precio: 0, porcentaje: 45, peso: false, antes: 4400 }]), JSON.stringify(f));
+  }
+  {
     const w = armar({ editingId: 'mani80' });
     w.ctx.openModal('mani80');
     w.ctx.varFilaCambio(0, 'tam', '170 g');

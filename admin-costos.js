@@ -253,6 +253,233 @@ async function avisoMayoristaSinGanancia(items, dscVenta) {
     { titulo: 'Se vende sin ganancia', aceptar: 'Registrar igual', cancelar: 'Volver', icono: 'bi-exclamation-triangle', cuidado: true, focoEnNo: true });
 }
 
+/* ------------------------------------------- UN PRECIO QUE NO DEJA GANANCIA
+   Pedido del dueño (02/10). La ficha, su tabla de bolsas y la ventana de costos calculan el
+   precio con el costo y el % de ganancia: con el % en 0 sale igual al costo, y sin costo, en $0.
+   El 01/10 se creó así la Tortilla de espinaca mediana ($22.000, lo mismo que costó). Sin
+   ganancia es la misma regla que en la venta mayorista: menos del 5% por encima del costo. */
+function _precioSinGanancia(precio, costo) {
+  return !(Number(precio) > 0) || _mayoristaSinGanancia(precio, costo);
+}
+/* Antes de guardar: lo dice con el precio que queda (y el de antes, si cambia) y el costo, y
+   pregunta, arrancando en "Volver". `filas`: [{ nombre, costo, precio, porcentaje, peso, antes }];
+   se listan las que no dejan ganancia. Devuelve true si se guarda. */
+async function avisoGuardarSinGanancia(filas) {
+  /* Si el diálogo no cargó, se guarda: un aviso nunca puede impedir guardar. */
+  if (typeof pedirConfirmacion !== 'function') return true;
+  const malas = (filas || []).filter(f => f && _precioSinGanancia(f.precio, f.costo));
+  if (!malas.length) return true;
+  const NL = String.fromCharCode(10);
+  const uno = malas.length === 1;
+  const linea = f => {
+    const kg = f.peso ? ' el kilo' : '';
+    const antes = Number(f.antes) > 0 && Math.round(Number(f.antes)) !== Math.round(Number(f.precio) || 0)
+      ? ' (antes ' + _costoPesos(f.antes) + ')' : '';
+    if (!(Number(f.costo) > 0)) {
+      return '- ' + f.nombre + ': el precio queda en ' + _costoPesos(f.precio) + kg + antes + ': no tiene costo ni % de ganancia cargados';
+    }
+    return '- ' + f.nombre + ': se va a vender a ' + _costoPesos(f.precio) + kg + antes + ' y costó ' + _costoPesos(f.costo) + kg +
+      (Number(f.porcentaje) > 0 ? ' (con ' + f.porcentaje + '% de ganancia)' : ' (no tiene % de ganancia cargado)');
+  };
+  const sinCosto = malas.some(f => !(Number(f.costo) > 0));
+  return pedirConfirmacion(
+    (uno ? 'Con este precio no ganás nada (o casi nada):' : 'Con estos precios no ganás nada (o casi nada):') + NL + NL +
+    malas.slice(0, 8).map(linea).join(NL) + (malas.length > 8 ? NL + '- y ' + (malas.length - 8) + ' más' : '') + NL + NL +
+    'Para ganar algo, ' + (uno ? 'cargale' : 'cargales') + (sinCosto ? ' el costo y' : '') + ' el % de ganancia. ¿Guardar igual?',
+    { titulo: 'Se vende sin ganancia', aceptar: 'Guardar igual', cancelar: 'Volver', icono: 'bi-exclamation-triangle', cuidado: true, focoEnNo: true });
+}
+
+/* ------------------------------------------- VENDER SIN GANANCIA EN MOSTRADOR
+   Pedido del dueño (02/10). Al registrar una venta, si un producto tiene el precio igual al costo
+   (o casi: la misma regla), se avisa con su precio y su costo, y se pregunta si se le quiere
+   cargar el % de ganancia antes de vender. "Cargar el % de ganancia" abre una ventanita encima
+   de la venta (abrirEditorGanancia) y la venta toma el precio nuevo, como con "Modificar costos".
+   "Vender igual" sigue; cerrar el aviso sin elegir vuelve a la venta. Se mira el precio de lista
+   del producto, sin la oferta. Una venta que viene de un pedido web no se mira: ese precio ya lo
+   aceptó el cliente. Devuelve true si la venta sigue. */
+async function avisoVentaSinGanancia(items, ctx) {
+  /* Si el diálogo no cargó, la venta no se frena: un aviso nunca puede impedir cobrar. */
+  if (typeof pedirOpcion !== 'function') return true;
+  if (typeof window !== 'undefined' && window && window._pedidoOrigenVentaId) return true;
+  const prods = typeof allProducts !== 'undefined' ? allProducts : [];
+  const vistos = new Set();
+  const malos = [];
+  (items || []).forEach(it => {
+    if (!it || vistos.has(it.id)) return;
+    vistos.add(it.id);
+    const p = prods.find(x => x && x.id === it.id);
+    /* Con costo: sin costo no hay cuenta que hacer (lo que falta es el costo). */
+    if (p && Number(p.costo) > 0 && _precioSinGanancia(p.precio, p.costo)) malos.push(p);
+  });
+  if (!malos.length) return true;
+  const NL = String.fromCharCode(10);
+  const uno = malos.length === 1;
+  const sinPct = malos.every(p => !(Number(p.porcentaje) > 0));
+  const intro = sinPct
+    ? (uno ? 'Estás vendiendo un producto que cargaste sin % de ganancia: el precio de venta es igual al costo.'
+           : 'Estás vendiendo productos que cargaste sin % de ganancia: el precio de venta es igual al costo.')
+    : (uno ? 'Estás vendiendo un producto con el precio igual al costo (o casi): no ganás nada con él.'
+           : 'Estás vendiendo productos con el precio igual al costo (o casi): no ganás nada con ellos.');
+  const r = await pedirOpcion(intro + NL + NL +
+    malos.slice(0, 8).map(p => '- ' + _costoNombre(p) + ': se vende a ' + _costoPesos(p.precio) + _costoUnidad(p) +
+      ' y costó ' + _costoPesos(p.costo) + _costoUnidad(p)).join(NL) +
+    (malos.length > 8 ? NL + '- y ' + (malos.length - 8) + ' más' : '') + NL + NL +
+    (uno ? '¿Querés cargarle el % de ganancia antes de vender?' : '¿Querés cargarles el % de ganancia antes de vender?'), {
+    titulo: 'Se vende sin ganancia',
+    icono: 'bi-exclamation-triangle',
+    opciones: [
+      { valor: 'cargar', texto: 'Cargar el % de ganancia', principal: true },
+      { valor: 'vender', texto: 'Vender igual' },
+    ],
+  });
+  if (r === 'vender') return true;
+  if (r === 'cargar') abrirEditorGanancia(malos, ctx);
+  return false;
+}
+
+/* La ventanita de "Cargar el % de ganancia" (02/10): por producto, el % y cómo queda el precio
+   mientras se escribe (costo + %, la misma cuenta que la ficha; el mayorista sale de su propio %,
+   preciosDesdeCosto). Al guardar van el %, el precio y el mayorista, y la venta abierta toma el
+   precio nuevo (_refrescarItemsDeVenta). El costo no se toca. */
+let _gananciaEditor = null;
+const _gananciaLeer = v => {
+  const s = String(v == null ? '' : v).trim().replace(',', '.');
+  const n = s === '' ? NaN : Number(s);
+  return Number.isFinite(n) && n >= 0 ? n : NaN;
+};
+const _gananciaPrecios = (p, pct) => preciosDesdeCosto(Object.assign({}, p, { porcentaje: pct }), Number(p.costo || 0));
+function _gananciaVistaHtml(p, pct) {
+  if (!(pct >= 0)) return '<span class="costos-falta">Poné el % de ganancia.</span>';
+  const r = _gananciaPrecios(p, pct);
+  const may = Number(r.precioMayorista || 0);
+  const html = typeof _resFilaVar === 'function'
+    ? _resFilaVar({ costo: Number(p.costo || 0), precio: r.precio, may: may }, p.tipoVenta === 'peso',
+        typeof esCajaCerrada === 'function' && esCajaCerrada(p) && may > 0, p.descuento)
+    : '<span>Precio <b>' + _costoPesos(r.precio) + '</b>' + _costoUnidad(p) + '</span>';
+  return html + (_precioSinGanancia(r.precio, p.costo) ? '<span class="costos-falta">Así tampoco ganás nada.</span>' : '');
+}
+
+function abrirEditorGanancia(productos, ctx) {
+  cerrarEditorGanancia();
+  const lista = (productos || []).filter(Boolean);
+  if (!lista.length) return;
+  _gananciaEditor = { productos: lista, ctx: ctx === 'may' ? 'may' : 'min', guardando: false };
+  const ov = document.createElement('div');
+  /* dlg-overlay: así el Escape de admin-atajos.js no cierra la venta de atrás. */
+  ov.className = 'dlg-overlay';
+  ov.id = 'gananciaEditor';
+  ov.style.zIndex = String(400 + (typeof _dlgAbiertos === 'number' ? _dlgAbiertos : 0));
+  ov.innerHTML =
+    '<div class="dlg-box costos-box" role="dialog" aria-modal="true" aria-labelledby="gananciaTit">' +
+      '<div class="dlg-cab"><span class="dlg-ico"><i class="bi bi-percent"></i></span><h3 id="gananciaTit">Cargar el % de ganancia</h3></div>' +
+      '<div class="dlg-msg">' +
+        '<p class="dlg-linea">Poné cuánto querés ganar: el precio se calcula solo, con el costo más ese %, ' +
+          'igual que en la ficha del producto. Al guardar, la venta toma el precio nuevo.</p>' +
+        lista.map((p, i) => {
+          const nom = _costoEsc(_costoNombre(p));
+          const pct = Number(p.porcentaje) || 0;
+          return '<div class="costos-fila">' +
+            '<div class="costos-nom"><b>' + nom + '</b><div class="costos-sub">Costó ' + _costoPesos(p.costo) + _costoUnidad(p) +
+              ' · hoy se vende a ' + _costoPesos(p.precio) + _costoUnidad(p) + '</div></div>' +
+            '<label class="costos-campo"><span class="costos-campo-tit">% de ganancia:</span>' +
+              '<input type="text" inputmode="decimal" class="form-input ganancia-input" data-i="' + i + '" value="' + (pct > 0 ? pct : '') + '" ' +
+              'placeholder="por ej. 50" aria-label="% de ganancia de ' + nom + '"></label>' +
+            '<div class="costos-vista ganancia-vista" data-i="' + i + '" aria-live="polite">' + _gananciaVistaHtml(p, pct > 0 ? pct : NaN) + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+      '<div class="dlg-pie">' +
+        '<button type="button" class="btn btn-secondary" id="gananciaVolver">Volver a la venta</button>' +
+        '<button type="button" class="btn btn-primary" id="gananciaGuardar"><i class="bi bi-check-lg"></i> Guardar</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  if (typeof _dlgAbiertos === 'number') _dlgAbiertos++;
+  ov.querySelector('#gananciaVolver').addEventListener('click', cerrarEditorGanancia);
+  ov.querySelector('#gananciaGuardar').addEventListener('click', guardarEditorGanancia);
+  ov.addEventListener('mousedown', e => { if (e.target === ov) cerrarEditorGanancia(); });
+  ov.querySelectorAll('.ganancia-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const i = Number(inp.getAttribute('data-i'));
+      const vista = ov.querySelector('.ganancia-vista[data-i="' + i + '"]');
+      if (vista && lista[i]) vista.innerHTML = _gananciaVistaHtml(lista[i], _gananciaLeer(inp.value));
+    });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); guardarEditorGanancia(); } });
+  });
+  document.addEventListener('keydown', _gananciaTecla, true);
+  setTimeout(() => { const i = ov.querySelector('.ganancia-input'); if (i) { i.focus(); if (i.select) i.select(); } }, 30);
+}
+
+async function guardarEditorGanancia() {
+  const ed = _gananciaEditor;
+  const ov = document.getElementById('gananciaEditor');
+  /* Una sola vez: un segundo Enter mientras se guardaba escribiría todo dos veces. */
+  if (!ed || !ov || ed.guardando) return;
+  const cambios = [];
+  for (const inp of ov.querySelectorAll('.ganancia-input')) {
+    const i = Number(inp.getAttribute('data-i'));
+    const p = ed.productos[i];
+    if (!p) continue;
+    const pct = _gananciaLeer(inp.value);
+    if (!(pct >= 0)) {
+      showAdminToast('Poné el % de ganancia de "' + _costoEsc(_costoNombre(p)) + '"', 'error');
+      if (inp.focus) inp.focus();
+      return;
+    }
+    if (pct === (Number(p.porcentaje) || 0)) continue;
+    cambios.push({ p: p, pct: pct, r: _gananciaPrecios(p, pct) });
+  }
+  if (!cambios.length) {
+    cerrarEditorGanancia();
+    showAdminToast('No cambiaste ningún %: la venta sigue como estaba.', 'info');
+    return;
+  }
+  ed.guardando = true;
+  const btn = ov.querySelector('#gananciaGuardar');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Guardando...'; }
+  const campos = c => ({ porcentaje: c.pct, precio: c.r.precio, precioMayorista: c.r.precioMayorista });
+  const lote = db.batch();
+  cambios.forEach(c => lote.update(db.collection('productos').doc(c.p.id), campos(c)));
+  try {
+    await lote.commit();
+  } catch (e) {
+    ed.guardando = false;
+    showAdminToast('No se pudo guardar el % de ganancia: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar'; }
+    return;
+  }
+  /* El MISMO objeto de allProducts: la venta y la tabla lo tienen en la mano. */
+  cambios.forEach(c => Object.assign(c.p, campos(c)));
+  _refrescarItemsDeVenta(ed.ctx, cambios.map(c => c.p));
+  if (typeof logAction === 'function') {
+    logAction('editar', '% de ganancia cargado al vender: ' + cambios.length,
+      cambios.map(c => _costoNombre(c.p) + ' -> ' + c.pct + '%, precio ' + _costoPesos(c.r.precio) + _costoUnidad(c.p) +
+        ', mayorista ' + _costoPesos(c.r.precioMayorista)).join(' | ').slice(0, 900));
+  }
+  if (typeof filterTable === 'function') filterTable();
+  if (_gananciaEditor === ed) cerrarEditorGanancia();
+  showAdminToast((cambios.length === 1 ? 'Listo: el precio quedó con su % de ganancia.' : 'Listo: los precios quedaron con su % de ganancia.') +
+    ' La venta tomó el precio nuevo: revisá el total y registrala.', 'success');
+}
+
+function _gananciaTecla(e) {
+  /* Con otro diálogo encima, el Escape es de ese diálogo. */
+  if (document.querySelector('.dlg-overlay:not(#gananciaEditor)')) return;
+  if (e.key === 'Escape' && document.getElementById('gananciaEditor')) {
+    e.preventDefault(); e.stopPropagation(); cerrarEditorGanancia();
+  }
+}
+
+function cerrarEditorGanancia() {
+  const ov = document.getElementById('gananciaEditor');
+  if (ov) {
+    ov.remove();
+    if (typeof _dlgAbiertos === 'number') _dlgAbiertos = Math.max(0, _dlgAbiertos - 1);
+  }
+  document.removeEventListener('keydown', _gananciaTecla, true);
+  _gananciaEditor = null;
+}
+
 /* ------------------------------------------------------------ EL EDITOR */
 /* { filas: [{ producto, fecha, dias }], escritos: [lo que se mostró en cada campo],
      ctx: 'min' | 'may' | 'inicio' | 'prod', guardando } */
@@ -452,6 +679,17 @@ async function guardarEditorCostos() {
       'Si tocás "Volver", no se guarda nada y podés corregirlo. ¿Querés guardar igual?',
       { titulo: 'Ojo: la bolsa más grande quedaría más cara', aceptar: 'Guardar igual', cancelar: 'Volver',
         icono: 'bi-exclamation-triangle', cuidado: true, focoEnNo: true });
+    ed.guardando = false;
+    if (!seguir) return;
+  }
+  /* Un precio que no deja ganancia (sin % de ganancia, el precio sale igual al costo): se avisa y
+     se pregunta (pedido del dueño, 02/10). "Volver" deja la ventana como estaba, para corregirlo. */
+  const filasSG = cambios.filter(c => c.cambio).map(c => ({ nombre: _costoNombre(c.p), costo: c.nuevo,
+    precio: preciosDesdeCosto(c.p, c.nuevo).precio, porcentaje: Number(c.p.porcentaje) || 0,
+    peso: c.p.tipoVenta === 'peso', antes: Number(c.p.precio || 0) }));
+  if (filasSG.some(f => _precioSinGanancia(f.precio, f.costo))) {
+    ed.guardando = true;   /* que un segundo Enter no abra otro aviso */
+    const seguir = await avisoGuardarSinGanancia(filasSG);
     ed.guardando = false;
     if (!seguir) return;
   }

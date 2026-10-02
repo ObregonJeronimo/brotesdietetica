@@ -453,6 +453,10 @@ producción (de los "gramajes" viejos).
   costo van los precios que tiene (con centavos mostraba otros, y "Sin mayorista" en uno sin % que lo
   tenía; solo era lo que se veía). Visto de paso: la compra de hoy no aparece en el panel del proveedor
   hasta las 12:00 (viejo; Thiago: queda así). Detalle en `PENDIENTE.md` §1-bis AJ.
+- **"Se vende sin ganancia" al guardar y al vender (02/10, sin subir)**: la ficha (con su tabla de bolsas) y
+  la ventana de costos avisan antes de guardar un precio igual al costo (sin % de ganancia) o en $0; al
+  vender en mostrador, un aviso con el texto del dueño y "Cargar el % de ganancia" (una ventanita encima
+  de la venta, que toma el precio nuevo) o "Vender igual". Detalle en `PENDIENTE.md` §1-bis AK.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

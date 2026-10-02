@@ -2367,6 +2367,46 @@ ver §AI, "Para hablar con la clienta".
 Vercel sirve los mismos archivos que el repo; la tienda y la pantalla de ingreso del panel cargan sin
 errores (sin iniciar sesión), ya con el código nuevo.
 
+### AK) "Se vende sin ganancia" al guardar y al vender en mostrador · **HECHO, SIN SUBIR** (02/10/2026)
+
+Pedido de Thiago, al ver que la Tortilla de espinaca mediana se creó el 01/10 sin % de ganancia y se vende
+a lo mismo que costó: un aviso al guardar y otro al vender, con la opción de cargar el % ahí mismo.
+- La ficha (y su tabla de bolsas) y la ventana de costos calculan el precio con el costo y el %: con el %
+  en 0 sale igual al costo, y sin costo, en $0. La ficha ya lo muestra así al abrirla, y al guardar se
+  escribía sin avisar: en un producto sin % con el precio puesto a mano, guardar la ficha por cualquier
+  cosa bajaba el precio al costo. En producción hoy no hay ninguno así: los 6 visibles sin % ya están al
+  costo, y los 69 ocultos sin % no tienen costo (guardar su ficha los dejaría en $0).
+- Al guardar (`avisoGuardarSinGanancia`, admin-costos.js): en la ficha, con las bolsas de la tabla que cambian
+  de precio (`filasVarConPrecio`, admin-variantes.js), y en la ventana de costos. Si un precio queda igual o
+  menor que el costo (menos del 5% arriba, la misma regla que la venta mayorista) o en $0: "Se vende sin
+  ganancia", con el precio que queda, el de antes y el costo, y "Guardar igual" / "Volver" (arranca en
+  "Volver"; en la ficha, el foco vuelve al % de ganancia).
+- Al vender en mostrador (`avisoVentaSinGanancia`): si un producto tiene el precio igual al costo (o casi), con
+  el texto que pidió Thiago: "Estás vendiendo un producto que cargaste sin % de ganancia: el precio de
+  venta es igual al costo", el precio y el costo, y "¿Querés cargarle el % de ganancia antes de vender?".
+  "Cargar el % de ganancia" (de entrada) abre una ventanita encima de la venta (`abrirEditorGanancia`): se
+  pone el %, se ve el precio que queda, y al guardar van el %, el precio y el mayorista (con su propio
+  %); la venta toma el precio nuevo, como con "Modificar costos". "Vender igual" sigue. Solo al crear la
+  venta, no al editarla, y no en una que viene de un pedido web (ese precio ya lo aceptó el cliente). La
+  venta mayorista ya tenía el suyo (§AH).
+- No avisan al guardar (si hace falta, más adelante): Importar Costos (Excel) y "Costo %" (cambia el % de
+  muchos juntos). Si dejan alguno sin ganancia, lo ataja el aviso al vender.
+
+Probado en el sandbox con clics de verdad (todos los números comprobados en la base):
+- ficha de la Castaña De Caju Tostado (sin %, $12.920 puesto a mano, costo $7.000): al guardar, "se va a
+  vender a $7.000 (antes $12.920)"; "Volver" no guardó nada; "Guardar igual" la dejó en $7.000;
+- ficha de la Nuez Mariposa con la bolsa de 3 kg en 0%: el aviso listó solo esa bolsa ("$8.900 el kilo
+  (antes $14.240)"); con "Guardar igual" cambió solo esa bolsa;
+- ventana de costos de esa bolsa a $26.400: primero el aviso de la bolsa más cara (la de 5 kg), después
+  "Se vende sin ganancia" ($8.800 el kilo, antes $8.900); el Enter dijo que no y no se guardó nada;
+- venta de 1 Castaña a $7.000: el aviso; "Cargar el % de ganancia" con 50%: el producto quedó en $10.500
+  (sin mayorista; el costo y el stock, igual) y la venta tomó $10.500; al registrarla no avisó más: venta
+  #42, $10.500, costo $7.000, stock 60 a 59;
+- venta de 3 kg de Nuez Mariposa (la bolsa de 3 kg al costo): el aviso, con "el kilo"; "Vender igual":
+  venta #43, $26.700, costo $8.900 el kilo, stock de la bolsa 21 kg a 18 kg.
+Pruebas: 41 nuevas; con el código de antes fallan, y 7 cambios a propósito del código quedan atrapados.
+Total: 4040 en 90 suites.
+
 ---
 
 ## 2. Decisiones tuyas

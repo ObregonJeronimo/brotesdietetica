@@ -92,7 +92,7 @@ function armar(opts) {
           querySelector: sel => (sel === '.costos-input' ? inputs[0] || null
             : /^\.costos-input\[data-i="\d+"\]$/.test(sel) ? inputs[Number(sel.replace(/\D/g, ''))] || null
             : { addEventListener: () => {}, focus: () => {}, select: () => {}, disabled: false, innerHTML: '' }),
-          querySelectorAll: sel => (sel === '.costos-input' ? inputs : sel === '.costos-sigue' ? casillas : []),
+          querySelectorAll: sel => (sel === '.costos-input' || sel === '.ganancia-input' ? inputs : sel === '.costos-sigue' ? casillas : []),
           remove: () => { delete elementos[el.id]; },
         };
         return el;
@@ -746,6 +746,185 @@ console.log('\n-- el % mayorista en 0 y vender al mayorista sin ganancia (01/10)
     s.ctx._mayoristaSinGanancia(150, 101) === false && s.ctx._mayoristaSinGanancia(21500, 21500) === true && s.ctx._mayoristaSinGanancia(500, 0) === false);
 }
 
+/* =========================================== SIN GANANCIA EN MOSTRADOR (02/10) */
+console.log('\n-- sin ganancia en mostrador: al guardar y al vender (02/10) --');
+{
+  const preguntas = [];
+  const m = armar({ pedirConfirmacion: async (txt, op) => { preguntas.push({ txt, op }); return false; } });
+  const sigue = await m.ctx.avisoGuardarSinGanancia([
+    { nombre: 'Tortilla de espinaca mediana', costo: 22000, precio: 22000, porcentaje: 0, peso: false, antes: 0 },
+    { nombre: 'Barrita', costo: 1000, precio: 1500, porcentaje: 50 },
+  ]);
+  const q = preguntas[0] || { op: {} };
+  t('al guardar un precio igual al costo, avisa con el precio y el costo, y arranca en "Volver"',
+    sigue === false && preguntas.length === 1 && q.op.titulo === 'Se vende sin ganancia' && q.op.aceptar === 'Guardar igual' &&
+    q.op.cancelar === 'Volver' && q.op.focoEnNo === true &&
+    q.txt === 'Con este precio no ganás nada (o casi nada):\n\n- Tortilla de espinaca mediana: se va a vender a $22.000 y costó $22.000 (no tiene % de ganancia cargado)\n\n' +
+      'Para ganar algo, cargale el % de ganancia. ¿Guardar igual?', q.txt);
+  t('  el que deja ganancia (Barrita, 50%) no aparece', String(q.txt).indexOf('Barrita') < 0);
+  preguntas.length = 0;
+  await m.ctx.avisoGuardarSinGanancia([
+    { nombre: 'Castaña', costo: 7000, precio: 7000, porcentaje: 0, antes: 12920 },
+    { nombre: 'Lenteja', costo: 2000, precio: 2040, porcentaje: 2, peso: true },
+    { nombre: 'Yerba Vieja', costo: 0, precio: 0, porcentaje: 0, antes: 5000 },
+  ]);
+  t('  dice el precio de antes si baja, el % chico, "el kilo", y el que sin costo queda en $0',
+    (preguntas[0] || {}).txt === 'Con estos precios no ganás nada (o casi nada):\n\n' +
+      '- Castaña: se va a vender a $7.000 (antes $12.920) y costó $7.000 (no tiene % de ganancia cargado)\n' +
+      '- Lenteja: se va a vender a $2.040 el kilo y costó $2.000 el kilo (con 2% de ganancia)\n' +
+      '- Yerba Vieja: el precio queda en $0 (antes $5.000): no tiene costo ni % de ganancia cargados\n\n' +
+      'Para ganar algo, cargales el costo y el % de ganancia. ¿Guardar igual?', (preguntas[0] || {}).txt);
+  const m2 = armar({ pedirConfirmacion: async () => { throw new Error('no tenía que preguntar'); } });
+  t('  si todos dejan ganancia, no pregunta y se guarda',
+    (await m2.ctx.avisoGuardarSinGanancia([{ nombre: 'X', costo: 1000, precio: 1600, porcentaje: 60 }])) === true);
+  t('  sin costo y con un precio, no se sabe: no avisa', (await m2.ctx.avisoGuardarSinGanancia([{ nombre: 'X', costo: 0, precio: 500 }])) === true);
+  t('  "Guardar igual" deja guardar',
+    (await armar({ pedirConfirmacion: async () => true }).ctx.avisoGuardarSinGanancia([{ nombre: 'X', costo: 1000, precio: 1000 }])) === true);
+  t('  si el diálogo no cargó, se guarda', (await armar().ctx.avisoGuardarSinGanancia([{ nombre: 'X', costo: 1000, precio: 1000 }])) === true);
+  t('  la regla: $0 no deja ganancia; con costo, menos del 5% tampoco', m.ctx._precioSinGanancia(0, 0) === true &&
+    m.ctx._precioSinGanancia(22000, 22000) === true && m.ctx._precioSinGanancia(23100, 22000) === false && m.ctx._precioSinGanancia(500, 0) === false);
+}
+{
+  /* La ventana de costos: sin % de ganancia, el costo nuevo deja el precio igual al costo. */
+  const preguntas = [];
+  const prods = () => [
+    { id: 'tq', nombre: 'Tortilla', costo: 22000, porcentaje: 0, precio: 22000, porcentajeMayorista: 0, precioMayorista: 22000, costoActualizadoEn: hace(40) },
+    { id: 'ba', nombre: 'Barrita', costo: 1000, porcentaje: 50, precio: 1500, porcentajeMayorista: 0, precioMayorista: 0, costoActualizadoEn: hace(35) },
+  ];
+  const ps = prods();
+  const m = armar({ productos: ps, pedirConfirmacion: async (txt, op) => { preguntas.push({ txt, op }); return false; } });
+  m.api.abrirEditorCostos(ps.map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'min');
+  m.conInputs(['23000', '1100']);
+  await m.api.guardarEditorCostos();
+  t('ventana de costos: al que no tiene % le queda el precio igual al costo y avisa, con el de antes',
+    preguntas.length === 1 && preguntas[0].op.titulo === 'Se vende sin ganancia' && preguntas[0].op.focoEnNo === true &&
+    preguntas[0].txt.indexOf('- Tortilla: se va a vender a $23.000 (antes $22.000) y costó $23.000 (no tiene % de ganancia cargado)') > 0 &&
+    preguntas[0].txt.indexOf('Barrita') < 0, JSON.stringify(preguntas.map(p => p.txt)));
+  t('  "Volver" no guarda nada y la ventana sigue abierta', m.escrituras.length === 0 && !!m.elementos.costosEditor);
+  const ps2 = prods();
+  const m2 = armar({ productos: ps2, pedirConfirmacion: async () => true });
+  m2.api.abrirEditorCostos(ps2.map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'min');
+  m2.conInputs(['23000', '1100']);
+  await m2.api.guardarEditorCostos();
+  const wt = m2.escrituras.find(x => x.id === 'tq'), wb = m2.escrituras.find(x => x.id === 'ba');
+  t('  "Guardar igual" guarda los dos, como siempre: la Tortilla a $23.000 y la Barrita a $1.650',
+    !!wt && wt.campos.costo === 23000 && wt.campos.precio === 23000 && wt.campos.precioMayorista === 0 &&
+    !!wb && wb.campos.costo === 1100 && wb.campos.precio === 1650, JSON.stringify(m2.escrituras));
+  const ps3 = prods().slice(1);
+  const m3 = armar({ productos: ps3, pedirConfirmacion: async () => { throw new Error('no tenía que preguntar'); } });
+  m3.api.abrirEditorCostos(ps3.map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'min');
+  m3.conInputs(['1100']);
+  await m3.api.guardarEditorCostos();
+  t('  si todos dejan ganancia, guarda sin preguntar', m3.escrituras.length === 1 && m3.escrituras[0].campos.precio === 1650);
+}
+{
+  /* Al vender: el aviso con el texto del dueño, y "Cargar el % de ganancia" / "Vender igual". */
+  const tq = { id: 'tq', nombre: 'Tortilla de espinaca mediana', costo: 22000, porcentaje: 0, precio: 22000, porcentajeMayorista: 0, precioMayorista: 22000 };
+  const ba = { id: 'ba', nombre: 'Barrita', costo: 1000, porcentaje: 50, precio: 1500 };
+  const mn = { id: 'mn', nombre: 'Maní', tipoVenta: 'peso', costo: 8000, porcentaje: 0, precio: 8000 };
+  const venta = [{ id: 'tq', precio: 22000, costo: 22000, cantidad: 2 }, { id: 'ba', precio: 1500, costo: 1000, cantidad: 1 }];
+  let pregunta = null, abierto = null;
+  const m = armar({ productos: [tq, ba, mn], ventaItems: venta, pedirOpcion: async (txt, op) => { pregunta = { txt, op }; return 'cargar'; } });
+  m.ctx.abrirEditorGanancia = (prods, ctx) => { abierto = { prods, ctx }; };
+  const sigue = await m.ctx.avisoVentaSinGanancia(venta, 'min');
+  t('al vender un producto cargado sin % de ganancia, avisa con el texto del dueño, su precio y su costo',
+    sigue === false && !!pregunta && pregunta.op.titulo === 'Se vende sin ganancia' &&
+    pregunta.txt === 'Estás vendiendo un producto que cargaste sin % de ganancia: el precio de venta es igual al costo.\n\n' +
+      '- Tortilla de espinaca mediana: se vende a $22.000 y costó $22.000\n\n¿Querés cargarle el % de ganancia antes de vender?', pregunta && pregunta.txt);
+  t('  con "Cargar el % de ganancia" de entrada y "Vender igual"', !!pregunta &&
+    pregunta.op.opciones.map(o => o.valor + ':' + o.texto + (o.principal ? '*' : '')).join('|') === 'cargar:Cargar el % de ganancia*|vender:Vender igual');
+  t('  "Cargar el % de ganancia" abre la ventanita con ese producto, y la venta no se registra todavía',
+    !!abierto && abierto.prods.length === 1 && abierto.prods[0].id === 'tq' && abierto.ctx === 'min');
+  const m2 = armar({ productos: [tq, ba, mn], ventaItems: venta, pedirOpcion: async () => 'vender' });
+  t('  "Vender igual" deja seguir', (await m2.ctx.avisoVentaSinGanancia(venta, 'min')) === true);
+  const m3 = armar({ productos: [tq, ba, mn], ventaItems: venta, pedirOpcion: async () => null });
+  t('  cerrarlo sin elegir vuelve a la venta', (await m3.ctx.avisoVentaSinGanancia(venta, 'min')) === false);
+  let p4 = null;
+  const m4 = armar({ productos: [tq, ba, mn], pedirOpcion: async txt => { p4 = txt; return 'vender'; } });
+  await m4.ctx.avisoVentaSinGanancia([{ id: 'tq', cantidad: 1 }, { id: 'mn', cantidad: 500 }, { id: 'tq', cantidad: 1 }], 'min');
+  t('  con varios, en plural, cada uno una vez y con "el kilo" en los de peso',
+    p4 === 'Estás vendiendo productos que cargaste sin % de ganancia: el precio de venta es igual al costo.\n\n' +
+      '- Tortilla de espinaca mediana: se vende a $22.000 y costó $22.000\n- Maní: se vende a $8.000 el kilo y costó $8.000 el kilo\n\n' +
+      '¿Querés cargarles el % de ganancia antes de vender?', p4);
+  let p5 = null;
+  const m5 = armar({ productos: [{ id: 'ch', nombre: 'Chalitas', costo: 12000, porcentaje: 3, precio: 12360 }], pedirOpcion: async txt => { p5 = txt; return 'vender'; } });
+  await m5.ctx.avisoVentaSinGanancia([{ id: 'ch', cantidad: 1 }], 'min');
+  t('  uno con un % chico (3%) también, sin decir que no tiene %', String(p5).indexOf('Estás vendiendo un producto con el precio igual al costo (o casi): no ganás nada con él.') === 0, p5);
+  const nunca = { pedirOpcion: async () => { throw new Error('no tenía que preguntar'); } };
+  t('  si todos dejan ganancia, no pregunta', (await armar(Object.assign({ productos: [tq, ba] }, nunca)).ctx.avisoVentaSinGanancia([{ id: 'ba', cantidad: 1 }], 'min')) === true);
+  t('  una venta que viene de un pedido web no se mira: ese precio ya lo aceptó el cliente',
+    (await armar(Object.assign({ productos: [tq], desdePedido: true }, nunca)).ctx.avisoVentaSinGanancia([{ id: 'tq', cantidad: 1 }], 'min')) === true);
+  t('  sin costo cargado no se sabe: no avisa',
+    (await armar(Object.assign({ productos: [{ id: 'sc', nombre: 'Sin costo', costo: 0, precio: 500 }] }, nunca)).ctx.avisoVentaSinGanancia([{ id: 'sc', cantidad: 1 }], 'min')) === true);
+  t('  si el diálogo no cargó, la venta no se frena', (await armar({ productos: [tq] }).ctx.avisoVentaSinGanancia([{ id: 'tq', cantidad: 1 }], 'min')) === true);
+}
+{
+  /* La ventanita: se pone el %, el precio sale solo y la venta toma el precio nuevo. */
+  const tq = { id: 'tq', nombre: 'Tortilla de espinaca mediana', costo: 22000, porcentaje: 0, precio: 22000, porcentajeMayorista: 0, precioMayorista: 22000 };
+  const mn = { id: 'mn', nombre: 'Maní', tipoVenta: 'peso', costo: 8000, porcentaje: 0, precio: 8000, porcentajeMayorista: 30, precioMayorista: 10400 };
+  const venta = [{ id: 'tq', precio: 22000, costo: 22000, cantidad: 2 }, { id: 'mn', precio: 8000, costo: 8000, cantidad: 500 },
+    { id: 'ba', precio: 1500, costo: 1000, cantidad: 1 }];
+  const m = armar({ productos: [tq, mn], ventaItems: venta });
+  m.ctx.abrirEditorGanancia([tq, mn], 'min');
+  const ov = m.elementos.gananciaEditor;
+  t('la ventanita se abre como .dlg-overlay encima de la venta, con un campo de % por producto',
+    !!ov && ov.className === 'dlg-overlay' && (ov.innerHTML.match(/class="form-input ganancia-input"/g) || []).length === 2 &&
+    ov.innerHTML.indexOf('Costó $22.000 · hoy se vende a $22.000') > 0 && ov.innerHTML.indexOf('Poné el % de ganancia.') > 0, ov && ov.innerHTML.slice(0, 400));
+  m.conInputs(['50', '40']);
+  await m.ctx.guardarEditorGanancia();
+  const w1 = m.escrituras.find(x => x.id === 'tq'), w2 = m.escrituras.find(x => x.id === 'mn');
+  t('  al guardar van el %, el precio con la cuenta de la ficha y el mayorista con su propio %',
+    !!w1 && JSON.stringify(w1.campos) === '{"porcentaje":50,"precio":33000,"precioMayorista":0}' &&
+    !!w2 && JSON.stringify(w2.campos) === '{"porcentaje":40,"precio":11200,"precioMayorista":10400}', JSON.stringify(m.escrituras));
+  t('  el costo no se toca, ni su fecha', m.escrituras.length === 2 && m.escrituras.every(x => x.campos.costo === undefined && x.campos.costoActualizadoEn === undefined));
+  t('  los productos en memoria quedan al día', tq.porcentaje === 50 && tq.precio === 33000 && tq.precioMayorista === 0 && mn.precio === 11200);
+  t('  la venta toma el precio nuevo y se repinta; el otro renglón no cambia',
+    venta[0].precio === 33000 && venta[1].precio === 11200 && venta[2].precio === 1500 && venta[0].costo === 22000 && m.repintados.join() === 'min', JSON.stringify(venta));
+  t('  se cierra, queda en el historial y avisa que revise el total', !m.elementos.gananciaEditor &&
+    m.historial.length === 1 && m.historial[0].indexOf('Tortilla de espinaca mediana -> 50%, precio $33.000, mayorista $0') > 0 &&
+    m.avisos.indexOf('success: Listo: los precios quedaron con su % de ganancia. La venta tomó el precio nuevo: revisá el total y registrala.') >= 0,
+    JSON.stringify([m.historial, m.avisos]));
+}
+{
+  const nueva = () => ({ id: 'tq', nombre: 'Tortilla de espinaca mediana', costo: 22000, porcentaje: 0, precio: 22000, porcentajeMayorista: 0, precioMayorista: 22000 });
+  const tq = nueva();
+  const venta = [{ id: 'tq', precio: 22000, costo: 22000, cantidad: 1 }];
+  const m = armar({ productos: [tq], ventaItems: venta });
+  m.ctx.abrirEditorGanancia([tq], 'min');
+  m.conInputs(['']);
+  await m.ctx.guardarEditorGanancia();
+  t('  sin poner el %, no guarda y lo pide', m.escrituras.length === 0 && !!m.elementos.gananciaEditor &&
+    m.avisos.indexOf('error: Poné el % de ganancia de "Tortilla de espinaca mediana"') >= 0, JSON.stringify(m.avisos));
+  m.conInputs(['diez']);
+  await m.ctx.guardarEditorGanancia();
+  t('  con letras tampoco', m.escrituras.length === 0 && !!m.elementos.gananciaEditor);
+  m.conInputs(['0']);
+  await m.ctx.guardarEditorGanancia();
+  t('  con el mismo % que tenía (0), no escribe nada y la venta sigue como estaba', m.escrituras.length === 0 && !m.elementos.gananciaEditor &&
+    m.avisos.indexOf('info: No cambiaste ningún %: la venta sigue como estaba.') >= 0 && venta[0].precio === 22000);
+  const tq2 = nueva(), venta2 = [{ id: 'tq', precio: 22000, costo: 22000, cantidad: 1 }];
+  const mf = armar({ productos: [tq2], ventaItems: venta2, falla: true });
+  mf.ctx.abrirEditorGanancia([tq2], 'min');
+  mf.conInputs(['50']);
+  await mf.ctx.guardarEditorGanancia();
+  t('  si no se puede guardar, lo dice y la ventanita queda abierta, sin tocar el producto ni la venta',
+    mf.escrituras.length === 0 && !!mf.elementos.gananciaEditor && tq2.precio === 22000 && venta2[0].precio === 22000 &&
+    mf.avisos.some(a => a.indexOf('error: No se pudo guardar el % de ganancia') === 0), JSON.stringify(mf.avisos));
+  const tq3 = nueva();
+  const md = armar({ productos: [tq3] });
+  md.ctx.abrirEditorGanancia([tq3], 'min');
+  md.conInputs(['12,5']);
+  await md.ctx.guardarEditorGanancia();
+  t('  acepta la coma: 12,5% sobre $22.000 son $24.750', md.escrituras.length === 1 && md.escrituras[0].campos.porcentaje === 12.5 &&
+    md.escrituras[0].campos.precio === 24750, JSON.stringify(md.escrituras));
+  const tq4 = nueva();
+  const mg = armar({ productos: [tq4] });
+  mg.ctx.abrirEditorGanancia([tq4], 'min');
+  mg.conInputs(['50']);
+  await Promise.all([mg.ctx.guardarEditorGanancia(), mg.ctx.guardarEditorGanancia()]);
+  t('  un doble Enter guarda una sola vez', mg.escrituras.length === 1);
+}
+
 /* ======================================================== ENCHUFADO */
 console.log('\n-- enchufado --');
 t('admin.html carga el módulo', html.indexOf('<script src="admin-costos.js"></script>') > 0);
@@ -762,6 +941,16 @@ t('admin.html carga el módulo', html.indexOf('<script src="admin-costos.js"></s
   t('la venta mayorista avisa lo que se cobra sin ganancia antes de escribir (01/10)', iSin > 0 && iSin < sm.indexOf('btn.disabled=true'));
   t('  al crear y al editar, como el de "Falta el precio mayorista", con el descuento de toda la venta (revisión del 01/10)',
     sm.indexOf("if(typeof avisoMayoristaSinGanancia==='function'&&!(await avisoMayoristaSinGanancia(ventaMayItems,typeof calcVentaMayTotales==='function'?calcVentaMayTotales().descuentoPct:0)))return;") > 0);
+  const iSG = sv.indexOf("avisoVentaSinGanancia(ventaItems,'min')");
+  t('la venta minorista avisa lo que se vende sin ganancia antes de escribir, después del de costos viejos (02/10)',
+    iSG > iAviso && iSG < sv.indexOf('btn.disabled=true'));
+  t('  solo al crear', /if\(!isEdit&&typeof avisoVentaSinGanancia==='function'&&!\(await avisoVentaSinGanancia\(ventaItems,'min'\)\)\)return;/.test(sv));
+  const sp = cuerpo(html, 'saveProduct');
+  const iG = sp.indexOf('avisoGuardarSinGanancia(_filasSG)');
+  t('la ficha avisa un precio sin ganancia antes de subir la imagen o escribir nada, con las bolsas de la tabla (02/10)',
+    iG > sp.indexOf('validarNombreProducto(') && iG < sp.indexOf('btn.disabled=true') && sp.indexOf('filasVarConPrecio(_nSG)') > 0);
+  t('  con el precio que calcula al guardar (costo + %) y el de antes', sp.indexOf('precio:Math.round(_cSG*(1+_pSG/100))') > 0 &&
+    sp.indexOf('const precioCalc=Math.round(costo*(1+porcentaje/100));') > 0 && sp.indexOf('antes:_oSG?Number(_oSG.precio||0):0') > 0);
 }
 t('el formulario muestra la fecha del último cambio de costo', html.indexOf('<small id="pCostoFecha" class="costo-fecha"></small>') > 0);
 t('  al abrir un producto y al crear uno nuevo', /value=p\.costo\|\|0;if\(typeof pintarFechaCosto==='function'\)pintarFechaCosto\(p\);/.test(html) &&
