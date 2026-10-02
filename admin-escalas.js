@@ -142,6 +142,9 @@ function bolsasMasCarasPorKilo(nuevos, productos) {
       for (let k = 1; k < con.length; k++) {
         const chica = con[k - 1], grande = con[k];
         if (!nuevos.has(chica.id) && !nuevos.has(grande.id)) continue;
+        /* Sin precio mayorista en ninguna de las dos, la mayorista cobra el de mostrador: ya lo
+           dice la cuenta de mostrador (01/10). */
+        if (ctx === 'may' && !(Number(chica.producto.precioMayorista) > 0) && !(Number(grande.producto.precioMayorista) > 0)) continue;
         const kgChica = precioFinalKg(chica, ctx), kgGrande = precioFinalKg(grande, ctx);
         if (kgChica > 0 && kgGrande > kgChica) saltos.push({ chica, grande, ctx, kgChica, kgGrande });
       }

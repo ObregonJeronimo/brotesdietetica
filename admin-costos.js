@@ -65,7 +65,10 @@ function preciosDesdeCosto(p, costo) {
     ? _redondearMayorista : (n => (n ? Math.ceil(n / 50) * 50 : 0));
   return {
     precio: Math.round(costo * (1 + pct / 100)),
-    precioMayorista: redondear(Math.round(costo * (1 + pctMay / 100))),
+    /* Con el % mayorista en 0, sin precio mayorista (0): la venta mayorista cobra el de
+       mostrador y avisa "Falta el precio mayorista", como ya hacían el PDF semanal y la
+       importación. Antes daba el costo redondeado: al mayorista se vendía sin ganar nada (01/10). */
+    precioMayorista: pctMay > 0 ? redondear(Math.round(costo * (1 + pctMay / 100))) : 0,
   };
 }
 
@@ -137,15 +140,16 @@ function _costoVistaHtml(p, costo, gramos) {
   const r = costo === Math.round(Number(p.costo || 0))
     ? { precio: Number(p.precio || 0), precioMayorista: Number(p.precioMayorista || 0) }
     : preciosDesdeCosto(p, costo);
-  const may = r.precioMayorista || r.precio;
+  /* Sin precio mayorista (0) se dice: antes salía el de mostrador como si fuera el mayorista (01/10). */
+  const may = Number(r.precioMayorista || 0);
   if (typeof _resFilaVar === 'function') {
-    const caja = typeof esCajaCerrada === 'function' && esCajaCerrada(p) && r.precioMayorista > 0;
+    const caja = typeof esCajaCerrada === 'function' && esCajaCerrada(p) && may > 0;
     return _resFilaVar({ costo: costo, precio: r.precio, may: may }, p.tipoVenta === 'peso', caja, p.descuento);
   }
   const kg = _costoUnidad(p);
   return (gramos ? '<span>Costo ' + _costoPesos(costo) + ' el kilo</span>' : '') +
     '<span>Precio <b>' + _costoPesos(r.precio) + '</b>' + kg + '</span>' +
-    '<span class="costos-may">Mayorista ' + _costoPesos(may) + kg + '</span>';
+    '<span class="costos-may">' + (may > 0 ? 'Mayorista ' + _costoPesos(may) + kg : 'Sin mayorista: se cobra el de mostrador') + '</span>';
 }
 
 /* La fecha debajo del costo, en el formulario del producto. */
@@ -189,6 +193,44 @@ async function avisoCostosViejos(items, ctx) {
   if (r === 'ignorar') return true;
   if (r === 'modificar') abrirEditorCostos(viejos, ctx);
   return false;
+}
+
+/* ------------------------------------------- VENDER AL MAYORISTA SIN GANANCIA
+   Pedido del dueño (01/10). Con el % mayorista en 0, la ficha daba de mayorista el costo
+   redondeado a $50: en la venta mayorista se cobraba lo mismo que costó, sin aviso (el 01/10,
+   250 productos estaban así). Sin ganancia es cobrar eso o menos: el costo redondeado a $50. */
+function _mayoristaSinGanancia(precio, costo) {
+  const redondear = (typeof _redondearMayorista === 'function')
+    ? _redondearMayorista : (n => (n ? Math.ceil(n / 50) * 50 : 0));
+  return Number(costo) > 0 && Number(precio) <= redondear(Math.round(Number(costo)));
+}
+/* Al registrar una venta mayorista: si algún renglón se cobra sin ganancia (con su descuento),
+   lo dice con el precio y el costo, y pregunta. Devuelve true si la venta sigue. */
+async function avisoMayoristaSinGanancia(items) {
+  /* Si el diálogo no cargó, la venta no se frena: un aviso nunca puede impedir cobrar. */
+  if (typeof pedirConfirmacion !== 'function') return true;
+  const prods = typeof allProducts !== 'undefined' ? allProducts : [];
+  const vistos = new Set();
+  const malos = [];
+  (items || []).forEach(it => {
+    if (!it || vistos.has(it.id)) return;
+    const cobra = typeof precioConDsc === 'function' ? precioConDsc(it)
+      : Math.round(Number(it.precio || 0) * (1 - (Number(it.descuento) || 0) / 100));
+    if (!_mayoristaSinGanancia(cobra, it.costo)) return;
+    vistos.add(it.id);
+    const p = prods.find(x => x && x.id === it.id) || it;
+    malos.push({ nombre: _costoNombre(p), cobra: cobra, costo: Number(it.costo), kg: _costoUnidad(p) });
+  });
+  if (!malos.length) return true;
+  const NL = String.fromCharCode(10);
+  const uno = malos.length === 1;
+  return pedirConfirmacion(
+    (uno ? 'Este producto se cobra lo mismo que costó (o casi): no ganás nada con él.'
+      : 'Estos productos se cobran lo mismo que costaron (o casi): no ganás nada con ellos.') + NL + NL +
+    malos.slice(0, 8).map(m => '- ' + m.nombre + ': se cobra ' + _costoPesos(m.cobra) + m.kg + ' y costó ' + _costoPesos(m.costo) + m.kg).join(NL) +
+    (malos.length > 8 ? NL + '- y ' + (malos.length - 8) + ' más' : '') + NL + NL +
+    (uno ? 'Revisá su' : 'Revisales el') + ' % de ganancia mayorista en Productos. ¿Registrar la venta igual?',
+    { titulo: 'Se vende sin ganancia', aceptar: 'Registrar igual', cancelar: 'Volver', icono: 'bi-exclamation-triangle', cuidado: true });
 }
 
 /* ------------------------------------------------------------ EL EDITOR */

@@ -919,6 +919,32 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  y el styles.min.css con el botón apagado', leer('styles.min.css').indexOf('.gramaje-precio') >= 0);
   }
 
+  console.log('\n-- sin % mayorista, sin precio mayorista (01/10) --');
+  {
+    const w = armar({ tipo: 'peso' });
+    const r = w.ctx._calcFilaVar({ tam: '3 kg', costoIn: '13500', pct: 60, pctMay: 0 }, true);
+    t('una bolsa con el % mayorista en 0 no tiene precio mayorista (antes, el costo: $4.500)', r.costo === 4500 && r.precio === 7200 && r.may === 0, JSON.stringify(r));
+    t('  y lo dice: "Sin mayorista: se cobra el de mostrador", no "Mayorista $0"',
+      w.ctx._resFilaVar(r, true) === '<span>Costo $4.500 el kilo</span><span>Precio <b>$7.200</b> el kilo</span><span class="vfe-may">Sin mayorista: se cobra el de mostrador</span>',
+      w.ctx._resFilaVar(r, true));
+    w.ctx.openModal();
+    w.ctx.varFilaAgregar();
+    Object.assign(w.ctx.window._varFilas[0], { tam: '3 kg', costoIn: '13500', pct: 60, pctMay: 0, stock: '0', tocado: { tam: true } });
+    await w.ctx.guardarVariantesForm('ppal', { nombre: 'Yerba Mate', tipoVenta: 'peso', codigo: '000900' });
+    const alta = w.escrituras.find(e => e[0] === 'add');
+    t('  al guardarla, el mayorista va en 0', !!alta && alta[1].precioMayorista === 0 && alta[1].porcentajeMayorista === 0 && alta[1].precio === 7200,
+      JSON.stringify(alta && alta[1]));
+  }
+  {
+    const w = armar({ editingId: 'mani80' });
+    w.ctx.openModal('mani80');
+    w.ctx.varFilaCambio(0, 'pctMay', '0');
+    await w.ctx.guardarVariantesForm('mani80', { nombre: 'Maní x 80 g', tipoVenta: 'unidad', codigo: 'M80' });
+    const up = w.escrituras.find(e => e[0] === 'update' && e[1] === 'mani160');
+    t('  en una que ya existe, poner el % mayorista en 0 lo deja en 0 (antes, el costo: $1.500)',
+      !!up && up[2].porcentajeMayorista === 0 && up[2].precioMayorista === 0 && up[2].precio === 2250, JSON.stringify(up && up[2]));
+  }
+
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('ERROR: ' + (e && e.stack || e)); process.exit(1); });

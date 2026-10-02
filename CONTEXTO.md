@@ -438,9 +438,11 @@ producción (de los "gramajes" viejos).
   ventana de costos, si una bolsa queda más cara por kilo que una más chica del mismo producto, avisa y
   pregunta. En los renglones por unidad de la compra, al lado del costo, el precio y el mayorista.
   Detalle en `PENDIENTE.md` §1-bis AG.
-- **Para decidir: el % mayorista en 0 deja el mayorista al costo** (01/10): la ficha, la ventana de
-  costos y la compra lo calculan así; 249 productos de producción ya lo tienen. Propuesta en
-  `PENDIENTE.md` §1-bis AH; decidirlo antes de subir §AF.
+- **Mayorista sin ganancia (01/10, sin subir)**: con el % mayorista en 0 el mayorista quedaba igual al
+  costo (222 productos visibles de producción). Ahora queda en 0 (cobra el de mostrador) en la ficha, la
+  ventana de costos y la compra; la venta mayorista avisa si algo se cobra al costo; la lista PDF
+  mayorista los deja afuera, avisando. Los 222 se arreglan solos al tocarlos; todos juntos, solo con OK.
+  Detalle en `PENDIENTE.md` §1-bis AH.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

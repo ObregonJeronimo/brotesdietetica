@@ -1021,11 +1021,14 @@ async function ofrecerActualizarCostos(items) {
     const r = preciosDesdeCosto(p, Number(i.costoUnitario));
     nuevos.set(i.id, r);
     const kg = i.tipoVenta === 'peso' ? ' el kilo' : '';
+    /* Sin % mayorista no hay precio mayorista (01/10): se dice, no "$0". */
+    const may = n => (Number(n) > 0 ? _cpPesos(n) : '');
     return i.nombre + '\n' +
       '- Tenía cargado: ' + costo(p.costo, _cpEsBolsa(i) ? costoDeBolsa(p.costo, i.gramosBolsa) : 0) + '\n' +
       '- En esta compra: ' + costo(i.costoUnitario, i.costoBolsa) + '\n' +
       '- Precio nuevo: ' + _cpPesos(r.precio) + kg + ' (antes ' + _cpPesos(p.precio) + ')\n' +
-      '- Mayorista nuevo: ' + _cpPesos(r.precioMayorista) + kg + ' (antes ' + _cpPesos(p.precioMayorista) + ')';
+      '- Mayorista nuevo: ' + (may(r.precioMayorista) ? may(r.precioMayorista) + kg : 'ninguno, se cobra el de mostrador') +
+        ' (antes ' + (may(p.precioMayorista) || 'ninguno') + ')';
   }).join('\n\n');
   const uno = cambian.length === 1;
   if (!await pedirConfirmacion(

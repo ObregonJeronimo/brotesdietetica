@@ -2757,7 +2757,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         function _redondearMayorista(p){return p?Math.ceil(p/50)*50:0;}
         function calcPrecioModal(){/* montoAR, no parseFloat: el campo es de texto y con parseFloat
             un valor pegado con puntos daria un precio calculado que no es. */
-        const costo=montoAR(document.getElementById('pCosto').value);const pct=parseFloat(document.getElementById('pPorcentaje').value)||0;const precioBase=Math.round(costo*(1+pct/100));const dsc=Math.min(100,Math.max(0,parseInt(document.getElementById('pDescuento')?.value)||0));const el=document.getElementById('pPrecio');if(el){el.value=precioBase;el.style.color=dsc>0?'#e6a23c':'';el.title=dsc>0?'Precio normal. Con '+dsc+'% desc. el cliente paga $'+Math.round(precioBase*(1-dsc/100)).toLocaleString('es-AR'):'';}const pfWrap=document.getElementById('precioFinalWrap');const pfBox=document.getElementById('pPrecioFinal');if(pfWrap&&pfBox){if(dsc>0){const precioFinal=Math.round(precioBase*(1-dsc/100));pfBox.textContent='$'+precioFinal.toLocaleString('es-AR');pfWrap.style.display='block';}else{pfWrap.style.display='none';}}const pctMay=parseFloat(document.getElementById('pPorcentajeMay')?.value)||0;const elMay=document.getElementById('pPrecioMay');if(elMay){elMay.value=_redondearMayorista(Math.round(costo*(1+pctMay/100)));elMay.title='Redondeado a $50';}_checkRecalcMayBtn();}
+        const costo=montoAR(document.getElementById('pCosto').value);const pct=parseFloat(document.getElementById('pPorcentaje').value)||0;const precioBase=Math.round(costo*(1+pct/100));const dsc=Math.min(100,Math.max(0,parseInt(document.getElementById('pDescuento')?.value)||0));const el=document.getElementById('pPrecio');if(el){el.value=precioBase;el.style.color=dsc>0?'#e6a23c':'';el.title=dsc>0?'Precio normal. Con '+dsc+'% desc. el cliente paga $'+Math.round(precioBase*(1-dsc/100)).toLocaleString('es-AR'):'';}const pfWrap=document.getElementById('precioFinalWrap');const pfBox=document.getElementById('pPrecioFinal');if(pfWrap&&pfBox){if(dsc>0){const precioFinal=Math.round(precioBase*(1-dsc/100));pfBox.textContent='$'+precioFinal.toLocaleString('es-AR');pfWrap.style.display='block';}else{pfWrap.style.display='none';}}const pctMay=parseFloat(document.getElementById('pPorcentajeMay')?.value)||0;const elMay=document.getElementById('pPrecioMay');if(elMay){/* Con el % mayorista en 0, sin precio mayorista (01/10): ver saveProduct. */elMay.value=pctMay>0?_redondearMayorista(Math.round(costo*(1+pctMay/100))):0;elMay.title=pctMay>0?'Redondeado a $50':'Sin % mayorista: la venta mayorista cobra el precio de mostrador';}_checkRecalcMayBtn();}
         /* Detecta si el % minorista cambió respecto al original y ofrece recalcular el mayorista */
         let _pctMinOriginal=null;
         function _checkRecalcMayBtn(){const btn=document.getElementById('btnRecalcMay');const wrap=document.getElementById('recalcMayWrap');if(!btn)return;const pctActual=parseFloat(document.getElementById('pPorcentaje').value)||0;const pctMayActual=parseFloat(document.getElementById('pPorcentajeMay')?.value)||0;/* Solo si estamos editando, hay un original distinto, y el mayorista tiene valor */if(_pctMinOriginal===null||pctActual===_pctMinOriginal||pctMayActual<=0){if(wrap)wrap.style.display='none';return;}const delta=pctActual-_pctMinOriginal;const nuevoPctMay=Math.max(0,Math.round((pctMayActual+delta)*10)/10);document.getElementById('btnRecalcMayText').textContent=(delta>0?'Subir':'Bajar')+' mayorista a '+nuevoPctMay+'%';btn.dataset.nuevoPct=nuevoPctMay;if(wrap)wrap.style.display='block';}
@@ -2898,7 +2898,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             if(_chkNom.confirmar&&!await pedirConfirmacion(_chkNom.confirmar,{titulo:'Nombre repetido',aceptar:'Guardar igual',cancelar:'Volver',icono:'bi-files'})){if(_nomCampo)_nomCampo.focus();return;}
             if(_chkNom.aviso)showAdminToast(_chkNom.aviso,'info');
             if(_cbCampo)_cbCampo.value=_codBarras;
-            if(document.getElementById('pCodigo'))document.getElementById('pCodigo').value=_codigoProd;const btn=document.getElementById('saveBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{let _refId=editingId;let imgUrl=existingImageUrl;if(selectedImageFile){btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Subiendo imagen...';imgUrl=await uploadImage(selectedImageFile);}const costo=montoAR(document.getElementById('pCosto').value)||0;const porcentaje=parseFloat(document.getElementById('pPorcentaje').value)||0;const precioCalc=Math.round(costo*(1+porcentaje/100));const pctMay=parseFloat(document.getElementById('pPorcentajeMay')?.value)||0;const precioMayCalc=_redondearMayorista(Math.round(costo*(1+pctMay/100)));const listaVal=document.getElementById('pLista')?.value||'';const descuentoProd=Math.min(100,Math.max(0,parseInt(document.getElementById('pDescuento')?.value)||0));const nombreMostrado=document.getElementById('pNombreMostrado')?.value.trim()||'';const gramajeProd=document.getElementById('pGramaje')?.value.trim()||'';/* Solo digitos: los lectores a veces mandan basura y un codigo con un espacio invisible al final no vuelve a matchear nunca */
+            if(document.getElementById('pCodigo'))document.getElementById('pCodigo').value=_codigoProd;const btn=document.getElementById('saveBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{let _refId=editingId;let imgUrl=existingImageUrl;if(selectedImageFile){btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Subiendo imagen...';imgUrl=await uploadImage(selectedImageFile);}const costo=montoAR(document.getElementById('pCosto').value)||0;const porcentaje=parseFloat(document.getElementById('pPorcentaje').value)||0;const precioCalc=Math.round(costo*(1+porcentaje/100));const pctMay=parseFloat(document.getElementById('pPorcentajeMay')?.value)||0;/* Con el % mayorista en 0, sin precio mayorista (0): la venta mayorista cobra el de mostrador y avisa, como ya hacian el PDF semanal y la importacion. Antes quedaba el costo redondeado y al mayorista se vendia sin ganar nada (pedido del dueño, 01/10). */const precioMayCalc=pctMay>0?_redondearMayorista(Math.round(costo*(1+pctMay/100))):0;const listaVal=document.getElementById('pLista')?.value||'';const descuentoProd=Math.min(100,Math.max(0,parseInt(document.getElementById('pDescuento')?.value)||0));const nombreMostrado=document.getElementById('pNombreMostrado')?.value.trim()||'';const gramajeProd=document.getElementById('pGramaje')?.value.trim()||'';/* Solo digitos: los lectores a veces mandan basura y un codigo con un espacio invisible al final no vuelve a matchear nunca */
             const codBarras=(document.getElementById('pCodigoBarras')?.value||'').replace(/[^0-9A-Za-z]/g,'');const data={nombre:document.getElementById('pNombre').value.trim(),nombreMostrado:nombreMostrado||null,gramaje:gramajeProd||null,codigoBarras:codBarras||null,costo:costo,porcentaje:porcentaje,precio:precioCalc,porcentajeMayorista:pctMay,precioMayorista:precioMayCalc,descuento:descuentoProd,stock:parseInt(document.getElementById('pStock').value)||0,categoria:document.getElementById('pCategoria').value.trim(),subcategoria:document.getElementById('pSubcategoria').value.trim()||null,descripcion:document.getElementById('pDescripcion').value.trim(),valoresNutricionales:document.getElementById('pValoresNutricionales').value.trim(),imagenesExtra:_imgExtraUrls.filter(Boolean),imagen:imgUrl||null,lista:listaVal||null,codigo:_codigoProd,tipoVenta:_tipoVentaProd};if(!editingId&&typeof datosDeVarianteNueva==='function')datosDeVarianteNueva(data);if(typeof datosCajaCerrada==='function')datosCajaCerrada(data,editingId);if(typeof datosBolsaProveedor==='function')datosBolsaProveedor(data,editingId);btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando datos...';if(editingId){const old=allProducts.find(x=>x.id===editingId);const cambios=[];if(old){if(old.nombre!==data.nombre)cambios.push('nombre: '+old.nombre+' -> '+data.nombre);if(old.precio!==data.precio)cambios.push('precio: $'+old.precio+' -> $'+data.precio);if((old.costo||0)!==data.costo){cambios.push('costo: $'+(old.costo||0)+' -> $'+data.costo);/* La fecha del costo va en la misma escritura: la relectura de abajo (refrescarProductoLocal) ya la trae. Antes la ponia despues registrarCambioDeCosto y el panel la seguia viendo vieja hasta F5 (revision del 01/10). */data.costoActualizadoEn=firebase.firestore.FieldValue.serverTimestamp();}if(old.stock!==data.stock)cambios.push('stock: '+old.stock+' -> '+data.stock);if(old.categoria!==data.categoria)cambios.push('cat: '+old.categoria+' -> '+data.categoria);if(old.subcategoria!==data.subcategoria)cambios.push('subcat: '+(old.subcategoria||'-')+' -> '+(data.subcategoria||'-'));if(old.imagen!==data.imagen)cambios.push('imagen cambiada');}/* Si nadie toco el campo de stock, NO se escribe. Este update mandaba siempre el numero
                absoluto que el formulario habia cargado al abrirse: si el otro admin vendia 12
                unidades mientras este formulario estaba abierto, guardar el producto —aunque
@@ -5984,15 +5984,34 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             renderMayoristaGroups();
         }
 
-        function exportMayoristaPDF(){
-            /* Usar precioMayorista guardado en cada producto directamente */
-            const priceMap={};
+        async function exportMayoristaPDF(){
+            /* Usar precioMayorista guardado en cada producto directamente. Los que lo tienen igual
+               al costo (o casi) no van: el cliente los vería a precio de costo. Pasaba con el %
+               mayorista en 0, que daba de mayorista el costo redondeado: el 01/10, 222 de los 228
+               de la lista estaban asi. Se avisa cuales quedan afuera (pedido del dueño, 01/10). */
+            const priceMap={},sinGanancia=[];
             allProducts.forEach(p=>{
                 if(p.oculto===true||p.depurado===true)return;
                 const pm=Number(p.precioMayorista||0);
-                if(pm>0)priceMap[p.id]=pm;
+                if(!(pm>0))return;
+                if(typeof _mayoristaSinGanancia==='function'&&_mayoristaSinGanancia(pm,p.costo)){sinGanancia.push(p);return;}
+                priceMap[p.id]=pm;
             });
-            if(!Object.keys(priceMap).length){showAdminToast('No hay productos con precio mayorista configurado','error');return;}
+            const quedan=Object.keys(priceMap).length;
+            if(sinGanancia.length&&typeof pedirConfirmacion==='function'){
+                const NL=String.fromCharCode(10);
+                const kg=p=>(p.tipoVenta==='peso'?' el kilo':'');
+                const pesos=n=>'$'+Math.round(Number(n||0)).toLocaleString('es-AR');
+                const nombre=p=>(typeof _costoNombre==='function'?_costoNombre(p):(p.nombreMostrado||p.nombre));
+                const uno=sinGanancia.length===1;
+                const txt=(uno?'1 producto tiene el precio mayorista igual al costo (o casi): en la lista, el cliente lo vería a precio de costo.'
+                        :sinGanancia.length+' productos tienen el precio mayorista igual al costo (o casi): en la lista, el cliente los vería a precio de costo.')+NL+NL+
+                    sinGanancia.slice(0,8).map(p=>'- '+nombre(p)+': mayorista '+pesos(p.precioMayorista)+kg(p)+', costó '+pesos(p.costo)+kg(p)).join(NL)+
+                    (sinGanancia.length>8?NL+'- y '+(sinGanancia.length-8)+' más':'')+NL+NL;
+                if(!quedan){await pedirConfirmacion(txt+'No queda ninguno con ganancia para la lista. Cargales el % de ganancia mayorista en Productos.',{titulo:'Mayorista sin ganancia',aceptar:'Entendido',cancelar:null,icono:'bi-exclamation-triangle',cuidado:true});return;}
+                if(!await pedirConfirmacion(txt+'Para que entren, cargales el % de ganancia mayorista en Productos. ¿Exportar la lista sin '+(uno?'él':'ellos')+' ('+(quedan===1?'queda 1 producto':'quedan '+quedan+' productos')+')?',{titulo:'Mayorista sin ganancia',aceptar:'Exportar sin esos',cancelar:'Cancelar',icono:'bi-exclamation-triangle',cuidado:true}))return;
+            }
+            if(!quedan){showAdminToast('No hay productos con precio mayorista configurado','error');return;}
             exportCatalogoPDF(priceMap,true);
         }
 
@@ -7467,6 +7486,9 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                     'Registrar la venta igual?';
                 if(!await pedirConfirmacion(_msg,{titulo:'Falta el precio mayorista',aceptar:'Registrar igual'}))return;
             }
+            /* Lo que se cobra igual o menos que lo que costo (o casi), sin ganar nada (pedido del
+               dueño, 01/10): avisa y pregunta. Ver avisoMayoristaSinGanancia en admin-costos.js. */
+            if(typeof avisoMayoristaSinGanancia==='function'&&!(await avisoMayoristaSinGanancia(ventaMayItems)))return;
             /* Validar stock de insumos */
             const originalInsumosMay={};
             let _mayItemsPrevios=null,_mayPoseiaStock=false;
@@ -7609,7 +7631,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
                 const pctMay=parseFloat(inp.value);
                 if(isNaN(pctMay)||inp.value.trim()==='')return;
                 allProducts.filter(p=>p.depurado!==true&&(p.porcentaje||0)===pctMin).forEach(p=>{
-                    const precioMay=_redondearMayorista(Math.round((p.costo||0)*(1+pctMay/100)));
+                    /* Con 0%, sin precio mayorista (01/10): ver saveProduct. */const precioMay=pctMay>0?_redondearMayorista(Math.round((p.costo||0)*(1+pctMay/100))):0;
                     updates.push({id:p.id,porcentajeMayorista:pctMay,precioMayorista:precioMay});
                 });
             });

@@ -166,5 +166,56 @@ console.log('\n-- los grupos, juntos --');
     a.map(x => x.s).join(' | '));
 }
 
-console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
-process.exit(fail ? 1 : 0);
+(async () => {
+  console.log('\n-- la lista mayorista deja afuera lo que está al costo (01/10) --');
+  {
+    /* Pedido del dueño (01/10): el 01/10, 222 de los 228 productos de la lista mayorista tenían el
+       mayorista igual al costo (por el % mayorista en 0). El cliente los veía a precio de costo. */
+    const COSTOS = fs.readFileSync(path.join(RAIZ, 'admin-costos.js'), 'utf8');
+    const correrMay = async (productos, resp) => {
+      const anotados = [], preguntas = [], avisos = [];
+      const ctx = {
+        console, Math, Number, String, Object, Array, Date, JSON,
+        allProducts: productos,
+        showAdminToast: (m, tp) => avisos.push((tp || '') + ': ' + m), logAction: () => {},
+        precioMostradorDe: p => Number(p.precio || 0),
+        pedirConfirmacion: async (m, op) => { preguntas.push({ m, op }); return resp; },
+      };
+      ctx.window = ctx;
+      ctx.jspdf = { jsPDF: pdfDeMentira(anotados) };
+      vm.createContext(ctx);
+      vm.runInContext(cuerpo(VAR, 'contenidoDeVariante') + constante(html, '_catalogoOrden') + cuerpo(html, '_catalogoMatchIdx') + cuerpo(html, 'esPorPeso') +
+        cuerpo(html, 'exportCatalogoPDF') + cuerpo(COSTOS, '_mayoristaSinGanancia') + 'async ' + cuerpo(html, 'exportMayoristaPDF'), ctx);
+      await ctx.exportMayoristaPDF();
+      return { anotados, preguntas, avisos };
+    };
+    const MAY = [
+      { id: 'alm', nombre: 'Almendras', tipoVenta: 'peso', costo: 21500, precio: 35475, precioMayorista: 21500, categoria: 'Frutos secos' },
+      { id: 'caf', nombre: 'Mula Cafe', tipoVenta: 'unidad', costo: 10110, precio: 16682, precioMayorista: 10150, categoria: 'Infusiones' },
+      { id: 'chi', nombre: 'Semilla De Chia', tipoVenta: 'peso', costo: 12000, precio: 21590, precioMayorista: 16550, categoria: 'Semillas' },
+      { id: 'sin', nombre: 'Sin Mayorista', tipoVenta: 'unidad', costo: 1000, precio: 1500, precioMayorista: 0, categoria: 'Semillas' },
+    ];
+    const a = await correrMay(MAY, true);
+    const q = a.preguntas[0];
+    t('si hay productos con el mayorista igual al costo (o casi), avisa cuáles y que quedan afuera',
+      a.preguntas.length === 1 && q.op.titulo === 'Mayorista sin ganancia' && q.op.aceptar === 'Exportar sin esos' && q.op.cancelar === 'Cancelar' &&
+      q.m.indexOf('2 productos tienen el precio mayorista igual al costo (o casi): en la lista, el cliente los vería a precio de costo.') === 0 &&
+      q.m.indexOf('- Almendras: mayorista $21.500 el kilo, costó $21.500 el kilo\n- Mula Cafe: mayorista $10.150, costó $10.110') > 0 &&
+      q.m.indexOf('¿Exportar la lista sin ellos (queda 1 producto)?') > 0, q && q.m);
+    t('  "Exportar sin esos": la lista sale solo con los que dejan ganancia',
+      /^BROTES_mayorista_/.test(a.anotados.guardado || '') && a.anotados.some(x => x.s.indexOf('Semilla De Chia') === 0) &&
+      !a.anotados.some(x => x.s.indexOf('Almendras') === 0 || x.s.indexOf('Mula Cafe') === 0 || x.s.indexOf('Sin Mayorista') === 0),
+      a.anotados.map(x => x.s).join(' | '));
+    const b = await correrMay(MAY, false);
+    t('  "Cancelar" no exporta nada', b.preguntas.length === 1 && !b.anotados.guardado);
+    const c = await correrMay(MAY.filter(p => p.id === 'chi'), true);
+    t('  si todos dejan ganancia, no pregunta y exporta', c.preguntas.length === 0 && /^BROTES_mayorista_/.test(c.anotados.guardado || ''));
+    const d = await correrMay(MAY.filter(p => p.id !== 'chi'), true);
+    t('  si ninguno deja ganancia, lo dice y no exporta',
+      d.preguntas.length === 1 && d.preguntas[0].op.cancelar === null && d.preguntas[0].m.indexOf('No queda ninguno con ganancia para la lista.') > 0 &&
+      !d.anotados.guardado, d.preguntas[0] && d.preguntas[0].m);
+  }
+
+  console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
+  process.exit(fail ? 1 : 0);
+})().catch(e => { console.error('ERROR: ' + (e && e.stack || e)); process.exit(1); });

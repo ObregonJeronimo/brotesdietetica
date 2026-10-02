@@ -2187,20 +2187,49 @@ Probado en el sandbox con clics de verdad, con Nuez Mariposa (bolsas de 1, 3 y 5
   stock de cada bolsa bien. En el celular el renglón por unidad se acomoda bien.
 Pruebas: 25 nuevas; con el código de antes fallan. Total: 3940 en 90 suites.
 
-### AH) Productos con el % mayorista en 0: el mayorista queda igual al costo · **PARA DECIDIR** (01/10/2026)
+### AH) Productos con el % mayorista en 0: el mayorista quedaba igual al costo · **HECHO, SIN SUBIR** (01/10/2026)
 
 Encontrado al revisar §AG. Con el % mayorista en 0, la ficha, la ventana de costos (desde el 27/09) y
-"Actualizar" en Cargar compra (§AF, sin subir) ponen de mayorista el costo redondeado a $50: en una
-venta mayorista ese producto se vende sin ganar nada. El PDF semanal y la importación, en cambio, le
-ponen 0, y la venta mayorista cobra el precio de mostrador.
-En producción (lectura del 01/10, sin credenciales): de 1318 productos, 652 tienen el % mayorista en
-0; 249 tienen el mayorista igual al costo (p. ej. Almendras: costo $21.500, mayorista $21.500,
-mostrador $35.475) y 403 lo tienen en 0. Con §AF subido, "Actualizar" en una compra también pasaría
-al costo a los que se actualicen así.
-Propuesta: con el % mayorista en 0, el mayorista queda en 0 (cobra el de mostrador) en la ficha, la
-ventana de costos y la compra, como ya hacen el PDF y la importación. Los 249 de hoy se corrigen con
-una escritura en producción, solo con OK y después de hablar con la clienta (quizás quiere ponerles un
-%). Conviene decidirlo antes de subir §AF.
+"Actualizar" en Cargar compra (§AF) ponían de mayorista el costo redondeado a $50: en una venta
+mayorista ese producto se vendía sin ganar nada, y salía en la lista PDF mayorista a precio de costo.
+El PDF semanal y la importación, en cambio, le ponían 0 (la venta mayorista cobra el de mostrador).
+En producción (lectura del 01/10, sin credenciales): de 355 productos visibles, 6 tienen un mayorista
+con ganancia, 222 lo tienen igual al costo (p. ej. Almendras: costo $21.500, mayorista $21.500,
+mostrador $35.475) y 127 en 0; de los 228 de la lista PDF mayorista, 222 estaban al costo. No hay
+cajas cerradas. El precio mayorista solo se usa en Ventas > Mayoristas, en la lista PDF mayorista y en
+las cajas cerradas (mostrador y tienda); el mostrador y la tienda cobran siempre el de mostrador.
+Thiago aprobó los tres puntos:
+1. Aviso al registrar una venta mayorista (`avisoMayoristaSinGanancia`, admin-costos.js): si algún renglón
+   se cobra igual o menos que el costo redondeado a $50 (con su descuento), "Se vende sin ganancia",
+   con el precio y el costo de cada uno, y "Registrar igual" / "Volver". Al crear y al editar, junto al
+   de "Falta el precio mayorista", que sigue igual. Cubre los 222 sin tocar datos.
+2. Con el % mayorista en 0, sin precio mayorista (0): en la ficha (y su tabla de bolsas), la ventana de
+   costos, la compra y la carga masiva de % mayorista (que hoy ningún botón abre). Donde se muestra,
+   dice "Sin mayorista: se cobra el de mostrador" (antes "$0" en la tabla de bolsas, o el de mostrador
+   como si fuera el mayorista en la ventana de costos y la compra); el aviso de "Actualizar" dice
+   "Mayorista nuevo: ninguno, se cobra el de mostrador (antes $X)". Los textos de la caja cerrada que
+   decían "con 0 se vendería al costo" ya no lo dicen. Los 222 se arreglan solos al cambiarles el costo
+   o guardar su ficha; arreglarlos todos juntos es una escritura en producción: solo con OK, después de
+   hablar con la clienta (quizás quiere ponerles un %).
+3. Lista PDF mayorista: los que tienen el mayorista igual al costo (o casi) quedan afuera, con un aviso
+   que dice cuáles y cuántos quedan ("Exportar sin esos" / "Cancelar"); si no queda ninguno, lo dice y
+   no exporta.
+- El aviso de la bolsa más cara (§AG) no compara precios mayoristas si ninguna de las dos bolsas tiene.
+- Ojo, para hablar: en un grupo de bolsas, si una queda sin % mayorista y las otras con, en la venta
+  mayorista esa bolsa se cobra al de mostrador y puede quedar más cara por kilo que una más chica (en
+  la prueba, la de 5 kg a $12.800 el kilo contra $11.050 la de 3 kg). Antes se vendía al costo. Conviene
+  que todas las bolsas de un grupo tengan el % mayorista (o ninguna).
+
+Probado en el sandbox con clics de verdad (Nuez Orgánico y Aceite De Coco con el mayorista al costo,
+Castaña de Cajú sin mayorista, Aceite De Oliva con 30%, Maní, y las bolsas de Nuez Mariposa):
+- venta mayorista con "Volver" (no guarda nada) y con "Registrar igual" ($47.730, costo $36.930,
+  stock bien); otra con productos sin mayorista ($84.045 al de mostrador, solo el aviso de siempre);
+- lista PDF mayorista: aviso con los 2 al costo, "Cancelar", y "Exportar sin esos" con 93 productos
+  (sin descargar el archivo);
+- ventana de costos al vender (Aceite De Coco a $16.000: precio $30.400, mayorista 0; la venta tomó
+  el precio nuevo, $1.520), compra con "Actualizar" (Nuez Orgánico a $7.000: precio $13.300,
+  mayorista 0, stock +3), ficha del Maní (mayorista 0) y tabla de bolsas (5 kg con 0%: mayorista 0).
+Pruebas: 32 nuevas; con el código de antes fallan. Total: 3972 en 90 suites.
 
 ---
 

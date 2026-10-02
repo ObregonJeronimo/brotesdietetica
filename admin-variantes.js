@@ -773,7 +773,8 @@ function _calcFilaVar(f, peso) {
   else if (monto > 0) costo = monto;
   if (costo === null) return { costo: null, c: c };
   const pct = Number(f.pct) || 0, pctMay = Number(f.pctMay) || 0;
-  return { costo: costo, c: c, precio: Math.round(costo * (1 + pct / 100)), may: _varMay(Math.round(costo * (1 + pctMay / 100))) };
+  /* Con el % mayorista en 0, sin precio mayorista (01/10): ver preciosDesdeCosto, admin-costos.js. */
+  return { costo: costo, c: c, precio: Math.round(costo * (1 + pct / 100)), may: pctMay > 0 ? _varMay(Math.round(costo * (1 + pctMay / 100))) : 0 };
 }
 
 function _resFilaVar(r, peso, caja, dsc) {
@@ -785,15 +786,18 @@ function _resFilaVar(r, peso, caja, dsc) {
   const d = _varDsc(dsc);
   const oferta = base => (d > 0 ? '<span class="vfe-oferta">Con el ' + d + '% de descuento: $' +
     Math.round(base * (1 - d / 100)).toLocaleString('es-AR') + (peso ? ' el kilo' : '') + '</span>' : '');
-  /* Una caja cerrada se cobra al mayorista: eso es lo que se dice primero. */
-  if (caja && !peso) {
+  /* Una caja cerrada se cobra al mayorista: eso es lo que se dice primero. Sin precio
+     mayorista no (01/10): guardarla así no se deja. */
+  if (caja && !peso && r.may > 0) {
     return '<span>Se cobra <b>$' + r.may.toLocaleString('es-AR') + '</b> (caja cerrada, precio mayorista)</span>' +
       oferta(r.may) + '<span>Precio de lista $' + r.precio.toLocaleString('es-AR') + '</span>';
   }
   const kg = peso ? ' el kilo' : '';
+  /* Sin % mayorista no hay precio mayorista: la venta mayorista cobra el de mostrador. Se dice
+     así, no "Mayorista $0" (01/10). */
   return (peso ? '<span>Costo $' + r.costo.toLocaleString('es-AR') + ' el kilo</span>' : '') +
     '<span>Precio <b>$' + r.precio.toLocaleString('es-AR') + '</b>' + kg + '</span>' + oferta(r.precio) +
-    '<span class="vfe-may">Mayorista $' + r.may.toLocaleString('es-AR') + kg + '</span>';
+    '<span class="vfe-may">' + (r.may > 0 ? 'Mayorista $' + r.may.toLocaleString('es-AR') + kg : 'Sin mayorista: se cobra el de mostrador') + '</span>';
 }
 /* La fecha del último cambio de costo de un tamaño, debajo de su fila. Con varios
    tamaños la de arriba (pCostoFecha, admin-costos.js) queda escondida con "Costo y
@@ -903,7 +907,8 @@ function _valoresPpal(peso) {
     tam: tam, costoIn: costoIn, stock: val('pStock'), pct: pct, pctMay: pctMay, dsc: val('pDescuento'),
     caja: !!(cb && cb.checked), costoKg: costo, bolsaOk: bolsaOk,
     r: listo
-      ? { costo: costo, c: c, precio: Math.round(costo * (1 + (Number(pct) || 0) / 100)), may: _varMay(Math.round(costo * (1 + (Number(pctMay) || 0) / 100))) }
+      ? { costo: costo, c: c, precio: Math.round(costo * (1 + (Number(pct) || 0) / 100)),
+          may: (Number(pctMay) || 0) > 0 ? _varMay(Math.round(costo * (1 + (Number(pctMay) || 0) / 100))) : 0 }
       : { costo: null, c: (peso && !bolsaOk) ? null : c },
   };
 }
@@ -1250,7 +1255,7 @@ function pintarCajaCerrada() {
   const pctMay = Number((document.getElementById('pPorcentajeMay') || {}).value) || 0;
   const may = Number((document.getElementById('pPrecioMay') || {}).value) || 0;
   if (!(pctMay > 0)) {
-    nota.textContent = 'Poné el % mayorista: con 0 la caja se vendería al costo.';
+    nota.textContent = 'Poné el % mayorista: sin él, la caja no tiene precio mayorista.';
     nota.className = 'caja-nota falta';
     return;
   }
@@ -1316,10 +1321,10 @@ function datosCajaCerrada(data, id) {
    guardando como siempre. */
 function faltaPresentacionDeVariante() {
   const aviso = m => { if (typeof showAdminToast === 'function') showAdminToast(m, 'error'); };
-  /* Una caja cerrada se cobra al precio mayorista: con 0% se vendería al costo. */
+  /* Una caja cerrada se cobra al precio mayorista: con 0% no lo tendría (01/10). */
   const cb = document.getElementById('pCajaCerrada');
   if (cb && cb.checked && !_varEsPeso() && !((Number((document.getElementById('pPorcentajeMay') || {}).value) || 0) > 0)) {
-    aviso('Una caja cerrada se cobra al precio mayorista: poné el % mayorista (con 0 se vendería al costo).');
+    aviso('Una caja cerrada se cobra al precio mayorista: poné el % mayorista.');
     const m = enModoTamanos() ? document.querySelector('#pVariantes .vfe-ppal .vfe-pctmay input') : document.getElementById('pPorcentajeMay');
     if (m) m.focus();
     return true;
@@ -1381,7 +1386,7 @@ function faltaPresentacionDeVariante() {
       }
     }
     if (!peso && f.caja && !((Number(f.pctMay) || 0) > 0)) {
-      aviso('La caja cerrada de ' + f.tam + ' se cobra al precio mayorista: poné su % mayorista (con 0 se vendería al costo).');
+      aviso('La caja cerrada de ' + f.tam + ' se cobra al precio mayorista: poné su % mayorista.');
       foco(i, '.vfe-pctmay input');
       return true;
     }
@@ -1466,7 +1471,7 @@ async function guardarVariantesForm(principalId, data) {
         upd.porcentaje = pct;
         upd.precio = Math.round(costo * (1 + pct / 100));
         upd.porcentajeMayorista = pctMay;
-        upd.precioMayorista = _varMay(Math.round(costo * (1 + pctMay / 100)));
+        upd.precioMayorista = pctMay > 0 ? _varMay(Math.round(costo * (1 + pctMay / 100))) : 0;
       }
       if (t.stock) upd.stock = parseInt(f.stock, 10) || 0;
       if (t.dsc && _varDsc(f.dsc) !== Number(old.descuento || 0)) upd.descuento = _varDsc(f.dsc);

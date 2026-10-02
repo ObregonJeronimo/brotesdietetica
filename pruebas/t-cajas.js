@@ -112,6 +112,10 @@ const b = (ctx, id) => ctx.allProducts.find(p => p.id === id);
     t('  y dice lo que se cobra: el mayorista', h.indexOf('Se cobra <b>$9.600</b> (caja cerrada, precio mayorista)') > 0);
     const r = w.ctx._calcFilaVar({ tam: 'x12', costoIn: '7200', pct: 60, pctMay: 33 }, false);
     t('  (la cuenta: costo 7.200 con 33% da 9.576, redondeado a 9.600)', r.may === 9600);
+    const r0 = w.ctx._calcFilaVar({ tam: 'x12', costoIn: '7200', pct: 60, pctMay: 0 }, false);
+    const h0 = w.ctx._resFilaVar(r0, false, true);
+    t('  con 0% no dice "Se cobra $0 (caja cerrada...)": no tiene mayorista (01/10)',
+      r0.may === 0 && h0.indexOf('Se cobra') < 0 && h0.indexOf('Sin mayorista: se cobra el de mostrador') > 0, h0);
     const wp = armar({ tipo: 'peso' });
     wp.ctx.openModal = function () {};
     wp.ctx.window._varFilas = [{ id: null, tam: '3 kg', costoIn: '1', pct: 1, pctMay: 1, stock: 0, tocado: {} }];
@@ -123,7 +127,7 @@ const b = (ctx, id) => ctx.allProducts.find(p => p.id === id);
     w.ctx.window._varFilas = [{ id: null, tam: 'x12', costoIn: '7200', pct: 60, pctMay: 0, stock: 2, caja: true, tocado: { tam: true, caja: true } }];
     w.porId.pGramaje.value = 'x1';
     w.porId.pCosto = { id: 'pCosto', value: '600' };
-    t('una caja nueva con 0% mayorista no se guarda: se vendería al costo',
+    t('una caja nueva con 0% mayorista no se guarda: no tendría precio mayorista',
       w.ctx.faltaPresentacionDeVariante() === true && /La caja cerrada de x12 se cobra al precio mayorista/.test(w.avisos.join()));
     w.ctx.window._varFilas[0].pctMay = 33;
     t('  con el % mayorista, sí', w.ctx.faltaPresentacionDeVariante() === false);
@@ -154,7 +158,9 @@ const b = (ctx, id) => ctx.allProducts.find(p => p.id === id);
     t('marcada, dice lo que se va a cobrar', w.porId.pCajaWrap.hidden === false && w.porId.pCajaNota.textContent === 'En el mostrador y en la tienda se cobra $9.600, el precio mayorista.');
     w.porId.pPorcentajeMay.value = '0';
     w.ctx.pintarCajaCerrada();
-    t('  con 0% mayorista avisa que se vendería al costo', /con 0 la caja se vendería al costo/.test(w.porId.pCajaNota.textContent) && w.porId.pCajaNota.className === 'caja-nota falta');
+    t('  con 0% mayorista avisa que no tiene precio mayorista (01/10: con 0 ya no queda el costo)',
+      w.porId.pCajaNota.textContent === 'Poné el % mayorista: sin él, la caja no tiene precio mayorista.' && w.porId.pCajaNota.className === 'caja-nota falta',
+      w.porId.pCajaNota.textContent);
     t('  y no deja guardar', w.ctx.faltaPresentacionDeVariante() === true && /Una caja cerrada se cobra al precio mayorista: poné el % mayorista/.test(w.avisos.join()) &&
       w.porId.pPorcentajeMay.enfocado === true);
     const d = w.ctx.datosCajaCerrada({ tipoVenta: 'unidad' }, null);

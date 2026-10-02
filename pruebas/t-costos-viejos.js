@@ -615,7 +615,12 @@ console.log('\n-- la cuenta del precio es la del formulario --');
 {
   const save = cuerpo(html, 'saveProduct');
   t('saveProduct sigue calculando precio = costo × (1 + %)', save.indexOf('const precioCalc=Math.round(costo*(1+porcentaje/100));') > 0);
-  t('  y el mayorista con _redondearMayorista', save.indexOf('const precioMayCalc=_redondearMayorista(Math.round(costo*(1+pctMay/100)));') > 0);
+  t('  y el mayorista con _redondearMayorista; con el % en 0, sin mayorista (01/10)',
+    save.indexOf('const precioMayCalc=pctMay>0?_redondearMayorista(Math.round(costo*(1+pctMay/100))):0;') > 0);
+  t('  el formulario muestra lo mismo mientras se escribe',
+    cuerpo(html, 'calcPrecioModal').indexOf('elMay.value=pctMay>0?_redondearMayorista(Math.round(costo*(1+pctMay/100))):0;') > 0);
+  t('  y la carga masiva de % mayorista, igual',
+    cuerpo(html, 'aplicarMayoristaPct').indexOf('const precioMay=pctMay>0?_redondearMayorista(Math.round((p.costo||0)*(1+pctMay/100))):0;') > 0);
   const { api, ctx } = armar();
   ctx._redondearMayorista = n => (n ? Math.ceil(n / 50) * 50 : 0);
   const r = api.preciosDesdeCosto({ porcentaje: 35, porcentajeMayorista: 10 }, 1234);
@@ -667,6 +672,67 @@ console.log('\n-- la cuenta del precio es la del formulario --');
     /function _costosTecla\(e\) \{[\s\S]{0,300}document\.querySelector\('\.dlg-overlay:not\(#costosEditor\)'\)/.test(SRC));
 }
 
+console.log('\n-- el % mayorista en 0 y vender al mayorista sin ganancia (01/10) --');
+{
+  /* Pedido del dueño (01/10): con el % mayorista en 0, sin precio mayorista. Antes, el costo
+     redondeado: al mayorista se vendía sin ganar nada. */
+  const { api, ctx } = armar();
+  ctx._redondearMayorista = n => (n ? Math.ceil(n / 50) * 50 : 0);
+  const r0 = api.preciosDesdeCosto({ porcentaje: 65, porcentajeMayorista: 0 }, 21500);
+  t('con el % mayorista en 0, el mayorista queda en 0 (antes $21.500, el costo) y el precio como siempre',
+    r0.precioMayorista === 0 && r0.precio === 35475, JSON.stringify(r0));
+  t('  con %, como siempre: 21.500 con 10% -> 23.650', api.preciosDesdeCosto({ porcentaje: 65, porcentajeMayorista: 10 }, 21500).precioMayorista === 23650);
+  t('  sin el campo, igual que en 0', api.preciosDesdeCosto({ porcentaje: 65 }, 21500).precioMayorista === 0);
+}
+{
+  const m = armar({ conVariantes: true });
+  const p = { id: 'alm', nombre: 'Almendras', tipoVenta: 'peso', costo: 21500, porcentaje: 65, porcentajeMayorista: 0, precio: 35475, precioMayorista: 21500 };
+  const h = m.ctx._costoVistaHtml(p, 23000, null);
+  t('al lado del costo, sin % mayorista lo dice (antes salía el de mostrador como si fuera el mayorista)',
+    h === '<span>Costo $23.000 el kilo</span><span>Precio <b>$37.950</b> el kilo</span><span class="vfe-may">Sin mayorista: se cobra el de mostrador</span>', h);
+  t('  con el costo de siempre, el mayorista que tiene guardado', m.ctx._costoVistaHtml(p, 21500, null).indexOf('<span class="vfe-may">Mayorista $21.500 el kilo</span>') > 0);
+  const s = armar();
+  const hs = s.ctx._costoVistaHtml({ id: 'u', nombre: 'Aceite', costo: 100, porcentaje: 50, porcentajeMayorista: 0, precio: 150, precioMayorista: 0 }, 200, null);
+  t('  sin la tabla de bolsas, lo mismo', hs === '<span>Precio <b>$300</b></span><span class="costos-may">Sin mayorista: se cobra el de mostrador</span>', hs);
+}
+{
+  /* Al registrar una venta mayorista, lo que se cobra lo mismo que costó (o casi) se avisa. */
+  const prods = [
+    { id: 'alm', nombre: 'Almendras', tipoVenta: 'peso', costo: 21500, porcentajeMayorista: 0, precio: 35475, precioMayorista: 21500 },
+    { id: 'caf', nombre: 'Mula Cafe', costo: 10110, porcentajeMayorista: 0, precio: 16682, precioMayorista: 10150 },
+    { id: 'ace', nombre: 'Aceite', costo: 16400, porcentajeMayorista: 30, precio: 31160, precioMayorista: 21350 },
+  ];
+  const items = () => [
+    { id: 'alm', nombre: 'Almendras', precio: 21500, costo: 21500, cantidad: 2000, descuento: 0, tipoVenta: 'peso' },
+    { id: 'caf', nombre: 'Mula Cafe', precio: 10150, costo: 10110, cantidad: 3, descuento: 0, tipoVenta: 'unidad' },
+    { id: 'ace', nombre: 'Aceite', precio: 21350, costo: 16400, cantidad: 1, descuento: 0, tipoVenta: 'unidad' },
+  ];
+  const preguntas = [];
+  const m = armar({ productos: prods, pedirConfirmacion: async (txt, op) => { preguntas.push({ txt, op }); return false; } });
+  const sigue = await m.ctx.avisoMayoristaSinGanancia(items());
+  const q = preguntas[0];
+  t('venta mayorista: lo que se cobra lo mismo que costó (o casi) se avisa con el precio y el costo, y pregunta',
+    sigue === false && preguntas.length === 1 && q.op.titulo === 'Se vende sin ganancia' && q.op.aceptar === 'Registrar igual' && q.op.cancelar === 'Volver' &&
+    q.txt === 'Estos productos se cobran lo mismo que costaron (o casi): no ganás nada con ellos.\n\n' +
+      '- Almendras: se cobra $21.500 el kilo y costó $21.500 el kilo\n- Mula Cafe: se cobra $10.150 y costó $10.110\n\n' +
+      'Revisales el % de ganancia mayorista en Productos. ¿Registrar la venta igual?', JSON.stringify(preguntas));
+  t('  el que deja ganancia (Aceite: $21.350 contra $16.400) no aparece', q.txt.indexOf('Aceite') < 0);
+  const m2 = armar({ productos: prods, pedirConfirmacion: async () => { throw new Error('no tenía que preguntar'); } });
+  t('  sin ninguno así, no pregunta y la venta sigue', (await m2.ctx.avisoMayoristaSinGanancia([items()[2]])) === true);
+  t('  sin costo cargado no se sabe: no avisa', (await m2.ctx.avisoMayoristaSinGanancia([{ id: 'x', nombre: 'X', precio: 500, costo: 0, cantidad: 1 }])) === true);
+  const m3 = armar({ productos: prods, pedirConfirmacion: async txt => { preguntas.push({ txt }); return true; } });
+  const conDsc = [{ id: 'ace', nombre: 'Aceite', precio: 21350, costo: 16400, cantidad: 1, descuento: 25, tipoVenta: 'unidad' }];
+  const ult = () => preguntas[preguntas.length - 1].txt;
+  t('  "Registrar igual" deja seguir; y un descuento que lo deja en el costo o menos también se avisa ($16.013 contra $16.400)',
+    (await m3.ctx.avisoMayoristaSinGanancia(conDsc)) === true &&
+    ult() === 'Este producto se cobra lo mismo que costó (o casi): no ganás nada con él.\n\n- Aceite: se cobra $16.013 y costó $16.400\n\n' +
+      'Revisá su % de ganancia mayorista en Productos. ¿Registrar la venta igual?', ult());
+  const s = armar({ productos: prods });
+  t('  si el diálogo no cargó, la venta no se frena', (await s.ctx.avisoMayoristaSinGanancia(items())) === true);
+  t('sin ganancia es el costo redondeado a $50 o menos: 10.150 con costo 10.110 sí, 10.200 no', s.ctx._mayoristaSinGanancia(10150, 10110) === true &&
+    s.ctx._mayoristaSinGanancia(10200, 10110) === false && s.ctx._mayoristaSinGanancia(21500, 21500) === true && s.ctx._mayoristaSinGanancia(500, 0) === false);
+}
+
 /* ======================================================== ENCHUFADO */
 console.log('\n-- enchufado --');
 t('admin.html carga el módulo', html.indexOf('<script src="admin-costos.js"></script>') > 0);
@@ -679,6 +745,10 @@ t('admin.html carga el módulo', html.indexOf('<script src="admin-costos.js"></s
   const iAvisoM = sm.indexOf("avisoCostosViejos(ventaMayItems,'may')");
   t('la mayorista también, antes de escribir', iAvisoM > 0 && iAvisoM < sm.indexOf('btn.disabled=true'));
   t('  y también solo al crear', /if\(!editingVentaMayId&&typeof avisoCostosViejos==='function'&&!\(await avisoCostosViejos\(ventaMayItems,'may'\)\)\)return;/.test(sm));
+  const iSin = sm.indexOf('avisoMayoristaSinGanancia(ventaMayItems)');
+  t('la venta mayorista avisa lo que se cobra sin ganancia antes de escribir (01/10)', iSin > 0 && iSin < sm.indexOf('btn.disabled=true'));
+  t('  al crear y al editar, como el de "Falta el precio mayorista"',
+    /if\(typeof avisoMayoristaSinGanancia==='function'&&!\(await avisoMayoristaSinGanancia\(ventaMayItems\)\)\)return;/.test(sm));
 }
 t('el formulario muestra la fecha del último cambio de costo', html.indexOf('<small id="pCostoFecha" class="costo-fecha"></small>') > 0);
 t('  al abrir un producto y al crear uno nuevo', /value=p\.costo\|\|0;if\(typeof pintarFechaCosto==='function'\)pintarFechaCosto\(p\);/.test(html) &&

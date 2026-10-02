@@ -664,6 +664,28 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       !z.preguntas.some(p => p.titulo === OJO) && !!e3z && e3z.d.costo === 3800 && e3z.d.precio === 5700 && e3z.d.precioMayorista === 4600,
       JSON.stringify(e3z && e3z.d));
   }
+  {
+    /* Pedido del dueño (01/10): con el % mayorista en 0, actualizar el costo deja el mayorista en 0
+       (se cobra el de mostrador, con su aviso), no en el costo. */
+    const gal = () => [P('gal', { nombre: 'Galletas De Arroz', costo: 1500, porcentaje: 65, precio: 2475, precioMayorista: 1500, codigo: 'GAL' })];
+    const w = armar({ productos: gal() });
+    w.ctx.openCompraModal('L1');
+    w.ctx.compraAgregar('gal');
+    const fila = w.el('compraItems').innerHTML;
+    t('sin % mayorista, con el costo de siempre: el mayorista que tiene guardado (igual al costo)',
+      fila.indexOf('<span class="cp-kilo cp-vista" id="cpKilo0"><span>Precio <b>$2.475</b></span><span class="vfe-may">Mayorista $1.500</span></span>') > 0, fila);
+    w.ctx.compraCampo(0, 'cantidad', '10');
+    w.ctx.compraCampo(0, 'costoUnitario', '1800');
+    t('  con otro costo: "Sin mayorista: se cobra el de mostrador", no el costo (01/10)',
+      w.el('cpKilo0').innerHTML === '<span>Precio <b>$2.970</b></span><span class="vfe-may">Sin mayorista: se cobra el de mostrador</span>', w.el('cpKilo0').innerHTML);
+    await w.ctx.guardarCompra();
+    const act = w.preguntas.find(p => p.titulo === '¿Actualizar el costo?');
+    t('  el aviso lo dice: "Mayorista nuevo: ninguno, se cobra el de mostrador (antes $1.500)"',
+      !!act && act.m.indexOf('- Precio nuevo: $2.970 (antes $2.475)\n- Mayorista nuevo: ninguno, se cobra el de mostrador (antes $1.500)') > 0, act && act.m);
+    const e = w.escrituras.find(x => x.id === 'gal' && x.d.costo !== undefined);
+    t('  y guarda el mayorista en 0: la venta mayorista cobra el de mostrador, con su aviso',
+      !!e && e.d.costo === 1800 && e.d.precio === 2970 && e.d.precioMayorista === 0, JSON.stringify(e && e.d));
+  }
 
   console.log('\n-- la bolsa que dice el nombre (revisión del 01/10) --');
   {

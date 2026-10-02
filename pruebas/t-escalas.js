@@ -1217,6 +1217,10 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     const s5 = of.ctx.bolsasMasCarasPorKilo(new Map([['y3', { precio: 7500, precioMayorista: 5850 }]]));
     t('  con la oferta de la de 1 kg (10%: $7.200 el kilo), la de 3 kg a $7.500 queda más cara', s5.length === 1 && s5[0].kgChica === 7200 && s5[0].kgGrande === 7500,
       JSON.stringify(s5.map(s => [s.kgChica, s.kgGrande])));
+    const sinMay = armar({ productos: catalogo().map(p => (p.id === 'y1' ? Object.assign(p, { precioMayorista: 0 }) : p)) });
+    const s6 = sinMay.ctx.bolsasMasCarasPorKilo(new Map([['y3', { precio: 8400, precioMayorista: 0 }]]));
+    t('  sin precio mayorista en ninguna de las dos, solo la de mostrador: la mayorista cobra lo mismo (01/10)',
+      s6.length === 1 && s6[0].ctx === 'min', JSON.stringify(s6.map(s => [s.chica.id, s.grande.id, s.ctx])));
     const txt = w.ctx.textoBolsasMasCaras(s1);
     t('el aviso lo dice claro: cada bolsa con su kilo, la más cara marcada, y qué conviene',
       txt === 'Con este cambio, una bolsa más grande sale más cara por kilo que una más chica:\n\n' +
