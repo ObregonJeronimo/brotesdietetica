@@ -2556,6 +2556,23 @@ se va (`_cpSalioTxt`, `_cpAvisoFilaHtml`). Probado en el sandbox con la Galleta 
 unidades salieron 5 y el aviso; con 4, el costo quedó en $12.500 y el aviso se fue. Pruebas: 2 más y 7
 ajustadas; 4 cambios a propósito quedan atrapados. Total: 4142 en 91 suites.
 
+### AN) Ventas: el renglón dice qué presentación se vendió · **HECHO, SIN SUBIR** (02/10/2026)
+
+Pedido de Thiago: vendiendo el Mani RC de 80 g, en Ventas el renglón decía "Mani RC  2 u × $1.530" y no
+cuál de las presentaciones era. Al vender se guarda el nombre del producto (`addVentaItem`: `p.nombre`), y en el
+principal de un grupo el tamaño no está en el nombre sino en "Gramaje / Presentación".
+- Ahora la lista de Ventas muestra el nombre que quedó en la venta con el tamaño del producto: "Mani RC x
+  80 g" (`nombreVendido`, admin-variantes.js, con las mismas reglas que `_nombreConPresentacion`: si el nombre
+  ya lo dice, queda igual). Se arma al mostrar: anda también con las ventas viejas y no cambia nada de lo
+  guardado. Un granel cobrado por bolsas (escala) queda con su nombre, porque el renglón junta varias
+  bolsas; sin presentaciones, o si el producto ya no está, como se guardó.
+- No se tocó lo que se guarda: las Estadísticas agrupan por el nombre guardado, y cambiarlo partía un
+  producto en dos ("Mani RC" las viejas y "Mani RC x 80 g" las nuevas). El ticket, la factura y la Caja
+  siguen con el nombre guardado (para hablar con Thiago si los quiere igual).
+Probado en el sandbox: la venta #42 se ve "Mani RC x 80 g  2 u × $1.530 = $3.060", la #41 "Yerba Mate
+Tostado x 500 Gr" y la #1 (Almendra, sin presentaciones) igual que antes. Pruebas: 8 más; 4 cambios a
+propósito quedan atrapados. Total: 4150 en 91 suites.
+
 ---
 
 ## 2. Decisiones tuyas

@@ -467,6 +467,9 @@ producción (de los "gramajes" viejos).
   no se escribió (si no da justo, lo explica en amarillo). El total escrito queda exacto. Solo números (sin
   puntos), "Gramos entrantes" con "Equivale a 5,3 kg", y arriba "escribí primero la cantidad". Detalle en
   `PENDIENTE.md` §1-bis AM.
+- **Ventas: qué presentación se vendió (02/10, sin subir)**: el renglón de la venta muestra el nombre con
+  el tamaño ("Mani RC x 80 g"), también en las ventas viejas; no cambia lo que se guarda. Detalle en
+  `PENDIENTE.md` §1-bis AN.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

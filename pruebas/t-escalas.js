@@ -755,6 +755,16 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     const w11 = armar({ productos: conNombre });
     t('con presentaciones dice cuál, con la forma de las otras: "Yerba Mate x 1 kg"', w11.ctx._nombreConPresentacion(b(w11.ctx, 'y1')) === 'Yerba Mate x 1 kg' &&
       w11.ctx._nombreConPresentacion(b(w11.ctx, 'y500')) === 'Yerba Mate x 500 g' && w11.ctx._nombreConPresentacion(b(w11.ctx, 'nuez')) === 'Nueces');
+    const nv = i => w11.ctx.nombreVendido(i);
+    t('en Ventas, un renglón vendido dice qué presentación: "Yerba Mate" de 1 kg se ve "Yerba Mate x 1 kg" (02/10)',
+      nv({ id: 'y1', nombre: 'Yerba Mate' }) === 'Yerba Mate x 1 kg', nv({ id: 'y1', nombre: 'Yerba Mate' }));
+    t('  si el nombre guardado ya lo dice, queda igual: "Yerba Mate x 500 g"', nv({ id: 'y500', nombre: 'Yerba Mate x 500 g' }) === 'Yerba Mate x 500 g');
+    t('  con el nombre que quedó en la venta, aunque después se haya cambiado el del producto', nv({ id: 'y1', nombre: 'Yerba Vieja' }) === 'Yerba Vieja x 1 kg');
+    t('  sin presentaciones, o si el producto ya no está, como se guardó', nv({ id: 'nuez', nombre: 'Nueces' }) === 'Nueces' &&
+      nv({ id: 'borrado', nombre: 'Algo' }) === 'Algo');
+    t('  un granel cobrado por bolsas (escala) queda con su nombre: el renglón junta varias bolsas',
+      nv({ id: 'y3', nombre: 'Yerba Mate', escalaId: 'y1', tipoVenta: 'peso' }) === 'Yerba Mate');
+    t('  la lista de Ventas lo usa', html.indexOf("esc(typeof nombreVendido==='function'?nombreVendido(i):i.nombre)") > 0);
     t('la venta y la mayorista lo miran antes de registrar', html.indexOf("if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaItems,'min')))return;") > 0 &&
       html.indexOf("if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaMayItems,'may')))return;") > 0);
     t('  y las dos listas muestran la línea en amarillo', (html.match(/\(i\.__falta\?'<span class="vi-falta">/g) || []).length === 2);

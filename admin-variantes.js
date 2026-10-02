@@ -408,6 +408,17 @@ function _nombreConPresentacion(p, nombre) {
   const e = String(etiquetaVariante(p) || '');
   return e && n.toLowerCase().indexOf(e.toLowerCase()) < 0 ? _nombreConTam(n, e) : n;
 }
+/* El nombre de un renglón vendido, con su presentación (pedido del dueño, 02/10): el Mani RC de 80 g
+   quedaba en la venta como "Mani RC", y en Ventas no se sabía cuál se había vendido. El nombre que
+   quedó en la venta, con el tamaño del producto: "Mani RC x 80 g". Un granel cobrado por bolsas
+   (escala) queda como está: el renglón junta varias bolsas. Sin presentaciones, o si el producto ya no
+   está, como se guardó. */
+function nombreVendido(i) {
+  const n = String((i && (i.nombre || i.nombreMostrado)) || '');
+  if (!i || i.escalaId) return n;
+  const p = _varProds().find(x => x && x.id === i.id);
+  return p ? _nombreConPresentacion(Object.assign({}, p, { nombre: n }), n) : n;
+}
 /* Los gramos de la bolsa, si es una bolsa de un granel con otras (una variante por peso
    que dice su tamaño): ahí el costo se carga por bolsa, como en "Costo y precio de cada
    bolsa", aunque se guarde por kilo. Si no, null: por kilo o por unidad, como siempre. Lo

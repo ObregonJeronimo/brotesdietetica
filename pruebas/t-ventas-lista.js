@@ -116,5 +116,18 @@ console.log('\n-- el panel --');
   t('  y en la mayorista, antes de marcar el botón', may > 0 && may < html.indexOf("#ventaMayModal .entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaMayTipoEntrega))", may));
 }
 
+console.log('\n-- qué presentación se vendió (pedido del dueño, 02/10) --');
+{
+  ctx.nombreVendido = i => (i.nombre === 'Mani RC' ? 'Mani RC x 80 g' : i.nombre);
+  const h = ctx.vtFilaHtml(venta({ numero: 50, fecha: hoy, total: 3060,
+    items: [{ id: 'm80', nombre: 'Mani RC', cantidad: 2, precio: 1530, subtotal: 3060, tipoVenta: 'unidad' }] }), 'min');
+  delete ctx.nombreVendido;
+  t('el renglón de la venta dice qué presentación se vendió: "Mani RC x 80 g"',
+    h.indexOf('<div class="vt-item"><span>Mani RC x 80 g</span><span>2 u × $1.530 = <b>$3.060</b></span></div>') > 0, h);
+  const sin = ctx.vtFilaHtml(venta({ numero: 51, fecha: hoy, total: 1000,
+    items: [{ nombre: 'Alfajor', cantidad: 2, precio: 500, subtotal: 1000, tipoVenta: 'unidad' }] }), 'min');
+  t('  sin admin-variantes.js, el nombre de siempre', sin.indexOf('<div class="vt-item"><span>Alfajor</span>') > 0);
+}
+
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

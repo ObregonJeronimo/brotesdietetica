@@ -4341,7 +4341,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             const n=lineas.length;
             chips.push('<span class="vt-chip items"><i class="bi bi-basket"></i> '+n+(n===1?' producto':' productos')+' <i class="bi bi-chevron-down vt-chev"></i></span>');
             const items=lineas.map(i=>{const dsc=Number(i.descuento||0);const sub=(i.subtotal!=null)?Number(i.subtotal):subtotalItem(i);
-                return '<div class="vt-item"><span>'+esc(i.nombre)+(dsc>0?' <b class="vt-item-dsc">-'+dsc+'%</b>':'')+'</span><span>'+fmtCantidad(i)+(esPorPeso(i)?'':' u')+' × $'+Number(i.precio||0).toLocaleString('es-AR')+(esPorPeso(i)?' el kilo':'')+' = <b>$'+sub.toLocaleString('es-AR')+'</b></span></div>';}).join('');
+                return '<div class="vt-item"><span>'+esc(typeof nombreVendido==='function'?nombreVendido(i):i.nombre)+(dsc>0?' <b class="vt-item-dsc">-'+dsc+'%</b>':'')+'</span><span>'+fmtCantidad(i)+(esPorPeso(i)?'':' u')+' × $'+Number(i.precio||0).toLocaleString('es-AR')+(esPorPeso(i)?' el kilo':'')+' = <b>$'+sub.toLocaleString('es-AR')+'</b></span></div>';}).join('');
             const acc=may
                 ?'<button class="vt-acc" onclick="openVentaMayModal(\''+id+'\')" title="Editar esta venta"><i class="bi bi-pencil"></i><span>Editar</span></button>'+
                  '<button class="vt-acc peligro" onclick="deleteVentaMay(\''+id+'\',\''+nro+'\')" title="Eliminar esta venta"><i class="bi bi-trash"></i></button>'
