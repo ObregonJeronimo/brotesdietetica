@@ -2486,7 +2486,7 @@ ingreso del panel cargan sin errores (sin iniciar sesión), ya con el código nu
 recargar (F5). Las compras cargadas antes no anotaban los costos: al borrarlas solo vuelve el stock (el
 aviso lo dice).
 
-### AM) Cargar compra: el total del renglón se puede escribir, y el costo sale solo · **HECHO, SIN SUBIR** (02/10/2026)
+### AM) Cargar compra: el total del renglón se puede escribir, y el costo sale solo · **SUBIDO A PRODUCCIÓN el 02/10/2026** (02/10/2026)
 
 Pedido de Thiago: hay proveedores que no pasan lo que costó cada bolsa, sino el total ("4 bolsas de 2,5 kg,
 $40.000"), y había que sacar la calculadora para dividir. Ahora el total de cada renglón (el número de la
@@ -2569,7 +2569,7 @@ Probado en el sandbox: la Galleta De Arroz con $85.000 y sin unidades (8,5, no d
 y el total de la compra $0; con 8 unidades, $10.625 c/u y el total de la compra $85.000. Pruebas: 6 más.
 Total: 4156 en 91 suites.
 
-### AN) Ventas: el renglón dice qué presentación se vendió · **HECHO, SIN SUBIR** (02/10/2026)
+### AN) Ventas: el renglón dice qué presentación se vendió · **SUBIDO A PRODUCCIÓN el 02/10/2026** (02/10/2026)
 
 Pedido de Thiago: vendiendo el Mani RC de 80 g, en Ventas el renglón decía "Mani RC  2 u × $1.530" y no
 cuál de las presentaciones era. Al vender se guarda el nombre del producto (`addVentaItem`: `p.nombre`), y en el
@@ -2585,6 +2585,13 @@ principal de un grupo el tamaño no está en el nombre sino en "Gramaje / Presen
 Probado en el sandbox: la venta #42 se ve "Mani RC x 80 g  2 u × $1.530 = $3.060", la #41 "Yerba Mate
 Tostado x 500 Gr" y la #1 (Almendra, sin presentaciones) igual que antes. Pruebas: 8 más; 4 cambios a
 propósito quedan atrapados. Total: 4150 en 91 suites.
+
+**AM y AN, subidos el 02/10/2026** (Thiago: "antes de pushear todo, hacé una revisión… que den números
+correctos"; lo que encontró la revisión se arregló y se probó antes, ver §AM). Push a `main` de `3230d04` a
+`fddc4bd` (con el commit de docs de AL). Solo cambia el panel. Vercel sirve los mismos archivos que el repo; la
+tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesión), ya con el código nuevo.
+La clienta lo ve al recargar (F5). Para decirle: en Cargar compra, escribir primero la cantidad, y los
+números sin puntos (40000, no 40.000).
 
 ---
 
