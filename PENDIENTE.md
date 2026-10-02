@@ -2493,18 +2493,18 @@ $40.000"), y había que sacar la calculadora para dividir. Ahora el total de cad
 derecha) es un campo "Total" que se puede escribir, en todos los renglones (Thiago eligió "en todos"):
 - Se escribe el total y el costo sale solo: en una bolsa, el total por las bolsas que entraron (los gramos
   por el tamaño de la bolsa: 10.000 g en bolsas de 2,5 kg son 4), y el kilo de ahí, como si se hubiera
-  escrito lo que costó la bolsa; por unidad, por las unidades; por kilo suelto, por los kilos. A centavos:
-  $40.000 en 3 bolsas son $13.333,33 cada una.
+  escrito lo que costó la bolsa; por unidad, por las unidades; por kilo suelto, por los kilos. En pesos
+  (los campos son solo números, ver abajo): $40.000 en 3 bolsas son $13.333 cada una.
 - El total escrito queda exacto: es el subtotal que se guarda y lo que se le debe al proveedor
-  (`_cpSubtotal` lo devuelve tal cual; si no, $40.000 en 300 unidades a $133,33 daban $39.999). Sin
+  (`_cpSubtotal` lo devuelve tal cual; si no, $40.000 en 300 unidades a $133 daban $39.900). Sin
   centavos, como todos los subtotales.
 - Arriba dice cuántas bolsas son: "Total (4 bolsas)".
 - Si se escribe el costo, manda el costo y el total sale de ahí, como siempre. Con el total escrito, si
   cambia la cantidad (o se dice de cuánto es la bolsa), el costo se vuelve a sacar. Vacío, vuelve a
   mandar el costo. Mientras se escribe, el total no se pisa; al salir del campo muestra lo que vale.
 - Se guarda lo mismo de siempre (lo que costó la bolsa, el kilo, la unidad y el subtotal): "Actualizar",
-  el precio, borrar la compra y las deudas siguen igual. `_cpCostoDesdeTotal`, `compraCampo` (`'total'`),
-  `compraTotalSalir`.
+  el precio, borrar la compra y las deudas siguen igual. `_cpDesdeTotal`, `compraCampo` (`'total'`),
+  `_cpRefrescarFila`, `compraSalir`.
 - El campo mide lo mismo que el número de antes (88 px), sin las flechitas, y entra hasta 8 cifras: con
   el ancho de los otros campos, en el renglón que pregunta la bolsa la × bajaba de renglón. (Un renglón
   con descuento ya bajaba el total a otra línea, por lo largo de lo de al lado del costo; sigue igual.)
@@ -2514,7 +2514,8 @@ Probado en el sandbox con clics y escribiendo de verdad, en EL KIOSQUITO (compra
   bolsas)", $10.000 la bolsa y $4.000 el kilo (precio $7.600 y mayorista $5.200 el kilo);
 - Nuez Mariposa x 3 kg: 12.000 g y total $120.000: $30.000 la bolsa, $10.000 el kilo;
 - Aceite De Oliva: 6 u y total $99.000: $16.500 c/u (precio $31.350, mayorista $21.450);
-- Castaña De Caju Tostado: 7 u y total $50.000: $7.142,86 c/u, y el renglón queda en $50.000 exacto.
+- Castaña De Caju Tostado: 7 u y total $50.000: $7.142,86 c/u (todavía a centavos; ahora sale $7.143), y el
+  renglón queda en $50.000 exacto.
 Total $309.000. El aviso de guardar y el de "Actualizar" dijeron esos costos; la compra se guardó con esos
 subtotales y costos, los productos quedaron con su costo, precio y mayorista nuevos, el stock subió, el
 tamaño de la bolsa del Aceite De Coco quedó anotado y la compra anotó los costos de antes (para
@@ -2522,6 +2523,29 @@ borrarla). En FRUTICOR, la Almendra (pregunta la bolsa) con un total de 7 cifras
 queda en su renglón.
 Pruebas: 22 más (las 5 que miraban el total como texto ahora miran el campo); 12 cambios a propósito del
 código quedan atrapados. Total: 4111 en 91 suites.
+
+Después, a pedido de Thiago (02/10), mirándolo en el panel:
+- Solo números: en la cantidad, los costos y el total no entran letras, ni puntos ni comas ("40.000"
+  queda 40000; antes un punto se leía como decimal y "40.000" era 40). Primero pidió leer el punto de
+  miles y después, "más simple", que no se puedan escribir. Por eso los costos que salen del total van
+  en pesos, sin centavos. En "¿De cuánto es la bolsa?" tampoco entran letras (con letras el total dejaba
+  de andar); en kg queda la coma, para las bolsas de 2,5 kg (el punto se vuelve coma), y en g, solo
+  números. Un costo con centavos todavía puede venir del remito o del producto: sigue andando.
+- Sin la cantidad, sale del total: de las tres cosas (cantidad, costo, total) sale la que no se escribió.
+  Con el costo y el total, la cantidad: el total por lo que cuesta cada una (la bolsa, la unidad o el
+  kilo). Bolsas y unidades van enteras: si no da justo, la cantidad queda vacía y abajo del renglón, en
+  amarillo: "Las cuentas no dan: $90.000 ÷ $10.500 (lo que cuesta cada una) = 8,57 unidades, y no se
+  compran unidades partidas. Revisá el total o el costo, o escribí las unidades." Con otro costo, sale
+  otra vez; si se escribe la cantidad, manda la cantidad y sale el costo (`_cpCantidadDesdeTotal`).
+- Arriba de la cantidad dice "Gramos entrantes" o "Unidades entrantes", y debajo de los gramos, en kilos:
+  5300 g, "Equivale a 5,3 kg". Los renglones por peso quedaron un poco más altos para que entre.
+Probado en el sandbox escribiendo de verdad, en FRUTICOR (compra #14): la Almendra con "2kg" en la bolsa
+(quedó 2 kg), "10.000" g (quedó 10000, "Equivale a 10 kg", "Total (5 bolsas)") y "102.000" de total
+($20.400 la bolsa, $10.200 el kilo); la Galleta De Arroz con "10.500" de costo y "90.000" de total sin
+unidades: el aviso amarillo con 8,57 unidades; con $84.000, 8 unidades y el aviso se fue. Se guardó por
+$186.000, con las 8 unidades que salieron del total, y el stock subió 10.000 g y 8.
+Pruebas: 29 más (y las 3 viejas que escribían centavos los ponen como si vinieran del remito); 22 cambios a
+propósito del código quedan atrapados. Total: 4140 en 91 suites.
 
 ---
 

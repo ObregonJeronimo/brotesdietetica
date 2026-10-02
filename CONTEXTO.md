@@ -463,8 +463,9 @@ producción (de los "gramajes" viejos).
   se borra en la misma transacción, y un doble clic en "Eliminar" abre un solo aviso. Las compras de
   antes no lo anotaban. Detalle en `PENDIENTE.md` §1-bis AL.
 - **Cargar compra: el total del renglón se escribe (02/10, sin subir)**: si el proveedor pasa el total y
-  no lo de cada bolsa (o cada unidad), se escribe el total y el costo sale solo ("Total (4 bolsas)"); el
-  total escrito queda exacto. En todos los renglones. Detalle en `PENDIENTE.md` §1-bis AM.
+  no lo de cada bolsa (o cada unidad), se escribe el total y sale lo que falta: el costo, o la cantidad si
+  no se escribió (si no da justo, lo explica en amarillo). El total escrito queda exacto. Solo números (sin
+  puntos), "Gramos entrantes" con "Equivale a 5,3 kg". Detalle en `PENDIENTE.md` §1-bis AM.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

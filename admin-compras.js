@@ -209,16 +209,23 @@ function _cpSubtotal(it) {
 function _cpTotal() { return _compraItems.reduce((s, i) => s + _cpSubtotal(i), 0); }
 
 /* EL TOTAL DEL RENGLÓN (pedido del dueño, 02/10). Hay proveedores que no pasan lo que costó cada
-   bolsa (o cada unidad), sino el total: "4 bolsas de 2,5 kg, $40.000". Se escribe el total y el
-   costo sale solo, sin la calculadora: el total por las bolsas que entraron (los gramos por el
-   tamaño de la bolsa), por los kilos o por las unidades, a centavos. El total escrito queda
-   exacto: es lo que se le debe al proveedor. Sin saber todavía cuántas son, el costo espera. */
+   bolsa (o cada unidad), sino el total: "4 bolsas de 2,5 kg, $40.000". Se escribe el total y sale
+   solo lo que falta, sin la calculadora: de la cantidad, el costo y el total, el que no se escribió.
+   Con la cantidad, el costo (_cpCostoDesdeTotal); sin la cantidad, o si salió del total, la cantidad
+   (_cpCantidadDesdeTotal). El total escrito queda exacto: es lo que se le debe al proveedor. */
+function _cpDesdeTotal(it) {
+  if (it.totalEscrito == null) return false;
+  return !(Number(it.cantidad) > 0) || it.cantidadSale ? _cpCantidadDesdeTotal(it) : _cpCostoDesdeTotal(it);
+}
+/* El costo: el total por las bolsas que entraron (los gramos por el tamaño de la bolsa), por los
+   kilos o por las unidades, en pesos (los campos son solo números: sin centavos). Sin saber todavía
+   cuántas son, espera. */
 function _cpCostoDesdeTotal(it) {
   if (it.totalEscrito == null) return false;
   const q = Number(it.cantidad || 0), g = Number(it.gramosBolsa || 0);
   const cuantas = it.tipoVenta !== 'peso' ? q : g > 0 ? q / g : it.sinTam ? 0 : q / 1000;
   if (!(cuantas > 0)) return false;
-  const c = Math.round(it.totalEscrito / cuantas * 100) / 100;
+  const c = Math.round(it.totalEscrito / cuantas);
   if (_cpEsBolsa(it)) {
     /* Como al escribir lo que costó la bolsa (compraCampo). */
     it.costoBolsa = c;
@@ -236,6 +243,46 @@ function _cpTotalValor(it) {
 }
 function _cpTotalEtq(it) {
   return 'Total' + (_cpEsBolsa(it) && Number(it.cantidad) > 0 ? ' (' + _cpBolsasTxt(it) + ')' : '');
+}
+/* La cantidad, sin escribirla (pedido del dueño, 02/10): el total por lo que cuesta cada una. Bolsas
+   y unidades van enteras: si no da justo (no se compran partidas), la cantidad queda vacía y el
+   renglón explica por qué (_cpNoDaTxt). Por kilo suelto, los gramos que den. */
+function _cpCantidadDesdeTotal(it) {
+  if (it.totalEscrito == null) return false;
+  const g = Number(it.gramosBolsa || 0);
+  if (it.tipoVenta === 'peso' && !g && it.sinTam) return false;   /* sin saber la bolsa, espera */
+  const cada = Number((_cpEsBolsa(it) ? it.costoBolsa : it.costoUnitario) || 0);
+  if (!(cada > 0)) return false;
+  const n = it.totalEscrito / cada;
+  it.cantidadSale = true;
+  delete it.noDaJusto;
+  if (it.tipoVenta === 'peso' && !g) { it.cantidad = Math.round(n * 1000); return true; }
+  const enteras = Math.round(n);
+  if (enteras > 0 && Math.abs(enteras * cada - it.totalEscrito) < 1) it.cantidad = _cpEsBolsa(it) ? enteras * g : enteras;
+  else { it.cantidad = 0; it.noDaJusto = { cuantas: n, cada: cada }; }
+  return true;
+}
+/* Por qué no da justo, con los números (pedido del dueño, 02/10). */
+function _cpNoDaTxt(it) {
+  const x = it.noDaJusto;
+  if (!x || it.totalEscrito == null) return '';
+  const bolsa = _cpEsBolsa(it);
+  const num = (v, d) => Number(v).toLocaleString('es-AR', { maximumFractionDigits: d });
+  return 'Las cuentas no dan: ' + _cpPesos(it.totalEscrito) + ' ÷ $' + num(x.cada, 2) +
+    (bolsa ? ' (lo que cuesta la bolsa) = ' + num(x.cuantas, 2) + ' bolsas, y no se compran bolsas partidas.'
+      : ' (lo que cuesta cada una) = ' + num(x.cuantas, 2) + ' unidades, y no se compran unidades partidas.') +
+    ' Revisá el total o el costo, o escribí ' + (bolsa ? 'los gramos.' : 'las unidades.');
+}
+/* Los gramos en kilos, debajo de lo que entra (pedido del dueño, 02/10): 5300 g, "Equivale a 5,3 kg". */
+function _cpEquivTxt(it) {
+  const q = Number(it.cantidad || 0);
+  return it.tipoVenta === 'peso' && q > 0
+    ? 'Equivale a ' + (q / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg' : '';
+}
+/* Un importe para un campo: en pesos y solo con números, como se escribe (02/10). Vacío si no hay. */
+function _cpImporteTxt(n) {
+  const v = Math.round(Number(n || 0));
+  return v ? String(v) : '';
 }
 
 function _cpUnidad(it) { return it.tipoVenta === 'peso' ? 'g' : 'u'; }
@@ -665,28 +712,40 @@ function compraQuitar(i) {
 function compraCampo(i, campo, valor) {
   const it = _compraItems[i];
   if (!it) return;
-  /* Escribir el costo vuelve a mandar el costo: el total sale de ahí, como siempre (02/10). */
-  if (campo === 'costoBolsa' || campo === 'costoUnitario') delete it.totalEscrito;
+  /* Solo números (pedido del dueño, 02/10): sin letras -en la bolsa se podían escribir, y con letras
+     el total dejaba de andar- y sin puntos ni comas: "40.000" queda 40000, no 40. En la bolsa en kg
+     queda la coma, para las de 2,5 kg (el punto se vuelve coma); en g, solo números. */
+  const id = { cantidad: 'cpCant', bolsa: 'cpTam', costoBolsa: 'cpBolsa', costoUnitario: 'cpCosto', total: 'cpSub' }[campo];
+  if (id) {
+    const crudo = String(valor == null ? '' : valor);
+    valor = campo === 'bolsa' && it.bolsaUnidad !== 'g'
+      ? crudo.replace(/\./g, ',').replace(/[^\d,]/g, '') : crudo.replace(/\D/g, '');
+    const e = valor !== crudo ? document.getElementById(id + i) : null;
+    if (e) e.value = valor;
+  }
   if (campo === 'total') {
-    /* El total del renglón, como lo pasó el proveedor (02/10): el costo sale solo. Vacío,
-       vuelve a mandar el costo. */
-    const s = String(valor == null ? '' : valor).trim();
-    if (s === '') delete it.totalEscrito;
-    else it.totalEscrito = Math.max(0, Math.round(Number(s) || 0));
-    if (_cpCostoDesdeTotal(it)) _cpMostrarCosto(i);
-  } else if (campo === 'costoBolsa') {
-    /* Lo que costó la bolsa: el kilo sale solo, con la cuenta del formulario. Si es la
-       misma bolsa que ya tenía, el kilo que ya tenía: la cuenta de ida y vuelta no es
-       exacta ($3.001 el kilo en 500 g se ve $1.501, que vuelve como $3.002), y salía
-       como un costo que cambió (como _costoDeFila, admin-costos.js). */
-    it.costoBolsa = Math.max(0, Number(valor) || 0);
-    it.costoTocado = true;
-    if (Number(it.gramosBolsa) > 0) {
-      it.costoUnitario = it.costoBolsa === costoDeBolsa(it.costoAnterior, it.gramosBolsa)
-        ? Number(it.costoAnterior || 0) : kiloDeBolsa(it.costoBolsa, it.gramosBolsa);
-      const k = document.getElementById('cpKilo' + i);
-      if (k) k.innerHTML = _cpVistaHtml(it);
-    }
+    /* El total del renglón, como lo pasó el proveedor (02/10): sale lo que falta (_cpDesdeTotal).
+       Vacío, vuelve a mandar el costo. */
+    if (valor === '') { delete it.totalEscrito; delete it.cantidadSale; delete it.noDaJusto; }
+    else { it.totalEscrito = Number(valor); _cpDesdeTotal(it); }
+  } else if (campo === 'costoBolsa' || campo === 'costoUnitario') {
+    const n = Number(valor) || 0;
+    if (campo === 'costoBolsa') {
+      /* Lo que costó la bolsa: el kilo sale solo, con la cuenta del formulario. Si es la
+         misma bolsa que ya tenía, el kilo que ya tenía: la cuenta de ida y vuelta no es
+         exacta ($3.001 el kilo en 500 g se ve $1.501, que vuelve como $3.002), y salía
+         como un costo que cambió (como _costoDeFila, admin-costos.js). */
+      it.costoBolsa = Math.max(0, n);
+      it.costoTocado = true;
+      if (Number(it.gramosBolsa) > 0) {
+        it.costoUnitario = it.costoBolsa === costoDeBolsa(it.costoAnterior, it.gramosBolsa)
+          ? Number(it.costoAnterior || 0) : kiloDeBolsa(it.costoBolsa, it.gramosBolsa);
+      }
+    } else it.costoUnitario = Math.max(0, n);
+    /* Escribir el costo vuelve a mandar el costo: el total sale de ahí, como siempre. Salvo que la
+       cantidad haya salido del total: ahí sale otra vez, con este costo (02/10). */
+    if (it.cantidadSale && it.totalEscrito != null) _cpCantidadDesdeTotal(it);
+    else { delete it.totalEscrito; delete it.cantidadSale; delete it.noDaJusto; }
   } else if (campo === 'bolsa' || campo === 'bolsaUnidad') {
     /* De cuánto es la bolsa, escrito en la compra (30/09): el número, o kg / g en el selector
        de al lado. Mientras no se entienda, no hay bolsa: el costo de la bolsa espera apagado.
@@ -700,16 +759,17 @@ function compraCampo(i, campo, valor) {
       if (!it.costoTocado || it.costoBolsa == null) it.costoBolsa = costoDeBolsa(it.costoAnterior, g);
       it.costoUnitario = it.costoBolsa === costoDeBolsa(it.costoAnterior, g)
         ? Number(it.costoAnterior || 0) : kiloDeBolsa(it.costoBolsa, g);
-      /* Con el total escrito, lo de la bolsa sale de ahí (02/10). */
-      _cpCostoDesdeTotal(it);
+      /* Con el total escrito, sale lo que falta (02/10). */
+      _cpDesdeTotal(it);
     } else {
       delete it.gramosBolsa;
+      delete it.noDaJusto;
       it.costoUnitario = Number(it.costoAnterior || 0);
     }
     const etq = document.getElementById('cpBolsaEtq' + i);
     if (etq) etq.textContent = g ? 'Bolsa de ' + _cpTamTxt(g) : '¿De cuánto es la bolsa?';
     const cb = document.getElementById('cpBolsa' + i);
-    if (cb) { cb.disabled = !g; cb.value = g ? (it.costoBolsa || '') : ''; }
+    if (cb) { cb.disabled = !g; cb.value = g ? _cpImporteTxt(it.costoBolsa) : ''; }
     const k = document.getElementById('cpKilo' + i);
     if (k) {
       k.innerHTML = g ? _cpVistaHtml(it) : 'falta la bolsa';
@@ -717,37 +777,43 @@ function compraCampo(i, campo, valor) {
     }
   } else {
     it[campo] = Math.max(0, Number(valor) || 0);
-    /* El costo c/u: al lado, el precio y el mayorista con los que queda (01/10). */
-    if (campo === 'costoUnitario') {
-      const k = document.getElementById('cpKilo' + i);
-      if (k) k.innerHTML = _cpVistaHtml(it);
-    }
-    /* Otra cantidad con el total escrito: el costo se vuelve a sacar (02/10). */
-    if (campo === 'cantidad' && _cpCostoDesdeTotal(it)) _cpMostrarCosto(i);
+    /* La cantidad escrita manda: con el total escrito, sale el costo; vacía, sale del total (02/10). */
+    if (campo === 'cantidad') { delete it.cantidadSale; delete it.noDaJusto; _cpDesdeTotal(it); }
   }
   const t = document.getElementById('compraTotal');
   if (t) t.textContent = _cpPesos(_cpTotal());
-  /* El total del renglón; mientras se lo escribe, no se lo pisa. */
-  const sub = document.getElementById('cpSub' + i);
-  if (sub && sub !== document.activeElement) sub.value = _cpTotalValor(it);
+  _cpRefrescarFila(i);
+}
+
+/* Lo que se ve de un renglón después de un cambio (02/10): la cantidad, el costo y el total que
+   salieron solos, lo de al lado del costo, "Total (4 bolsas)", "Equivale a 5 kg" y el aviso si las
+   cuentas no dan. El campo que se está escribiendo no se pisa. */
+function _cpRefrescarFila(i) {
+  const it = _compraItems[i];
+  if (!it) return;
+  const activo = document.activeElement;
+  const poner = (id, v) => { const e = document.getElementById(id); if (e && e !== activo) e.value = v; };
+  poner('cpCant' + i, Number(it.cantidad) > 0 ? String(it.cantidad) : '');
+  if (_cpEsBolsa(it)) poner('cpBolsa' + i, _cpImporteTxt(it.costoBolsa));
+  else poner('cpCosto' + i, _cpImporteTxt(it.costoUnitario));
+  poner('cpSub' + i, _cpTotalValor(it));
+  const k = document.getElementById('cpKilo' + i);
+  if (k && (_cpEsBolsa(it) || !it.sinTam)) k.innerHTML = _cpVistaHtml(it);
   const etq = document.getElementById('cpTotEtq' + i);
   if (etq) etq.textContent = _cpTotalEtq(it);
+  const eq = document.getElementById('cpEquiv' + i);
+  if (eq) eq.textContent = _cpEquivTxt(it);
+  const nd = document.getElementById('cpNoDa' + i);
+  if (nd) {
+    const s = _cpNoDaTxt(it);
+    nd.innerHTML = s ? '<i class="bi bi-exclamation-triangle"></i> ' + esc(s) : '';
+    nd.style.display = s ? '' : 'none';
+  }
 }
 
-/* Al salir del total, lo que vale: si se borró, el que sale del costo; sin centavos (02/10). */
-function compraTotalSalir(i) {
-  const it = _compraItems[i], sub = document.getElementById('cpSub' + i);
-  if (it && sub) sub.value = _cpTotalValor(it);
-}
-
-/* Después de sacar el costo del total: el campo del costo y lo de al lado (02/10). */
-function _cpMostrarCosto(i) {
-  const it = _compraItems[i];
-  const campo = document.getElementById((_cpEsBolsa(it) ? 'cpBolsa' : 'cpCosto') + i);
-  if (campo) campo.value = _cpEsBolsa(it) ? it.costoBolsa : it.costoUnitario;
-  const k = document.getElementById('cpKilo' + i);
-  if (k) k.innerHTML = _cpVistaHtml(it);
-}
+/* Al salir de un campo del renglón, lo que vale (02/10): "07000" queda 7000, la cantidad que salió del
+   total aparece, y el total borrado muestra el que sale del costo. */
+function compraSalir(i) { _cpRefrescarFila(i); }
 
 function renderCompraItems() {
   const cont = document.getElementById('compraItems');
@@ -757,22 +823,26 @@ function renderCompraItems() {
       'Buscá un producto de la lista de abajo para empezar a cargar la compra.</p>';
   } else {
     const fila = (it, i) =>
-      '<div class="cp-row' + (it.deRemito ? (it.verificado ? ' cp-leido' : ' cp-dudoso') : '') + '">' +
+      '<div class="cp-row' + (it.deRemito ? (it.verificado ? ' cp-leido' : ' cp-dudoso') : '') +
+        (it.tipoVenta === 'peso' ? ' cp-row-peso' : '') + '">' +
         '<span class="cp-row-n">' + esc(it.nombre) +
           (it.tipoVenta === 'peso' ? ' <span class="cp-tag">por peso</span>' : '') +
           (it.deRemito ? ' <span class="cp-marca' + (it.verificado ? '' : ' dudoso') + '">' +
             (it.verificado ? 'del remito' : 'revisar') + '</span>' : '') + '</span>' +
-        '<label class="cp-f"><span>' + (it.tipoVenta === 'peso' ? 'Gramos' : 'Unidades') + '</span>' +
-          '<input type="number" min="0" step="1" class="form-input" id="cpCant' + i + '" ' +
+        /* Lo que entra (pedido del dueño, 02/10): "Gramos entrantes", con los kilos debajo, o
+           "Unidades entrantes". */
+        '<label class="cp-f cp-f-cant"><span>' + (it.tipoVenta === 'peso' ? 'Gramos entrantes' : 'Unidades entrantes') + '</span>' +
+          '<input type="text" inputmode="numeric" class="form-input" onblur="compraSalir(' + i + ')" id="cpCant' + i + '" ' +
           'value="' + (it.cantidad || '') + '" ' +
-          'oninput="compraCampo(' + i + ',\'cantidad\',this.value)"></label>' +
+          'oninput="compraCampo(' + i + ',\'cantidad\',this.value)">' +
+          (it.tipoVenta === 'peso' ? '<span class="cp-equiv" id="cpEquiv' + i + '">' + _cpEquivTxt(it) + '</span>' : '') + '</label>' +
         /* De cuánto es la bolsa, si el producto no lo dice (30/09): se escribe acá, y al guardar
            queda anotado en el producto. El número, y al lado kg o g (de entrada kg). */
         (it.sinTam
           ? '<label class="cp-f cp-f-bolsa"><span id="cpBolsaEtq' + i + '">' +
               (_cpEsBolsa(it) ? 'Bolsa de ' + _cpTamTxt(it.gramosBolsa) : '¿De cuánto es la bolsa?') + '</span>' +
               '<span class="cp-bolsa-tam">' +
-                '<input type="text" inputmode="decimal" maxlength="5" class="form-input" placeholder="Ej: 5" value="' + esc(it.bolsaTxt || '') + '" ' +
+                '<input type="text" inputmode="decimal" maxlength="5" class="form-input" placeholder="Ej: 5" id="cpTam' + i + '" value="' + esc(it.bolsaTxt || '') + '" ' +
                 'oninput="compraCampo(' + i + ',\'bolsa\',this.value)">' +
                 '<select class="form-input" aria-label="Kilos o gramos" onchange="compraCampo(' + i + ',\'bolsaUnidad\',this.value)">' +
                   '<option value="kg"' + (it.bolsaUnidad === 'g' ? '' : ' selected') + '>kg</option>' +
@@ -786,22 +856,25 @@ function renderCompraItems() {
               /* "de 2 kg" no se parte: si no entra, baja entero al otro renglón. */
               (it.sinTam || !_cpDeBolsa(it.nombre, Number(it.gramosBolsa)) ? ''
                 : ' <span style="white-space:nowrap">' + _cpDeBolsa(it.nombre, Number(it.gramosBolsa)).trim() + '</span>') + '</span>' +
-              '<input type="number" min="0" step="0.01" class="form-input" id="cpBolsa' + i + '" value="' +
-                (_cpEsBolsa(it) ? (it.costoBolsa || '') : '') + '"' + (_cpEsBolsa(it) ? '' : ' disabled') + ' ' +
+              '<input type="text" inputmode="numeric" class="form-input" onblur="compraSalir(' + i + ')" id="cpBolsa' + i + '" value="' +
+                (_cpEsBolsa(it) ? _cpImporteTxt(it.costoBolsa) : '') + '"' + (_cpEsBolsa(it) ? '' : ' disabled') + ' ' +
               'oninput="compraCampo(' + i + ',\'costoBolsa\',this.value)"></label>' +
             /* Al lado: el kilo, el precio y el mayorista con los que queda (01/10). */
             '<span class="cp-kilo' + (_cpEsBolsa(it) ? ' cp-vista' : ' falta') + '" id="cpKilo' + i + '">' +
               (_cpEsBolsa(it) ? _cpVistaHtml(it) : 'falta la bolsa') + '</span>'
           : '<label class="cp-f"><span>Costo' + (it.tipoVenta === 'peso' ? ' por kilo' : ' c/u') + '</span>' +
-              '<input type="number" min="0" step="0.01" class="form-input" id="cpCosto' + i + '" value="' + (it.costoUnitario || '') + '" ' +
+              '<input type="text" inputmode="numeric" class="form-input" onblur="compraSalir(' + i + ')" id="cpCosto' + i + '" value="' + _cpImporteTxt(it.costoUnitario) + '" ' +
               'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>' +
             /* Al lado: el precio y el mayorista con los que queda (01/10). */
             '<span class="cp-kilo cp-vista" id="cpKilo' + i + '">' + _cpVistaHtml(it) + '</span>') +
         /* El total del renglón (02/10): se puede escribir, y el costo sale solo (compraCampo). */
         '<label class="cp-f cp-f-total"><span id="cpTotEtq' + i + '">' + _cpTotalEtq(it) + '</span>' +
-          '<input type="number" min="0" step="1" class="form-input" id="cpSub' + i + '" value="' + _cpTotalValor(it) + '" ' +
-          'oninput="compraCampo(' + i + ',\'total\',this.value)" onblur="compraTotalSalir(' + i + ')"></label>' +
+          '<input type="text" inputmode="numeric" class="form-input" onblur="compraSalir(' + i + ')" id="cpSub' + i + '" value="' + _cpTotalValor(it) + '" ' +
+          'oninput="compraCampo(' + i + ',\'total\',this.value)"></label>' +
         '<button type="button" class="cp-x" onclick="compraQuitar(' + i + ')" title="Sacar de la compra">&times;</button>' +
+        /* Si con el total las cuentas no dan (pedido del dueño, 02/10): en amarillo, abajo. */
+        '<div class="cp-nodajusto" id="cpNoDa' + i + '"' + (_cpNoDaTxt(it) ? '' : ' style="display:none"') + '>' +
+          (_cpNoDaTxt(it) ? '<i class="bi bi-exclamation-triangle"></i> ' + esc(_cpNoDaTxt(it)) : '') + '</div>' +
       '</div>';
     /* Las bolsas de un mismo producto, juntas en un recuadro, donde entró la primera; con el
        "?" del redondeo si hay alguna bolsa (el kilo se guarda sin centavos). */
@@ -1610,7 +1683,7 @@ window.compraBuscarProd = compraBuscarProd;
 window.compraAgregar = compraAgregar;
 window.compraQuitar = compraQuitar;
 window.compraCampo = compraCampo;
-window.compraTotalSalir = compraTotalSalir;
+window.compraSalir = compraSalir;
 window.compraAvisoStock = compraAvisoStock;
 window.compraArchivoElegido = compraArchivoElegido;
 window.guardarCompra = guardarCompra;
