@@ -2367,7 +2367,7 @@ ver §AI, "Para hablar con la clienta".
 Vercel sirve los mismos archivos que el repo; la tienda y la pantalla de ingreso del panel cargan sin
 errores (sin iniciar sesión), ya con el código nuevo.
 
-### AK) "Se vende sin ganancia" al guardar y al vender en mostrador · **HECHO, SIN SUBIR** (02/10/2026)
+### AK) "Se vende sin ganancia" al guardar y al vender en mostrador · **SUBIDO A PRODUCCIÓN el 02/10/2026** (02/10/2026)
 
 Pedido de Thiago, al ver que la Tortilla de espinaca mediana se creó el 01/10 sin % de ganancia y se vende
 a lo mismo que costó: un aviso al guardar y otro al vender, con la opción de cargar el % ahí mismo.
@@ -2406,6 +2406,11 @@ Probado en el sandbox con clics de verdad (todos los números comprobados en la 
   venta #43, $26.700, costo $8.900 el kilo, stock de la bolsa 21 kg a 18 kg.
 Pruebas: 41 nuevas; con el código de antes fallan, y 7 cambios a propósito del código quedan atrapados.
 Total: 4040 en 90 suites.
+
+**AK, subido el 02/10/2026** (Thiago: "subilo"). Push a `main` de `f024102` a `0033c18` (con los dos commits de docs
+anteriores). Solo cambia el panel. Vercel sirve los mismos archivos que el repo; la tienda y la pantalla de
+ingreso del panel cargan sin errores (sin iniciar sesión), ya con el código nuevo. La clienta lo ve al
+recargar (F5); al vender alguno de los 6 que están al costo le va a salir el aviso. Sandbox cerrado.
 
 ---
 
