@@ -19,6 +19,7 @@ const leer = f => fs.readFileSync(path.join(RAIZ, f), 'utf8');
 const VAR = leer('admin-variantes.js');
 const COMP = leer('admin-compras.js');
 const COSTOS = leer('admin-costos.js');
+const ESC = leer('admin-escalas.js');
 
 let ok = 0, fail = 0;
 const t = (d, c, extra) => {
@@ -89,6 +90,8 @@ function armar(opts) {
   ctx.window = ctx;
   vm.createContext(ctx);
   if (o.sinVariantes !== true) vm.runInContext(VAR, ctx);
+  /* Los precios por cantidad de un grupo (el aviso de la bolsa más cara por kilo). */
+  if (o.sinVariantes !== true) vm.runInContext(ESC, ctx);
   /* La cuenta de los precios (preciosDesdeCosto) y lo de al lado del costo (_costoVistaHtml). */
   vm.runInContext(COSTOS, ctx);
   vm.runInContext(COMP, ctx);
@@ -595,6 +598,71 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('"Dejar como estaba" no toca ni el costo ni el precio, y la compra se guarda igual',
       !v.escrituras.some(x => x.d.costo !== undefined || x.d.precio !== undefined) && pv.costo === 4600 && pv.precio === 8740 &&
       v.guardadas.length === 1);
+  }
+  {
+    /* Pedido del dueño (01/10): si al actualizar una bolsa queda más cara por kilo que una más chica del
+       mismo producto, se avisa y se pregunta. Y en un renglón por unidad, al lado del costo, el precio
+       y el mayorista. */
+    const prods = () => [
+      P('g1', { nombre: 'Yerba', gramaje: '1 kg', tipoVenta: 'peso', costo: 4000, porcentaje: 50, precio: 6000, porcentajeMayorista: 20, precioMayorista: 4800, codigo: 'G1' }),
+      P('g3', { nombre: 'Yerba x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', gramajePadreId: 'g1', costo: 3500, porcentaje: 50, precio: 5250,
+        porcentajeMayorista: 20, precioMayorista: 4200, codigo: 'G3' }),
+      P('azu', { nombre: 'Azucar De Coco', costo: 13400, porcentaje: 90, precio: 25460, porcentajeMayorista: 30, precioMayorista: 17420, codigo: 'AZU' }),
+    ];
+    const cargar = w => {
+      w.ctx.openCompraModal('L1');
+      w.ctx.compraAgregar('g3');
+      w.ctx.compraAgregar('azu');
+      w.ctx.compraCampo(0, 'cantidad', '3000');
+      w.ctx.compraCampo(0, 'costoBolsa', '13500');
+      w.ctx.compraCampo(1, 'cantidad', '2');
+    };
+    const OJO = 'Ojo: la bolsa más grande quedaría más cara';
+    const w = armar({ productos: prods(), respuestas: { [OJO]: false } });
+    cargar(w);
+    const fila = w.el('compraItems').innerHTML;
+    t('en un renglón por unidad, al lado del costo c/u: el precio y el mayorista que tiene (01/10)',
+      fila.indexOf('oninput="compraCampo(1,\'costoUnitario\',this.value)"></label><span class="cp-kilo cp-vista" id="cpKilo1">' +
+        '<span>Precio <b>$25.460</b></span><span class="vfe-may">Mayorista $17.420</span></span>') > 0, fila);
+    w.ctx.compraCampo(1, 'costoUnitario', '15000');
+    t('  con otro costo, los que va a tener: $15.000 c/u, precio $28.500 y mayorista $19.500',
+      w.el('cpKilo1').innerHTML === '<span>Precio <b>$28.500</b></span><span class="vfe-may">Mayorista $19.500</span>', w.el('cpKilo1').innerHTML);
+    t('  y el subtotal de la fila, 2 × $15.000', w.el('cpSub1').textContent === '$30.000', w.el('cpSub1').textContent);
+    t('  la bolsa sigue con lo suyo: $13.500 la de 3 kg son $4.500 el kilo, precio $6.750 y mayorista $5.400',
+      w.el('cpKilo0').innerHTML === '<span>Costo $4.500 el kilo</span><span>Precio <b>$6.750</b> el kilo</span><span class="vfe-may">Mayorista $5.400 el kilo</span>',
+      w.el('cpKilo0').innerHTML);
+    await w.ctx.guardarCompra();
+    const ojo = w.preguntas.find(p => p.titulo === OJO);
+    t('si la bolsa de 3 kg queda más cara por kilo que la de 1 kg, avisa con los dos precios y pregunta (01/10)',
+      !!ojo && ojo.m.indexOf('Yerba:\n- Bolsa de 1 kg: $6.000 el kilo\n- Bolsa de 3 kg: $6.750 el kilo, más cara') > 0 &&
+      ojo.m.indexOf('Yerba (precio mayorista):\n- Bolsa de 1 kg: $4.800 el kilo\n- Bolsa de 3 kg: $5.400 el kilo, más cara') > 0 &&
+      ojo.m.indexOf('Si tocás "No actualizar", los costos y los precios quedan como estaban (la compra ya quedó guardada). ¿Querés actualizar igual?') > 0 &&
+      ojo.aceptar === 'Actualizar igual' && ojo.cancelar === 'No actualizar', ojo && ojo.m);
+    t('  después del "¿Actualizar los costos?", que ya mostró los precios nuevos',
+      w.preguntas.map(p => p.titulo).join(' > ') === 'Guardar compra > ¿Actualizar los costos? > ' + OJO, w.preguntas.map(p => p.titulo).join(' > '));
+    const pw = id => w.ctx.allProducts.find(x => x.id === id);
+    t('  "No actualizar" no toca costos ni precios, y la compra queda guardada con su total ($13.500 + $30.000)',
+      !w.escrituras.some(x => x.d.costo !== undefined || x.d.precio !== undefined) && w.guardadas.length === 1 && w.guardadas[0].total === 43500 &&
+      pw('g3').costo === 3500 && pw('g3').precio === 5250 && pw('azu').costo === 13400 && pw('azu').precio === 25460, JSON.stringify(w.guardadas[0] && w.guardadas[0].total));
+    const v = armar({ productos: prods() });
+    cargar(v);
+    v.ctx.compraCampo(1, 'costoUnitario', '15000');
+    await v.ctx.guardarCompra();
+    const e3 = v.escrituras.find(x => x.id === 'g3' && x.d.costo !== undefined);
+    const ea = v.escrituras.find(x => x.id === 'azu' && x.d.costo !== undefined);
+    t('  "Actualizar igual" guarda los dos: la bolsa a $4.500 el kilo ($6.750 y $5.400) y el azúcar a $15.000 ($28.500 y $19.500)',
+      !!e3 && e3.d.costo === 4500 && e3.d.precio === 6750 && e3.d.precioMayorista === 5400 &&
+      !!ea && ea.d.costo === 15000 && ea.d.precio === 28500 && ea.d.precioMayorista === 19500, JSON.stringify([e3 && e3.d, ea && ea.d]));
+    const z = armar({ productos: prods() });
+    z.ctx.openCompraModal('L1');
+    z.ctx.compraAgregar('g3');
+    z.ctx.compraCampo(0, 'cantidad', '3000');
+    z.ctx.compraCampo(0, 'costoBolsa', '11400');
+    await z.ctx.guardarCompra();
+    const e3z = z.escrituras.find(x => x.id === 'g3' && x.d.costo !== undefined);
+    t('  si no queda más cara ($11.400 la bolsa = $3.800 el kilo, $5.700 y $4.600), no pregunta y actualiza',
+      !z.preguntas.some(p => p.titulo === OJO) && !!e3z && e3z.d.costo === 3800 && e3z.d.precio === 5700 && e3z.d.precioMayorista === 4600,
+      JSON.stringify(e3z && e3z.d));
   }
 
   console.log('\n-- la bolsa que dice el nombre (revisión del 01/10) --');

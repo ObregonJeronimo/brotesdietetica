@@ -319,6 +319,9 @@ function costoBolsaEnEditor(bi) {
 }
 
 function _costosTecla(e) {
+  /* Con otro diálogo encima (el aviso de las bolsas), el Escape es de ese diálogo: si no, cerraba
+     también esta ventana y se perdía lo escrito (01/10). */
+  if (document.querySelector('.dlg-overlay:not(#costosEditor)')) return;
   if (e.key === 'Escape' && document.getElementById('costosEditor')) {
     e.preventDefault(); e.stopPropagation(); cerrarEditorCostos();
   }
@@ -375,6 +378,20 @@ async function guardarEditorCostos() {
     cerrarEditorCostos();
     showAdminToast(prod ? 'No cambiaste ningún costo.' : 'No cambiaste ningún costo: siguen todos en la lista.', 'info');
     return;
+  }
+  /* Si una bolsa queda más cara por kilo que una más chica del mismo producto, se avisa y se
+     pregunta (pedido del dueño, 01/10). "Volver" deja la ventana como estaba, para corregirlo. */
+  const nuevosBolsas = new Map(cambios.filter(c => c.cambio).map(c => [c.p.id, preciosDesdeCosto(c.p, c.nuevo)]));
+  const saltos = nuevosBolsas.size && typeof bolsasMasCarasPorKilo === 'function' ? bolsasMasCarasPorKilo(nuevosBolsas) : [];
+  if (saltos.length && typeof pedirConfirmacion === 'function') {
+    const NL = String.fromCharCode(10);
+    ed.guardando = true;   /* que un segundo Enter no abra otro aviso */
+    const seguir = await pedirConfirmacion(textoBolsasMasCaras(saltos) + NL + NL +
+      'Si tocás "Volver", no se guarda nada y podés corregirlo. ¿Querés guardar igual?',
+      { titulo: 'Ojo: la bolsa más grande quedaría más cara', aceptar: 'Guardar igual', cancelar: 'Volver',
+        icono: 'bi-exclamation-triangle', cuidado: true });
+    ed.guardando = false;
+    if (!seguir) return;
   }
   ed.guardando = true;
   const btn = ov.querySelector('#costosGuardar');

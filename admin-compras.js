@@ -89,13 +89,13 @@ function _cpGramosEscritos(numero, unidad) {
 }
 /* El tamaño de una bolsa para leer: "5 kg", "2,5 kg", "500 g". */
 function _cpTamTxt(g) { return _cpCant({ tipoVenta: 'peso', cantidad: g }); }
-/* Al lado del costo de la bolsa: el kilo, y el precio y el mayorista con los que queda el producto
-   si se actualiza el costo (pedido del dueño, 01/10), como en la ventana de costos (_costoVistaHtml,
-   admin-costos.js): con el costo de siempre, los precios que ya tiene; con otro, los que salen con
-   el mismo porcentaje. */
+/* Al lado del costo: en una bolsa, el kilo, el precio y el mayorista; en uno por unidad, el precio y
+   el mayorista (pedido del dueño, 01/10). Los que quedan si se actualiza el costo, como en la ventana
+   de costos (_costoVistaHtml, admin-costos.js): con el costo de siempre, los precios que ya tiene;
+   con otro, los que salen con el mismo porcentaje. */
 function _cpVistaHtml(it) {
   const p = ((typeof allProducts !== 'undefined' && allProducts) || []).find(x => x && x.id === it.id);
-  if (!p || typeof _costoVistaHtml !== 'function') return _cpPesos(it.costoUnitario) + ' el kilo';
+  if (!p || typeof _costoVistaHtml !== 'function') return _cpPesos(it.costoUnitario) + (_cpEsPeso(it) ? ' el kilo' : '');
   return _costoVistaHtml(p, Math.round(Number(it.costoUnitario || 0)), Number(it.gramosBolsa) || null);
 }
 /* " de 2 kg": de cuánto es la bolsa, si el nombre no lo dice ya (pedido del dueño, 30/09). En
@@ -658,6 +658,11 @@ function compraCampo(i, campo, valor) {
     }
   } else {
     it[campo] = Math.max(0, Number(valor) || 0);
+    /* El costo c/u: al lado, el precio y el mayorista con los que queda (01/10). */
+    if (campo === 'costoUnitario') {
+      const k = document.getElementById('cpKilo' + i);
+      if (k) k.innerHTML = _cpVistaHtml(it);
+    }
   }
   const t = document.getElementById('compraTotal');
   if (t) t.textContent = _cpPesos(_cpTotal());
@@ -710,7 +715,9 @@ function renderCompraItems() {
               (_cpEsBolsa(it) ? _cpVistaHtml(it) : 'falta la bolsa') + '</span>'
           : '<label class="cp-f"><span>Costo' + (it.tipoVenta === 'peso' ? ' por kilo' : ' c/u') + '</span>' +
               '<input type="number" min="0" step="0.01" class="form-input" value="' + (it.costoUnitario || '') + '" ' +
-              'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>') +
+              'oninput="compraCampo(' + i + ',\'costoUnitario\',this.value)"></label>' +
+            /* Al lado: el precio y el mayorista con los que queda (01/10). */
+            '<span class="cp-kilo cp-vista" id="cpKilo' + i + '">' + _cpVistaHtml(it) + '</span>') +
         '<span class="cp-sub" id="cpSub' + i + '">' + _cpPesos(_cpSubtotal(it)) + '</span>' +
         '<button type="button" class="cp-x" onclick="compraQuitar(' + i + ')" title="Sacar de la compra">&times;</button>' +
       '</div>';
@@ -1027,6 +1034,14 @@ async function ofrecerActualizarCostos(items) {
       'Si tocás "Actualizar", ' + (uno ? 'el producto queda' : 'quedan') + ' con el costo de esta compra, ' +
       'y el precio y el mayorista se recalculan con el mismo porcentaje de siempre.',
       { titulo: uno ? '¿Actualizar el costo?' : '¿Actualizar los costos?', aceptar: 'Actualizar', cancelar: 'Dejar como estaba' })) return;
+  /* Si una bolsa queda más cara por kilo que una más chica del mismo producto, se avisa y se
+     pregunta (pedido del dueño, 01/10): al vender, el que lleva más pagaría más por kilo. */
+  const saltos = typeof bolsasMasCarasPorKilo === 'function' ? bolsasMasCarasPorKilo(nuevos) : [];
+  if (saltos.length && !await pedirConfirmacion(textoBolsasMasCaras(saltos) + '\n\n' +
+      'Si tocás "No actualizar", ' + (uno ? 'el costo y el precio quedan' : 'los costos y los precios quedan') +
+      ' como estaban (la compra ya quedó guardada). ¿Querés actualizar igual?',
+      { titulo: 'Ojo: la bolsa más grande quedaría más cara', aceptar: 'Actualizar igual', cancelar: 'No actualizar',
+        icono: 'bi-exclamation-triangle', cuidado: true })) return;
   try {
     /* La fecha del costo va en la misma escritura y en memoria, como en la ventana de costos
        (admin-costos.js): sin eso el panel la seguía viendo vieja hasta apretar F5, y el Centro

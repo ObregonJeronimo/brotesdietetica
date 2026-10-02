@@ -434,6 +434,13 @@ producción (de los "gramajes" viejos).
 - **"Actualizar" en Cargar compra recalcula el precio (01/10, sin subir)**: antes cambiaba solo el
   costo; ahora también el precio y el mayorista con el mismo porcentaje, y el aviso los muestra. Al
   lado del costo de la bolsa, el kilo, el precio y el mayorista. Detalle en `PENDIENTE.md` §1-bis AF.
+- **Aviso de la bolsa más cara por kilo (01/10, sin subir)**: en Cargar compra ("Actualizar") y en la
+  ventana de costos, si una bolsa queda más cara por kilo que una más chica del mismo producto, avisa y
+  pregunta. En los renglones por unidad de la compra, al lado del costo, el precio y el mayorista.
+  Detalle en `PENDIENTE.md` §1-bis AG.
+- **Para decidir: el % mayorista en 0 deja el mayorista al costo** (01/10): la ficha, la ventana de
+  costos y la compra lo calculan así; 249 productos de producción ya lo tienen. Propuesta en
+  `PENDIENTE.md` §1-bis AH; decidirlo antes de subir §AF.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

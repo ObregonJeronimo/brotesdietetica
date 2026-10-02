@@ -2140,8 +2140,8 @@ costo y su porcentaje (lectura del 01/10).
   nada.
 - Al lado del costo de la bolsa, en vez de solo "$X el kilo", van el kilo, el precio y el
   mayorista, como en la ventana de costos (`_cpVistaHtml` usa `_costoVistaHtml`): con el costo de
-  siempre, los precios que tiene; con otro, los que va a tener. Los renglones por unidad no lo tienen
-  (no se pidió).
+  siempre, los precios que tiene; con otro, los que va a tener. Los renglones por unidad no lo tenían
+  (no se pidió); desde §AG, también.
 - La fila quedó más ancha: el nombre se angosta antes (110 px) y, si igual no entra, el subtotal
   baja a la derecha.
 - Datos de producción a tener en cuenta: 64 productos tienen un mayorista cargado a mano que no
@@ -2158,6 +2158,49 @@ Probado en el sandbox con clics de verdad:
 Todos los números bien (ventas, costos, stock y compras), y en el celular la fila se acomoda bien.
 Pruebas: 7 nuevas, y las que miraban "$X el kilo", actualizadas; con el código de antes fallan 17.
 Total: 3915 en 90 suites.
+
+### AG) Aviso si una bolsa queda más cara por kilo que una más chica; precio y mayorista también en los renglones por unidad · **HECHO, SIN SUBIR** (01/10/2026)
+
+Pedido de Thiago: un aviso simple, que lo diga y pregunte si se quiere seguir igual. Desde el tamaño
+de una bolsa se cobra el precio de esa bolsa: si se cambia el costo de una sola (en la prueba de §AF,
+Nuez Mariposa quedó a $14.400 el kilo la de 1 kg y a $15.200 la de 3 kg), el que lleva más paga más
+por kilo.
+- `bolsasMasCarasPorKilo` (admin-escalas.js) compara cada bolsa con la de al lado, con los precios que
+  se van a guardar, en mostrador (con su oferta) y en mayorista. Mira solo los saltos que tocan lo
+  que se cambia, y solo bolsas que se venden juntas (las de `escalasDe`: sin ocultas, por unidad ni
+  sin tamaño). `textoBolsasMasCaras` arma el texto, con el kilo de las dos bolsas.
+- Cargar compra: después de "Actualizar", si pasa, "Ojo: la bolsa más grande quedaría más cara", con
+  "Actualizar igual" / "No actualizar" (no toca costos ni precios; la compra ya quedó guardada).
+- Ventana de costos: al guardar, el mismo aviso, con "Guardar igual" / "Volver" (no guarda nada y la
+  ventana sigue abierta). Con el aviso encima, el Escape cerraba también la ventana: ya no.
+- No lo tienen (no se pidió): la ficha, la tabla de bolsas, Importar Costos y el PDF semanal.
+- Cargar compra: en los renglones por unidad, al lado del costo c/u, el precio y el mayorista con los
+  que queda (antes, solo en las bolsas).
+
+Probado en el sandbox con clics de verdad, con Nuez Mariposa (bolsas de 1, 3 y 5 kg), Aceite De Oliva
+(por unidad) y Maní (suelto, sin otras bolsas; la compra preguntó de cuánto es la bolsa):
+- ventana de costos: el aviso, el Escape, "Volver", y un costo que no da vuelta los precios (guarda
+  sin preguntar);
+- una compra con "No actualizar" (costos, precios y fechas igual; compra, proveedor y stock bien) y
+  otra con "Actualizar igual" (los tres con su costo, precio, mayorista y fecha nuevos);
+- una venta de mostrador ($83.885, costo $48.650) y una mayorista ($68.150) con esos precios, y el
+  stock de cada bolsa bien. En el celular el renglón por unidad se acomoda bien.
+Pruebas: 25 nuevas; con el código de antes fallan. Total: 3940 en 90 suites.
+
+### AH) Productos con el % mayorista en 0: el mayorista queda igual al costo · **PARA DECIDIR** (01/10/2026)
+
+Encontrado al revisar §AG. Con el % mayorista en 0, la ficha, la ventana de costos (desde el 27/09) y
+"Actualizar" en Cargar compra (§AF, sin subir) ponen de mayorista el costo redondeado a $50: en una
+venta mayorista ese producto se vende sin ganar nada. El PDF semanal y la importación, en cambio, le
+ponen 0, y la venta mayorista cobra el precio de mostrador.
+En producción (lectura del 01/10, sin credenciales): de 1318 productos, 652 tienen el % mayorista en
+0; 249 tienen el mayorista igual al costo (p. ej. Almendras: costo $21.500, mayorista $21.500,
+mostrador $35.475) y 403 lo tienen en 0. Con §AF subido, "Actualizar" en una compra también pasaría
+al costo a los que se actualicen así.
+Propuesta: con el % mayorista en 0, el mayorista queda en 0 (cobra el de mostrador) en la ficha, la
+ventana de costos y la compra, como ya hacen el PDF y la importación. Los 249 de hoy se corrigen con
+una escritura en producción, solo con OK y después de hablar con la clienta (quizás quiere ponerles un
+%). Conviene decidirlo antes de subir §AF.
 
 ---
 

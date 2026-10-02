@@ -1193,6 +1193,38 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
       html.indexOf("if(p.stockDescontado!==true&&typeof repartirGranelDeVenta==='function')await repartirGranelDeVenta('min');") > 0);
   }
 
+  console.log('\n-- una bolsa más cara por kilo que una más chica (01/10) --');
+  {
+    const w = armar();
+    const salta = m => w.ctx.bolsasMasCarasPorKilo(new Map(Object.entries(m)));
+    const s1 = salta({ y3: { precio: 8400, precioMayorista: 5850 } });
+    t('la bolsa de 3 kg a $8.400 el kilo queda más cara que la de 1 kg ($8.000): se avisa',
+      s1.length === 1 && s1[0].chica.id === 'y1' && s1[0].grande.id === 'y3' && s1[0].ctx === 'min' && s1[0].kgChica === 8000 && s1[0].kgGrande === 8400,
+      JSON.stringify(s1.map(s => [s.chica.id, s.grande.id, s.ctx, s.kgChica, s.kgGrande])));
+    t('  sin pasarse, nada: la de 3 kg a $7.900', salta({ y3: { precio: 7900, precioMayorista: 5850 } }).length === 0);
+    t('  igual tampoco: la de 3 kg a $8.000, lo mismo que la de 1 kg', salta({ y3: { precio: 8000, precioMayorista: 5850 } }).length === 0);
+    const s2 = salta({ y3: { precio: 7200, precioMayorista: 6600 } });
+    t('  el mayorista también: $6.600 el kilo la de 3 kg contra $6.500 la de 1 kg', s2.length === 1 && s2[0].ctx === 'may' && s2[0].kgGrande === 6600);
+    const s3 = salta({ y5: { precio: 7300, precioMayorista: 4900 } });
+    t('  la de 5 kg se compara con la de al lado, la de 3 kg', s3.length === 1 && s3[0].chica.id === 'y3' && s3[0].grande.id === 'y5');
+    const s4 = salta({ y1: { precio: 7000, precioMayorista: 6500 } });
+    t('  bajar la más chica también: la de 1 kg a $7.000 deja más cara la de 3 kg ($7.200)',
+      s4.length === 1 && s4[0].chica.id === 'y1' && s4[0].grande.id === 'y3' && s4[0].kgChica === 7000 && s4[0].kgGrande === 7200);
+    t('  las ocultas (10 kg), las por unidad y las sin tamaño no cuentan',
+      salta({ y10: { precio: 99999 } }).length === 0 && salta({ y500: { precio: 99999 } }).length === 0 && salta({ ysuelta: { precio: 99999 } }).length === 0);
+    t('  un producto sin bolsas, nada', salta({ nuez: { precio: 99999 } }).length === 0);
+    const of = armar({ productos: catalogo().map(p => (p.id === 'y1' ? Object.assign(p, { descuento: 10 }) : p)) });
+    const s5 = of.ctx.bolsasMasCarasPorKilo(new Map([['y3', { precio: 7500, precioMayorista: 5850 }]]));
+    t('  con la oferta de la de 1 kg (10%: $7.200 el kilo), la de 3 kg a $7.500 queda más cara', s5.length === 1 && s5[0].kgChica === 7200 && s5[0].kgGrande === 7500,
+      JSON.stringify(s5.map(s => [s.kgChica, s.kgGrande])));
+    const txt = w.ctx.textoBolsasMasCaras(s1);
+    t('el aviso lo dice claro: cada bolsa con su kilo, la más cara marcada, y qué conviene',
+      txt === 'Con este cambio, una bolsa más grande sale más cara por kilo que una más chica:\n\n' +
+        'Yerba Mate:\n- Bolsa de 1 kg: $8.000 el kilo\n- Bolsa de 3 kg: $8.400 el kilo, más cara\n\n' +
+        'Así, el cliente que lleva más paga más por kilo. Conviene cambiar también el costo de las otras bolsas de este producto.', txt);
+    t('  y en la mayorista lo aclara', w.ctx.textoBolsasMasCaras(s2).indexOf('Yerba Mate (precio mayorista):\n- Bolsa de 1 kg: $6.500 el kilo\n- Bolsa de 3 kg: $6.600 el kilo, más cara') > 0);
+  }
+
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('ERROR: ' + (e && e.stack || e)); process.exit(1); });

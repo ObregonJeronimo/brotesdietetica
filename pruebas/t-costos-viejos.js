@@ -72,6 +72,7 @@ function armar(opts) {
     renderVentaItems: () => repintados.push('min'),
     renderVentaMayItems: () => repintados.push('may'),
     pedirOpcion: o.pedirOpcion,
+    pedirConfirmacion: o.pedirConfirmacion,
     firebase: { firestore: { FieldValue: { serverTimestamp: () => ({ __serverTimestamp: true }) } } },
     db: {
       collection: () => ({ doc: id => ({ id }) }),
@@ -619,6 +620,51 @@ console.log('\n-- la cuenta del precio es la del formulario --');
   ctx._redondearMayorista = n => (n ? Math.ceil(n / 50) * 50 : 0);
   const r = api.preciosDesdeCosto({ porcentaje: 35, porcentajeMayorista: 10 }, 1234);
   t('el editor da lo mismo: 1234 con 35% y 10% -> 1666 y 1400', r.precio === 1666 && r.precioMayorista === 1400, JSON.stringify(r));
+}
+
+{
+  /* Pedido del dueño (01/10): si al guardar una bolsa queda más cara por kilo que una más chica del
+     mismo producto, se avisa y se pregunta; "Volver" deja la ventana abierta. */
+  const grupo = () => [
+    { id: 'g1', nombre: 'Yerba', gramaje: '1 kg', tipoVenta: 'peso', costo: 4000, porcentaje: 50, precio: 6000, porcentajeMayorista: 20,
+      precioMayorista: 4800, costoActualizadoEn: hace(40) },
+    { id: 'g3', nombre: 'Yerba x 3 kg', gramaje: '3 kg', tipoVenta: 'peso', gramajePadreId: 'g1', costo: 3500, porcentaje: 50, precio: 5250,
+      porcentajeMayorista: 20, precioMayorista: 4200, costoActualizadoEn: hace(40) },
+  ];
+  const abrir = resp => {
+    const preguntas = [];
+    const m = armar({ productos: grupo(), conVariantes: true, pedirConfirmacion: async (txt, op) => { preguntas.push({ txt, op }); return resp(); } });
+    /* Los tamaños como en el panel ("1 kg", no "1000 g"): fmtPeso de verdad, de admin.html. */
+    vm.runInContext(cuerpo(html, 'fmtPeso'), m.ctx);
+    m.api.abrirEditorCostos(m.ctx.allProducts.map(p => ({ producto: p, fecha: hace(40), dias: 40 })), 'inicio');
+    return { m, preguntas };
+  };
+  const a = abrir(() => false);
+  a.m.conInputs(['4000', '13500']);
+  await a.m.api.guardarEditorCostos();
+  const p0 = a.preguntas[0];
+  t('si la bolsa de 3 kg queda más cara por kilo que la de 1 kg ($6.750 contra $6.000), pregunta antes de guardar (01/10)',
+    a.preguntas.length === 1 && p0.op.titulo === 'Ojo: la bolsa más grande quedaría más cara' && p0.op.aceptar === 'Guardar igual' &&
+    p0.op.cancelar === 'Volver' && p0.txt.indexOf('Yerba:\n- Bolsa de 1 kg: $6.000 el kilo\n- Bolsa de 3 kg: $6.750 el kilo, más cara') > 0 &&
+    /Si tocás "Volver", no se guarda nada y podés corregirlo\. ¿Querés guardar igual\?$/.test(p0.txt), JSON.stringify(a.preguntas));
+  const g3a = a.m.ctx.allProducts.find(x => x.id === 'g3');
+  t('  "Volver" no guarda nada y deja la ventana abierta', a.m.escrituras.length === 0 && !!a.m.elementos.costosEditor &&
+    g3a.costo === 3500 && g3a.precio === 5250 && g3a.precioMayorista === 4200);
+  const b = abrir(() => true);
+  b.m.conInputs(['4000', '13500']);
+  await b.m.api.guardarEditorCostos();
+  const w3 = b.m.escrituras.find(x => x.id === 'g3');
+  t('  "Guardar igual" guarda: $4.500 el kilo, precio $6.750 y mayorista $5.400, y la de 1 kg no se toca',
+    !!w3 && w3.campos.costo === 4500 && w3.campos.precio === 6750 && w3.campos.precioMayorista === 5400 &&
+    !b.m.escrituras.some(x => x.id === 'g1') && !b.m.elementos.costosEditor, JSON.stringify(b.m.escrituras));
+  const c = abrir(() => { throw new Error('no tenía que preguntar'); });
+  c.m.conInputs(['4000', '11400']);
+  await c.m.api.guardarEditorCostos();
+  const w3c = c.m.escrituras.find(x => x.id === 'g3');
+  t('  si no queda más cara ($11.400 la bolsa = $3.800 el kilo, $5.700 y $4.600), no pregunta y guarda',
+    c.preguntas.length === 0 && !!w3c && w3c.campos.costo === 3800 && w3c.campos.precio === 5700 && w3c.campos.precioMayorista === 4600);
+  t('el Escape de la ventana de costos no la cierra si hay otro diálogo encima (el aviso)',
+    /function _costosTecla\(e\) \{[\s\S]{0,300}document\.querySelector\('\.dlg-overlay:not\(#costosEditor\)'\)/.test(SRC));
 }
 
 /* ======================================================== ENCHUFADO */

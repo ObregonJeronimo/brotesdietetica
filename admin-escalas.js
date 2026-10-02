@@ -120,6 +120,46 @@ function cobroEscala(e, gramos, ctx, dsc) {
   return Math.round(precioFinalKg(e, ctx, dsc) * gramos / 1000);
 }
 
+/* AVISO: UNA BOLSA MÁS CARA POR KILO QUE UNA MÁS CHICA (pedido del dueño, 01/10). Desde el tamaño
+   de una bolsa se cobra el precio de esa bolsa (escalaPara): si la de 3 kg queda más cara por kilo
+   que la de 1 kg, llevar 3 kg sale más caro por kilo que llevar 2,9. Pasa si se cambia el costo de
+   una sola bolsa. `nuevos`: Map de id -> { precio, precioMayorista } con lo que se va a guardar.
+   Devuelve los saltos entre dos bolsas seguidas del mismo producto en los que la más grande queda
+   más cara por kilo, solo los que tocan alguna de `nuevos`: { chica, grande, ctx ('min' mostrador,
+   'may' mayorista), kgChica, kgGrande }, con lo que se cobra el kilo (en mostrador, con su oferta). */
+function bolsasMasCarasPorKilo(nuevos, productos) {
+  const prods = productos || _escProds();
+  const grupos = new Set();
+  const saltos = [];
+  (nuevos || new Map()).forEach((r, id) => {
+    const p = prods.find(x => x && x.id === id);
+    const esc = p ? escalasDe(p, prods) : [];
+    const clave = esc.map(e => e.id).join();
+    if (!esc.length || grupos.has(clave)) return;
+    grupos.add(clave);
+    const con = esc.map(e => Object.assign({}, e, { producto: nuevos.has(e.id) ? Object.assign({}, e.producto, nuevos.get(e.id)) : e.producto }));
+    ['min', 'may'].forEach(ctx => {
+      for (let k = 1; k < con.length; k++) {
+        const chica = con[k - 1], grande = con[k];
+        if (!nuevos.has(chica.id) && !nuevos.has(grande.id)) continue;
+        const kgChica = precioFinalKg(chica, ctx), kgGrande = precioFinalKg(grande, ctx);
+        if (kgChica > 0 && kgGrande > kgChica) saltos.push({ chica, grande, ctx, kgChica, kgGrande });
+      }
+    });
+  });
+  return saltos;
+}
+/* El texto del aviso, simple (la clienta no tiene por qué saber qué es una escala): cada salto
+   con lo que se cobra el kilo de las dos bolsas. */
+function textoBolsasMasCaras(saltos) {
+  const NL = _ESC_NL;
+  return 'Con este cambio, una bolsa más grande sale más cara por kilo que una más chica:' + NL + NL +
+    saltos.map(s => _escNombre(s.grande) + (s.ctx === 'may' ? ' (precio mayorista)' : '') + ':' + NL +
+      '- Bolsa de ' + s.chica.etiqueta + ': ' + _escPlata(s.kgChica) + ' el kilo' + NL +
+      '- Bolsa de ' + s.grande.etiqueta + ': ' + _escPlata(s.kgGrande) + ' el kilo, más cara').join(NL + NL) + NL + NL +
+    'Así, el cliente que lleva más paga más por kilo. Conviene cambiar también el costo de las otras bolsas de este producto.';
+}
+
 /* El descuento que sigue al sumar o cambiar gramos: el que se puso a mano en la línea.
    El de la escala (su oferta) no se arrastra: si cambia de escala va el de la nueva,
    igual que cargando todo de una vez. Antes 500 g + 2.500 g no llevaban la oferta de la
