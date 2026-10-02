@@ -2547,6 +2547,15 @@ $186.000, con las 8 unidades que salieron del total, y el stock subió 10.000 g 
 Pruebas: 29 más (y las 3 viejas que escribían centavos los ponen como si vinieran del remito); 22 cambios a
 propósito del código quedan atrapados. Total: 4140 en 91 suites.
 
+Y para que los números den bien (Thiago, 02/10): arriba de los renglones dice "Para que los números den
+bien: escribí primero la cantidad que entró, y después el costo o el total (el otro sale solo)". Y cuando
+la cantidad sale del total, abajo del renglón dice de dónde salió: "Salió del total: $50.000 ÷ $10.000 c/u
+= 5 unidades. Si el costo cambió, escribí las unidades y el costo se corrige solo." Con el costo viejo la
+cuenta puede dar entera y equivocada (una factura de 4 a $50.000 da 5). Al escribir la cantidad, el aviso
+se va (`_cpSalioTxt`, `_cpAvisoFilaHtml`). Probado en el sandbox con la Galleta De Arroz: con $50.000 y sin
+unidades salieron 5 y el aviso; con 4, el costo quedó en $12.500 y el aviso se fue. Pruebas: 2 más y 7
+ajustadas; 4 cambios a propósito quedan atrapados. Total: 4142 en 91 suites.
+
 ---
 
 ## 2. Decisiones tuyas

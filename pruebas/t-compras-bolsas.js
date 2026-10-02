@@ -20,6 +20,7 @@ const VAR = leer('admin-variantes.js');
 const COMP = leer('admin-compras.js');
 const COSTOS = leer('admin-costos.js');
 const ESC = leer('admin-escalas.js');
+const ADMIN = leer('admin.html').replace(/\r\n/g, '\n');
 
 let ok = 0, fail = 0;
 const t = (d, c, extra) => {
@@ -1035,8 +1036,9 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('  sin gramos, nada', w.el('cpEquiv1').textContent === '');
     w.ctx.compraCampo(0, 'total', '9000');
     t('por unidad, sin la cantidad: escribir el total la saca sola ($9.000 ÷ $1.500 = 6 unidades)',
-      w.items()[0].cantidad === 6 && w.el('cpCant0').value === '6' && w.items()[0].costoUnitario === 1500 &&
-      w.el('cpNoDa0').style.display === 'none', JSON.stringify(w.items()[0]));
+      w.items()[0].cantidad === 6 && w.el('cpCant0').value === '6' && w.items()[0].costoUnitario === 1500, JSON.stringify(w.items()[0]));
+    t('  y abajo dice de dónde salió, y qué hacer si el costo cambió',
+      w.el('cpNoDa0').style.display === '' && w.el('cpNoDa0').innerHTML === '<i class="bi bi-info-circle"></i> Salió del total: $9.000 ÷ $1.500 c/u = 6 unidades. Si el costo cambió, escribí las unidades y el costo se corrige solo.', w.el('cpNoDa0').innerHTML);
     w.ctx.compraCampo(0, 'total', '10000');
     t('  si no da justo ($10.000 ÷ $1.500 = 6,67), la cantidad queda vacía y el renglón explica por qué, en amarillo',
       w.items()[0].cantidad === 0 && w.el('cpCant0').value === '' && w.el('cpNoDa0').style.display === '' &&
@@ -1044,16 +1046,20 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
         '6,67 unidades, y no se compran unidades partidas. Revisá el total o el costo, o escribí las unidades.', w.el('cpNoDa0').innerHTML);
     t('  el total igual queda ($10.000)', w.ctx._cpSubtotal(w.items()[0]) === 10000 && w.el('compraTotal').textContent === '$10.000');
     w.ctx.compraCampo(0, 'costoUnitario', '2000');
-    t('  con otro costo ($2.000) sale otra vez: 5 unidades, y el aviso se va',
-      w.items()[0].cantidad === 5 && w.items()[0].totalEscrito === 10000 && w.el('cpCant0').value === '5' && w.el('cpNoDa0').style.display === 'none');
+    t('  con otro costo ($2.000) sale otra vez: 5 unidades, y en vez de "no dan" dice de dónde salió',
+      w.items()[0].cantidad === 5 && w.items()[0].totalEscrito === 10000 && w.el('cpCant0').value === '5' &&
+      w.el('cpNoDa0').innerHTML.indexOf('Salió del total: $10.000 ÷ $2.000 c/u = 5 unidades.') > 0 && w.el('cpNoDa0').innerHTML.indexOf('no dan') < 0,
+      w.el('cpNoDa0').innerHTML);
     w.ctx.compraCampo(0, 'cantidad', '4');
-    t('  escribir la cantidad manda: 4 por $10.000 son $2.500 c/u', w.items()[0].costoUnitario === 2500 && !w.items()[0].cantidadSale &&
-      w.el('cpCosto0').value === '2500');
+    t('  escribir la cantidad manda: 4 por $10.000 son $2.500 c/u, y el aviso se va', w.items()[0].costoUnitario === 2500 && !w.items()[0].cantidadSale &&
+      w.el('cpCosto0').value === '2500' && w.el('cpNoDa0').style.display === 'none' && w.el('cpNoDa0').innerHTML === '');
     w.ctx.compraCampo(1, 'costoBolsa', '12000');
     w.ctx.compraCampo(1, 'total', '48000');
     t('en una bolsa, sin los gramos: $48.000 ÷ $12.000 = 4 bolsas, 12.000 g',
       w.items()[1].cantidad === 12000 && w.el('cpCant1').value === '12000' && w.el('cpTotEtq1').textContent === 'Total (4 bolsas)' &&
-      w.el('cpEquiv1').textContent === 'Equivale a 12 kg', JSON.stringify(w.items()[1]));
+      w.el('cpEquiv1').textContent === 'Equivale a 12 kg' &&
+      w.el('cpNoDa1').innerHTML === '<i class="bi bi-info-circle"></i> Salió del total: $48.000 ÷ $12.000 la bolsa = 4 bolsas. ' +
+        'Si el costo cambió, escribí los gramos y el costo se corrige solo.', JSON.stringify(w.items()[1]) + ' ' + w.el('cpNoDa1').innerHTML);
     w.ctx.compraCampo(1, 'total', '50000');
     t('  si no da justo ($50.000 ÷ $12.000 = 4,17 bolsas), lo explica',
       w.items()[1].cantidad === 0 && w.el('cpNoDa1').innerHTML.indexOf('Las cuentas no dan: $50.000 ÷ $12.000 (lo que cuesta la bolsa) = ' +
@@ -1077,7 +1083,8 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('un granel sin la bolsa, con el total y sin los gramos: espera la bolsa', g.items()[0].cantidad === 0 && g.items()[0].totalEscrito === 70000);
     g.ctx.compraCampo(0, 'bolsa', '5');
     t('  dicha la bolsa (5 kg, $70.000 con el kilo que tenía), sale la cantidad: 1 bolsa, 5.000 g',
-      g.items()[0].cantidad === 5000 && g.el('cpCant0').value === '5000' && g.el('cpEquiv0').textContent === 'Equivale a 5 kg', JSON.stringify(g.items()[0]));
+      g.items()[0].cantidad === 5000 && g.el('cpCant0').value === '5000' && g.el('cpEquiv0').textContent === 'Equivale a 5 kg' &&
+      g.el('cpNoDa0').innerHTML.indexOf('Salió del total: $70.000 ÷ $70.000 la bolsa = 1 bolsa.') > 0, JSON.stringify(g.items()[0]) + ' ' + g.el('cpNoDa0').innerHTML);
   }
   {
     const s = armar({ sinVariantes: true, productos: [P('chs', { nombre: 'Chia Suelta', tipoVenta: 'peso', costo: 9000 })] });
@@ -1085,9 +1092,12 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     s.ctx.compraAgregar('chs');
     s.ctx.compraCampo(0, 'total', '31500');
     t('por kilo suelto, sin los gramos: $31.500 ÷ $9.000 el kilo = 3.500 g ("Equivale a 3,5 kg")',
-      s.items()[0].cantidad === 3500 && s.el('cpCant0').value === '3500' && s.el('cpEquiv0').textContent === 'Equivale a 3,5 kg',
-      JSON.stringify(s.items()[0]));
+      s.items()[0].cantidad === 3500 && s.el('cpCant0').value === '3500' && s.el('cpEquiv0').textContent === 'Equivale a 3,5 kg' &&
+      s.el('cpNoDa0').innerHTML.indexOf('Salió del total: $31.500 ÷ $9.000 el kilo = 3,5 kg. Si el costo cambió, escribí los gramos') > 0,
+      JSON.stringify(s.items()[0]) + ' ' + s.el('cpNoDa0').innerHTML);
   }
+  t('arriba de lo que entró, qué hacer para que los números den bien: primero la cantidad (02/10)',
+    /<label class="form-label">Lo que entr&oacute;<\/label>\s*<p [^>]*>\s*<i class="bi bi-info-circle"[^>]*><\/i>\s*<span>Para que los n&uacute;meros den bien: escrib&iacute; primero <b>la cantidad que entr&oacute;<\/b>, y despu&eacute;s el costo o el total \(el otro sale solo\)\.<\/span>\s*<\/p>\s*<div id="compraItems"><\/div>/.test(ADMIN));
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);

@@ -273,6 +273,24 @@ function _cpNoDaTxt(it) {
       : ' (lo que cuesta cada una) = ' + num(x.cuantas, 2) + ' unidades, y no se compran unidades partidas.') +
     ' Revisá el total o el costo, o escribí ' + (bolsa ? 'los gramos.' : 'las unidades.');
 }
+/* De dónde salió la cantidad, cuando salió del total (pedido del dueño, 02/10): con el costo que tenía,
+   si el precio cambió la cuenta puede dar entera y equivocada (4 a $50.000 con el costo viejo de $10.000
+   dan 5). Escribiendo la cantidad, el costo se corrige solo. */
+function _cpSalioTxt(it) {
+  const q = Number(it.cantidad || 0);
+  if (!it.cantidadSale || !(q > 0) || it.totalEscrito == null) return '';
+  const bolsa = _cpEsBolsa(it), peso = it.tipoVenta === 'peso';
+  const cada = Number((bolsa ? it.costoBolsa : it.costoUnitario) || 0);
+  return 'Salió del total: ' + _cpPesos(it.totalEscrito) + ' ÷ ' + _cpPesos(cada) + (bolsa ? ' la bolsa' : peso ? ' el kilo' : ' c/u') +
+    ' = ' + (bolsa ? _cpBolsasTxt(it) : peso ? _cpCant(it) : q + (q === 1 ? ' unidad' : ' unidades')) +
+    '. Si el costo cambió, escribí ' + (peso ? 'los gramos' : 'las unidades') + ' y el costo se corrige solo.';
+}
+/* Lo que va abajo del renglón, en amarillo (02/10): si las cuentas no dan, por qué; si la cantidad salió
+   del total, de dónde. */
+function _cpAvisoFilaHtml(it) {
+  const nd = _cpNoDaTxt(it), s = nd ? '' : _cpSalioTxt(it);
+  return nd ? '<i class="bi bi-exclamation-triangle"></i> ' + esc(nd) : s ? '<i class="bi bi-info-circle"></i> ' + esc(s) : '';
+}
 /* Los gramos en kilos, debajo de lo que entra (pedido del dueño, 02/10): 5300 g, "Equivale a 5,3 kg". */
 function _cpEquivTxt(it) {
   const q = Number(it.cantidad || 0);
@@ -805,9 +823,9 @@ function _cpRefrescarFila(i) {
   if (eq) eq.textContent = _cpEquivTxt(it);
   const nd = document.getElementById('cpNoDa' + i);
   if (nd) {
-    const s = _cpNoDaTxt(it);
-    nd.innerHTML = s ? '<i class="bi bi-exclamation-triangle"></i> ' + esc(s) : '';
-    nd.style.display = s ? '' : 'none';
+    const h = _cpAvisoFilaHtml(it);
+    nd.innerHTML = h;
+    nd.style.display = h ? '' : 'none';
   }
 }
 
@@ -872,9 +890,10 @@ function renderCompraItems() {
           '<input type="text" inputmode="numeric" class="form-input" onblur="compraSalir(' + i + ')" id="cpSub' + i + '" value="' + _cpTotalValor(it) + '" ' +
           'oninput="compraCampo(' + i + ',\'total\',this.value)"></label>' +
         '<button type="button" class="cp-x" onclick="compraQuitar(' + i + ')" title="Sacar de la compra">&times;</button>' +
-        /* Si con el total las cuentas no dan (pedido del dueño, 02/10): en amarillo, abajo. */
-        '<div class="cp-nodajusto" id="cpNoDa' + i + '"' + (_cpNoDaTxt(it) ? '' : ' style="display:none"') + '>' +
-          (_cpNoDaTxt(it) ? '<i class="bi bi-exclamation-triangle"></i> ' + esc(_cpNoDaTxt(it)) : '') + '</div>' +
+        /* Si con el total las cuentas no dan, o la cantidad salió del total (pedido del dueño, 02/10):
+           en amarillo, abajo. */
+        '<div class="cp-nodajusto" id="cpNoDa' + i + '"' + (_cpAvisoFilaHtml(it) ? '' : ' style="display:none"') + '>' +
+          _cpAvisoFilaHtml(it) + '</div>' +
       '</div>';
     /* Las bolsas de un mismo producto, juntas en un recuadro, donde entró la primera; con el
        "?" del redondeo si hay alguna bolsa (el kilo se guarda sin centavos). */

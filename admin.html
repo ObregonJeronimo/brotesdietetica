@@ -8479,6 +8479,10 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         </div>
 
         <label class="form-label">Lo que entr&oacute;</label>
+        <p style="display:flex;gap:0.4rem;align-items:flex-start;font-size:0.8rem;line-height:1.45;color:var(--text-dim);margin:0 0 0.45rem">
+          <i class="bi bi-info-circle" style="color:var(--accent-light);flex:0 0 auto;margin-top:1px"></i>
+          <span>Para que los n&uacute;meros den bien: escrib&iacute; primero <b>la cantidad que entr&oacute;</b>, y despu&eacute;s el costo o el total (el otro sale solo).</span>
+        </p>
         <div id="compraItems"></div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0.6rem 0;border-top:1px solid var(--border);margin-top:0.3rem">
           <span style="font-weight:700">Total de la compra</span>
