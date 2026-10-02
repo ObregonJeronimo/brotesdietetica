@@ -2322,7 +2322,7 @@ mismos archivos que el repo; la tienda y la pantalla de ingreso del panel cargan
 iniciar sesión), ya con el código nuevo. La clienta lo ve al recargar (F5). Los 222 con el
 mayorista al costo siguen así hasta que se toquen (todos juntos, solo con OK).
 
-### AJ) Cargar compra: con el mismo costo, al lado van los precios que tiene · **HECHO, SIN SUBIR** (02/10/2026)
+### AJ) Cargar compra: con el mismo costo, al lado van los precios que tiene · **SUBIDO A PRODUCCIÓN el 02/10/2026** (02/10/2026)
 
 Thiago preguntó si se había revisado todo antes de subir §AF a §AI. Repasando apareció un detalle del
 arreglo de los centavos (§AI): cuando el costo de la compra da igual al que tiene, redondeado,
@@ -2353,6 +2353,11 @@ días" y "Compras cargadas" cuentan solo hasta la hora actual (`cargarCompras`, 
 mediodía, la compra de hoy no aparece ahí hasta las 12:00. "Le debés" sí la cuenta al instante (sale de
 las compras sin saldar), y la compra, el stock y los costos quedan bien. Arreglo posible: contar hasta
 el final del día. Sin hacer: para decidir.
+
+**AJ, subido el 02/10/2026** (Thiago: "hacelo, probalo y lo subis"). Push a `main` de `d969232` a `f024102`
+(el arreglo y los dos commits de docs de la subida anterior). Solo cambia admin-compras.js del panel.
+Vercel sirve los mismos archivos que el repo; la tienda y la pantalla de ingreso del panel cargan sin
+errores (sin iniciar sesión), ya con el código nuevo.
 
 ---
 
