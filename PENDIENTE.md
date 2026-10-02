@@ -2486,6 +2486,43 @@ ingreso del panel cargan sin errores (sin iniciar sesión), ya con el código nu
 recargar (F5). Las compras cargadas antes no anotaban los costos: al borrarlas solo vuelve el stock (el
 aviso lo dice).
 
+### AM) Cargar compra: el total del renglón se puede escribir, y el costo sale solo · **HECHO, SIN SUBIR** (02/10/2026)
+
+Pedido de Thiago: hay proveedores que no pasan lo que costó cada bolsa, sino el total ("4 bolsas de 2,5 kg,
+$40.000"), y había que sacar la calculadora para dividir. Ahora el total de cada renglón (el número de la
+derecha) es un campo "Total" que se puede escribir, en todos los renglones (Thiago eligió "en todos"):
+- Se escribe el total y el costo sale solo: en una bolsa, el total por las bolsas que entraron (los gramos
+  por el tamaño de la bolsa: 10.000 g en bolsas de 2,5 kg son 4), y el kilo de ahí, como si se hubiera
+  escrito lo que costó la bolsa; por unidad, por las unidades; por kilo suelto, por los kilos. A centavos:
+  $40.000 en 3 bolsas son $13.333,33 cada una.
+- El total escrito queda exacto: es el subtotal que se guarda y lo que se le debe al proveedor
+  (`_cpSubtotal` lo devuelve tal cual; si no, $40.000 en 300 unidades a $133,33 daban $39.999). Sin
+  centavos, como todos los subtotales.
+- Arriba dice cuántas bolsas son: "Total (4 bolsas)".
+- Si se escribe el costo, manda el costo y el total sale de ahí, como siempre. Con el total escrito, si
+  cambia la cantidad (o se dice de cuánto es la bolsa), el costo se vuelve a sacar. Vacío, vuelve a
+  mandar el costo. Mientras se escribe, el total no se pisa; al salir del campo muestra lo que vale.
+- Se guarda lo mismo de siempre (lo que costó la bolsa, el kilo, la unidad y el subtotal): "Actualizar",
+  el precio, borrar la compra y las deudas siguen igual. `_cpCostoDesdeTotal`, `compraCampo` (`'total'`),
+  `compraTotalSalir`.
+- El campo mide lo mismo que el número de antes (88 px), sin las flechitas, y entra hasta 8 cifras: con
+  el ancho de los otros campos, en el renglón que pregunta la bolsa la × bajaba de renglón. (Un renglón
+  con descuento ya bajaba el total a otra línea, por lo largo de lo de al lado del costo; sigue igual.)
+
+Probado en el sandbox con clics y escribiendo de verdad, en EL KIOSQUITO (compra #13):
+- Aceite De Coco Tostado (pregunta la bolsa): bolsa de 2,5 kg, 10.000 g y total $40.000: "Total (4
+  bolsas)", $10.000 la bolsa y $4.000 el kilo (precio $7.600 y mayorista $5.200 el kilo);
+- Nuez Mariposa x 3 kg: 12.000 g y total $120.000: $30.000 la bolsa, $10.000 el kilo;
+- Aceite De Oliva: 6 u y total $99.000: $16.500 c/u (precio $31.350, mayorista $21.450);
+- Castaña De Caju Tostado: 7 u y total $50.000: $7.142,86 c/u, y el renglón queda en $50.000 exacto.
+Total $309.000. El aviso de guardar y el de "Actualizar" dijeron esos costos; la compra se guardó con esos
+subtotales y costos, los productos quedaron con su costo, precio y mayorista nuevos, el stock subió, el
+tamaño de la bolsa del Aceite De Coco quedó anotado y la compra anotó los costos de antes (para
+borrarla). En FRUTICOR, la Almendra (pregunta la bolsa) con un total de 7 cifras: entra en el campo y la ×
+queda en su renglón.
+Pruebas: 22 más (las 5 que miraban el total como texto ahora miran el campo); 12 cambios a propósito del
+código quedan atrapados. Total: 4111 en 91 suites.
+
 ---
 
 ## 2. Decisiones tuyas

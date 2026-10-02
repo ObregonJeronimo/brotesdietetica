@@ -462,6 +462,9 @@ producción (de los "gramajes" viejos).
   después lo hayan cambiado (el aviso dice qué compra lo cambió, y esa se queda con el "antes"). La compra
   se borra en la misma transacción, y un doble clic en "Eliminar" abre un solo aviso. Las compras de
   antes no lo anotaban. Detalle en `PENDIENTE.md` §1-bis AL.
+- **Cargar compra: el total del renglón se escribe (02/10, sin subir)**: si el proveedor pasa el total y
+  no lo de cada bolsa (o cada unidad), se escribe el total y el costo sale solo ("Total (4 bolsas)"); el
+  total escrito queda exacto. En todos los renglones. Detalle en `PENDIENTE.md` §1-bis AM.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

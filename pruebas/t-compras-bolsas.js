@@ -222,13 +222,13 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       it.costoBolsa === 12000 && it.costoUnitario === 4000);
     t('  y lo de al lado se actualiza', w.el('cpKilo0').innerHTML.indexOf('<span>Costo $4.000 el kilo</span>') === 0, w.el('cpKilo0').innerHTML);
     w.ctx.compraCampo(0, 'cantidad', '6000');
-    t('  dos bolsas (6.000 g) a $12.000 son $24.000', w.el('cpSub0').textContent === '$24.000', w.el('cpSub0').textContent);
+    t('  dos bolsas (6.000 g) a $12.000 son $24.000', w.el('cpSub0').value === '24000', w.el('cpSub0').value);
     w.ctx.compraCampo(0, 'costoBolsa', '10000');
     w.ctx.compraCampo(0, 'cantidad', '3000');
     t('  el subtotal sale de la bolsa, no del kilo redondeado: 3 kg a $10.000 son $10.000 (no $9.999)',
-      w.el('cpSub0').textContent === '$10.000' && w.items()[0].costoUnitario === 3333, w.el('cpSub0').textContent);
+      w.el('cpSub0').value === '10000' && w.items()[0].costoUnitario === 3333, w.el('cpSub0').value);
     w.ctx.compraCampo(1, 'cantidad', '500');
-    t('la Almendra, sin decir de cuánto es la bolsa, todavía no cuenta: $0', w.el('cpSub1').textContent === '$0', w.el('cpSub1').textContent);
+    t('la Almendra, sin decir de cuánto es la bolsa, todavía no cuenta: el total, vacío', w.el('cpSub1').value === '', w.el('cpSub1').value);
     w.ctx.compraCampo(1, 'bolsaUnidad', 'g');
     w.ctx.compraCampo(1, 'bolsa', '500');
     w.ctx.compraCampo(2, 'cantidad', '2000');
@@ -467,8 +467,8 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     w.ctx.compraCampo(0, 'costoBolsa', '12500');
     w.ctx.compraCampo(0, 'cantidad', '10000');
     t('$12.500 la bolsa de 5 kg son $2.500 el kilo, y dos bolsas (10.000 g) $25.000',
-      w.items()[0].costoUnitario === 2500 && w.el('cpKilo0').innerHTML.indexOf('<span>Costo $2.500 el kilo</span>') === 0 && w.el('cpSub0').textContent === '$25.000',
-      w.el('cpKilo0').innerHTML + ' / ' + w.el('cpSub0').textContent);
+      w.items()[0].costoUnitario === 2500 && w.el('cpKilo0').innerHTML.indexOf('<span>Costo $2.500 el kilo</span>') === 0 && w.el('cpSub0').value === '25000',
+      w.el('cpKilo0').innerHTML + ' / ' + w.el('cpSub0').value);
     w.ctx.compraCampo(1, 'cantidad', '25000');
     await w.ctx.guardarCompra();
     t('sin decir de cuánto es la bolsa, no se guarda: lo pide',
@@ -629,7 +629,7 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     w.ctx.compraCampo(1, 'costoUnitario', '15000');
     t('  con otro costo, los que va a tener: $15.000 c/u, precio $28.500 y mayorista $19.500',
       w.el('cpKilo1').innerHTML === '<span>Precio <b>$28.500</b></span><span class="vfe-may">Mayorista $19.500</span>', w.el('cpKilo1').innerHTML);
-    t('  y el subtotal de la fila, 2 × $15.000', w.el('cpSub1').textContent === '$30.000', w.el('cpSub1').textContent);
+    t('  y el subtotal de la fila, 2 × $15.000', w.el('cpSub1').value === '30000', w.el('cpSub1').value);
     t('  la bolsa sigue con lo suyo: $13.500 la de 3 kg son $4.500 el kilo, precio $6.750 y mayorista $5.400',
       w.el('cpKilo0').innerHTML === '<span>Costo $4.500 el kilo</span><span>Precio <b>$6.750</b> el kilo</span><span class="vfe-may">Mayorista $5.400 el kilo</span>',
       w.el('cpKilo0').innerHTML);
@@ -869,6 +869,102 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     const it = v.items()[0];
     t('  un granel con su bolsa anotada (bolsaGramos) no rompe: va por kilo, como antes',
       !error && !!it && it.gramosBolsa === undefined && it.costoUnitario === 9000, error ? error.message : JSON.stringify(it));
+  }
+
+  console.log('\n-- el total del renglón: se escribe y el costo sale solo (pedido del dueño, 02/10) --');
+  {
+    const w = armar();
+    w.ctx.openCompraModal('L1');
+    w.ctx.compraAgregar('mrc3');   /* 0: bolsa de 3 kg, $9.999 la bolsa */
+    w.ctx.compraAgregar('gal');    /* 1: por unidad, $1.500 */
+    w.ctx.compraAgregar('alm');    /* 2: granel que no dice de cuánto es la bolsa */
+    w.ctx.compraAgregar('alf1');   /* 3: por unidad, $500 */
+    const h = w.el('compraItems').innerHTML;
+    t('cada renglón tiene el total, que se puede escribir (vacío mientras no hay cantidad)',
+      h.indexOf('<label class="cp-f cp-f-total"><span id="cpTotEtq1">Total</span><input type="number" min="0" step="1" class="form-input" id="cpSub1" value="" ' +
+        'oninput="compraCampo(1,\'total\',this.value)" onblur="compraTotalSalir(1)"></label>') > 0 &&
+      (h.match(/class="cp-f cp-f-total"/g) || []).length === 4 && h.indexOf('cp-sub') < 0, h);
+    t('  y el costo c/u tiene su id, para ponerle lo que sale', h.indexOf('id="cpCosto1" value="1500"') > 0);
+    w.ctx.compraCampo(0, 'cantidad', '12000');
+    t('en una bolsa dice cuántas son: "Total (4 bolsas)"', w.el('cpTotEtq0').textContent === 'Total (4 bolsas)', w.el('cpTotEtq0').textContent);
+    w.ctx.compraCampo(0, 'total', '40000');
+    const b = w.items()[0];
+    t('4 bolsas de 3 kg por $40.000 en total: la bolsa sale sola, $10.000, y el kilo $3.333',
+      b.costoBolsa === 10000 && b.costoUnitario === 3333 && w.el('cpBolsa0').value === 10000 &&
+      w.el('cpKilo0').innerHTML.indexOf('<span>Costo $3.333 el kilo</span>') === 0, JSON.stringify(b) + ' ' + w.el('cpKilo0').innerHTML);
+    t('  y el total de la compra, $40.000', w.el('compraTotal').textContent === '$40.000', w.el('compraTotal').textContent);
+    w.ctx.compraCampo(0, 'cantidad', '9000');
+    t('con otra cantidad, el total escrito se queda y la bolsa se vuelve a sacar: 3 bolsas, $13.333,33 cada una',
+      w.items()[0].costoBolsa === 13333.33 && w.el('cpBolsa0').value === 13333.33 && w.el('cpSub0').value === '40000' &&
+      w.el('cpTotEtq0').textContent === 'Total (3 bolsas)', JSON.stringify(w.items()[0]));
+    t('  y el total queda exacto: $40.000, no lo que daría la bolsa redondeada', w.ctx._cpSubtotal(w.items()[0]) === 40000 &&
+      w.el('compraTotal').textContent === '$40.000');
+    w.ctx.compraCampo(0, 'costoBolsa', '12000');
+    t('si después se escribe el costo de la bolsa, manda el costo: el total sale de ahí ($36.000)',
+      w.items()[0].totalEscrito === undefined && w.el('cpSub0').value === '36000', w.el('cpSub0').value);
+    w.ctx.compraCampo(0, 'total', '50000');
+    w.ctx.compraCampo(0, 'total', '');
+    t('  borrar el total también vuelve a mandar el costo (el que quedó: $16.666,67 la bolsa, $50.000)',
+      w.items()[0].totalEscrito === undefined && w.items()[0].costoBolsa === 16666.67 && w.el('cpSub0').value === '50000',
+      JSON.stringify(w.items()[0]));
+    w.ctx.compraCampo(1, 'cantidad', '300');
+    w.ctx.compraCampo(1, 'total', '40000');
+    t('por unidad: 300 por $40.000 en total son $133,33 c/u, y el total queda exacto ($40.000, no $39.999)',
+      w.items()[1].costoUnitario === 133.33 && w.el('cpCosto1').value === 133.33 && w.ctx._cpSubtotal(w.items()[1]) === 40000,
+      JSON.stringify(w.items()[1]));
+    t('  y al lado, el precio con ese costo', w.el('cpKilo1').innerHTML === w.ctx._cpVistaHtml(w.items()[1]) && w.el('cpKilo1').innerHTML !== '');
+    w.ctx.compraCampo(3, 'total', '6000');
+    t('el total antes que la cantidad: el costo espera ($500 c/u, el que tenía)', w.items()[3].costoUnitario === 500 &&
+      w.ctx._cpSubtotal(w.items()[3]) === 6000);
+    w.ctx.compraCampo(3, 'cantidad', '10');
+    t('  y con la cantidad, sale: 10 por $6.000 son $600 c/u', w.items()[3].costoUnitario === 600 && w.el('cpCosto3').value === 600);
+    w.ctx.document.activeElement = w.el('cpSub3');
+    w.el('cpSub3').value = '7000.4';
+    w.ctx.compraCampo(3, 'total', '7000.4');
+    t('mientras se escribe el total no se lo pisa, y se usa sin centavos ($7.000)',
+      w.el('cpSub3').value === '7000.4' && w.items()[3].totalEscrito === 7000 && w.items()[3].costoUnitario === 700);
+    w.ctx.document.activeElement = null;
+    w.ctx.compraTotalSalir(3);
+    t('  al salir del campo, muestra lo que vale: 7000', w.el('cpSub3').value === '7000', w.el('cpSub3').value);
+    w.ctx.compraCampo(3, 'total', '6000');
+    w.ctx.compraCampo(2, 'cantidad', '10000');
+    w.ctx.compraCampo(2, 'total', '70000');
+    t('un granel que no dice de cuánto es la bolsa: el total queda, y el costo espera la bolsa',
+      w.items()[2].costoBolsa === undefined && w.items()[2].costoUnitario === 14000 && w.ctx._cpSubtotal(w.items()[2]) === 70000);
+    w.ctx.compraCampo(2, 'bolsaUnidad', 'kg');
+    w.ctx.compraCampo(2, 'bolsa', '5');
+    t('  dicha la bolsa (5 kg): 2 bolsas por $70.000, $35.000 cada una y $7.000 el kilo',
+      w.items()[2].costoBolsa === 35000 && w.items()[2].costoUnitario === 7000 && w.el('cpBolsa2').value === 35000 &&
+      w.el('cpTotEtq2').textContent === 'Total (2 bolsas)', JSON.stringify(w.items()[2]));
+    w.ctx.compraCampo(0, 'total', '40000');
+    await w.ctx.guardarCompra();
+    const conf = w.preguntas.find(p => p.titulo === 'Guardar compra');
+    t('al guardar, lo que se confirma suma los totales escritos ($156.000) y dice el costo que salió',
+      !!conf && conf.m.indexOf('por $156.000') > 0 && conf.m.indexOf('- Mani RC x 3 kg: 9 kg a $13.333 la bolsa') > 0 &&
+      conf.m.indexOf('- Almendra: 10 kg a $35.000 la bolsa de 5 kg') > 0, conf && conf.m);
+    const c = w.guardadas[0] || { items: [] };
+    const fila = id => c.items.find(i => i.id === id) || {};
+    t('  se guarda cada renglón con el total escrito y el costo que salió de ahí',
+      c.total === 156000 &&
+      fila('mrc3').subtotal === 40000 && fila('mrc3').costoBolsa === 13333.33 && fila('mrc3').costoUnitario === 4444 && fila('mrc3').cantidad === 9000 &&
+      fila('gal').subtotal === 40000 && fila('gal').costoUnitario === 133.33 &&
+      fila('alm').subtotal === 70000 && fila('alm').costoBolsa === 35000 && fila('alm').costoUnitario === 7000 && fila('alm').gramosBolsa === 5000 &&
+      fila('alf1').subtotal === 6000 && fila('alf1').costoUnitario === 600, JSON.stringify(c.items));
+    t('  sin guardar el total escrito aparte: lo de siempre', c.items.every(i => !('totalEscrito' in i)));
+    const costos = w.escrituras.filter(e => e.d.costo !== undefined).map(e => e.id + '=' + e.d.costo).sort().join();
+    t('  y "Actualizar" pone esos costos: la bolsa por el kilo, los demás como salieron',
+      costos === 'alf1=600,alm=7000,gal=133.33,mrc3=4444', costos);
+  }
+  {
+    /* Un granel por kilo, sin bolsa (sin admin-variantes.js no hay bolsas): el costo por kilo. */
+    const v = armar({ sinVariantes: true, productos: [P('chs', { nombre: 'Chia Suelta', tipoVenta: 'peso', costo: 9000 })] });
+    v.ctx.openCompraModal('L1');
+    v.ctx.compraAgregar('chs');
+    v.ctx.compraCampo(0, 'cantidad', '3000');
+    v.ctx.compraCampo(0, 'total', '21300');
+    t('por kilo, suelto: 3 kg por $21.300 en total son $7.100 el kilo',
+      v.items()[0].costoUnitario === 7100 && v.el('cpCosto0').value === 7100 && v.ctx._cpSubtotal(v.items()[0]) === 21300,
+      JSON.stringify(v.items()[0]));
   }
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
