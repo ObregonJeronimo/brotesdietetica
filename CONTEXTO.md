@@ -393,7 +393,7 @@ producción (de los "gramajes" viejos).
   proveedor, la cabecera del recuadro dice solo el nombre del producto. Detalle en `PENDIENTE.md`
   §1-bis V.
 
-### 5.7 Lo del 30/09 y el 01/10 (subido a producción el 01/10, push hasta `6206081`, verificado)
+### 5.7 Lo del 30/09 y el 01/10 (subido a producción el 01/10, push hasta `d969232`, verificado)
 
 - **Cargar compra, un producto por peso sin otras bolsas** (pedido del dueño): también se carga
   por bolsa, con el kilo al lado, si el producto dice de cuánto es la bolsa (en el nombre, o
@@ -431,19 +431,19 @@ producción (de los "gramajes" viejos).
 - **La fecha del costo al instante (01/10)**: al cambiar un costo desde una compra, la ficha o la
   tabla de bolsas, la fecha va en la misma escritura; antes el panel la veía vieja hasta F5. Falta
   en Importar Costos y el PDF semanal. Detalle en `PENDIENTE.md` §1-bis AE.
-- **"Actualizar" en Cargar compra recalcula el precio (01/10, sin subir)**: antes cambiaba solo el
+- **"Actualizar" en Cargar compra recalcula el precio (01/10)**: antes cambiaba solo el
   costo; ahora también el precio y el mayorista con el mismo porcentaje, y el aviso los muestra. Al
   lado del costo de la bolsa, el kilo, el precio y el mayorista. Detalle en `PENDIENTE.md` §1-bis AF.
-- **Aviso de la bolsa más cara por kilo (01/10, sin subir)**: en Cargar compra ("Actualizar") y en la
+- **Aviso de la bolsa más cara por kilo (01/10)**: en Cargar compra ("Actualizar") y en la
   ventana de costos, si una bolsa queda más cara por kilo que una más chica del mismo producto, avisa y
   pregunta. En los renglones por unidad de la compra, al lado del costo, el precio y el mayorista.
   Detalle en `PENDIENTE.md` §1-bis AG.
-- **Mayorista sin ganancia (01/10, sin subir)**: con el % mayorista en 0 el mayorista quedaba igual al
+- **Mayorista sin ganancia (01/10)**: con el % mayorista en 0 el mayorista quedaba igual al
   costo (222 productos visibles de producción). Ahora queda en 0 (cobra el de mostrador) en la ficha, la
   ventana de costos y la compra; la venta mayorista avisa si algo se cobra al costo; la lista PDF
   mayorista los deja afuera, avisando. Los 222 se arreglan solos al tocarlos; todos juntos, solo con OK.
   Detalle en `PENDIENTE.md` §1-bis AH.
-- **Revisión antes de subir AF a AH (01/10, sin subir)**: el aviso de la bolsa más cara ya no salta de
+- **Revisión antes de subir AF a AH (01/10)**: el aviso de la bolsa más cara ya no salta de
   más (el mayorista, solo con el % en las dos bolsas; solo saltos nuevos o peores) y "No actualizar"
   deja como estaban solo esas bolsas; "Se vende sin ganancia" cuenta el descuento de toda la venta,
   dice "perdés $X" o el descuento que lo causa, y marca lo que gana menos del 5%; "Actualizar" en la
@@ -475,7 +475,9 @@ producción (de los "gramajes" viejos).
 
 0. **Avisarle a la clienta lo nuevo de Compras y Proveedores** (§5.6, subido el 29/09) y lo del 01/10
    (§5.7: en Cargar compra lo que viene en bolsa se carga con lo que costó la bolsa, y si no dice de
-   cuánto es se pregunta una sola vez; la lista de precios dice "el kilo"), y que recargue el panel
+   cuánto es se pregunta una sola vez; la lista de precios dice "el kilo"; "Actualizar" en una compra
+   cambia también el precio y el mayorista; los avisos de la bolsa más cara y "Se vende sin
+   ganancia"; la lista PDF mayorista deja afuera los que no dejan ganancia), y que recargue el panel
    (F5) entre una venta y otra si lo tenía abierto.
 1. **Avisarle a la clienta** que desde el 29/09 puede vender sin stock (sale el aviso "Stock
    insuficiente" con "Vender igual") y que el Centro de avisos le muestra lo que quedó en negativo,
@@ -488,6 +490,10 @@ producción (de los "gramajes" viejos).
 4. **La migración (etapa 4):** agrupar los productos existentes en presentaciones o bolsas.
    **Solo cuando Thiago lo pida, después de hablar con la clienta.** Hay scripts en `migracion/`.
    Relacionado: `PENDIENTE.md` §1-bis C ("que el agrupamiento de gramajes ande").
+5. **Los 222 productos con el mayorista igual al costo** (`PENDIENTE.md` §1-bis AH y AI): hablar con la
+   clienta si les pone un % mayorista. Se arreglan solos al tocarlos; todos juntos es una escritura en
+   producción, solo con OK de Thiago. Mientras, la venta mayorista avisa y la lista PDF los deja afuera.
+   De paso: "Chalitas integrales DeliRe" se vende en mostrador a lo mismo que costó ($12.000).
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 
@@ -569,7 +575,7 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 - Antes de dar por terminado algo grande: revisión de código y prueba en el sandbox.
 
-Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El 29/09 subimos que se pueda vender sin stock con un aviso y que el Centro de avisos muestre los negativos (push hasta a2f3f77, verificado; PENDIENTE.md §1-bis Q). Después subimos también (push hasta f75f08d, verificado) que en Cargar compra las bolsas de un producto vayan juntas y se carguen por bolsa, que en Proveedores al borrar la búsqueda vuelvan todos, que la ficha del proveedor muestre los tamaños de un producto juntos, que una compra guardada muestre sus bolsas juntas, y que los recuadros digan solo el nombre del producto (PENDIENTE.md §1-bis R a V). El 01/10 subimos (push hasta 6206081, verificado) lo de las bolsas del proveedor: Cargar compra por bolsa también en los granel sueltos (el tamaño va aparte, en bolsaGramos), "el kilo" y los grupos juntos en la lista de precios, "O el costo de la bolsa" y "Costo por bolsa/kilo/unidad" en la ventana de costos, "Por peso/Unitario" en el Centro de avisos, los arreglos de la revisión y la fecha del costo al instante (PENDIENTE.md §1-bis W a AE). El sandbox está cerrado.
+Dónde estamos (28/09): el 27/09 subimos todo a producción (push a main hasta b83d763, functions descontarStockPedido y registrarCambioDeCosto desplegadas, fecha de costo cargada en los 1316 productos, todo verificado). El 28/09 subimos además el Stock agrupado (un producto con bolsas o presentaciones es un bloque) y las etiquetas en térmica adhesiva (push hasta 86d51dd, verificado). El 29/09 subimos que se pueda vender sin stock con un aviso y que el Centro de avisos muestre los negativos (push hasta a2f3f77, verificado; PENDIENTE.md §1-bis Q). Después subimos también (push hasta f75f08d, verificado) que en Cargar compra las bolsas de un producto vayan juntas y se carguen por bolsa, que en Proveedores al borrar la búsqueda vuelvan todos, que la ficha del proveedor muestre los tamaños de un producto juntos, que una compra guardada muestre sus bolsas juntas, y que los recuadros digan solo el nombre del producto (PENDIENTE.md §1-bis R a V). El 01/10 subimos (push hasta 6206081, verificado) lo de las bolsas del proveedor: Cargar compra por bolsa también en los granel sueltos (el tamaño va aparte, en bolsaGramos), "el kilo" y los grupos juntos en la lista de precios, "O el costo de la bolsa" y "Costo por bolsa/kilo/unidad" en la ventana de costos, "Por peso/Unitario" en el Centro de avisos, los arreglos de la revisión y la fecha del costo al instante (PENDIENTE.md §1-bis W a AE). Ese mismo día subimos también (push hasta d969232, verificado) que "Actualizar" en Cargar compra recalcule el precio, el aviso de la bolsa más cara por kilo, el mayorista sin ganancia (con el % mayorista en 0 queda en 0; aviso al vender; la lista PDF mayorista sin esos) y los arreglos de su revisión (PENDIENTE.md §1-bis AF a AI). El sandbox está cerrado.
 
 Pendientes principales: avisarle a la clienta lo nuevo de Compras y Proveedores, y que ya puede vender sin stock (con el aviso) y que el Centro le muestra los negativos, probar el ticket del pedido en la impresora térmica, decidir qué hacer con las ventas viejas guardadas como "Envío", y la migración (etapa 4), que se hace solo cuando yo lo pida. El resto de los pendientes está en CONTEXTO.md §7.
 

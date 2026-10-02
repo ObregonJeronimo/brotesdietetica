@@ -2126,7 +2126,7 @@ a `main` de `f75f08d` a `6206081` (15 commits). Vercel sirve los mismos archivos
 tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesión). La clienta lo ve
 al recargar (F5). Functions y reglas, sin cambios.
 
-### AF) Cargar compra: "Actualizar" también recalcula el precio; al lado del costo, el kilo, el precio y el mayorista · **HECHO, SIN SUBIR** (01/10/2026)
+### AF) Cargar compra: "Actualizar" también recalcula el precio; al lado del costo, el kilo, el precio y el mayorista · **SUBIDO A PRODUCCIÓN el 01/10/2026** (01/10/2026)
 
 Thiago, al saber que "Actualizar" en una compra cambiaba solo el costo: "¿eso no es un error
 gravísimo?". Para el negocio, sí. Si el proveedor aumentaba, se seguía vendiendo al precio viejo sin
@@ -2159,7 +2159,7 @@ Todos los números bien (ventas, costos, stock y compras), y en el celular la fi
 Pruebas: 7 nuevas, y las que miraban "$X el kilo", actualizadas; con el código de antes fallan 17.
 Total: 3915 en 90 suites.
 
-### AG) Aviso si una bolsa queda más cara por kilo que una más chica; precio y mayorista también en los renglones por unidad · **HECHO, SIN SUBIR** (01/10/2026)
+### AG) Aviso si una bolsa queda más cara por kilo que una más chica; precio y mayorista también en los renglones por unidad · **SUBIDO A PRODUCCIÓN el 01/10/2026** (01/10/2026)
 
 Pedido de Thiago: un aviso simple, que lo diga y pregunte si se quiere seguir igual. Desde el tamaño
 de una bolsa se cobra el precio de esa bolsa: si se cambia el costo de una sola (en la prueba de §AF,
@@ -2188,7 +2188,7 @@ Probado en el sandbox con clics de verdad, con Nuez Mariposa (bolsas de 1, 3 y 5
   stock de cada bolsa bien. En el celular el renglón por unidad se acomoda bien.
 Pruebas: 25 nuevas; con el código de antes fallan. Total: 3940 en 90 suites.
 
-### AH) Productos con el % mayorista en 0: el mayorista quedaba igual al costo · **HECHO, SIN SUBIR** (01/10/2026)
+### AH) Productos con el % mayorista en 0: el mayorista quedaba igual al costo · **SUBIDO A PRODUCCIÓN el 01/10/2026** (01/10/2026)
 
 Encontrado al revisar §AG. Con el % mayorista en 0, la ficha, la ventana de costos (desde el 27/09) y
 "Actualizar" en Cargar compra (§AF) ponían de mayorista el costo redondeado a $50: en una venta
@@ -2234,7 +2234,7 @@ Castaña de Cajú sin mayorista, Aceite De Oliva con 30%, Maní, y las bolsas de
   mayorista 0, stock +3), ficha del Maní (mayorista 0) y tabla de bolsas (5 kg con 0%: mayorista 0).
 Pruebas: 32 nuevas; con el código de antes fallan. Total: 3972 en 90 suites.
 
-### AI) Revisión antes de subir AF a AH · **HECHO, SIN SUBIR** (01/10/2026)
+### AI) Revisión antes de subir AF a AH · **SUBIDO A PRODUCCIÓN el 01/10/2026** (01/10/2026)
 
 Thiago pidió revisar todo antes de subir y avisarle si había algo. Se revisó a mano y con dos
 revisores aparte (cuentas y plata; textos y pruebas), y cada hallazgo se comprobó antes de
@@ -2312,6 +2312,13 @@ y stock):
 - lista PDF mayorista: el aviso nuevo, "Cancelar" (no exporta) y "Exportar sin esos" (91 productos,
   sin el de mayorista al costo y con el de $150; sin descargar el archivo).
 Pruebas: 23 más y algunas cambiadas; con el código de antes fallan. Total: 3995 en 90 suites.
+
+**AF a AI, subidos el 01/10/2026** (Thiago: revisar todo y, si no quedaba nada, subir; lo que
+apareció se arregló con su OK y se volvió a probar en el sandbox). Solo cambia el panel: la tienda,
+las functions y las reglas, sin cambios. Push a `main` de `6206081` a `d969232` (5 commits). Vercel sirve los
+mismos archivos que el repo; la tienda y la pantalla de ingreso del panel cargan sin errores (sin
+iniciar sesión), ya con el código nuevo. La clienta lo ve al recargar (F5). Los 222 con el
+mayorista al costo siguen así hasta que se toquen (todos juntos, solo con OK).
 
 ---
 
