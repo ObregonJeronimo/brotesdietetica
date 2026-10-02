@@ -106,6 +106,8 @@ async function correr(opts) {
     cuerpo('_cpStockTrasDevolver') + cuerpo('_cpAvisoVendidos') +
     /* borrarCompra ahora avisa tambien si la compra tenia pagos registrados. */
     cuerpo('_cpAvisoPagos') +
+    /* Y vuelve atras los costos que cambio la compra (02/10). */
+    cuerpo('_cpCostosCambiados') + cuerpo('_cpSigueComoLaDejo') + cuerpo('_cpCostoDeAntes') + cuerpo('_cpAvisoCostos') +
     cuerpo('esArchivoDeStorage') + cuerpo('borrarArchivoDeStorage') +
     cuerpo('_cpBorrarFactura') + cuerpo('borrarCompra') +
     ';return borrarCompra;');

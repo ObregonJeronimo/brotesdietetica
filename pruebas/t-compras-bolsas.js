@@ -649,6 +649,10 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       !w.escrituras.some(x => x.id === 'g3' && (x.d.costo !== undefined || x.d.precio !== undefined)) && !!eaw && eaw.d.costo === 15000 &&
       eaw.d.precio === 28500 && eaw.d.precioMayorista === 19500 && pw('g3').costo === 3500 && pw('g3').precio === 5250 && pw('azu').precio === 28500 &&
       w.guardadas.length === 1 && w.guardadas[0].total === 43500, JSON.stringify(w.escrituras.map(x => [x.id, x.d.costo, x.d.precio])));
+    const cw = w.escrituras.find(x => x.col === 'compras');
+    t('  y la compra anota solo lo que se actualizó, con cómo estaba: el azúcar (02/10)', !!cw && JSON.stringify(cw.d.costosCambiados) === JSON.stringify([
+      { id: 'azu', nombre: 'Azucar De Coco', antes: { costo: 13400, precio: 25460, precioMayorista: 17420, costoActualizadoEn: null },
+        despues: { costo: 15000, precio: 28500, precioMayorista: 19500 } }]), JSON.stringify(cw && cw.d));
     const v = armar({ productos: prods() });
     cargar(v);
     v.ctx.compraCampo(1, 'costoUnitario', '15000');
@@ -658,6 +662,10 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
     t('  "Actualizar igual" guarda los dos: la bolsa a $4.500 el kilo ($6.750 y $5.400) y el azúcar a $15.000 ($28.500 y $19.500)',
       !!e3 && e3.d.costo === 4500 && e3.d.precio === 6750 && e3.d.precioMayorista === 5400 &&
       !!ea && ea.d.costo === 15000 && ea.d.precio === 28500 && ea.d.precioMayorista === 19500, JSON.stringify([e3 && e3.d, ea && ea.d]));
+    const cv = v.escrituras.find(x => x.col === 'compras');
+    t('  y la compra anota los dos, con cómo estaban: la bolsa a $3.500 el kilo y el azúcar a $13.400 (02/10)', !!cv &&
+      cv.d.costosCambiados.map(x => x.id + ':' + x.antes.costo + '/' + x.antes.precio + '>' + x.despues.costo + '/' + x.despues.precio).join() ===
+      'g3:3500/5250>4500/6750,azu:13400/25460>15000/28500', JSON.stringify(cv && cv.d));
     const z = armar({ productos: prods() });
     z.ctx.openCompraModal('L1');
     z.ctx.compraAgregar('g3');
@@ -784,6 +792,40 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       !w.preguntas.some(p => /Actualizar/.test(p.titulo || '')) &&
       !w.escrituras.some(x => ['nm', 'tq', 'cc'].indexOf(x.id) >= 0 && x.d && x.d.costo !== undefined),
       w.preguntas.map(p => p.titulo).join(' > '));
+  }
+
+  {
+    /* 02/10: con "Actualizar", la compra anota cómo estaba cada producto antes y cómo quedó, en el
+       mismo lote que los costos, para volverlo atrás si se borra (borrarCompra). */
+    const prods = () => [
+      P('ct', { nombre: 'Barrita', costo: 1100, porcentaje: 50, precio: 1650, porcentajeMayorista: 30, precioMayorista: 1450, codigo: 'CT',
+        costoActualizadoEn: 'fecha-vieja' }),
+      P('sp', { nombre: 'Chalitas Keto', costo: 0, porcentaje: 0, precio: 1800, precioMayorista: 0, codigo: 'SP' }),
+      P('qq', { nombre: 'Quinoa', costo: 2000, porcentaje: 50, precio: 3000, precioMayorista: 0, codigo: 'QQ' }),
+    ];
+    const cargar = w => {
+      w.ctx.openCompraModal('L1');
+      ['ct', 'sp', 'qq'].forEach(id => w.ctx.compraAgregar(id));
+      w.ctx.compraCampo(0, 'cantidad', '2'); w.ctx.compraCampo(0, 'costoUnitario', '1154.4');
+      w.ctx.compraCampo(1, 'cantidad', '2'); w.ctx.compraCampo(1, 'costoUnitario', '1000');
+      w.ctx.compraCampo(2, 'cantidad', '1'); w.ctx.compraCampo(2, 'costoUnitario', '2000');
+    };
+    const w = armar({ productos: prods() });
+    cargar(w);
+    await w.ctx.guardarCompra();
+    const ec = w.escrituras.find(e => e.col === 'compras' && e.id === 'nueva');
+    t('la compra se guarda marcada: anota los costos que cambia (02/10)', w.guardadas.length === 1 && w.guardadas[0].anotaCostos === true);
+    t('  con "Actualizar", en el mismo lote anota cómo estaba cada producto y cómo quedó (con la fecha del costo de antes)',
+      !!ec && JSON.stringify(ec.d) === JSON.stringify({ costosCambiados: [
+        { id: 'ct', nombre: 'Barrita', antes: { costo: 1100, precio: 1650, precioMayorista: 1450, costoActualizadoEn: 'fecha-vieja' },
+          despues: { costo: 1154.4, precio: 1732, precioMayorista: 1550 } },
+        { id: 'sp', nombre: 'Chalitas Keto', antes: { costo: 0, precio: 1800, precioMayorista: 0, costoActualizadoEn: null },
+          despues: { costo: 1000, precio: 1800, precioMayorista: 0 } }] }), JSON.stringify(ec && ec.d));
+    const v = armar({ productos: prods(), respuestas: { '¿Actualizar los costos?': false } });
+    cargar(v);
+    await v.ctx.guardarCompra();
+    t('  con "Dejar como estaba" no se anota nada (al borrarla no hay costos que volver)',
+      v.guardadas.length === 1 && v.guardadas[0].anotaCostos === true && !v.escrituras.some(e => e.col === 'compras'));
   }
 
   console.log('\n-- la bolsa que dice el nombre (revisión del 01/10) --');

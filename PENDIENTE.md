@@ -2412,6 +2412,41 @@ anteriores). Solo cambia el panel. Vercel sirve los mismos archivos que el repo;
 ingreso del panel cargan sin errores (sin iniciar sesión), ya con el código nuevo. La clienta lo ve al
 recargar (F5); al vender alguno de los 6 que están al costo le va a salir el aviso. Sandbox cerrado.
 
+### AL) Borrar una compra vuelve los costos que cambió · **HECHO, SIN SUBIR** (02/10/2026)
+
+Pedido de Thiago: al borrar una compra el stock volvía, pero si con "Actualizar" se habían cambiado
+costos, quedaban los nuevos. Ahora:
+- Con "Actualizar", la compra anota cómo estaba cada producto antes (costo, precio, mayorista y fecha del
+  costo) y cómo quedó (`costosCambiados`, en el mismo lote que los costos). Las compras nuevas llevan
+  `anotaCostos: true`.
+- Al borrarla (`borrarCompra`), en la misma transacción que devuelve el stock, cada producto vuelve a como
+  estaba, pero solo si sigue como lo dejó la compra: si después le cambiaron el costo o el precio (otra
+  compra, la ficha, la ventana de costos), lo de ahora es lo que vale y no se toca. Cuenta lo que dice
+  la base, no lo que tiene el panel. La fecha del costo vuelve a la de antes (si no tenía, se saca): la
+  función de la nube ve que la escritura la trae y no la pisa.
+- El aviso de borrar dice cuáles vuelven, de cuánto a cuánto, y cuáles no. Al terminar: "Los costos
+  volvieron a como estaban", y aparte cuáles no se tocaron. Queda en el Historial.
+- Las compras de antes del 02/10 no anotaban nada: el aviso dice que esos costos no vuelven atrás.
+- No vuelve el tamaño de la bolsa que se anotó al cargar la compra (`bolsaGramos`): es un dato del producto,
+  no de la compra.
+- Si dos compras cambiaron el mismo producto y se borra la primera, ese costo no se toca (lo cambió la
+  segunda); si después se borra la segunda, vuelve al costo de la primera.
+
+Probado en el sandbox con clics de verdad, en EL KIOSQUITO: un producto por unidad (Aceite De Oliva), uno
+por peso sin otras bolsas (Maní; la compra preguntó la bolsa), una bolsa de un grupo (Nuez Mariposa x 3
+kg) y la Castaña:
+- compra #8 por $80.700 con "Actualizar": los cuatro con su costo, precio y mayorista nuevos, y la compra
+  anotó cómo estaban, con su fecha;
+- después, la Castaña cambió de costo en su ficha ($7.200);
+- al borrar la compra, el aviso listó los tres que vuelven, con sus números, y la Castaña "no se toca".
+  Quedaron: Aceite $15.600, $29.640 y $20.280; Maní $7.100, $13.490 y $9.230 el kilo; la bolsa de 3 kg
+  $8.500, $13.600 y $11.050 el kilo, cada uno con su fecha de antes; la Castaña, en $7.200. El stock de
+  los cuatro bajó lo que había sumado la compra; el panel quedó al día sin recargar, y el Historial lo
+  anotó;
+- una compra vieja (#4): el aviso dice que esos costos no vuelven; se canceló.
+Pruebas: 23 más (18 en una suite nueva, `t-borrar-compra-costos.js`); con el código de antes fallan, y 8
+cambios a propósito del código quedan atrapados. Total: 4063 en 91 suites.
+
 ---
 
 ## 2. Decisiones tuyas

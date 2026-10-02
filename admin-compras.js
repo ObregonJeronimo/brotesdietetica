@@ -916,6 +916,9 @@ async function guardarCompra() {
       items: items, total: total,
       facturaUrl: facturaUrl, facturaNombre: facturaNombre,
       sumoStock: sumaStock,
+      /* Si con "Actualizar" cambian costos, la compra anota cómo estaban (costosCambiados) para
+         volverlos atrás si se borra (pedido del dueño, 02/10). Las de antes no lo tienen. */
+      anotaCostos: true,
       /* Deuda. `pagado` es el monto, no un si/no: a un proveedor se le paga en
          partes. `saldada` existe solo para poder filtrar -Firestore no compara dos
          campos del mismo documento- y se escribe siempre junto con `pagado`. */
@@ -957,7 +960,7 @@ async function guardarCompra() {
 
     /* Recién ahora se ofrece mover los costos: la compra ya está guardada, así
        que decir que no acá no pierde nada. */
-    await ofrecerActualizarCostos(conCantidad);
+    await ofrecerActualizarCostos(conCantidad, ref.id);
 
     /* Si trajo productos depurados, entraron de nuevo al local. Sin restaurarlos
        su stock queda sumado pero escondido de todas las listas. */
@@ -1014,7 +1017,7 @@ async function _cpAnotarBolsas(items) {
    proveedor aumentaba se seguía vendiendo al precio viejo sin que nada avisara (en la prueba, el
    mayorista quedó igual al costo); y al abrir después la ficha, el precio saltaba al guardar. El
    aviso muestra los precios nuevos, con los de antes. */
-async function ofrecerActualizarCostos(items) {
+async function ofrecerActualizarCostos(items, compraId) {
   const cambian = items.filter(i => {
     const p = (allProducts || []).find(x => x.id === i.id);
     return p && Math.round(Number(p.costo || 0)) !== Math.round(Number(i.costoUnitario || 0));
@@ -1086,6 +1089,21 @@ async function ofrecerActualizarCostos(items) {
     const lote = db.batch();
     const campos = i => ({ costo: Number(i.costoUnitario), precio: nuevos.get(i.id).precio, precioMayorista: nuevos.get(i.id).precioMayorista });
     aActualizar.forEach(i => lote.update(db.collection('productos').doc(i.id), Object.assign(campos(i), { costoActualizadoEn: hora })));
+    /* En la compra, cómo estaba cada producto antes y cómo quedó: si se borra la compra, vuelve a
+       como estaba (borrarCompra; pedido del dueño, 02/10). En el mismo lote: o se anota todo o nada. */
+    if (compraId) {
+      lote.update(db.collection('compras').doc(compraId), {
+        costosCambiados: aActualizar.map(i => {
+          const p = (allProducts || []).find(x => x.id === i.id) || {};
+          return {
+            id: i.id, nombre: i.nombre,
+            antes: { costo: Number(p.costo || 0), precio: Number(p.precio || 0), precioMayorista: Number(p.precioMayorista || 0),
+              costoActualizadoEn: p.costoActualizadoEn || null },
+            despues: campos(i),
+          };
+        }),
+      });
+    }
     await lote.commit();
     aActualizar.forEach(i => {
       const p = (allProducts || []).find(x => x.id === i.id);
@@ -1269,10 +1287,52 @@ function _cpAvisoPagos(c) {
     '. Ese registro se borra con la compra y no queda en ningún lado.';
 }
 
+/* LOS COSTOS QUE CAMBIÓ UNA COMPRA, AL BORRARLA (pedido del dueño, 02/10). Con "Actualizar", la
+   compra anota cómo estaba cada producto antes (costosCambiados, ofrecerActualizarCostos). Al
+   borrarla vuelve a como estaba, pero solo si el producto sigue como lo dejó la compra: si después
+   le cambiaron el costo o el precio (otra compra, la ficha, la ventana de costos), lo de ahora es lo
+   que vale y no se toca. Las compras de antes del 02/10 no lo anotaban. */
+function _cpCostosCambiados(c) {
+  return ((c && c.costosCambiados) || []).filter(x => x && x.id && x.antes && x.despues);
+}
+function _cpSigueComoLaDejo(p, despues) {
+  return !!p && !!despues && Number(p.costo || 0) === Number(despues.costo || 0) &&
+    Number(p.precio || 0) === Number(despues.precio || 0) && Number(p.precioMayorista || 0) === Number(despues.precioMayorista || 0);
+}
+/* Lo que se escribe para volver atrás: el costo, el precio, el mayorista y la fecha del costo de
+   antes. Sin fecha, se saca: la función de la nube ve que la escritura la cambia y no pone la de hoy. */
+function _cpCostoDeAntes(antes) {
+  return {
+    costo: Number(antes.costo || 0), precio: Number(antes.precio || 0), precioMayorista: Number(antes.precioMayorista || 0),
+    costoActualizadoEn: antes.costoActualizadoEn || firebase.firestore.FieldValue.delete(),
+  };
+}
+/* El aviso de borrar: qué costos vuelven y cuáles no, con lo que se ve en el panel (al borrar se
+   mira la base). */
+function _cpAvisoCostos(c) {
+  const lista = _cpCostosCambiados(c);
+  if (!lista.length) {
+    return c && c.anotaCostos ? ''
+      : '\n\nSi con esta compra actualizaste costos, esos no vuelven atrás: la compra es de antes de que el sistema anotara cómo estaban.';
+  }
+  const prods = (typeof allProducts !== 'undefined' && allProducts) || [];
+  const may = n => (Number(n) > 0 ? _cpPesos(n) : 'ninguno');
+  return '\n\nLos costos que se actualizaron con esta compra vuelven a como estaban:\n' + lista.map(x => {
+    const p = prods.find(y => y && y.id === x.id);
+    if (!_cpSigueComoLaDejo(p, x.despues)) return '- ' + x.nombre + ': no se toca, porque su costo o su precio cambiaron después de esta compra';
+    const kg = _cpEsPeso(p) ? ' el kilo' : '';
+    return '- ' + x.nombre + ': el costo vuelve de ' + _cpPesos(x.despues.costo) + ' a ' + _cpPesos(x.antes.costo) + kg +
+      ' y el precio, de ' + _cpPesos(x.despues.precio) + ' a ' + _cpPesos(x.antes.precio) + kg +
+      (Number(x.despues.precioMayorista || 0) !== Number(x.antes.precioMayorista || 0)
+        ? ' (el mayorista, de ' + may(x.despues.precioMayorista) + ' a ' + may(x.antes.precioMayorista) + ')' : '');
+  }).join('\n');
+}
+
 async function borrarCompra(docId) {
   const c = (_comprasCache && _comprasCache.lista.find(x => x.docId === docId));
   if (!c) return;
   const devuelve = c.sumoStock !== false;
+  const cambiados = _cpCostosCambiados(c);
   if (!await pedirConfirmacion(
       'Compra #' + String(c.numero || 0).padStart(4, '0') + ' de ' + esc(c.proveedorNombre || '') +
       ' por ' + _cpPesos(c.total) + '.\n\n' +
@@ -1280,14 +1340,17 @@ async function borrarCompra(docId) {
         ? 'Como esta compra sumó stock, se le va a RESTAR a esos productos lo que había sumado.'
         : 'Esta compra no había sumado stock, así que el inventario no se toca.') +
       _cpAvisoVendidos(c, devuelve) +
+      /* Los costos que cambió esta compra vuelven a como estaban (02/10). */
+      _cpAvisoCostos(c) +
       /* Los pagos viven adentro de la compra: borrarla borra tambien el registro de
          plata que se le pago al proveedor de verdad. Eso no puede pasar callado. */
       _cpAvisoPagos(c) +
       '\n\nEsto no se puede deshacer.',
       { titulo: 'Eliminar compra', peligro: true })) return;
   try {
-    let _tocados = [];
-    if (devuelve && (c.items || []).length) {
+    let _tocados = [], _costos = [];
+    const items = devuelve ? (c.items || []).filter(i => i.id) : [];
+    if (items.length || cambiados.length) {
       /* Antes esto era un batch con increment(-cantidad), a ciegas. Si algo de lo
          que entró con la compra YA SE VENDIÓ, restar todo lo comprado deja el
          stock en negativo: pasó con el Hornito de Yeso, entraron 2, se vendió 1,
@@ -1299,27 +1362,52 @@ async function borrarCompra(docId) {
 
          Ahora se lee el stock real y se baja hasta 0 como piso. Va en una
          transacción -todas las lecturas primero, después las escrituras- para
-         que una venta que entre en el medio no se pierda. */
-      const items = (c.items || []).filter(i => i.id);
-      _tocados = await db.runTransaction(async tx => {
-        const refs = items.map(i => db.collection('productos').doc(i.id));
+         que una venta que entre en el medio no se pierda.
+
+         Los costos van en la misma transacción (02/10): vuelve todo o nada, y un producto que
+         está en las dos cosas se escribe una sola vez. */
+      const ids = [...new Set(items.map(i => i.id).concat(cambiados.map(x => x.id)))];
+      const res = await db.runTransaction(async tx => {
+        const refs = ids.map(id => db.collection('productos').doc(id));
         const snaps = [];
         for (const r of refs) snaps.push(await tx.get(r));
-        const res = [];
+        const stock = [], costos = [];
         snaps.forEach((sn, k) => {
           if (!sn.exists) return;
-          const antes = Number(sn.data().stock || 0);
-          const quita = Number(items[k].cantidad || 0);
-          const despues = _cpStockTrasDevolver(antes, quita);
-          tx.update(refs[k], { stock: despues });
-          res.push({ id: items[k].id, nombre: items[k].nombre, antes: antes,
-                     quita: quita, despues: despues, faltaba: antes - quita < 0 });
+          const d = sn.data() || {};
+          const upd = {};
+          const suyos = items.filter(i => i.id === ids[k]);
+          if (suyos.length) {
+            const antes = Number(d.stock || 0);
+            const quita = suyos.reduce((s, i) => s + Number(i.cantidad || 0), 0);
+            const despues = _cpStockTrasDevolver(antes, quita);
+            upd.stock = despues;
+            stock.push({ id: ids[k], nombre: suyos[0].nombre, antes: antes,
+                         quita: quita, despues: despues, faltaba: antes - quita < 0 });
+          }
+          const cc = cambiados.find(x => x.id === ids[k]);
+          if (cc) {
+            const vuelve = _cpSigueComoLaDejo(d, cc.despues);
+            if (vuelve) Object.assign(upd, _cpCostoDeAntes(cc.antes));
+            costos.push({ id: ids[k], nombre: cc.nombre, vuelve: vuelve, antes: cc.antes });
+          }
+          if (Object.keys(upd).length) tx.update(refs[k], upd);
         });
-        return res;
+        return { stock: stock, costos: costos };
       });
+      _tocados = res.stock;
+      _costos = res.costos;
       _tocados.forEach(x => {
         const p = (allProducts || []).find(y => y.id === x.id);
         if (p) p.stock = x.despues;
+      });
+      _costos.filter(x => x.vuelve).forEach(x => {
+        const p = (allProducts || []).find(y => y.id === x.id);
+        if (!p) return;
+        Object.assign(p, { costo: Number(x.antes.costo || 0), precio: Number(x.antes.precio || 0),
+          precioMayorista: Number(x.antes.precioMayorista || 0) });
+        if (x.antes.costoActualizadoEn) p.costoActualizadoEn = x.antes.costoActualizadoEn;
+        else delete p.costoActualizadoEn;
       });
     }
     await db.collection('compras').doc(docId).delete();
@@ -1329,17 +1417,26 @@ async function borrarCompra(docId) {
        peor caso es un archivo huerfano, que es exactamente lo que pasaba
        siempre hasta ahora. */
     await _cpBorrarFactura(c.facturaUrl);
+    const _vuelven = _costos.filter(x => x.vuelve), _quedan = _costos.filter(x => !x.vuelve);
     if (typeof logAction === 'function') {
       logAction('eliminar', 'Compra #' + String(c.numero || 0).padStart(4, '0') + ' eliminada',
-        (c.proveedorNombre || '') + ' | ' + _cpPesos(c.total) + (devuelve ? ' | stock devuelto' : ' | sin stock que devolver'));
+        (c.proveedorNombre || '') + ' | ' + _cpPesos(c.total) + (devuelve ? ' | stock devuelto' : ' | sin stock que devolver') +
+        (_vuelven.length ? ' | costos de antes: ' + _vuelven.map(x => x.nombre + ' ' + _cpPesos(x.antes.costo)).join(', ') : '') +
+        (_quedan.length ? ' | costos que no se tocaron (cambiaron después): ' + _quedan.map(x => x.nombre).join(', ') : ''));
     }
     const _clavados = _tocados.filter(x => x.faltaba);
     if (_clavados.length) {
       showAdminToast('Compra eliminada. De ' + _clavados.length + ' producto' +
         (_clavados.length === 1 ? '' : 's') + ' ya se había vendido parte: su stock quedó en 0, no en negativo.', 'info');
     } else {
-      showAdminToast('Compra eliminada', 'success');
+      showAdminToast('Compra eliminada' + (_vuelven.length ? '. Los costos volvieron a como estaban.' : ''), 'success');
     }
+    if (_quedan.length) {
+      showAdminToast(_quedan.length === 1
+        ? 'El costo de ' + _quedan[0].nombre + ' no se tocó: cambió después de esta compra.'
+        : 'Los costos de ' + _quedan.map(x => x.nombre).join(', ') + ' no se tocaron: cambiaron después de esta compra.', 'info');
+    }
+    if (_vuelven.length && typeof _reRenderProductos === 'function') _reRenderProductos();
     closeCompraVerModal();
     if (typeof _refrescarAlertas === 'function') _refrescarAlertas(true);
     if (typeof loadProveedores === 'function') loadProveedores();

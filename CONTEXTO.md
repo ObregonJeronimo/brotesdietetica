@@ -457,6 +457,9 @@ producción (de los "gramajes" viejos).
   la ventana de costos avisan antes de guardar un precio igual al costo (sin % de ganancia) o en $0; al
   vender en mostrador, un aviso con el texto del dueño y "Cargar el % de ganancia" (una ventanita encima
   de la venta, que toma el precio nuevo) o "Vender igual". Detalle en `PENDIENTE.md` §1-bis AK.
+- **Borrar una compra vuelve los costos que cambió (02/10, sin subir)**: con "Actualizar", la compra anota
+  cómo estaba cada producto; al borrarla vuelve a como estaba (costo, precio, mayorista y fecha), salvo que
+  después lo hayan cambiado. Las compras de antes no lo anotaban. Detalle en `PENDIENTE.md` §1-bis AL.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
