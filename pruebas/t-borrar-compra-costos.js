@@ -13,6 +13,9 @@
  * puede, las de la lista del panel.
  *
  * Las compras de antes del 02/10 no anotaban nada: el aviso lo dice y no se toca ningún costo.
+ *
+ * Revisión del 02/10: la compra se borra en la misma transacción (si ya no está, no se toca nada), los
+ * costos vuelven a lo que dice la compra en la base, y un doble clic en "Eliminar" abre un solo aviso.
  */
 const fs = require('fs');
 const path = require('path');
@@ -30,6 +33,18 @@ function cuerpo(n) {
   }
   return src.slice(i, k + 1);
 }
+
+/* El freno de los clics: lo que envuelve a borrarCompra al final de admin-compras.js. */
+const envoltorio = (() => {
+  const m = src.indexOf('Borrar una compra, de a una');
+  if (m < 0) throw new Error('no encontre el freno de los clics');
+  const i = src.indexOf('(function () {', m);
+  return src.slice(i, src.indexOf('})();', i) + 5);
+})();
+
+/* Una copia, como la que da la base, con las mismas fechas (para poder compararlas). */
+const copiaCompra = x => Object.assign({}, x, x.costosCambiados ? { costosCambiados: x.costosCambiados.map(e =>
+  Object.assign({}, e, { antes: e.antes && Object.assign({}, e.antes), despues: e.despues && Object.assign({}, e.despues) })) } : {});
 
 let ok = 0, fail = 0;
 const t = (d, c, extra) => {
@@ -84,10 +99,15 @@ async function correr(opts) {
   if (o.vieja) { delete compra.costosCambiados; delete compra.anotaCostos; }
   const memoria = o.memoria || Object.keys(base).map(id => Object.assign({ id }, base[id]));
   const pasos = [], preguntas = [], avisos = [], historial = [], escrituras = [], consultas = [], escrCompras = [];
+  /* Las compras como están en la base: la que se borra, las más nuevas y lo que cambie cada prueba. */
+  const enLaBase = {};
+  [compra].concat(o.posteriores || [], o.enLista || []).forEach(x => { enLaBase[x.docId] = x; });
+  Object.assign(enLaBase, o.comprasEnLaBase || {});
+  if (o.yaBorrada) delete enLaBase[compra.docId];
   const fakes = {
     _comprasCache: { dias: 90, porProveedor: {}, lista: [compra].concat(o.enLista || []) },
     allProducts: memoria,
-    pedirConfirmacion: async (m, op) => { preguntas.push({ m, op }); return !o.cancelar; },
+    pedirConfirmacion: async (m, op) => { preguntas.push({ m, op }); return o.respuestas ? o.respuestas[preguntas.length - 1] : !o.cancelar; },
     esc: x => String(x == null ? '' : x),
     showAdminToast: (m, tipo) => avisos.push(tipo + ': ' + m),
     logAction: (a, b, c) => historial.push(b + ' | ' + c),
@@ -98,7 +118,7 @@ async function correr(opts) {
     firebase: { firestore: { FieldValue: { delete: () => '__borrar__' } } },
     db: {
       collection: col => ({
-        doc: id => ({ col, id, delete: async () => pasos.push('borro ' + col + '/' + id) }),
+        doc: id => ({ col, id, delete: async () => pasos.push('borro aparte ' + col + '/' + id) }),
         where: (campo, op, valor) => ({
           get: async () => {
             consultas.push(col + ':' + campo + op + valor);
@@ -110,19 +130,18 @@ async function correr(opts) {
       }),
       runTransaction: async fn => {
         const pend = [];
-        const compras = {};
-        (o.posteriores || []).concat(o.enLista || []).forEach(x => { compras[x.docId] = x; });
-        Object.assign(compras, o.comprasEnLaBase || {});
         const tx = {
           get: async ref => (ref.col === 'compras'
-            ? { exists: !!compras[ref.id], data: () => JSON.parse(JSON.stringify(compras[ref.id])) }
+            ? { exists: !!enLaBase[ref.id], data: () => copiaCompra(enLaBase[ref.id]) }
             : { exists: !!base[ref.id], data: () => Object.assign({}, base[ref.id]) }),
           update: (ref, d) => pend.push({ col: ref.col, id: ref.id, d }),
+          delete: ref => pend.push({ col: ref.col, id: ref.id, borrar: true }),
         };
         const r = await fn(tx);
         if (o.fallaTx) throw new Error('sin conexion');
         pend.forEach(w => {
-          if (w.col === 'compras') { escrCompras.push(w); return; }
+          if (w.borrar) { delete enLaBase[w.id]; pasos.push('borro ' + w.col + '/' + w.id); return; }
+          if (w.col === 'compras') { escrCompras.push(w); enLaBase[w.id] = Object.assign({}, enLaBase[w.id], w.d); return; }
           Object.keys(w.d).forEach(k => { if (w.d[k] === '__borrar__') delete base[w.id][k]; else base[w.id][k] = w.d[k]; });
           escrituras.push(w);
         });
@@ -142,9 +161,15 @@ async function correr(opts) {
     cuerpo('_cpComprasPosteriores') + cuerpo('_cpQuienLoCambio') + cuerpo('_cpSucesor') + cuerpo('_cpCompraTxt') + cuerpo('_cpAvisoCostos') +
     cuerpo('esArchivoDeStorage') + cuerpo('borrarArchivoDeStorage') + cuerpo('_cpBorrarFactura') + cuerpo('borrarCompra') +
     ';return borrarCompra;');
-  const borrar = armado(...nombres.map(n => fakes[n]));
-  try { await borrar('c9'); } catch (e) { pasos.push('ESCAPO:' + e.message); }
-  return { base, memoria, pasos, preguntas, avisos, historial, escrituras, consultas, escrCompras, compra };
+  let borrar = armado(...nombres.map(n => fakes[n]));
+  /* Con el freno de los clics de admin-compras.js, como queda en el panel. */
+  if (o.deAUna) { const win = { borrarCompra: borrar }; new Function('window', envoltorio)(win); borrar = win.borrarCompra; }
+  try {
+    if (o.dobleClic) await Promise.all([borrar('c9'), borrar('c9')]);
+    else await borrar('c9');
+    if (o.otraVez) await borrar('c9');
+  } catch (e) { pasos.push('ESCAPO:' + e.message); }
+  return { base, memoria, pasos, preguntas, avisos, historial, escrituras, consultas, escrCompras, compra, enLaBase };
 }
 
 const VUELVEN = '\n\nEstos costos vuelven a como estaban antes de esta compra:' +
@@ -260,6 +285,56 @@ const lineaMani = r => (aviso(r).split('\n').find(l => l.indexOf('- Maní:') ===
   {
     const r = await correr({ posteriores: [compraDelMani()], fallaTx: true });
     t('si la transacción falla, tampoco se toca la compra que siguió', r.escrCompras.length === 0 && r.pasos.indexOf('borro compras/c9') < 0);
+  }
+  console.log('\n-- revisión del 02/10: la compra se borra en la misma transacción, y de a una --');
+  {
+    const r = await correr();
+    t('la compra se borra en la misma transacción que el stock y los costos, no aparte', r.pasos.indexOf('borro compras/c9') >= 0 &&
+      !r.pasos.some(p => p.indexOf('borro aparte') === 0) && !r.enLaBase.c9, r.pasos.join(' > '));
+  }
+  {
+    const r = await correr({ yaBorrada: true });
+    t('si la compra ya no está en la base (la borró otra pantalla), no se toca nada y lo dice',
+      r.escrituras.length === 0 && r.escrCompras.length === 0 && r.base.ace.stock === 37 && r.base.ace.costo === 16000 &&
+      r.avisos.join() === 'info: Esta compra ya se había eliminado.' && r.historial.length === 0 &&
+      r.pasos.indexOf('cerro') >= 0 && r.pasos.indexOf('recargo') >= 0 && !r.pasos.some(p => p.indexOf('borro') === 0 || p.indexOf('ESCAPO') === 0),
+      JSON.stringify(r.avisos) + ' ' + r.pasos.join(' > '));
+  }
+  {
+    const r = await correr({ otraVez: true });
+    t('si se vuelve a borrar la misma, la segunda vez ve que ya no está: el stock baja una sola vez',
+      r.base.ace.stock === 35 && r.base.n3.stock === 21000 && r.base.mn.stock === 4000 && r.preguntas.length === 2 &&
+      r.avisos.indexOf('info: Esta compra ya se había eliminado.') >= 0 && r.historial.length === 1, JSON.stringify(r.avisos));
+  }
+  {
+    /* Otra pantalla borró una compra anterior y esta se quedó con su "antes": la lista del panel no lo sabe. */
+    const fresca = compraNueva();
+    fresca.costosCambiados[0].antes = { costo: 15000, precio: 28500, precioMayorista: 19500, costoActualizadoEn: T2 };
+    const r = await correr({ comprasEnLaBase: { c9: fresca } });
+    t('los costos vuelven a lo que dice la compra en la base, no la lista del panel',
+      r.base.ace.costo === 15000 && r.base.ace.precio === 28500 && r.base.ace.precioMayorista === 19500 && r.base.ace.costoActualizadoEn === T2 &&
+      r.memoria.find(p => p.id === 'ace').costo === 15000 && r.historial[0].indexOf('Aceite De Oliva $15.000') > 0, JSON.stringify(r.base.ace));
+  }
+  {
+    const r = await correr({ deAUna: true, dobleClic: true });
+    t('un doble clic en "Eliminar" abre un solo aviso y borra una sola vez', r.preguntas.length === 1 && r.base.ace.stock === 35 &&
+      r.escrituras.length === 4 && r.avisos.filter(a => a.indexOf('success:') === 0).length === 1, r.preguntas.length + ' ' + JSON.stringify(r.avisos));
+  }
+  {
+    const r = await correr({ deAUna: true, respuestas: [false, true], otraVez: true });
+    t('  terminado (aunque se haya cancelado), se puede volver a borrar', r.preguntas.length === 2 && r.base.ace.stock === 35, r.preguntas.length);
+  }
+  {
+    const r = await correr({ deAUna: true, fallaTx: true, otraVez: true });
+    t('  y si falló, también', r.preguntas.length === 2 && r.avisos.filter(a => a.indexOf('error:') === 0).length === 2, JSON.stringify(r.avisos));
+  }
+  {
+    const base = baseNueva();
+    delete base.cas;
+    const r = await correr({ base });
+    t('un producto que se borró después de la compra: el aviso dice que ya no está, no que le cambiaron el costo',
+      aviso(r).indexOf('Se queda con el costo que tiene ahora: $7.300 el kilo.\n- Castaña: ya no está entre los productos.\n\nEsto no se puede deshacer.') > 0,
+      aviso(r));
   }
   console.log('\n-- los otros casos --');
   {

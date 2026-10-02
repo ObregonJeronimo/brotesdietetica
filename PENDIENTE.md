@@ -2462,6 +2462,23 @@ Pruebas: 41 más (36 en una suite nueva, `t-borrar-compra-costos.js`); con el c�
 cambios a propósito del código quedan atrapados (uno más es un control repetido, que no cambia nada).
 Total: 4081 en 91 suites.
 
+Revisión antes de subir (Thiago: "revisalo y fijate que todo esté OK antes de pushear"):
+- Doble clic en "Eliminar": antes del aviso ahora se leen las compras más nuevas, y en ese rato el botón
+  seguía andando: un doble clic abría dos avisos y, aceptando los dos, el stock bajaba dos veces.
+  Arreglado como en "Registrar venta": mientras se está borrando una compra, otro clic no hace nada.
+- La compra se borra en la misma transacción que el stock y los costos. Antes se borraba después: si eso
+  fallaba, el stock y los costos ya habían vuelto con la compra todavía ahí, y al reintentar el stock
+  bajaba otra vez. Si la compra ya no está (la borró otra pantalla), no se toca nada y avisa "Esta compra
+  ya se había eliminado.". Los costos vuelven a lo que dice la compra en la base, no la lista del panel.
+- Un producto que se borró después de la compra: el aviso dice "ya no está entre los productos" (decía
+  que le habían cambiado el costo desde la ficha).
+Probado en el sandbox: doble clic en "Eliminar" de la #10, con la lectura demorada 1,5 s a propósito (como
+con internet lento): un solo aviso; al aceptar, la compra se borró, el Aceite volvió a $16.000, $30.400 y
+$20.800 con su fecha, el stock bajó una sola vez (de 36 a 35) y el Historial tiene una sola línea. Y con el
+aviso de la #4 abierto, la compra se borró por fuera: al aceptar salió "Esta compra ya se había
+eliminado." y el stock quedó igual.
+Pruebas: 8 más; 7 cambios a propósito del código quedan atrapados. Total: 4089 en 91 suites.
+
 ---
 
 ## 2. Decisiones tuyas

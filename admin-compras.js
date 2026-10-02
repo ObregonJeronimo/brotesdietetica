@@ -1363,11 +1363,13 @@ function _cpAvisoCostos(c, posteriores) {
           ? ' (el mayorista, de ' + may(x.despues.precioMayorista) + ' a ' + may(x.antes.precioMayorista) + ')' : ''));
       return;
     }
+    /* Un producto que se borró después de la compra: no hay costo que volver (revisión del 02/10). */
+    if (!p) { quedan.push('- ' + x.nombre + ': ya no está entre los productos.'); return; }
     const otra = _cpQuienLoCambio(posteriores, x.id);
     quedan.push('- ' + x.nombre + ': después de esta compra ' + (otra
       ? 'le cambió el costo ' + _cpCompraTxt(otra, c) + '.'
       : 'le cambiaron el costo o el precio desde la ficha, la ventana de costos o al importar costos.') +
-      (p ? ' Se queda con el costo que tiene ahora: ' + _cpPesos(p.costo) + kg + '.' : ''));
+      ' Se queda con el costo que tiene ahora: ' + _cpPesos(p.costo) + kg + '.');
   });
   return (vuelven.length ? '\n\nEstos costos vuelven a como estaban antes de esta compra:\n' + vuelven.join('\n') : '') +
     (quedan.length ? '\n\nEstos costos no vuelven atrás:\n' + quedan.join('\n') : '');
@@ -1397,6 +1399,7 @@ async function borrarCompra(docId) {
   try {
     let _tocados = [], _costos = [];
     const items = devuelve ? (c.items || []).filter(i => i.id) : [];
+    const compraRef = db.collection('compras').doc(docId);
     if (items.length || cambiados.length) {
       /* Antes esto era un batch con increment(-cantidad), a ciegas. Si algo de lo
          que entró con la compra YA SE VENDIÓ, restar todo lo comprado deja el
@@ -1412,11 +1415,19 @@ async function borrarCompra(docId) {
          que una venta que entre en el medio no se pierda.
 
          Los costos van en la misma transacción (02/10): vuelve todo o nada, y un producto que
-         está en las dos cosas se escribe una sola vez. */
+         está en las dos cosas se escribe una sola vez.
+
+         Y la compra se borra ahí también (revisión del 02/10). Antes se borraba después: si eso
+         fallaba, el stock y los costos ya habían vuelto con la compra todavía ahí, y al reintentar
+         el stock bajaba otra vez. Si la compra ya no está (la borró otra pantalla), no se toca
+         nada. Los costos vuelven a lo que dice la compra en la base, no la lista del panel. */
       const ids = [...new Set(items.map(i => i.id).concat(cambiados.map(x => x.id)))];
       /* Las compras que siguieron a esta, por si alguna se queda con el "antes" de esta (02/10). */
       const sucesores = [...new Set(cambiados.map(x => _cpSucesor(posteriores, x)).filter(Boolean).map(s => s.docId))];
       const res = await db.runTransaction(async tx => {
+        const sc = await tx.get(compraRef);
+        if (!sc.exists) return null;
+        const enLaBase = _cpCostosCambiados(sc.data());
         const refs = ids.map(id => db.collection('productos').doc(id));
         const snaps = [];
         for (const r of refs) snaps.push(await tx.get(r));
@@ -1438,7 +1449,7 @@ async function borrarCompra(docId) {
             stock.push({ id: ids[k], nombre: suyos[0].nombre, antes: antes,
                          quita: quita, despues: despues, faltaba: antes - quita < 0 });
           }
-          const cc = cambiados.find(x => x.id === ids[k]);
+          const cc = enLaBase.find(x => x.id === ids[k]);
           if (cc) {
             const vuelve = _cpSigueComoLaDejo(d, cc.despues);
             if (vuelve) Object.assign(upd, _cpCostoDeAntes(cc.antes));
@@ -1459,8 +1470,15 @@ async function borrarCompra(docId) {
           if (Object.keys(upd).length) tx.update(refs[k], upd);
         });
         Object.keys(pasan).forEach(id => tx.update(db.collection('compras').doc(id), { costosCambiados: pasan[id] }));
+        tx.delete(compraRef);
         return { stock: stock, costos: costos };
       });
+      if (!res) {
+        showAdminToast('Esta compra ya se había eliminado.', 'info');
+        closeCompraVerModal();
+        if (typeof loadProveedores === 'function') loadProveedores();
+        return;
+      }
       _tocados = res.stock;
       _costos = res.costos;
       _tocados.forEach(x => {
@@ -1475,8 +1493,9 @@ async function borrarCompra(docId) {
         if (x.antes.costoActualizadoEn) p.costoActualizadoEn = x.antes.costoActualizadoEn;
         else delete p.costoActualizadoEn;
       });
+    } else {
+      await compraRef.delete();
     }
-    await db.collection('compras').doc(docId).delete();
     /* DESPUES de borrar el documento, nunca antes. Si el borrado del documento
        fallara, no queremos haber destruido la factura de una compra que sigue
        existiendo y que quizas haya que reclamarle al proveedor. Al reves, el
@@ -1538,3 +1557,18 @@ window._cpLeerRemito = _cpLeerRemito;
 window.compraPagoCambio = compraPagoCambio;
 window._cpQuedaDebiendo = _cpQuedaDebiendo;
 window._cpAvisoPagos = _cpAvisoPagos;
+
+/* Borrar una compra, de a una (revisión del 02/10). Antes del aviso, borrarCompra lee las compras
+   más nuevas: un doble clic en "Eliminar" en ese rato abría dos avisos. Mientras una está en curso,
+   los otros clics no hacen nada. Como saveVenta (admin-variantes.js). */
+(function () {
+  if (typeof window === 'undefined') return;
+  const orig = window.borrarCompra;
+  if (typeof orig !== 'function') return;
+  let enCurso = false;
+  window.borrarCompra = async function () {
+    if (enCurso) return;
+    enCurso = true;
+    try { return await orig.apply(this, arguments); } finally { enCurso = false; }
+  };
+})();
