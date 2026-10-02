@@ -2412,7 +2412,7 @@ anteriores). Solo cambia el panel. Vercel sirve los mismos archivos que el repo;
 ingreso del panel cargan sin errores (sin iniciar sesión), ya con el código nuevo. La clienta lo ve al
 recargar (F5); al vender alguno de los 6 que están al costo le va a salir el aviso. Sandbox cerrado.
 
-### AL) Borrar una compra vuelve los costos que cambió · **HECHO, SIN SUBIR** (02/10/2026)
+### AL) Borrar una compra vuelve los costos que cambió · **SUBIDO A PRODUCCIÓN el 02/10/2026** (02/10/2026)
 
 Pedido de Thiago: al borrar una compra el stock volvía, pero si con "Actualizar" se habían cambiado
 costos, quedaban los nuevos. Ahora:
@@ -2478,6 +2478,13 @@ $20.800 con su fecha, el stock bajó una sola vez (de 36 a 35) y el Historial ti
 aviso de la #4 abierto, la compra se borró por fuera: al aceptar salió "Esta compra ya se había
 eliminado." y el stock quedó igual.
 Pruebas: 8 más; 7 cambios a propósito del código quedan atrapados. Total: 4089 en 91 suites.
+
+**AL, subido el 02/10/2026** (Thiago: "revisalo y fijate que todo esté OK antes de pushear"; lo que encontró
+la revisión se arregló y se probó antes de subir). Push a `main` de `0033c18` a `3230d04` (con el commit de
+docs de AK). Solo cambia el panel. Vercel sirve los mismos archivos que el repo; la tienda y la pantalla de
+ingreso del panel cargan sin errores (sin iniciar sesión), ya con el código nuevo. La clienta lo ve al
+recargar (F5). Las compras cargadas antes no anotaban los costos: al borrarlas solo vuelve el stock (el
+aviso lo dice).
 
 ---
 
