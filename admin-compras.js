@@ -97,12 +97,16 @@ function _cpVistaHtml(it) {
   const p = ((typeof allProducts !== 'undefined' && allProducts) || []).find(x => x && x.id === it.id);
   if (!p || typeof _costoVistaHtml !== 'function') return _cpPesos(it.costoUnitario) + (_cpEsPeso(it) ? ' el kilo' : '');
   const g = Number(it.gramosBolsa) || null;
-  /* El costo como se va a guardar, con centavos si los tiene: así da lo mismo que el aviso de
-     "Actualizar" (revisión del 01/10: con $1.154,40 mostraba $1.500 de mayorista y se guardaba
-     $1.550). Con el de siempre, redondeado, para que muestre los precios que ya tiene. */
-  const c = Number(it.costoUnitario || 0) === Number(p.costo || 0) ? Math.round(Number(p.costo || 0)) : Number(it.costoUnitario || 0);
-  /* Sin % de ganancia el precio no cambia al actualizar (ver ofrecerActualizarCostos): el que
-     tiene, con el mayorista que quedaría. */
+  const c = Number(it.costoUnitario || 0);
+  /* Si "Actualizar" no se va a ofrecer (el costo da igual al que tiene, redondeado: la misma cuenta
+     que ofrecerActualizarCostos), los precios que ya tiene. Con $9.000,40 contra $9.000 mostraba
+     $14.401 y $11.750, que no se guardaban, y en uno sin % de ganancia "Sin mayorista" aunque lo
+     tuviera (02/10, revisando después de subir). */
+  if (Math.round(c) === Math.round(Number(p.costo || 0))) return _costoVistaHtml(p, Math.round(Number(p.costo || 0)), g);
+  /* Si se va a ofrecer, lo que se guardaría, con centavos si los tiene: así da lo mismo que el aviso
+     (revisión del 01/10: con $1.154,40 mostraba $1.500 de mayorista y se guardaba $1.550). Sin % de
+     ganancia el precio no cambia (ver ofrecerActualizarCostos): el que tiene, con el mayorista que
+     quedaría. */
   if (!(Number(p.porcentaje) > 0) && typeof preciosDesdeCosto === 'function') {
     const cr = Math.round(c);
     return _costoVistaHtml(Object.assign({}, p, { costo: cr, precioMayorista: preciosDesdeCosto(p, c).precioMayorista }), cr, g);

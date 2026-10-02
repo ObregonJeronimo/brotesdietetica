@@ -757,6 +757,34 @@ const textoDe = h => h.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').repla
       !!es && es.d.costo === 1000 && es.d.precio === 1800 && es.d.precioMayorista === 0 && !!ec && ec.d.precio === 1732 && ec.d.precioMayorista === 1550,
       JSON.stringify([es && es.d, ec && ec.d]));
   }
+  {
+    /* 02/10, revisando después de subir: si "Actualizar" no se va a ofrecer (el costo da igual al
+       que tiene, redondeado), al lado del costo van los precios que ya tiene. Mostraba los de la
+       cuenta con centavos ($14.401 y $11.750 con $9.000,40), o "Sin mayorista" en uno sin % que sí
+       tiene, y nada de eso se guardaba. */
+    const prods = () => [
+      P('nm', { nombre: 'Nuez Mariposa', costo: 9000, porcentaje: 60, precio: 14500, porcentajeMayorista: 30, precioMayorista: 11700, codigo: 'NM' }),
+      P('tq', { nombre: 'Tortilla', costo: 22000, porcentaje: 0, precio: 22000, porcentajeMayorista: 0, precioMayorista: 22000, codigo: 'TQ' }),
+      P('cc', { nombre: 'Barrita', costo: 1154.4, porcentaje: 50, precio: 1732, porcentajeMayorista: 30, precioMayorista: 1550, codigo: 'CC' }),
+    ];
+    const w = armar({ productos: prods() });
+    w.ctx.openCompraModal('L1');
+    ['nm', 'tq', 'cc'].forEach(id => w.ctx.compraAgregar(id));
+    w.ctx.compraCampo(0, 'cantidad', '2'); w.ctx.compraCampo(0, 'costoUnitario', '9000.4');
+    w.ctx.compraCampo(1, 'cantidad', '2'); w.ctx.compraCampo(1, 'costoUnitario', '22000');
+    w.ctx.compraCampo(2, 'cantidad', '2'); w.ctx.compraCampo(2, 'costoUnitario', '1154');
+    t('el costo da igual redondeado ($9.000,40 contra $9.000): al lado, los precios que tiene ($14.500 y $11.700)', w.el('cpKilo0').innerHTML ===
+      '<span>Precio <b>$14.500</b></span><span class="vfe-may">Mayorista $11.700</span>', w.el('cpKilo0').innerHTML);
+    t('  sin % de ganancia y con el mismo costo: el mayorista que tiene, no "Sin mayorista"', w.el('cpKilo1').innerHTML ===
+      '<span>Precio <b>$22.000</b></span><span class="vfe-may">Mayorista $22.000</span>', w.el('cpKilo1').innerHTML);
+    t('  con centavos en el que tiene ($1.154,40) y $1.154 en la compra: los que tiene', w.el('cpKilo2').innerHTML ===
+      '<span>Precio <b>$1.732</b></span><span class="vfe-may">Mayorista $1.550</span>', w.el('cpKilo2').innerHTML);
+    await w.ctx.guardarCompra();
+    t('  y "Actualizar" no se ofrece: no cambia nada de los tres',
+      !w.preguntas.some(p => /Actualizar/.test(p.titulo || '')) &&
+      !w.escrituras.some(x => ['nm', 'tq', 'cc'].indexOf(x.id) >= 0 && x.d && x.d.costo !== undefined),
+      w.preguntas.map(p => p.titulo).join(' > '));
+  }
 
   console.log('\n-- la bolsa que dice el nombre (revisión del 01/10) --');
   {

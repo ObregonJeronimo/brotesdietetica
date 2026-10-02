@@ -2322,6 +2322,38 @@ mismos archivos que el repo; la tienda y la pantalla de ingreso del panel cargan
 iniciar sesión), ya con el código nuevo. La clienta lo ve al recargar (F5). Los 222 con el
 mayorista al costo siguen así hasta que se toquen (todos juntos, solo con OK).
 
+### AJ) Cargar compra: con el mismo costo, al lado van los precios que tiene · **HECHO, SIN SUBIR** (02/10/2026)
+
+Thiago preguntó si se había revisado todo antes de subir §AF a §AI. Repasando apareció un detalle del
+arreglo de los centavos (§AI): cuando el costo de la compra da igual al que tiene, redondeado,
+"Actualizar" no se ofrece y no cambia nada, pero al lado del costo podían salir precios que no se
+aplicaban:
+- con % de ganancia y un costo con centavos (solo en los productos por unidad: en las bolsas el kilo ya
+  se redondea al escribir): $16.000,40 contra $16.000 mostraba $30.401 y $20.850, y el producto seguía
+  en $30.400 y $20.800;
+- sin % de ganancia y con un mayorista cargado: decía "Sin mayorista" aunque lo tuviera.
+No se guardaba ni se cobraba nada mal: era solo lo que se veía. Ahora (`_cpVistaHtml`), si "Actualizar"
+no se va a ofrecer (la misma cuenta que `ofrecerActualizarCostos`), se ven los precios que tiene; si se va a
+ofrecer, lo que se guardaría, como en §AI. Thiago pidió revisarlo una vez (sin revisores aparte).
+
+Probado en el sandbox con clics de verdad, en EL KIOSQUITO:
+- una compra con Nuez Mariposa x 1 kg (2 bolsas a $9.000,40), Castaña De Caju Tostado (sin %, con un
+  mayorista de prueba de $7.000, 3 a $7.000) y Aceite De Oliva (2 a $16.000): al lado, $14.400 y
+  $11.700, $12.920 y $7.000, y $30.400 y $20.800. "Actualizar" ofreció solo el Aceite, con los mismos
+  números; quedó en $16.000, $30.400 y $20.800. La Nuez y la Castaña, sin cambios. Stock +2 kg, +3 y +2;
+  compra #11 por $71.001;
+- otra con el Aceite a $16.000,40: al lado $30.400 y $20.800 (con el código de antes, $30.401 y
+  $20.850), sin "Actualizar", el producto igual y el stock +1. Compra #12 por $16.000.
+Pruebas: 4 más (2 fallan con el código de antes; las otras 2 cuidan que siga bien). Total: 3999 en 90
+suites.
+
+Visto en la prueba, viejo y aparte (desde que existe Cargar compra): una compra con la fecha de hoy se
+guarda a las 12:00, y en el panel del proveedor la lista de compras, "Le compraste", "Gastado en 90
+días" y "Compras cargadas" cuentan solo hasta la hora actual (`cargarCompras`, admin-compras.js). Antes del
+mediodía, la compra de hoy no aparece ahí hasta las 12:00. "Le debés" sí la cuenta al instante (sale de
+las compras sin saldar), y la compra, el stock y los costos quedan bien. Arreglo posible: contar hasta
+el final del día. Sin hacer: para decidir.
+
 ---
 
 ## 2. Decisiones tuyas

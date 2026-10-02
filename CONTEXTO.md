@@ -449,6 +449,10 @@ producción (de los "gramajes" viejos).
   dice "perdés $X" o el descuento que lo causa, y marca lo que gana menos del 5%; "Actualizar" en la
   compra no toca el precio de los que no tienen % y marca si un precio baja; esos avisos arrancan en
   "Volver" o "No actualizar". Los menores, anotados. Detalle en `PENDIENTE.md` §1-bis AI.
+- **Cargar compra con el mismo costo (02/10, sin subir)**: si "Actualizar" no se va a ofrecer, al lado del
+  costo van los precios que tiene (con centavos mostraba otros, y "Sin mayorista" en uno sin % que lo
+  tenía; solo era lo que se veía). Visto de paso: la compra de hoy no aparece en el panel del proveedor
+  hasta las 12:00 (viejo; para decidir). Detalle en `PENDIENTE.md` §1-bis AJ.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
