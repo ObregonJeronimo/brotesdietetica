@@ -452,7 +452,7 @@ producción (de los "gramajes" viejos).
 - **Cargar compra con el mismo costo (02/10)**: si "Actualizar" no se va a ofrecer, al lado del
   costo van los precios que tiene (con centavos mostraba otros, y "Sin mayorista" en uno sin % que lo
   tenía; solo era lo que se veía). Visto de paso: la compra de hoy no aparece en el panel del proveedor
-  hasta las 12:00 (viejo; para decidir). Detalle en `PENDIENTE.md` §1-bis AJ.
+  hasta las 12:00 (viejo; Thiago: queda así). Detalle en `PENDIENTE.md` §1-bis AJ.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
@@ -498,7 +498,7 @@ producción (de los "gramajes" viejos).
    clienta si les pone un % mayorista. Se arreglan solos al tocarlos; todos juntos es una escritura en
    producción, solo con OK de Thiago. Mientras, la venta mayorista avisa y la lista PDF los deja afuera.
 6. **6 productos visibles se venden en mostrador a lo mismo que costaron** (precio igual al costo, sin
-   % de ganancia): Tortilla de espinaca mediana, Chalitas integrales DeliRe, Tarta brocoli o 3
+   % de ganancia): Tortilla de espinaca mediana (la creó el 01/10), Chalitas integrales DeliRe, Tarta brocoli o 3
    cebollas, Crepes de Pollo, Canelones y Pastel de quinoa y mani (`PENDIENTE.md` §1-bis AI). Que la
    clienta les cargue el % de ganancia; tocarlos desde acá es una escritura en producción, solo con OK.
 

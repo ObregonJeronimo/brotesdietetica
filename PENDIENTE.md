@@ -2295,7 +2295,9 @@ Vienen de antes, para más adelante:
   mismo que costaron (precio igual al costo, sin % de ganancia): Tortilla de espinaca mediana
   ($22.000), Chalitas integrales DeliRe ($12.000; su mayorista, con 65%, es $19.800: ¿los % al
   revés?), Tarta brocoli o 3 cebollas ($20.000), Crepes de Pollo ($17.000), Canelones ($15.000) y
-  Pastel de quinoa y mani ($15.000). Vienen de antes: el costo no cambia desde el 27/09.
+  Pastel de quinoa y mani ($15.000). Cinco vienen del 27/09; la Tortilla de espinaca mediana la creó
+  la clienta el 01/10 a las 19:21, sin % de ganancia (en la ficha, con el % en 0, el precio sale igual
+  al costo; así fue siempre).
 
 Probado en el sandbox con clics de verdad (todos los números bien: compras, costos, precios, ventas
 y stock):
@@ -2352,7 +2354,13 @@ guarda a las 12:00, y en el panel del proveedor la lista de compras, "Le compras
 días" y "Compras cargadas" cuentan solo hasta la hora actual (`cargarCompras`, admin-compras.js). Antes del
 mediodía, la compra de hoy no aparece ahí hasta las 12:00. "Le debés" sí la cuenta al instante (sale de
 las compras sin saldar), y la compra, el stock y los costos quedan bien. Arreglo posible: contar hasta
-el final del día. Sin hacer: para decidir.
+el final del día. Thiago: "es algo muy leve, no va a molestar"; queda así.
+
+Lectura de producción (sin credenciales) del 02/10 a las 00:40: desde la subida de las 23:56 nadie
+cambió productos, así que el código nuevo todavía no escribió nada. El 01/10, de 19:00 a 20:06, la
+clienta cambió 12 con la versión de esa tarde, y los números cuadran con esa versión (10 con el
+mayorista igual al costo, del grupo de los 222). Entre ellos creó la Tortilla de espinaca mediana:
+ver §AI, "Para hablar con la clienta".
 
 **AJ, subido el 02/10/2026** (Thiago: "hacelo, probalo y lo subis"). Push a `main` de `d969232` a `f024102`
 (el arreglo y los dos commits de docs de la subida anterior). Solo cambia admin-compras.js del panel.
