@@ -108,6 +108,7 @@ async function correr(opts) {
     cuerpo('_cpAvisoPagos') +
     /* Y vuelve atras los costos que cambio la compra (02/10). */
     cuerpo('_cpCostosCambiados') + cuerpo('_cpSigueComoLaDejo') + cuerpo('_cpCostoDeAntes') + cuerpo('_cpAvisoCostos') +
+    cuerpo('_cpMs') + cuerpo('_cpFechaTxt') + cuerpo('_cpComprasPosteriores') + cuerpo('_cpQuienLoCambio') + cuerpo('_cpSucesor') + cuerpo('_cpCompraTxt') +
     cuerpo('esArchivoDeStorage') + cuerpo('borrarArchivoDeStorage') +
     cuerpo('_cpBorrarFactura') + cuerpo('borrarCompra') +
     ';return borrarCompra;');

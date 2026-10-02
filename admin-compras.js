@@ -1307,9 +1307,44 @@ function _cpCostoDeAntes(antes) {
     costoActualizadoEn: antes.costoActualizadoEn || firebase.firestore.FieldValue.delete(),
   };
 }
-/* El aviso de borrar: qué costos vuelven y cuáles no, con lo que se ve en el panel (al borrar se
-   mira la base). */
-function _cpAvisoCostos(c) {
+/* Las compras cargadas después de esta (número más alto): para decir cuál le cambió el costo a un
+   producto que no vuelve atrás (pedido del dueño, 02/10). Se leen de la base: la lista del panel tiene
+   solo las del período, y una compra de hoy no aparece ahí hasta las 12. Si no se puede, las de la lista. */
+async function _cpComprasPosteriores(c) {
+  const n = Number((c && c.numero) || 0);
+  try {
+    const q = await db.collection('compras').where('numero', '>', n).get();
+    const lista = [];
+    q.forEach(d => lista.push(Object.assign({ docId: d.id }, d.data())));
+    return lista;
+  } catch (e) {
+    return ((_comprasCache && _comprasCache.lista) || []).filter(x => x && Number(x.numero || 0) > n);
+  }
+}
+/* La compra más nueva que le cambió el costo a ese producto después de esta, o null. */
+function _cpQuienLoCambio(posteriores, id) {
+  return (posteriores || []).filter(x => _cpCostosCambiados(x).some(k => k.id === id))
+    .sort((a, b) => Number(b.numero || 0) - Number(a.numero || 0))[0] || null;
+}
+/* La compra que siguió a esta para ese producto: la primera más nueva que le cambió el costo, si
+   arrancó de lo que dejó esta (su "antes" es el "después" de esta). Si esta se borra y el costo no
+   vuelve, esa compra se queda con el "antes" de esta: así, si después se borra también, vuelve al
+   costo de antes de las dos, y no al de una compra que ya no existe (02/10). */
+function _cpSucesor(posteriores, x) {
+  const sig = (posteriores || []).filter(p => _cpCostosCambiados(p).some(k => k.id === x.id))
+    .sort((a, b) => Number(a.numero || 0) - Number(b.numero || 0))[0];
+  const k = sig && _cpCostosCambiados(sig).find(e => e.id === x.id);
+  return k && _cpSigueComoLaDejo(k.antes, x.despues) ? sig : null;
+}
+/* "la compra #0009 del 05/10/26 (comprobante A 0001-00001234)", con el proveedor si es otro. */
+function _cpCompraTxt(x, c) {
+  return 'la compra #' + String(x.numero || 0).padStart(4, '0') +
+    (x.proveedorNombre && c && x.proveedorNombre !== c.proveedorNombre ? ' a ' + x.proveedorNombre : '') +
+    ' del ' + _cpFechaTxt(x.fecha) + ' (' + (x.comprobante ? 'comprobante ' + x.comprobante : 'sin comprobante') + ')';
+}
+/* El aviso de borrar: qué costos vuelven y cuáles no, y por qué (qué compra más nueva los cambió, o
+   que se cambiaron por otro lado). Con lo que se ve en el panel; al borrar se mira la base. */
+function _cpAvisoCostos(c, posteriores) {
   const lista = _cpCostosCambiados(c);
   if (!lista.length) {
     return c && c.anotaCostos ? ''
@@ -1317,15 +1352,25 @@ function _cpAvisoCostos(c) {
   }
   const prods = (typeof allProducts !== 'undefined' && allProducts) || [];
   const may = n => (Number(n) > 0 ? _cpPesos(n) : 'ninguno');
-  return '\n\nLos costos que se actualizaron con esta compra vuelven a como estaban:\n' + lista.map(x => {
+  const vuelven = [], quedan = [];
+  lista.forEach(x => {
     const p = prods.find(y => y && y.id === x.id);
-    if (!_cpSigueComoLaDejo(p, x.despues)) return '- ' + x.nombre + ': no se toca, porque su costo o su precio cambiaron después de esta compra';
     const kg = _cpEsPeso(p) ? ' el kilo' : '';
-    return '- ' + x.nombre + ': el costo vuelve de ' + _cpPesos(x.despues.costo) + ' a ' + _cpPesos(x.antes.costo) + kg +
-      ' y el precio, de ' + _cpPesos(x.despues.precio) + ' a ' + _cpPesos(x.antes.precio) + kg +
-      (Number(x.despues.precioMayorista || 0) !== Number(x.antes.precioMayorista || 0)
-        ? ' (el mayorista, de ' + may(x.despues.precioMayorista) + ' a ' + may(x.antes.precioMayorista) + ')' : '');
-  }).join('\n');
+    if (_cpSigueComoLaDejo(p, x.despues)) {
+      vuelven.push('- ' + x.nombre + ': el costo vuelve de ' + _cpPesos(x.despues.costo) + ' a ' + _cpPesos(x.antes.costo) + kg +
+        ' y el precio, de ' + _cpPesos(x.despues.precio) + ' a ' + _cpPesos(x.antes.precio) + kg +
+        (Number(x.despues.precioMayorista || 0) !== Number(x.antes.precioMayorista || 0)
+          ? ' (el mayorista, de ' + may(x.despues.precioMayorista) + ' a ' + may(x.antes.precioMayorista) + ')' : ''));
+      return;
+    }
+    const otra = _cpQuienLoCambio(posteriores, x.id);
+    quedan.push('- ' + x.nombre + ': después de esta compra ' + (otra
+      ? 'le cambió el costo ' + _cpCompraTxt(otra, c) + '.'
+      : 'le cambiaron el costo o el precio desde la ficha, la ventana de costos o al importar costos.') +
+      (p ? ' Se queda con el costo que tiene ahora: ' + _cpPesos(p.costo) + kg + '.' : ''));
+  });
+  return (vuelven.length ? '\n\nEstos costos vuelven a como estaban antes de esta compra:\n' + vuelven.join('\n') : '') +
+    (quedan.length ? '\n\nEstos costos no vuelven atrás:\n' + quedan.join('\n') : '');
 }
 
 async function borrarCompra(docId) {
@@ -1333,6 +1378,8 @@ async function borrarCompra(docId) {
   if (!c) return;
   const devuelve = c.sumoStock !== false;
   const cambiados = _cpCostosCambiados(c);
+  /* Para decir qué compra más nueva le cambió el costo a uno que no vuelve atrás (02/10). */
+  const posteriores = cambiados.length ? await _cpComprasPosteriores(c) : [];
   if (!await pedirConfirmacion(
       'Compra #' + String(c.numero || 0).padStart(4, '0') + ' de ' + esc(c.proveedorNombre || '') +
       ' por ' + _cpPesos(c.total) + '.\n\n' +
@@ -1341,7 +1388,7 @@ async function borrarCompra(docId) {
         : 'Esta compra no había sumado stock, así que el inventario no se toca.') +
       _cpAvisoVendidos(c, devuelve) +
       /* Los costos que cambió esta compra vuelven a como estaban (02/10). */
-      _cpAvisoCostos(c) +
+      _cpAvisoCostos(c, posteriores) +
       /* Los pagos viven adentro de la compra: borrarla borra tambien el registro de
          plata que se le pago al proveedor de verdad. Eso no puede pasar callado. */
       _cpAvisoPagos(c) +
@@ -1367,10 +1414,16 @@ async function borrarCompra(docId) {
          Los costos van en la misma transacción (02/10): vuelve todo o nada, y un producto que
          está en las dos cosas se escribe una sola vez. */
       const ids = [...new Set(items.map(i => i.id).concat(cambiados.map(x => x.id)))];
+      /* Las compras que siguieron a esta, por si alguna se queda con el "antes" de esta (02/10). */
+      const sucesores = [...new Set(cambiados.map(x => _cpSucesor(posteriores, x)).filter(Boolean).map(s => s.docId))];
       const res = await db.runTransaction(async tx => {
         const refs = ids.map(id => db.collection('productos').doc(id));
         const snaps = [];
         for (const r of refs) snaps.push(await tx.get(r));
+        const refsSuc = sucesores.map(id => db.collection('compras').doc(id));
+        const datosSuc = [];
+        for (const r of refsSuc) { const sn = await tx.get(r); datosSuc.push(sn.exists ? (sn.data() || {}) : null); }
+        const pasan = {};
         const stock = [], costos = [];
         snaps.forEach((sn, k) => {
           if (!sn.exists) return;
@@ -1389,10 +1442,23 @@ async function borrarCompra(docId) {
           if (cc) {
             const vuelve = _cpSigueComoLaDejo(d, cc.despues);
             if (vuelve) Object.assign(upd, _cpCostoDeAntes(cc.antes));
+            else {
+              /* No vuelve: la compra que siguió se queda con el "antes" de esta, si en la base
+                 todavía arranca de lo que dejó esta. */
+              const s = _cpSucesor(posteriores, cc);
+              const j = s ? sucesores.indexOf(s.docId) : -1;
+              const datos = j >= 0 ? datosSuc[j] : null;
+              if (datos) {
+                const lista = pasan[s.docId] || (datos.costosCambiados || []).map(e => Object.assign({}, e));
+                const e = lista.find(z => z && z.id === cc.id);
+                if (e && _cpSigueComoLaDejo(e.antes, cc.despues)) { e.antes = cc.antes; pasan[s.docId] = lista; }
+              }
+            }
             costos.push({ id: ids[k], nombre: cc.nombre, vuelve: vuelve, antes: cc.antes });
           }
           if (Object.keys(upd).length) tx.update(refs[k], upd);
         });
+        Object.keys(pasan).forEach(id => tx.update(db.collection('compras').doc(id), { costosCambiados: pasan[id] }));
         return { stock: stock, costos: costos };
       });
       _tocados = res.stock;
@@ -1422,19 +1488,26 @@ async function borrarCompra(docId) {
       logAction('eliminar', 'Compra #' + String(c.numero || 0).padStart(4, '0') + ' eliminada',
         (c.proveedorNombre || '') + ' | ' + _cpPesos(c.total) + (devuelve ? ' | stock devuelto' : ' | sin stock que devolver') +
         (_vuelven.length ? ' | costos de antes: ' + _vuelven.map(x => x.nombre + ' ' + _cpPesos(x.antes.costo)).join(', ') : '') +
-        (_quedan.length ? ' | costos que no se tocaron (cambiaron después): ' + _quedan.map(x => x.nombre).join(', ') : ''));
+        (_quedan.length ? ' | costos que no volvieron (cambiaron después): ' + _quedan.map(x => {
+          const o = _cpQuienLoCambio(posteriores, x.id);
+          return x.nombre + (o ? ' (compra #' + String(o.numero || 0).padStart(4, '0') + ')' : '');
+        }).join(', ') : ''));
     }
     const _clavados = _tocados.filter(x => x.faltaba);
     if (_clavados.length) {
       showAdminToast('Compra eliminada. De ' + _clavados.length + ' producto' +
         (_clavados.length === 1 ? '' : 's') + ' ya se había vendido parte: su stock quedó en 0, no en negativo.', 'info');
     } else {
-      showAdminToast('Compra eliminada' + (_vuelven.length ? '. Los costos volvieron a como estaban.' : ''), 'success');
+      /* Si alguno no volvió, se dice cuántos sí: 'Los costos volvieron' sonaba a todos (02/10). */
+      showAdminToast('Compra eliminada' + (!_vuelven.length ? '' : !_quedan.length ? '. Los costos volvieron a como estaban.'
+        : '. ' + (_vuelven.length === 1 ? '1 costo volvió a como estaba.' : _vuelven.length + ' costos volvieron a como estaban.')), 'success');
     }
     if (_quedan.length) {
+      const _otra = _quedan.length === 1 ? _cpQuienLoCambio(posteriores, _quedan[0].id) : null;
       showAdminToast(_quedan.length === 1
-        ? 'El costo de ' + _quedan[0].nombre + ' no se tocó: cambió después de esta compra.'
-        : 'Los costos de ' + _quedan.map(x => x.nombre).join(', ') + ' no se tocaron: cambiaron después de esta compra.', 'info');
+        ? 'El costo de ' + _quedan[0].nombre + ' no volvió atrás: ' +
+          (_otra ? 'lo cambió después la compra #' + String(_otra.numero || 0).padStart(4, '0') + '.' : 'se cambió después de esta compra.')
+        : 'Los costos de ' + _quedan.map(x => x.nombre).join(', ') + ' no volvieron atrás: se cambiaron después de esta compra.', 'info');
     }
     if (_vuelven.length && typeof _reRenderProductos === 'function') _reRenderProductos();
     closeCompraVerModal();

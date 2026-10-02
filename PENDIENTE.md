@@ -2429,8 +2429,16 @@ costos, quedaban los nuevos. Ahora:
 - Las compras de antes del 02/10 no anotaban nada: el aviso dice que esos costos no vuelven atrás.
 - No vuelve el tamaño de la bolsa que se anotó al cargar la compra (`bolsaGramos`): es un dato del producto,
   no de la compra.
-- Si dos compras cambiaron el mismo producto y se borra la primera, ese costo no se toca (lo cambió la
-  segunda); si después se borra la segunda, vuelve al costo de la primera.
+- Si una compra más nueva le cambió el costo a ese producto, no vuelve, y el aviso dice cuál (pedido de
+  Thiago): "después de esta compra le cambió el costo la compra #0012 del 02/10/26 (comprobante B
+  0002-00000777). Se queda con el costo que tiene ahora: $17.500", con el proveedor si es otro. Si no
+  fue una compra: "desde la ficha, la ventana de costos o al importar costos". Las compras más nuevas se
+  leen de la base (`_cpComprasPosteriores`); si no se puede, las de la lista del panel.
+- Y la compra que siguió se queda con el "antes" de la borrada (`_cpSucesor`, en la misma transacción,
+  solo si en la base todavía arranca de lo que dejó la borrada): así, si después se borra también,
+  vuelve al costo de antes de las dos, y no al de una compra que ya no existe.
+- Al terminar: "Los costos volvieron a como estaban", o si alguno no, cuántos sí, y aparte cuál no y
+  qué compra lo cambió.
 
 Probado en el sandbox con clics de verdad, en EL KIOSQUITO: un producto por unidad (Aceite De Oliva), uno
 por peso sin otras bolsas (Maní; la compra preguntó la bolsa), una bolsa de un grupo (Nuez Mariposa x 3
@@ -2443,9 +2451,16 @@ kg) y la Castaña:
   $8.500, $13.600 y $11.050 el kilo, cada uno con su fecha de antes; la Castaña, en $7.200. El stock de
   los cuatro bajó lo que había sumado la compra; el panel quedó al día sin recargar, y el Historial lo
   anotó;
-- una compra vieja (#4): el aviso dice que esos costos no vuelven; se canceló.
-Pruebas: 23 más (18 en una suite nueva, `t-borrar-compra-costos.js`); con el código de antes fallan, y 8
-cambios a propósito del código quedan atrapados. Total: 4063 en 91 suites.
+- una compra vieja (#4): el aviso dice que esos costos no vuelven; se canceló;
+- dos compras con el Aceite: #9 (de $15.600 a $16.000, con la Castaña de $7.200 a $7.300) y #10 (a
+  $16.500, comprobante A 0001-00000123). Al borrar la #9, la Castaña volvió a $7.200 y el Aceite no: el
+  aviso nombró la #10 con su fecha y su comprobante, y el Historial también;
+- otras dos: #11 (de $16.500 a $17.000) y #12 (a $17.500, comprobante B 0002-00000777). Al borrar la
+  #11, el aviso nombró la #12 y la #12 se quedó con el "antes" de la #11 ($16.500); al borrar la #12, el
+  Aceite volvió a $16.500, $31.350 y $21.450, con su fecha, y el stock quedó como al principio.
+Pruebas: 41 más (36 en una suite nueva, `t-borrar-compra-costos.js`); con el código de antes fallan, y 14
+cambios a propósito del código quedan atrapados (uno más es un control repetido, que no cambia nada).
+Total: 4081 en 91 suites.
 
 ---
 
