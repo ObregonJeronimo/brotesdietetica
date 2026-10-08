@@ -339,6 +339,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    /* ===== LISTAS DE PEDIDOS A PROVEEDORES =====
+       Pedido de Thiago (08/10/2026): las arma el panel en Proveedores (productos, cantidades y
+       el WhatsApp de la persona a la que se le manda). Solo admins: adentro hay telefonos. */
+    match /listasPedido/{doc} {
+      allow read, write: if isAdmin();
+    }
+
     /* ===== INSUMOS ===== */
     match /insumos/{doc} {
       allow read, write: if isAdmin();

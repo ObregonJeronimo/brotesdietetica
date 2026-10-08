@@ -871,6 +871,39 @@
         .ch-items.show{display:block!important}
         .cliente-select-wrap{position:relative}.cliente-select-list{display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:210;box-shadow:0 4px 12px rgba(0,0,0,0.3)}.cliente-select-list.open{display:block}.cliente-select-item{padding:8px 12px;cursor:pointer;font-size:0.82rem;transition:background 0.15s;display:flex;justify-content:space-between}.cliente-select-item:hover{background:var(--bg-hover)}.cliente-select-item small{color:var(--text-dim)}
         /* El cliente elegido en la venta, en el lugar del buscador (pedido de Thiago, 08/10/2026). */
+        /* Listas de pedidos a proveedores (pedido de Thiago, 08/10/2026; admin-listas-pedido.js). */
+        .lp-box{max-width:900px;width:96vw}
+        .lp-barra{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+        .lp-ayuda{font-size:0.84rem;color:var(--text-dim);margin:0;flex:1;min-width:220px;line-height:1.5}
+        .lp-vacio{padding:2rem 1rem;text-align:center;color:var(--text-dim);font-size:0.88rem;border:1px dashed var(--border);border-radius:12px}
+        .lp-lista{background:var(--bg-input);border:1px solid var(--border);border-radius:12px;padding:0.9rem 1rem;margin-bottom:0.8rem}
+        .lp-lista-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:0.8rem;flex-wrap:wrap}
+        .lp-lista-cab strong{display:block;font-size:0.98rem}
+        .lp-lista-cab small{display:block;font-size:0.76rem;color:var(--text-dim);margin-top:2px}
+        .lp-lista-acc{display:flex;gap:0.4rem}
+        .lp-renglones{list-style:none;margin:0.6rem 0 0.7rem;padding:0;border-top:1px solid var(--border)}
+        .lp-renglones li{display:flex;justify-content:space-between;gap:1rem;padding:0.35rem 0;border-bottom:1px solid var(--border);font-size:0.84rem}
+        .lp-renglones li b{white-space:nowrap;font-weight:600}
+        .lp-lista-pie{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap}
+        .lp-lista .btn{width:auto;flex:0 0 auto}
+        .lp-destino{font-size:0.8rem;color:var(--text-dim)}
+        .lp-destino b{color:var(--text)}
+        .lp-link{background:none;border:none;color:var(--accent-light);font:600 0.8rem var(--font);cursor:pointer;padding:0 0.2rem;text-decoration:underline}
+        .lp-edicion{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.1rem;margin-top:0.4rem}
+        .lp-col{min-width:0}
+        .lp-resultados{max-height:46vh;overflow-y:auto;overflow-x:hidden;margin-top:0.5rem}
+        .lp-nota{font-size:0.82rem;color:var(--text-dim);padding:0.5rem 0;margin:0}
+        .lp-item{display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid var(--border)}
+        .lp-item-n{flex:1;min-width:0;font-size:0.85rem;font-weight:600}
+        .lp-cant{width:76px;flex:0 0 76px;text-align:center;padding:0.4rem 0.5rem}
+        .lp-cant.lp-mal{border-color:var(--danger)}
+        .lp-item-u{font-size:0.76rem;color:var(--text-dim);width:96px;flex:0 0 96px}
+        .lp-quitar{background:none;border:none;color:var(--text-dim);font-size:1.25rem;line-height:1;cursor:pointer;padding:0 0.3rem}
+        .lp-quitar:hover{color:var(--danger)}
+        .lp-pie{display:flex;justify-content:flex-end;gap:0.6rem;margin-top:1rem;border-top:1px solid var(--border);padding-top:0.9rem}
+        .lp-aviso{font-size:0.86rem;line-height:1.5;background:var(--warning-bg);color:#f0bd6a;border-radius:10px;padding:0.6rem 0.8rem;margin:0 0 1rem}
+        .lp-opciones{display:flex;gap:0.6rem;flex-wrap:wrap;margin-top:1rem}
+        @media(max-width:768px){.lp-edicion{grid-template-columns:1fr}.lp-item-u{width:auto;flex:0 1 auto}.lp-resultados{max-height:38vh}}
         .cliente-select-wrap>[hidden]{display:none!important}
         .cli-elegido{display:flex;align-items:center;gap:0.65rem;background:rgba(103,194,58,0.1);border:1px solid rgba(103,194,58,0.45);border-radius:10px;padding:0.55rem 0.7rem}
         .cli-elegido-ico{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:rgba(103,194,58,0.18);color:#86d766;font-size:1.05rem}
@@ -8299,6 +8332,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
 <script src="admin-exportar.js"></script>
 <script src="admin-proveedores.js"></script>
 <script src="admin-compras.js"></script>
+<script src="admin-listas-pedido.js"></script>
 <script src="admin-deudas.js"></script>
 <script src="admin-cupones-ticket.js"></script>
     <script src="admin-atajos.js"></script>
@@ -8963,5 +8997,10 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <div class="form-group"><label>Historial de pedidos</label><div id="caModalPedidos" style="max-height:250px;overflow-y:auto"></div></div>
     <div class="form-actions"><button class="btn btn-secondary" onclick="closeClienteAuthModal()">Cerrar</button><button class="btn btn-secondary" style="width:auto" onclick="closeClienteAuthModal();openSincronizarModal(_clienteAuthModalUid)"><i class="bi bi-link-45deg"></i> Sincronizar</button></div>
     </div></div>
+    <!-- Listas de pedidos a proveedores (pedido de Thiago, 08/10/2026): las llena admin-listas-pedido.js.
+         Al final y en este orden: Escape cierra la de mas arriba (la del contacto y la de mandar van encima). -->
+    <div class="modal-overlay" id="listasPedidoModal"></div>
+    <div class="modal-overlay" id="lpContactoModal" style="z-index:260"></div>
+    <div class="modal-overlay" id="lpMandarModal" style="z-index:260"></div>
     </body>
 </html>

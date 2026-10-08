@@ -298,6 +298,10 @@ function renderProveedores() {
   let cab =
     '<div class="toolbar" style="margin-bottom:1rem;align-items:center">' +
       '<h3 style="font-size:1.05rem;font-weight:700;flex:1">Proveedores</h3>' +
+      /* Pedido de Thiago (08/10/2026): las listas de lo que se le pide a cada proveedor, para
+         mandarlas por WhatsApp (admin-listas-pedido.js). */
+      '<button class="btn btn-primary" style="width:auto;flex:0 0 auto;padding:0.4rem 0.9rem;font-size:0.82rem" ' +
+        'onclick="if(typeof abrirListasPedido===\'function\')abrirListasPedido()"><i class="bi bi-clipboard-check"></i> Lista de pedidos</button>' +
       '<div style="display:flex;gap:0.4rem;flex-wrap:wrap">' + per + '</div>' +
     '</div>' +
     '<p style="font-size:0.83rem;color:var(--text-dim);line-height:1.55;margin-bottom:1rem;max-width:70ch">' +
