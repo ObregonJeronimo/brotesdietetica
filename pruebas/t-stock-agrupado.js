@@ -298,6 +298,45 @@ const filas = h => [...h.matchAll(/<div class="(stock-row[^"]*)" data-id="([^"]+
     t('la carga en tanda nombra cada bolsa con su tamaño', (w.preguntas[0] || '').indexOf('Mani prueba x 1 kg, Mani prueba x 3 kg, Almendra') > 0, w.preguntas[0]);
   }
 
+  console.log('\n-- stock con otra cara (07/10): el resumen y los datos de cada fila --');
+  {
+    const prods = [
+      P('a', { nombre: 'Uno', stock: 3, costo: 100, codigo: 'C1', precio: 180 }),
+      P('b', { nombre: 'Granel', tipoVenta: 'peso', stock: 1500, costo: 2000, precio: 3200 }),
+      P('c', { nombre: 'Negativo', stock: -2, costo: 50 }),
+      P('d', { nombre: 'Sin costo', stock: 5 }),
+      P('e', { nombre: 'Vacio', stock: 0, costo: 10, oculto: true }),
+      P('f', { nombre: 'Depurado', stock: 9, costo: 1000, depurado: true }),
+      P('g', { nombre: 'Lleno', stock: 40, costo: 10 }),
+    ];
+    const w = armar({ productos: prods });
+    w.ctx.esStockBajo = p => { const s = Number(p.stock || 0); return s > 0 && s < (p.tipoVenta === 'peso' ? 500 : 10); };
+    const r = w.ctx.resumenStockHtml(prods);
+    const val = etq => (r.match(new RegExp('<span class="vt-kpi-etq">' + etq + '</span><strong class="vt-kpi-val">([^<]*)</strong>')) || [])[1];
+    t('arriba, los productos en uso (sin los depurados): 6, con cuántos por unidad y por peso', val('Productos') === '6' && r.indexOf('5 por unidad · 1 por peso') > 0, val('Productos'));
+    t('  stock bajo: los de menos de 10 unidades o 500 g, sin contar los vacíos (Uno y Sin costo)', val('Stock bajo') === '2', val('Stock bajo'));
+    t('  sin stock cuenta los que están en 0 y en negativo (2), y dice cuántos en negativo', val('Sin stock') === '2' && r.indexOf('1 en negativo') > 0, val('Sin stock'));
+    t('  el valor del stock a costo: 3 × $100 + 1,5 kg × $2.000 + 40 × $10 = $3.700 (el negativo y el depurado no suman)', val('Valor del stock') === '$3.700', val('Valor del stock'));
+    t('  y avisa cuántos con stock no tienen costo cargado', r.indexOf('1 sin costo cargado') > 0);
+    const d = id => w.ctx.detalleStockHtml(prods.find(p => p.id === id));
+    t('cada fila: el estado si hay que mirarlo, el código y el precio', d('c').indexOf('En negativo') > 0 && d('e').indexOf('Sin stock') > 0 &&
+      d('a').indexOf('Stock bajo') > 0 && d('e').indexOf('Oculto en la tienda') > 0 && d('a').indexOf('C1') > 0 && d('a').indexOf('$180') > 0 &&
+      d('b').indexOf('$3.200 el kilo') > 0 && d('g').indexOf('Stock bajo') < 0 && d('g').indexOf('Sin stock') < 0, d('a'));
+    const est = i => (w.ctx.accionesStockHtml(prods[i]).match(/^<div class="stock-actual est-(\w+)">/) || [])[1];
+    t('  el stock en color: verde si está bien, ámbar si queda poco, rojo si no hay o está en negativo',
+      est(6) === 'ok' && est(0) === 'bajo' && est(4) === 'sin' && est(2) === 'neg', [est(6), est(0), est(4), est(2)].join(' '));
+  }
+  {
+    const w = armar();
+    const g = w.ctx.agruparParaStock(w.ctx.allProducts.filter(p => p.depurado !== true)).filter(x => x.__stockGrupo).map(x => x.__stockGrupo);
+    const tot = id => w.ctx.totalGrupoStockHtml(g.find(x => x.principal.id === id).miembros);
+    t('arriba de un grupo, cuánto hay entre todas: 122 g + 111 g = 233 g; 30 + 0 + 4 = 34 unidades (el depurado no)',
+      tot('m1').indexOf('Entre todas: 233 g') > 0 && tot('alf1').indexOf('Entre todas: 34 unidades') > 0, tot('m1') + ' | ' + tot('alf1'));
+    t('la lista pinta el resumen y los datos de cada fila', html.indexOf("if(typeof pintarResumenStock==='function')pintarResumenStock();") > 0 &&
+      html.indexOf("(typeof detalleStockHtml==='function'?detalleStockHtml(p):'')") > 0 &&
+      html.indexOf("(typeof totalGrupoStockHtml==='function'?totalGrupoStockHtml(g.miembros):'')") > 0 && html.indexOf('id="stkKpis"') > 0);
+  }
+
   console.log('\n-- los estilos --');
   {
     const css = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');

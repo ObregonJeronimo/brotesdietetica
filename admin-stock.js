@@ -203,10 +203,87 @@ function accionesStockHtml(p) {
   const id = typeof _attrHtml === 'function' ? _attrHtml(p.id) : String(p.id).replace(/"/g, '&quot;');
   const val = Number(p.stock || 0);
   const peso = _stkPeso(p);
-  return '<div class="stock-actual"><b>' + val.toLocaleString('es-AR') + (peso ? ' g' : '') + '</b>' +
+  return '<div class="stock-actual est-' + _stkEstado(p) + '"><b>' + val.toLocaleString('es-AR') + (peso ? ' g' : '') + '</b>' +
       '<small>' + (peso ? _stkEsc(typeof fmtPeso === 'function' ? fmtPeso(val) : '') : (Math.abs(val) === 1 ? 'unidad' : 'unidades')) + '</small></div>' +
     '<button type="button" class="btn btn-primary btn-sm stock-agregar" onclick="agregarStockProducto(\'' + id + '\')">' +
       '<i class="bi bi-plus-lg"></i> Agregar stock</button>' +
     '<button type="button" class="stock-corregir" onclick="corregirStockProducto(\'' + id + '\')" title="Corregir el total (por ejemplo, después de contar)">' +
       '<i class="bi bi-pencil"></i></button>';
 }
+
+/* STOCK CON OTRA CARA (pedido del dueño, 07/10/2026): como Ventas. Arriba, el resumen de todo
+   lo que está en uso; en cada fila, el stock en color según cómo está y los datos que ayudan a
+   reconocer el producto. Solo cambia cómo se ve: se puede hacer lo mismo que antes. */
+
+/* Cómo está el stock: 'neg' (se vendió más de lo cargado), 'sin', 'bajo' (con el límite de
+   Productos, esStockBajo) u 'ok'. */
+function _stkEstado(p) {
+  const s = Number((p && p.stock) || 0);
+  if (s < 0) return 'neg';
+  if (s === 0) return 'sin';
+  if (typeof esStockBajo === 'function' && esStockBajo(p)) return 'bajo';
+  return 'ok';
+}
+const _stkPesos = n => '$' + Math.round(Number(n) || 0).toLocaleString('es-AR');
+
+/* Las etiquetas de una fila: el estado si hay que mirarlo, si está oculto en la tienda o es
+   una caja cerrada, el código y el precio. */
+function detalleStockHtml(p) {
+  const e = _stkEstado(p), chips = [];
+  if (e === 'neg') chips.push('<span class="vt-chip debe"><i class="bi bi-exclamation-octagon"></i> En negativo</span>');
+  else if (e === 'sin') chips.push('<span class="vt-chip debe"><i class="bi bi-x-circle"></i> Sin stock</span>');
+  else if (e === 'bajo') chips.push('<span class="vt-chip fiado"><i class="bi bi-exclamation-triangle"></i> Stock bajo</span>');
+  if (p.oculto === true) chips.push('<span class="vt-chip"><i class="bi bi-eye-slash"></i> Oculto en la tienda</span>');
+  if (p.cajaCerrada === true) chips.push('<span class="vt-chip"><i class="bi bi-box-seam"></i> Caja cerrada</span>');
+  if (p.codigo) chips.push('<span class="vt-chip"><i class="bi bi-upc"></i> ' + _stkEsc(p.codigo) + '</span>');
+  if (Number(p.precio) > 0) chips.push('<span class="vt-chip"><i class="bi bi-tag"></i> ' + _stkPesos(p.precio) + (_stkPeso(p) ? ' el kilo' : '') + '</span>');
+  return '<div class="stk-meta">' + chips.join('') + '</div>';
+}
+
+/* Arriba del bloque de un producto con bolsas o presentaciones: cuánto hay entre todas (si
+   son todas de la misma clase: todas por peso o todas por unidad). */
+function totalGrupoStockHtml(miembros) {
+  const ps = (miembros || []).map(m => m.producto).filter(Boolean);
+  if (!ps.length) return '';
+  const peso = _stkPeso(ps[0]);
+  if (ps.some(p => _stkPeso(p) !== peso)) return '';
+  const tot = ps.reduce((s, p) => s + Number(p.stock || 0), 0);
+  return '<div class="stk-meta"><span class="vt-chip"><i class="bi bi-boxes"></i> Entre todas: ' +
+    _stkEsc(_stkCant(ps[0], tot)) + (peso && typeof fmtPeso === 'function' && Math.abs(tot) >= 1000 ? ' (' + _stkEsc(fmtPeso(tot)) + ')' : '') + '</span></div>';
+}
+
+/* El resumen de arriba, con todo lo que está en uso (no los depurados), sin mirar la búsqueda. */
+function resumenStockHtml(productos) {
+  const act = (productos || []).filter(p => p && p.depurado !== true);
+  let bajo = 0, sin = 0, neg = 0, peso = 0, valor = 0, sinCosto = 0;
+  act.forEach(p => {
+    const e = _stkEstado(p);
+    if (e === 'bajo') bajo++; else if (e === 'sin') sin++; else if (e === 'neg') neg++;
+    const esP = _stkPeso(p);
+    if (esP) peso++;
+    const s = Math.max(0, Number(p.stock || 0)), c = Number(p.costo || 0);
+    if (s > 0 && !(c > 0)) sinCosto++;
+    valor += esP ? s / 1000 * c : s * c;
+  });
+  const n = x => Number(x).toLocaleString('es-AR');
+  const kpi = (ico, color, etq, val, sub) => '<div class="vt-kpi"><span class="vt-kpi-ico' + (color ? ' ' + color : '') + '"><i class="bi ' + ico + '"></i></span>' +
+    '<div class="vt-kpi-txt"><span class="vt-kpi-etq">' + etq + '</span><strong class="vt-kpi-val">' + val + '</strong>' +
+    (sub ? '<span class="vt-kpi-sub">' + sub + '</span>' : '') + '</div></div>';
+  return kpi('bi-box-seam', '', 'Productos', n(act.length), n(act.length - peso) + ' por unidad · ' + n(peso) + ' por peso') +
+    kpi('bi-exclamation-triangle', 'ambar', 'Stock bajo', n(bajo), 'quedan pocos') +
+    kpi('bi-x-circle', 'rojo', 'Sin stock', n(sin + neg), neg ? n(neg) + ' en negativo' : 'ninguno en negativo') +
+    kpi('bi-cash-stack', 'verde', 'Valor del stock', _stkPesos(valor), 'a costo' + (sinCosto ? ' · ' + n(sinCosto) + ' sin costo cargado' : ''));
+}
+function pintarResumenStock() {
+  const prods = (typeof allProducts !== 'undefined' && Array.isArray(allProducts)) ? allProducts : [];
+  const k = document.getElementById('stkKpis');
+  if (k) k.innerHTML = resumenStockHtml(prods);
+  const t = document.getElementById('stkResumenTxt');
+  if (t) {
+    const u = typeof getLowStockThreshold === 'function' ? getLowStockThreshold() : 10;
+    const g = typeof getLowStockThresholdPeso === 'function' ? getLowStockThresholdPeso() : 500;
+    t.innerHTML = 'Se avisa como stock bajo con menos de <b>' + Number(u).toLocaleString('es-AR') + ' unidades</b> o <b>' +
+      Number(g).toLocaleString('es-AR') + ' g</b>.';
+  }
+}
+

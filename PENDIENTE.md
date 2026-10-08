@@ -2593,6 +2593,30 @@ tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesió
 La clienta lo ve al recargar (F5). Para decirle: en Cargar compra, escribir primero la cantidad, y los
 números sin puntos (40000, no 40.000).
 
+### AO) Stock con otra cara, como Ventas · solo local, SIN SUBIR (07/10/2026)
+
+Pedido de Thiago: "que le des un estilo mucho más cómodo y moderno (como el de ventas), que tire más
+detalles… no agregues nuevas funcionalidades". Solo cambia cómo se ve: se hace lo mismo que antes.
+- Arriba, como en Ventas: el título "Stock", el límite de stock bajo ("menos de 10 unidades o 500 g", el de
+  Productos) y cuatro recuadros con todo lo que está en uso (sin los depurados, sin mirar la búsqueda):
+  Productos (cuántos por unidad y por peso), Stock bajo, Sin stock (los en 0 y en negativo, y cuántos en
+  negativo) y Valor del stock a costo (stock × costo, el granel por kilo; lo negativo no resta; avisa
+  cuántos con stock no tienen costo). `resumenStockHtml` / `pintarResumenStock` (admin-stock.js), se pinta
+  en `renderStockList`.
+- Cada producto es una tarjeta. El stock va en color: verde, ámbar si queda poco (`esStockBajo`), rojo si
+  está en 0 o en negativo. Abajo del nombre, etiquetas: "En negativo" / "Sin stock" / "Stock bajo",
+  "Oculto en la tienda", "Caja cerrada", el código y el precio ("el kilo" en los granel) —
+  `detalleStockHtml`.
+- Un producto con bolsas o presentaciones es una tarjeta con sus filas adentro, y arriba "Entre todas: 233 g"
+  (si son todas por peso o todas por unidad) — `totalGrupoStockHtml`.
+- En el celular: las etiquetas van abajo del nombre y antes de los botones.
+Probado en el sandbox con los 99 productos en uso: los recuadros (13 bajos, 10 sin stock con 5 en negativo,
+$34.023.109) coinciden con una cuenta aparte en la página; los bloques y el celular (sin correrse de costado).
+Pruebas: 9 más (t-stock-agrupado). Total: 4165.
+Ideas que NO se agregaron (para hablar con Thiago): filtrar por estado (solo bajos / sin stock), ordenar por
+valor, que el recuadro "Stock bajo" o "Sin stock" filtre la lista al tocarlo, y ver las últimas compras del
+producto desde su fila.
+
 ---
 
 ## 2. Decisiones tuyas
