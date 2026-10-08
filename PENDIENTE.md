@@ -2825,7 +2825,34 @@ vacía (null) y en el mensaje solo el nombre; el número con el teclado: las let
 (5493519998877; la app no se abrió); en el celular, sin correrse. Pruebas: 75 (t-listas-pedido). Total: 4305.
 Después, el saludo sin el nombre: probado en el sandbox con la lista de FRUTICOR (guardada a nombre de
 "Fruticor"): "Copiar mensaje" y WhatsApp Web arrancan con "Hola! Te paso el pedido:" y siguen yendo al número
-guardado.
+guardado. Sandbox cerrado el 08/10 (puertos verificados).
+
+### AU) Caja de viandas · solo la idea, NO HECHO: espera las respuestas de la clienta (08/10/2026)
+
+Pedido de la clienta (por Thiago): "una especie de caja pero que sea específica para viandas (productos de la
+cocina) para cobrarlos por esa caja"; Thiago: "no complicársela mucho… quizás una extensión de la caja en vez de
+una caja completamente nueva". Thiago: "después lo vemos".
+- **Propuesta**: un apartado "Viandas" dentro de la misma caja, que se arma solo. Se vende igual (una venta
+  puede mezclar viandas y otras cosas); en Caja, un recuadro "Viandas de hoy" (cuántas, total, y por medio:
+  efectivo, transferencia/tarjeta, fiado); el cierre dice qué parte del efectivo es de viandas ("de viandas
+  $35.000"), y queda en el historial y en el arqueo impreso. Una sola caja para abrir y cerrar. Descartado: una
+  caja aparte (dos cajas por día, dos fondos) y un botón "Vender viandas" (partir la compra en dos).
+- **Qué es vianda** (leído en producción, solo lectura, 08/10): "Viandas y comidas listas" tiene 77 productos;
+  25 parecen de la cocina, todos con el mismo proveedor (P1aeb1vKVlCUsj13NaFj: tartas, creps, canelones,
+  tortillas…); el resto se compra hecho (Sojitas, Manjar, Hesai…). "Tortilla de espinaca mediana" (de ese
+  proveedor) no tiene categoría. Propuesta: elegir por proveedor, una vez, desde la Caja (la config de la caja no
+  tiene pantalla hoy).
+- **Cuentas**: en una venta mezclada con descuento general o cupón, a las viandas les toca su parte
+  proporcional; el envío nunca es vianda; viandas + el resto = el total exacto (el redondeo, del lado general).
+  La vianda al fiado no es efectivo, y el cobro del fiado entra sin saber qué productos eran: propuesta, a la
+  parte general. Lo cerrado queda congelado, como hoy. Sin cambios en las ventas, el stock, las reglas ni los
+  datos.
+- **Preguntas para la clienta**: ¿la plata de viandas va a otro cajón o sobre (contar las dos al cerrar) o al
+  mismo cajón y solo quiere saber cuánto es?; ¿las transferencias de viandas van a la misma cuenta?; ¿viandas son
+  solo las de la cocina o también las compradas hechas?; ¿para qué es: pagarle a la cocina (mostrar el costo) o
+  saber cuánto vende? Lo que vendió un proveedor en 30/90 días ya está en Proveedores.
+- Si Thiago dice de arrancar sin las respuestas: por proveedor, mismo cajón con el aviso de cuánto separar, y
+  el fiado a la parte general.
 
 ---
 
