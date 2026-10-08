@@ -2593,7 +2593,7 @@ tienda y la pantalla de ingreso del panel cargan sin errores (sin iniciar sesió
 La clienta lo ve al recargar (F5). Para decirle: en Cargar compra, escribir primero la cantidad, y los
 números sin puntos (40000, no 40.000).
 
-### AO) Stock con otra cara, como Ventas · solo local, SIN SUBIR (07/10/2026)
+### AO) Stock con otra cara, como Ventas · **SUBIDO A PRODUCCIÓN el 08/10/2026** (07/10/2026)
 
 Pedido de Thiago: "que le des un estilo mucho más cómodo y moderno (como el de ventas), que tire más
 detalles… no agregues nuevas funcionalidades". Solo cambia cómo se ve: se hace lo mismo que antes.
@@ -2617,7 +2617,7 @@ Ideas que NO se agregaron (para hablar con Thiago): filtrar por estado (solo baj
 valor, que el recuadro "Stock bajo" o "Sin stock" filtre la lista al tocarlo, y ver las últimas compras del
 producto desde su fila. (El filtro por estado se hizo después, a pedido: §AP.)
 
-### AP) Stock: aviso al seleccionar TODOS, y filtro por estado · solo local, SIN SUBIR (07/10/2026)
+### AP) Stock: aviso al seleccionar TODOS, y filtro por estado · **SUBIDO A PRODUCCIÓN el 08/10/2026** (07/10/2026)
 
 Pedido de Thiago, después de ver §AO: (1) "al seleccionar el checkbox de seleccionar todos los productos…
 que aparezca un cartel de advertencia… y si aceptás, al lado del checkbox aparece un cartel tipo ATENCIÓN:
@@ -2667,6 +2667,12 @@ dos comentarios. Vistos y NO tocados, porque ya estaban antes (para hablar con T
   recuadros y el filtro (menos de 10 u / 500 g, configurables en Productos, con los ocultos): los números
   pueden no coincidir. Decidir cuál vale.
 - El filtro (como la búsqueda y la categoría) queda puesto al salir y volver a Stock.
+
+**AO y AP, subidos el 08/10/2026** (Thiago: "Termina eso y revisalo bien antes de pushear"; la revisión de
+arriba se hizo y lo que encontró en lo nuevo se arregló y se probó antes). Push a `main` de `fddc4bd` a
+`91275ed` (con los commits de docs). Solo cambia el panel. Verificado a las 00:10: Vercel sirve los mismos
+`admin.html`, `admin-stock.js` y `admin-pagination.js` que el repo; la tienda y la pantalla de ingreso del
+panel cargan sin errores (sin iniciar sesión), ya con el código nuevo. La clienta lo ve al recargar (F5).
 
 ---
 
