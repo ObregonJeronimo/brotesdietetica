@@ -503,10 +503,11 @@ producción (de los "gramajes" viejos).
 
 ### 5.11 Lo del 08/10, tercera parte (solo local, SIN SUBIR)
 
-- **Proveedores: listas de pedidos** (pedido de Thiago): botón "Lista de pedidos" → listas con nombre de
-  productos y cantidades (bolsas, kilos o unidades según el producto, con las reglas de Cargar compra),
-  "Copiar mensaje" y "Mandar mensaje" por WhatsApp Web o la app de escritorio, a la persona guardada en cada
-  lista. Colección nueva `listasPedido`: **para subirlo hay que publicar las reglas** (`firestore.rules`).
+- **Proveedores: listas de pedidos** (pedido de Thiago): botón "Lista de pedidos" en la ficha de cada
+  proveedor → listas con nombre de los productos de ese proveedor y cantidades (bolsas, kilos o unidades según
+  el producto, con las reglas de Cargar compra; pueden quedar vacías, con aviso), "Copiar mensaje" y "Mandar
+  mensaje" por WhatsApp Web o la app de escritorio, a la persona guardada en cada lista (el número solo con
+  números, acomodado como 351 999 9999). Colección nueva `listasPedido`: **para subirlo hay que publicar las reglas** (`firestore.rules`).
   Detalle en `PENDIENTE.md` §1-bis AT.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)

@@ -2774,23 +2774,31 @@ Pedido de Thiago: en Proveedores, un botón "Lista de pedidos" para ir agregando
 sin bolsa"), ponerle nombre a la lista y guardarla; abajo de cada lista "Copiar mensaje" y "Mandar mensaje":
 mandar pide primero "el número de WhatsApp de la persona y el nombre", después dice "El mensaje se enviará a:
 …" y abre WhatsApp, "ya sea web o el de escritorio, ¿podés poner ambas opciones?".
-- **El botón** "Lista de pedidos", en el encabezado de Proveedores, abre una ventana con las listas guardadas y
-  "Nueva lista" (`admin-listas-pedido.js`; las tres ventanas vacías están al final de admin.html).
-- **Armar o editar**: el nombre; un buscador de todos los productos en uso (las bolsas de un producto juntas,
-  como en Cargar compra), cada uno con su proveedor, su stock y cómo se pide; la lista, con la cantidad y su
-  unidad; "Guardar lista". Si se sale con cambios sin guardar, pregunta.
+- **El botón** "Lista de pedidos" está en la ficha de cada proveedor (al lado de "Exportar"), no arriba de todo:
+  abre "Lista de pedidos para el proveedor FRUTICOR", con las listas de ese proveedor y "Nueva lista"
+  (`admin-listas-pedido.js`; las tres ventanas vacías están al final de admin.html). Cada lista guarda de qué
+  proveedor es (`proveedorId`).
+- **Armar o editar** ("Nueva lista para el proveedor FRUTICOR"): el nombre; los productos de ese proveedor, en
+  uso (sin escribir nada están todos y el buscador los filtra; las bolsas de un producto juntas, como en Cargar
+  compra), cada uno con su stock y cómo se pide; la lista, con la cantidad y su unidad; "Guardar lista". La
+  cantidad arranca vacía (ni 0 ni 1) y puede quedar vacía: al guardar avisa cuál o cuáles no tienen ("Galleta
+  De Arroz no tiene cantidad (se pide en unidades). Si guardás así, en el mensaje va a ir sin cantidad: el
+  proveedor va a ver solo el nombre. ¿Guardar igual?", con "Completar cantidades", que vuelve al primero vacío,
+  o "Guardar igual"); una cantidad mal escrita no deja guardar. Si se sale con cambios sin guardar, pregunta.
 - **Cómo se pide cada producto** (las reglas de Cargar compra, `_cpGramosBolsa`): la bolsa de un producto con
   varias bolsas, en bolsas; uno por peso con una sola bolsa conocida (anotada aparte, `bolsaGramos`, o en el
   nombre), en bolsas ("2 bolsas de 5 kg" si el nombre no lo dice); por peso sin bolsa, en kilos con coma
   ("2,5 kg"); por unidad, con presentaciones o no, en unidades.
 - **Cada lista**: sus renglones, "Editar", "Eliminar" (pregunta), "Copiar mensaje" y "Mandar mensaje". Sin nadie
   guardado, mandar pide nombre y WhatsApp ("Primero tenés que guardar el número de WhatsApp de la persona y el
-  nombre."). El número se pasa al formato de WhatsApp (549, la característica y el número, sin el 0 ni el 15;
-  uno de otro país, con +, queda como está) y se muestra como se escribió: "El mensaje se enviará a: Juan
-  (0351 15 555-1234) · Cambiar". Al mandar: "WhatsApp Web" (pestaña nueva, `web.whatsapp.com/send`) o "App de
+  nombre."). El número se escribe solo con números (no entran letras ni espacios) y se acomoda solo mientras se
+  escribe: "351 999 9999" (en Buenos Aires, "11 2345 6789"). Son 10 números, sin el 0 ni el 15 (pegado con +54 9,
+  con el 0 o con el 15, se sacan; uno de otro país ya no se puede poner). Se guarda en el formato de WhatsApp
+  (549 y los 10 números): "El mensaje se enviará a: Juan (351 999 9999) · Cambiar". Al mandar: "WhatsApp Web" (pestaña nueva, `web.whatsapp.com/send`) o "App de
   escritorio" (`whatsapp://send`), con el mensaje ya escrito.
 - **El mensaje**: "Hola Juan! Te paso el pedido:" y un renglón por producto ("- Mani x 1 kg: 3 bolsas",
-  "- Almendra: 2 bolsas de 5 kg") y "Gracias!". Sin nadie guardado, "Hola!".
+  "- Almendra: 2 bolsas de 5 kg") y "Gracias!". Uno sin cantidad va solo con el nombre ("- Galleta De Arroz").
+  Sin nadie guardado, "Hola!".
 - **Dónde**: la colección nueva `listasPedido` (solo admins, regla nueva en `firestore.rules`). Queda en el
   historial al crear, editar y eliminar.
 - **Para subirlo hay que publicar las reglas** (`firebase deploy --only firestore:rules --project
@@ -2806,6 +2814,14 @@ sin tocar el contacto; el historial; en el celular, sin correrse de costado. Pru
 Total: 4288.
 Ideas que NO se agregaron (para hablar con Thiago): agregar a la lista escaneando con la pistola; armar la lista
 sola con lo que está sin stock o bajo de un proveedor; anotar cuándo se mandó cada lista.
+Después de verlo, Thiago pidió (08/10): el botón solo dentro de un proveedor y con solo sus productos, el título
+con el proveedor, el número solo con números y acomodado, y las cantidades vacías con aviso (commit 6b82841).
+Probado en el sandbox: arriba de Proveedores ya no está; en FRUTICOR y en EXQUISITECES, solo sus 5 productos y
+sus listas; las cantidades arrancan vacías; el aviso con uno y con varios sin cantidad; guardado con la cantidad
+vacía (null) y en el mensaje solo el nombre; el número con el teclado: las letras y el espacio no entran,
+"35144" queda "351 44", corregir uno del medio no corre el cursor y el número 11 no entra; pegado "+54 9 351
+555-1234" queda "351 555 1234"; con menos de 10 no se guarda; WhatsApp Web con el mensaje entero
+(5493519998877; la app no se abrió); en el celular, sin correrse. Pruebas: 75 (t-listas-pedido). Total: 4305.
 
 ---
 
