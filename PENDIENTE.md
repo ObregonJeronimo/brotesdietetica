@@ -2702,7 +2702,7 @@ entero, el build y las pruebas). Push a `main` de `91275ed` a `bfad2cd` (con los
 panel. Verificado a las 00:29: Vercel sirve el mismo `admin.html` que el repo; la tienda y la pantalla de
 ingreso del panel cargan sin errores (sin iniciar sesión). La clienta lo ve al recargar (F5).
 
-### AR) Venta: el cliente elegido se ve elegido, y Clientes del local con botones de texto · solo local, SIN SUBIR (08/10/2026)
+### AR) Venta: el cliente elegido se ve elegido, y Clientes del local con botones de texto · **SUBIDO A PRODUCCIÓN el 08/10/2026** (08/10/2026)
 
 Pedido de Thiago: (1) "al buscar y seleccionar un cliente cuando vas a vender… se escribe en la barra de
 búsqueda pero no queda claro si se seleccionó… que diga 'Cliente seleccionado:'"; (2) "en clientes del local,
@@ -2744,7 +2744,7 @@ Vistos y NO tocados (ya estaban, para hablar con Thiago):
 - Al editar una venta con un cliente del local, la tarjeta fija muestra su código interno ("#T42NI30…"),
   que no le dice nada a la clienta.
 
-### AS) Crear un cliente con teléfono se cortaba (en producción desde el 26/09) · arreglado, solo local, SIN SUBIR (08/10/2026)
+### AS) Crear un cliente con teléfono se cortaba (en producción desde el 26/09) · **SUBIDO A PRODUCCIÓN el 08/10/2026** (08/10/2026)
 
 Encontrado probando §AR en el sandbox: "Nuevo cliente" (desde Clientes, la venta, la mayorista o el pedido) con
 un teléfono de 6 dígitos o más, y sin otro cliente con ese teléfono o DNI, NO se guardaba: salía "Error: Cannot
@@ -2756,8 +2756,16 @@ teléfono, o con menos de 6 dígitos, sí se guardaba.
   teléfono se guarda y queda elegido en la venta; con el teléfono de otro pregunta y, si dicen que no, no se
   guarda; sin teléfono, como siempre. Con la línea vieja, la prueba falla con el mismo mensaje.
 - Probado en el sandbox: "Pepe Prueba" (desde la venta) y "María Prueba" (desde Clientes), los dos con teléfono.
-**Para Thiago: está roto en producción ahora**; conviene subirlo cuando se pueda (es una línea). Se puede
-averiguar, leyendo sin tocar nada, cuántos clientes se crearon desde el 26/09.
+Se puede averiguar, leyendo sin tocar nada, cuántos clientes se crearon desde el 26/09.
+
+**AR y AS, subidos el 08/10/2026** (Thiago: "sería clave subirlo ahora… ¿es seguro subir esto a producción?",
+con la clienta usando el sistema). Antes: repaso del cambio entero, el build y las pruebas (4229). Seguro con
+la clienta adentro: solo cambian pantallas del panel; no hay cambios de datos, reglas ni funciones; su
+pestaña abierta sigue con lo de antes hasta que recargue, y las llamadas nuevas van con `typeof`, así que si
+el navegador mezcla un archivo viejo con uno nuevo no se rompe nada. Push a `main` de `bfad2cd` a `88eb353`.
+Verificado a las 10:47: Vercel sirve los mismos `admin.html` y `admin-clientes.js` que el repo; la tienda y la
+pantalla de ingreso del panel cargan sin errores (sin iniciar sesión). La clienta lo ve al recargar (F5),
+mejor entre una venta y otra.
 
 ---
 
