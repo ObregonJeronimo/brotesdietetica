@@ -150,10 +150,53 @@ function clienteRepetido(data) {
     ((tel.length >= 6 && _cliDigitos(cl.telefono) === tel) || (dni.length >= 6 && _cliDigitos(cl.identificacion) === dni))) || null;
 }
 
+/* EL CLIENTE ELEGIDO SE VE ELEGIDO (pedido de Thiago, 08/10/2026): al tocar un cliente de la
+   lista quedaba solo escrito en el buscador, y no se sabía si había quedado elegido. Ahora, en
+   el lugar del buscador, un recuadro "Cliente seleccionado:" con el nombre, si es del local o de
+   la web y su teléfono o mail, y "Cambiar" para elegir otro. Lo usan la venta minorista
+   ('ventaCliente') y la mayorista ('ventaMayCliente'): el campo, su id oculto (<campo>Id) y el
+   recuadro (<campo>Elegido). Sin un cliente de la lista (Consumidor Final, o un nombre escrito a
+   mano en la mayorista) se ve el buscador como siempre. Solo cambia cómo se ve: la venta guarda
+   lo mismo que antes, de los mismos campos. */
+function _cliElegidoDatos(id, nombre) {
+  const it = clientesParaElegir('').find(c => c.id === id);
+  return it || { id: id, nombre: nombre, tipo: String(id).indexOf('auth:') === 0 ? 'web' : 'local', sub: '' };
+}
+function pintarClienteElegido(campo) {
+  const inp = document.getElementById(campo), caja = document.getElementById(campo + 'Elegido');
+  const idEl = document.getElementById(campo + 'Id');
+  if (!inp || !caja) return;
+  const id = idEl ? String(idEl.value || '') : '';
+  if (!id) { caja.hidden = true; caja.innerHTML = ''; inp.hidden = false; return; }
+  const cl = _cliElegidoDatos(id, inp.value);
+  caja.innerHTML = '<span class="cli-elegido-ico"><i class="bi bi-person-check-fill"></i></span>' +
+    '<span class="cli-elegido-txt"><span class="cli-elegido-cab"><span class="cli-elegido-etq">Cliente seleccionado:</span>' +
+      '<button type="button" class="cli-elegido-cambiar" onclick="cambiarClienteElegido(\'' + campo + '\')">Cambiar</button></span>' +
+    '<strong>' + (cl.clienteId ? '<span class="cli-num">#' + _cliEsc(cl.clienteId) + '</span> ' : '') + _cliEsc(inp.value || cl.nombre) + '</strong>' +
+    '<small><span class="cli-origen ' + cl.tipo + '">' + (cl.tipo === 'web' ? '<i class="bi bi-globe2"></i> Web' : '<i class="bi bi-shop"></i> Local') +
+      '</span>' + (cl.sub ? ' ' + _cliEsc(cl.sub) : '') + '</small></span>';
+  caja.hidden = false;
+  if (document.activeElement === inp && typeof inp.blur === 'function') inp.blur();
+  inp.hidden = true;
+  const list = caja.parentNode && caja.parentNode.querySelector ? caja.parentNode.querySelector('.cliente-select-list') : null;
+  if (list) list.classList.remove('open');
+}
+/* "Cambiar": vuelve el buscador con el nombre marcado (el onfocus del campo lo marca y abre la
+   lista). Si se va sin elegir ni escribir, sigue el mismo cliente; escribir lo suelta, como antes. */
+function cambiarClienteElegido(campo) {
+  const inp = document.getElementById(campo), caja = document.getElementById(campo + 'Elegido');
+  if (!inp) return;
+  if (caja) caja.hidden = true;
+  inp.hidden = false;
+  inp.focus();
+}
+
 if (typeof window !== 'undefined') {
   window.cargarClientesDelLocal = cargarClientesDelLocal;
   window.cargarClientesWeb = cargarClientesWeb;
   window.clientesParaElegir = clientesParaElegir;
   window.pintarListaClientes = pintarListaClientes;
   window.clienteRepetido = clienteRepetido;
+  window.pintarClienteElegido = pintarClienteElegido;
+  window.cambiarClienteElegido = cambiarClienteElegido;
 }

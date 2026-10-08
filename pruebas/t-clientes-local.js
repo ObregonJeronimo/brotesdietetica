@@ -161,6 +161,83 @@ console.log('\n-- lectura --');
   t('los de la web se leen UNA vez aunque se pidan seguido, y vacíos no se releen', w.lecturas.join() === 'clientesAuth', w.lecturas);
 }
 
+console.log('\n-- el cliente elegido se ve elegido (08/10) --');
+{
+  const m = armar();
+  const lista = { abiertas: new Set(['open']) };
+  lista.classList = { remove: c => lista.abiertas.delete(c), contains: c => lista.abiertas.has(c) };
+  const wrap = { querySelector: s => (s === '.cliente-select-list' ? lista : null) };
+  const inp = { value: 'José Pérez', hidden: false, enfocado: 0, blurs: 0, blur() { this.blurs++; }, focus() { this.enfocado++; m.ctx.document.activeElement = this; } };
+  const idEl = { value: 'c1' };
+  const caja = { hidden: true, innerHTML: '', parentNode: wrap };
+  const campos = { ventaCliente: inp, ventaClienteId: idEl, ventaClienteElegido: caja };
+  m.ctx.document.getElementById = id => campos[id] || null;
+  m.ctx.document.activeElement = inp;
+  m.ctx.pintarClienteElegido('ventaCliente');
+  t('con un cliente de la lista: el recuadro "Cliente seleccionado:" en el lugar del buscador', caja.hidden === false && inp.hidden === true &&
+    caja.innerHTML.indexOf('<span class="cli-elegido-etq">Cliente seleccionado:</span>') > 0 && caja.innerHTML.indexOf('<strong>José Pérez</strong>') > 0, caja.innerHTML);
+  t('  con su origen, su teléfono y "Cambiar"', caja.innerHTML.indexOf('<i class="bi bi-shop"></i> Local</span> 351 555-1234') > 0 &&
+    caja.innerHTML.indexOf('onclick="cambiarClienteElegido(\'ventaCliente\')">Cambiar</button>') > 0, caja.innerHTML);
+  t('  la lista se cierra y el campo suelta el foco', !lista.classList.contains('open') && inp.blurs === 1);
+  m.ctx.cambiarClienteElegido('ventaCliente');
+  t('"Cambiar": vuelve el buscador, con el foco (su onfocus marca el nombre y abre la lista)', caja.hidden === true && inp.hidden === false && inp.enfocado === 1);
+  t('  y el cliente sigue elegido hasta que se escriba otro: ni el nombre ni el id se tocan', idEl.value === 'c1' && inp.value === 'José Pérez');
+  idEl.value = 'auth:u1'; inp.value = 'Bruno Díaz'; m.ctx.document.activeElement = null;
+  m.ctx.pintarClienteElegido('ventaCliente');
+  t('uno de la web: su número, "Web" y su mail', caja.innerHTML.indexOf('<strong><span class="cli-num">#7</span> Bruno Díaz</strong>') > 0 &&
+    caja.innerHTML.indexOf('<i class="bi bi-globe2"></i> Web</span> bruno@gmail.com') > 0, caja.innerHTML);
+  idEl.value = 'c2'; inp.value = 'Ana <b>Gómez</b>';
+  m.ctx.pintarClienteElegido('ventaCliente');
+  t('  el nombre va escapado', caja.innerHTML.indexOf('Ana &lt;b&gt;Gómez&lt;/b&gt;') > 0 && caja.innerHTML.indexOf('<b>Gómez') < 0, caja.innerHTML);
+  idEl.value = 'nuevoXYZ'; inp.value = 'Recién creado';
+  m.ctx.pintarClienteElegido('ventaCliente');
+  t('  uno que todavía no está en las listas: con el nombre del campo, del local', caja.innerHTML.indexOf('<strong>Recién creado</strong>') > 0 &&
+    caja.innerHTML.indexOf('Local') > 0);
+  idEl.value = ''; inp.value = 'Consumidor Final';
+  m.ctx.pintarClienteElegido('ventaCliente');
+  t('sin un cliente de la lista (Consumidor Final o un nombre escrito a mano): el buscador como siempre',
+    caja.hidden === true && caja.innerHTML === '' && inp.hidden === false);
+  t('  y en una pantalla sin el recuadro no hace nada', (() => { m.ctx.pintarClienteElegido('noExiste'); m.ctx.cambiarClienteElegido('noExiste'); return true; })());
+}
+
+console.log('\n-- el recuadro, enganchado en las dos ventas (08/10) --');
+{
+  t('está en el lugar del buscador, en la venta y en la mayorista',
+    html.indexOf('<div class="cli-elegido" id="ventaClienteElegido" hidden></div><input type="text" class="form-input" id="ventaCliente"') > 0 &&
+    html.indexOf('<div class="cli-elegido" id="ventaMayClienteElegido" hidden></div><input type="text" class="form-input" id="ventaMayCliente"') > 0);
+  const p1 = cuerpo(html, 'pickCliente'), p2 = cuerpo(html, 'pickVentaMayCliente');
+  t('  al elegir de la lista se pinta', p1.indexOf("pintarClienteElegido('ventaCliente')") > 0 && p2.indexOf("pintarClienteElegido('ventaMayCliente')") > 0);
+  t('  lo que se guarda sale de los mismos campos que antes (el nombre, el id y "elegido")',
+    p1.indexOf("document.getElementById('ventaCliente').value=nombre;document.getElementById('ventaClienteId').value=id;ventaClienteSelected=true;") > 0 &&
+    p2.indexOf("document.getElementById('ventaMayCliente').value=nombre;document.getElementById('ventaMayClienteId').value=id;ventaMayClienteSelected=true;") > 0);
+  t('  al abrir: la venta nueva, la que se edita, el pedido que pasa a venta y la mayorista',
+    cuerpo(html, 'openVentaModal').indexOf("pintarClienteElegido('ventaCliente')") > 0 &&
+    cuerpo(html, 'openEditVentaModal').indexOf("pintarClienteElegido('ventaCliente')") > 0 &&
+    cuerpo(html, 'convertirPedidoEnVentaDesdeModal').indexOf("pintarClienteElegido('ventaCliente')") > 0 &&
+    cuerpo(html, 'openVentaMayModal').indexOf("pintarClienteElegido('ventaMayCliente')") > 0);
+  t('  y al salir del buscador sin elegir otro', cuerpo(html, 'onBlurClienteVenta').indexOf("pintarClienteElegido('ventaCliente')") > 0 &&
+    /id="ventaMayCliente"[^>]*onblur="setTimeout\(function\(\)\{if\(typeof pintarClienteElegido==='function'\)pintarClienteElegido\('ventaMayCliente'\);\},150\)"/.test(html));
+  t('  el buscador escondido se esconde de verdad (los .form-input tienen su propio display)', html.indexOf('.cliente-select-wrap>[hidden]{display:none!important}') > 0);
+}
+
+console.log('\n-- clientes del local: los botones dicen lo que hacen (08/10) --');
+{
+  const lista = { innerHTML: '' };
+  const ctx = { allClientes: [{ id: 'c1', nombre: "O'Brien", telefono: '1', ventasCount: 2, ventasTotal: 100 }], clSortDir: null,
+    document: { getElementById: id => (id === 'clientesList' ? lista : id === 'clienteSearch' ? { value: '' } : null) } };
+  vm.createContext(ctx);
+  vm.runInContext(cuerpo(html, 'filterClientes'), ctx);
+  ctx.filterClientes();
+  const h = lista.innerHTML;
+  t('"Ver cobros", "Editar" y "Eliminar" con texto, sin íconos', h.indexOf('>Ver cobros</button>') > 0 && h.indexOf('>Editar</button>') > 0 &&
+    h.indexOf('>Eliminar</button>') > 0 && h.indexOf('<i class="bi') < 0, h);
+  t('  cada uno hace lo mismo que antes (la ficha, editar, eliminar), también con un apóstrofo en el nombre',
+    h.indexOf("onclick=\"showClienteHist('c1','O\\'Brien')\">Ver cobros</button>") > 0 &&
+    h.indexOf("onclick=\"openClienteModal('c1')\">Editar</button>") > 0 &&
+    h.indexOf("onclick=\"deleteCliente('c1','O\\'Brien')\" style=\"color:var(--danger)\">Eliminar</button>") > 0, h);
+  t('  en el celular van en su renglón, debajo del cliente', html.indexOf('@media(max-width:768px){.cliente-card{flex-wrap:wrap}.cliente-actions{width:100%}.cliente-actions button{flex:1;padding:6px 8px}}') > 0);
+}
+
 console.log('\n-- el panel --');
 {
   const sel = cuerpo(html, 'showClienteSelect');
