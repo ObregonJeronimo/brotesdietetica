@@ -2702,6 +2702,34 @@ entero, el build y las pruebas). Push a `main` de `91275ed` a `bfad2cd` (con los
 panel. Verificado a las 00:29: Vercel sirve el mismo `admin.html` que el repo; la tienda y la pantalla de
 ingreso del panel cargan sin errores (sin iniciar sesión). La clienta lo ve al recargar (F5).
 
+### AR) Venta: el cliente elegido se ve elegido, y Clientes del local con botones de texto · solo local, SIN SUBIR (08/10/2026)
+
+Pedido de Thiago: (1) "al buscar y seleccionar un cliente cuando vas a vender… se escribe en la barra de
+búsqueda pero no queda claro si se seleccionó… que diga 'Cliente seleccionado:'"; (2) "en clientes del local,
+los 3 botones de acción están por ícono, cambialos por texto… el reloj… 'Ver cobros'". Y: "no subas nada a
+producción ya que la clienta está usando el sistema", "no abras el sandbox ahora".
+- **Venta minorista y mayorista** (`pintarClienteElegido` / `cambiarClienteElegido`, admin-clientes.js): al
+  tocar un cliente de la lista, en el lugar del buscador queda un recuadro verde "Cliente seleccionado:" con
+  el nombre (y su número si es de la web), si es del local o de la web, su teléfono o mail, y "Cambiar".
+  "Cambiar" vuelve el buscador con el nombre marcado: si se sale sin elegir ni escribir, sigue el mismo
+  cliente; escribir lo suelta, como antes. Sin un cliente de la lista (Consumidor Final en la minorista, un
+  nombre escrito a mano en la mayorista) se ve el buscador como siempre. Se pinta al elegir, al abrir (venta
+  nueva, la que se edita, el pedido que pasa a venta, la mayorista) y al salir del buscador. No cambia lo que
+  se guarda: sale de los mismos campos (el nombre, el id oculto y "elegido"). El del pedido del panel no se tocó.
+- **Clientes del local** (`filterClientes`): los tres botones con texto: "Ver cobros" (era el reloj; abre la
+  ficha: lo que debe, sus compras y los cobros), "Editar" y "Eliminar" (en rojo). En el celular van en su
+  renglón, debajo del cliente, repartidos a lo ancho.
+Probado sin el sandbox (a pedido) en una página de prueba local, `_test-clientes.html` (ignorada por git: no
+se sube), que toma el CSS, las ventanas y las funciones del admin.html real con clientes de mentira y sin
+Firebase: elegir; "Cambiar" y salir sin elegir (vuelve el mismo); cambiar por otro; escribir y salir
+(Consumidor Final en la minorista, el nombre escrito en la mayorista); uno de la web con su número; en compu y
+en celular. Pruebas: 19 más (t-clientes-local). Total: 4223. **Falta probarlo en el sandbox antes de subir**:
+guardar una venta con el cliente elegido (que quede en su ficha), editarla, pasar un pedido a venta y crear
+un cliente desde la venta.
+Visto y NO tocado (ya estaba): en la mayorista, si se escribe un nombre a mano y se sale del campo, la lista de
+clientes queda abierta encima de los campos de abajo, y un clic ahí puede elegir un cliente sin querer (la
+minorista la cierra al salir). Arreglo propuesto: cerrarla al salir del campo, como la minorista.
+
 ---
 
 ## 2. Decisiones tuyas
