@@ -2235,12 +2235,25 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                "Mani" y "Mani x 3 kg"): pedido del duenio, 28/09/2026. */
             const nombres=afectados.map(p=>(typeof _nombreConPresentacion==='function'?_nombreConPresentacion(p):p.nombre)||p.id);
             const muestra=nombres.slice(0,6).join(', ')+(nombres.length>6?' y '+(nombres.length-6)+' m\u00e1s':'');
-            const linea=(c,n,unidad)=>(c>0?'Sumar ':'Descontar ')+Math.abs(c)+' '+unidad+' a '+n+' producto'+(n===1?'':'s');
-            const verbo=[
-                cantUni?linea(cantUni,uni.length,'unidad'+(Math.abs(cantUni)===1?'':'es')):null,
-                cantPeso?linea(cantPeso,peso.length,'gramo'+(Math.abs(cantPeso)===1?'':'s')):null
-            ].filter(Boolean).join('\n');
-            if(!await pedirConfirmacion(verbo+' a '+ids.length+' producto'+(ids.length===1?'':'s')+':\n\n'+muestra+'\n\n\u00bfConfirma?',{titulo:'Cargar stock en tanda',aceptar:'Cargar'}))return;
+            /* Pedido de Thiago (08/10/2026): decia "Sumar 1 unidad a 65 productos a 99 productos".
+               Ahora una linea por clase, con "a cada uno" (no se reparte: cada producto recibe la
+               cantidad entera), y la clase que no cambia porque su campo quedo vacio. Con TODOS los
+               productos elegidos, el aviso arriba y el foco en Cancelar: un Enter de mas no carga. */
+            const fmtN=n=>Number(n).toLocaleString('es-AR');
+            const cuanto=(c,esPeso)=>{const a=Math.abs(c);return fmtN(a)+(esPeso
+                ?' gramo'+(a===1?'':'s')+(a>=1000&&typeof fmtPeso==='function'?' ('+fmtPeso(a)+')':'')
+                :' unidad'+(a===1?'':'es'));};
+            const linea=(c,n,esPeso)=>{
+                const clase=(esPeso?'Por peso':'Por unidad')+' ('+fmtN(n)+' producto'+(n===1?'':'s')+'): ';
+                if(!c)return clase+(n===1?'no cambia':'no cambian')+', porque no escribiste '+(esPeso?'gramos':'unidades')+'.';
+                const varios=Math.abs(c)===1?' ':'n ';
+                return clase+(c>0?'se suma'+varios+cuanto(c,esPeso)+(n===1?'':' a cada uno')
+                                :'se descuenta'+varios+cuanto(c,esPeso)+(n===1?'':' de cada uno'))+'.';
+            };
+            const lineas=[uni.length?linea(cantUni,uni.length,false):null,peso.length?linea(cantPeso,peso.length,true):null].filter(Boolean);
+            const sonTodos=typeof stockSonTodos==='function'&&stockSonTodos();
+            const msg=(sonTodos?'[!] Est\u00e1n seleccionados TODOS los productos.\n\n':'')+lineas.join('\n')+'\n\n'+muestra+'\n\n\u00bfConfirm\u00e1s?';
+            if(!await pedirConfirmacion(msg,{titulo:'Cargar stock en tanda',aceptar:'Cargar',cuidado:sonTodos,focoEnNo:sonTodos}))return;
 
             const btn=document.getElementById('stockMasivoBtn');
             btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';

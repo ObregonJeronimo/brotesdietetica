@@ -296,6 +296,8 @@ const filas = h => [...h.matchAll(/<div class="(stock-row[^"]*)" data-id="([^"]+
     ['m1', 'm3', 'alm'].forEach(id => w.ctx._stockSel.add(id));
     await w.ctx.agregarStockMasivo();
     t('la carga en tanda nombra cada bolsa con su tamaño', (w.preguntas[0] || '').indexOf('Mani prueba x 1 kg, Mani prueba x 3 kg, Almendra') > 0, w.preguntas[0]);
+    t('  y se lee bien: "Por peso (3 productos): se suman 500 gramos a cada uno." (antes: "Sumar 500 gramos a 3 productos a 3 productos")',
+      w.preguntas[0] === 'Por peso (3 productos): se suman 500 gramos a cada uno.\n\nMani prueba x 1 kg, Mani prueba x 3 kg, Almendra\n\n¿Confirmás?', w.preguntas[0]);
   }
 
   console.log('\n-- stock con otra cara (07/10): el resumen y los datos de cada fila --');
@@ -442,6 +444,7 @@ const filas = h => [...h.matchAll(/<div class="(stock-row[^"]*)" data-id="([^"]+
     w.campos.stockFilterEstado = { value: '' };
     w.ctx.renderStockList();
     await tildar(true);
+    const nPedidos = pedidos.length;
     const antes = new Map(w.ctx.allProducts.map(p => [p.id, Number(p.stock || 0)]));
     const ops = [];
     w.ctx.db = { collection: () => ({ doc: id => ({ id }) }), batch: () => ({ update: (ref, d) => ops.push([ref.id, d.stock.__inc]), commit: async () => {} }) };
@@ -451,6 +454,11 @@ const filas = h => [...h.matchAll(/<div class="(stock-row[^"]*)" data-id="([^"]+
     t('cargar 5 unidades con todos elegidos: +5 a cada producto por unidad, también a cada presentación; los de peso no se tocan',
       cambio === 'alm m1 m3 alf1+5 alf12+5 alf6+5 chia1 nuez+5' && ops.map(o => o.join('+')).join() === 'alf1+5,alf12+5,alf6+5,nuez+5', cambio);
     t('  y después de cargar se vacía la selección y el aviso se va', w.ctx._stockSel.size === 0 && aviso.hidden === true && chk.checked === false);
+    const conf = pedidos[nPedidos] || { m: '', o: {} };
+    t('  la confirmación de esa tanda: TODOS arriba, una línea por clase, "a cada uno", y los de peso que no cambian (08/10)',
+      conf.m.indexOf('[!] Están seleccionados TODOS los productos.\n\nPor unidad (4 productos): se suman 5 unidades a cada uno.\n' +
+        'Por peso (4 productos): no cambian, porque no escribiste gramos.\n\n') === 0 && /\n\n¿Confirmás\?$/.test(conf.m) && conf.m.indexOf(' a 8 productos') < 0, conf.m);
+    t('    con todos elegidos arranca en "Cancelar" (un Enter de más no carga)', conf.o.focoEnNo === true && conf.o.cuidado === true && conf.o.aceptar === 'Cargar');
   }
   t('la casilla llama a stockCasillaTodos, y el aviso y el filtro están en la pantalla',
     html.indexOf("onchange=\"if(typeof stockCasillaTodos==='function')stockCasillaTodos(this);else stockSeleccionarTodos(this.checked)\"") > 0 &&
@@ -458,6 +466,35 @@ const filas = h => [...h.matchAll(/<div class="(stock-row[^"]*)" data-id="([^"]+
     html.indexOf('<option value="">Todo el stock</option><option value="bajo">Stock bajo</option><option value="sin">Sin stock</option><option value="neg">En negativo</option>') > 0 &&
     html.indexOf("if(typeof pintarAvisoTodosStock==='function')pintarAvisoTodosStock();") > 0 &&
     html.indexOf("if(est&&typeof coincideEstadoStock==='function')f=f.filter(p=>coincideEstadoStock(p,est));") > 0);
+
+  console.log('\n-- la confirmación de la tanda se lee bien (08/10) --');
+  {
+    const prods = [P('u1', { nombre: 'Yerba', stock: 10 }), P('u2', { nombre: 'Miel', stock: 4 }), P('g1', { nombre: 'Chia', tipoVenta: 'peso', stock: 5000 })];
+    const caso = async (sel, uni, gr) => {
+      const w = armar({ productos: prods.map(p => Object.assign({}, p)) });
+      const pedidos = [];
+      w.ctx.pedirConfirmacion = async (m, o) => { pedidos.push({ m, o }); return false; };
+      w.ctx.renderStockList();
+      sel.forEach(id => w.ctx._stockSel.add(id));
+      w.campos.stockMasivoCant.value = uni; w.campos.stockMasivoCantPeso.value = gr;
+      await w.ctx.agregarStockMasivo();
+      return pedidos[0] || { m: '(no preguntó)', o: {} };
+    };
+    let c = await caso(['u1'], '-3', '');
+    t('descontar a uno solo: "Por unidad (1 producto): se descuentan 3 unidades."', c.m === 'Por unidad (1 producto): se descuentan 3 unidades.\n\nYerba\n\n¿Confirmás?', c.m);
+    t('  sin ser todos, sin el aviso y arranca en "Cargar" como antes', c.o.focoEnNo === false && c.o.cuidado === false);
+    c = await caso(['u1', 'u2'], '1', '');
+    t('una unidad a dos: "se suma 1 unidad a cada uno"', c.m.indexOf('Por unidad (2 productos): se suma 1 unidad a cada uno.\n\nYerba, Miel') === 0, c.m);
+    c = await caso(['u1', 'u2'], '-1', '');
+    t('descontar 1 a dos: "se descuenta 1 unidad de cada uno"', c.m.indexOf('Por unidad (2 productos): se descuenta 1 unidad de cada uno.') === 0, c.m);
+    c = await caso(['u1', 'u2', 'g1'], '2', '2000');
+    t('las dos clases, con todos: TODOS arriba, y los gramos con los kilos al lado',
+      c.m === '[!] Están seleccionados TODOS los productos.\n\nPor unidad (2 productos): se suman 2 unidades a cada uno.\n' +
+        'Por peso (1 producto): se suman 2.000 gramos (2 kg).\n\nYerba, Miel, Chia\n\n¿Confirmás?' && c.o.focoEnNo === true, c.m);
+    c = await caso(['u1', 'g1'], '', '-250');
+    t('solo gramos con uno por unidad elegido: ese "no cambia, porque no escribiste unidades"',
+      c.m.indexOf('Por unidad (1 producto): no cambia, porque no escribiste unidades.\nPor peso (1 producto): se descuentan 250 gramos.\n\nChia\n\n') === 0, c.m);
+  }
 
   console.log('\n-- los estilos --');
   {
