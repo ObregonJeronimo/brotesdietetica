@@ -2615,7 +2615,58 @@ $34.023.109) coinciden con una cuenta aparte en la página; los bloques y el cel
 Pruebas: 9 más (t-stock-agrupado). Total: 4165.
 Ideas que NO se agregaron (para hablar con Thiago): filtrar por estado (solo bajos / sin stock), ordenar por
 valor, que el recuadro "Stock bajo" o "Sin stock" filtre la lista al tocarlo, y ver las últimas compras del
-producto desde su fila.
+producto desde su fila. (El filtro por estado se hizo después, a pedido: §AP.)
+
+### AP) Stock: aviso al seleccionar TODOS, y filtro por estado · solo local, SIN SUBIR (07/10/2026)
+
+Pedido de Thiago, después de ver §AO: (1) "al seleccionar el checkbox de seleccionar todos los productos…
+que aparezca un cartel de advertencia… y si aceptás, al lado del checkbox aparece un cartel tipo ATENCIÓN:
+todos los productos están seleccionados"; (2) el filtro por estado (la idea 2 de §AO).
+- **Seleccionar todos** (`stockCasillaTodos`, admin-stock.js; la casilla de arriba lo llama): si con ese
+  click quedarían elegidos TODOS los productos en uso, antes pregunta: "Vas a seleccionar TODOS los
+  productos (1.320) para cambiarles el stock de una vez", en amarillo "Incluye las N bolsas y presentaciones
+  de M productos: lo que cargues se suma o se resta en cada una por separado" (los bloques de
+  `agruparParaStock`; si no hay, no sale), "Hacelo con cuidado…" y "¿Querés seleccionarlos igual?".
+  El foco arranca en "Cancelar": Enter, Escape o tocar afuera no eligen nada. Con "Sí, seleccionar todos",
+  como antes (`stockSeleccionarTodos`). Destildar no pregunta.
+- **El aviso al lado de la casilla** ("ATENCIÓN: todos los productos están seleccionados",
+  `pintarAvisoTodosStock`, lo llama `pintarSeleccionStock`): está mientras la selección tenga a todos los
+  productos en uso. Sigue con una búsqueda puesta (la tanda iría a todos, no solo a los que se ven), y se va
+  al sacar uno, con "Limpiar" o después de cargar la tanda.
+- Con una búsqueda o un filtro puesto, la casilla elige solo los que se ven, sin preguntar y sin el aviso
+  (como antes): ahí no son todos. Salvo que los demás ya estuvieran elegidos y con esos se completen:
+  entonces sí son todos, y pregunta.
+- **Filtro por estado** (`stockFilterEstado`, al lado de "Todas"): "Todo el stock", "Stock bajo", "Sin
+  stock" (en 0 y en negativo, como el recuadro) y "En negativo". `coincideEstadoStock` (admin-stock.js), con
+  las mismas cuentas que los recuadros; se suma a la búsqueda y a la categoría, y vuelve a la página 1. En
+  un bloque sale el bloque entero, marcado el tamaño que coincide, y "Seleccionar los visibles" alcanza solo
+  a esos (como con la búsqueda). Al cargar stock a uno, si deja de coincidir, sale de la lista. Si no queda
+  ninguno, dice cuál: "No hay productos con stock bajo" / "sin stock" / "en negativo".
+Probado en el sandbox (99 en uso): el aviso, cancelar con Enter, Escape, "Cancelar" y tocando afuera (nada
+elegido), aceptar (99 elegidos y el aviso), sacar uno y volverlo, la búsqueda con todos elegidos (el aviso
+sigue). La tanda con todos elegidos: +1 unidad llegó a los 65 por unidad y a ninguno de los 34 por peso
+(comparado en la base, uno por uno), el valor del stock subió $645.400 (igual a la cuenta aparte), el
+historial lo anotó; con -1 todo volvió a como estaba. Los filtros: 13 bajos, 10 sin stock, 5 en negativo, lo
+mismo que los recuadros. Celular sin correrse de costado. Con los productos de producción (leídos, sin
+tocar nada): el aviso diría 1.320 productos y "las 3 bolsas y presentaciones de 1 producto"; el filtro, 136
+bajos, 418 sin stock y 35 en negativo (con 10 u / 500 g), como los recuadros.
+Pruebas: 30 más (t-stock-agrupado). Total: 4195.
+**Revisión antes de subir** (Thiago: "revisalo bien antes de pushear"; yo + dos revisores aparte, uno para
+la selección y otro para el filtro): en lo nuevo no hubo errores ni números que no cierren. Se arregló: el
+verde del tamaño que coincide dentro de un bloque no se veía desde §AO (la tarjeta nueva le tapaba el fondo:
+`#sec-stock .stock-grupo .stock-row.stock-row-tam.coincide`), el "No hay productos" que dice cuál filtro, y
+dos comentarios. Vistos y NO tocados, porque ya estaban antes (para hablar con Thiago):
+- La selección guarda productos que después se depuran o se borran: con todos elegidos, depurar uno en
+  Depuración y volver deja el contador en uno más que los productos en uso, y la tanda le carga también a
+  ese. Arreglo propuesto: al dibujar Stock, sacar de la selección lo que ya no está en uso.
+- La confirmación de la tanda dice "Sumar 1 unidad a 65 productos a 99 productos" y arranca en "Cargar".
+  Se puede decir mejor ("a los 65 por unidad de los 99 elegidos") y, con todos elegidos, arrancar en
+  "Cancelar".
+- El pie de las páginas cuenta un bloque como uno: "1 - 20 de 25" con 26 productos (dos son tamaños de uno).
+- La campanita usa otra regla para "poco stock" (5 u o menos / 500 g o menos, sin los ocultos) que los
+  recuadros y el filtro (menos de 10 u / 500 g, configurables en Productos, con los ocultos): los números
+  pueden no coincidir. Decidir cuál vale.
+- El filtro (como la búsqueda y la categoría) queda puesto al salir y volver a Stock.
 
 ---
 
