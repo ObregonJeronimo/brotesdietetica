@@ -2660,6 +2660,7 @@ dos comentarios. Vistos y NO tocados, porque ya estaban antes (para hablar con T
   Depuración y volver deja el contador en uno más que los productos en uso, y la tanda le carga también a
   ese. Arreglo propuesto: al dibujar Stock, sacar de la selección lo que ya no está en uso.
 - La confirmación de la tanda dice "Sumar 1 unidad a 65 productos a 99 productos" y arranca en "Cargar".
+  (Hecho el 08/10, a pedido: §AQ.)
   Se puede decir mejor ("a los 65 por unidad de los 99 elegidos") y, con todos elegidos, arrancar en
   "Cancelar".
 - El pie de las páginas cuenta un bloque como uno: "1 - 20 de 25" con 26 productos (dos son tamaños de uno).
@@ -2673,6 +2674,28 @@ arriba se hizo y lo que encontró en lo nuevo se arregló y se probó antes). Pu
 `91275ed` (con los commits de docs). Solo cambia el panel. Verificado a las 00:10: Vercel sirve los mismos
 `admin.html`, `admin-stock.js` y `admin-pagination.js` que el repo; la tienda y la pantalla de ingreso del
 panel cargan sin errores (sin iniciar sesión), ya con el código nuevo. La clienta lo ve al recargar (F5).
+
+### AQ) Stock: la confirmación de la carga en tanda se lee bien · solo local, SIN SUBIR (08/10/2026)
+
+Pedido de Thiago ("mejorá lo del punto 2, que se lee mal"): la confirmación de "Agregar al stock" en tanda
+decía "Sumar 1 unidad a 65 productos a 99 productos:" (el "a 99" sobraba, y con las dos cantidades quedaba
+pegado a la segunda línea) y arrancaba en "Cargar" también con todos elegidos. Ahora (`agregarStockMasivo`,
+admin.html):
+- Una línea por clase, con "a cada uno" (no se reparte: cada producto recibe la cantidad entera):
+  "Por unidad (65 productos): se suma 1 unidad a cada uno." / "Por peso (14 productos): se suman 1.500
+  gramos (1,5 kg) a cada uno." Al descontar, "se descuenta(n) … de cada uno". Con uno solo, sin "a cada uno".
+- La clase elegida cuyo campo quedó vacío lo dice: "Por peso (34 productos): no cambian, porque no
+  escribiste gramos."
+- Abajo, como antes, los nombres (los 6 primeros y "y N más"), y "¿Confirmás?".
+- Con TODOS los productos elegidos (`stockSonTodos`): arriba, en amarillo, "Están seleccionados TODOS los
+  productos.", y el foco arranca en "Cancelar": un segundo Enter en el campo de la cantidad no carga.
+  Sin ser todos, arranca en "Cargar" como antes.
+No cambia lo que se carga ni el aviso de después ni el historial.
+Probado en el sandbox: con los 99 elegidos y 1 unidad, el texto de arriba, y el segundo Enter canceló (nada
+cambió en la base; la selección y la cantidad quedan). Con "tostado" (41: 27 por unidad y 14 por peso), 1
+unidad y 1.500 g: llegó +1 a los 27 y +1.500 g a los 14, y son justo los 41 elegidos (comparado en la base,
+uno por uno); con -1 y -1.500 ("se descuenta 1 unidad de cada uno", "se descuentan 1.500 gramos (1,5 kg) de
+cada uno") todo volvió a como estaba, recuadros incluidos. Pruebas: 9 más (t-stock-agrupado). Total: 4204.
 
 ---
 
