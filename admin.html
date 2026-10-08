@@ -5392,7 +5392,11 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
                     const _rep=clienteRepetido(data);
                     /* Con la misma regla que clienteRepetido: un telefono cuenta desde 6 digitos. */
                     const _dig=s=>String(s||'').replace(/\D/g,'');
-                    const _porTel=_dig(data.telefono).length>=6&&_dig(_rep.telefono)===_dig(data.telefono);
+                    /* Solo si HAY uno repetido (revision del 08/10): sin el !!_rep, un cliente nuevo
+                       con telefono (6 digitos o mas) y sin repetido leia _rep.telefono de null, y el
+                       guardado se cortaba con "Cannot read properties of null": desde el 26/09 no se
+                       podia crear un cliente con telefono. */
+                    const _porTel=!!_rep&&_dig(data.telefono).length>=6&&_dig(_rep.telefono)===_dig(data.telefono);
                     if(_rep&&!(await pedirConfirmacion('Ya hay un cliente con ese '+(_porTel?'teléfono':'DNI')+': "'+_rep.nombre+'".\n\n¿Lo guardo igual, como otro cliente?',{titulo:'Cliente repetido',aceptar:'Guardar igual',cancelar:'Volver'}))){
                         btn.disabled=false;btn.innerHTML='<i class="bi bi-check-lg"></i> Guardar';
                         return;
@@ -7667,6 +7671,18 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
             list.classList.add('open');
         }
         function pickVentaMayCliente(id,nombre){document.getElementById('ventaMayCliente').value=nombre;document.getElementById('ventaMayClienteId').value=id;ventaMayClienteSelected=true;document.getElementById('ventaMayClienteList').classList.remove('open');if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaMayCliente');}
+        /* Al salir del buscador de la mayorista, la lista se cierra, como en la minorista (pedido de
+           Thiago, 08/10/2026): con un nombre escrito a mano quedaba abierta encima de los campos de
+           abajo, y un clic ahi elegia un cliente sin querer. Elegir de la lista no pasa por aca: el
+           mousedown de la lista no le saca el foco al campo. Sin cliente elegido no se completa nada
+           (la mayorista acepta un nombre escrito); con uno, vuelve el recuadro (admin-clientes.js). */
+        function onBlurClienteVentaMay(){
+            setTimeout(()=>{
+                const list=document.getElementById('ventaMayClienteList');
+                if(list)list.classList.remove('open');
+                if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaMayCliente');
+            },150);
+        }
 
 
         function openMayoristaPctModal(){
@@ -8853,7 +8869,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         <div class="venta-col">
           <div class="form-group"><label>Cliente *</label>
             <div class="cliente-select-wrap">
-              <div class="cli-elegido" id="ventaMayClienteElegido" hidden></div><input type="text" class="form-input" id="ventaMayCliente" placeholder="Buscar cliente..." autocomplete="off" onfocus="this.select();showVentaMayClienteSelect()" oninput="ventaMayClienteSelected=false;document.getElementById('ventaMayClienteId').value='';showVentaMayClienteSelect()" onblur="setTimeout(function(){if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaMayCliente');},150)">
+              <div class="cli-elegido" id="ventaMayClienteElegido" hidden></div><input type="text" class="form-input" id="ventaMayCliente" placeholder="Buscar cliente..." autocomplete="off" onfocus="this.select();showVentaMayClienteSelect()" oninput="ventaMayClienteSelected=false;document.getElementById('ventaMayClienteId').value='';showVentaMayClienteSelect()" onblur="onBlurClienteVentaMay()">
               <input type="hidden" id="ventaMayClienteId" value="">
               <div class="cliente-select-list" id="ventaMayClienteList"></div>
             </div>

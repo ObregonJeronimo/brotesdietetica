@@ -216,7 +216,21 @@ console.log('\n-- el recuadro, enganchado en las dos ventas (08/10) --');
     cuerpo(html, 'convertirPedidoEnVentaDesdeModal').indexOf("pintarClienteElegido('ventaCliente')") > 0 &&
     cuerpo(html, 'openVentaMayModal').indexOf("pintarClienteElegido('ventaMayCliente')") > 0);
   t('  y al salir del buscador sin elegir otro', cuerpo(html, 'onBlurClienteVenta').indexOf("pintarClienteElegido('ventaCliente')") > 0 &&
-    /id="ventaMayCliente"[^>]*onblur="setTimeout\(function\(\)\{if\(typeof pintarClienteElegido==='function'\)pintarClienteElegido\('ventaMayCliente'\);\},150\)"/.test(html));
+    /id="ventaMayCliente"[^>]*onblur="onBlurClienteVentaMay\(\)"/.test(html) && cuerpo(html, 'onBlurClienteVentaMay').indexOf("pintarClienteElegido('ventaMayCliente')") > 0);
+  {
+    /* Pedido de Thiago (08/10): en la mayorista, con un nombre escrito a mano, la lista quedaba abierta
+       encima de los campos de abajo al salir del campo, y un clic ahí elegía un cliente sin querer. */
+    const lista = { abiertas: new Set(['open']) };
+    lista.classList = { remove: c => lista.abiertas.delete(c), contains: c => lista.abiertas.has(c) };
+    const inp = { value: 'Juan sin cuenta' }, pintados = [];
+    const ctx = { setTimeout: fn => fn(), document: { getElementById: id => (id === 'ventaMayClienteList' ? lista : id === 'ventaMayCliente' ? inp : null) },
+      pintarClienteElegido: c => pintados.push(c) };
+    vm.createContext(ctx);
+    vm.runInContext(cuerpo(html, 'onBlurClienteVentaMay'), ctx);
+    ctx.onBlurClienteVentaMay();
+    t('la mayorista cierra la lista al salir del campo, como la minorista', !lista.classList.contains('open') && pintados.join() === 'ventaMayCliente');
+    t('  y no completa nada: el nombre escrito a mano queda (la mayorista lo acepta)', inp.value === 'Juan sin cuenta');
+  }
   t('  el buscador escondido se esconde de verdad (los .form-input tienen su propio display)', html.indexOf('.cliente-select-wrap>[hidden]{display:none!important}') > 0);
 }
 
@@ -236,6 +250,38 @@ console.log('\n-- clientes del local: los botones dicen lo que hacen (08/10) --'
     h.indexOf("onclick=\"openClienteModal('c1')\">Editar</button>") > 0 &&
     h.indexOf("onclick=\"deleteCliente('c1','O\\'Brien')\" style=\"color:var(--danger)\">Eliminar</button>") > 0, h);
   t('  en el celular van en su renglón, debajo del cliente', html.indexOf('@media(max-width:768px){.cliente-card{flex-wrap:wrap}.cliente-actions{width:100%}.cliente-actions button{flex:1;padding:6px 8px}}') > 0);
+}
+
+console.log('\n-- crear un cliente con teléfono (revisión del 08/10) --');
+{
+  const correr = async (tel, responde) => {
+    const m = armar();
+    const campos = { cNombre: { value: 'Pepe Prueba' }, cIdentificacion: { value: '' }, cTelefono: { value: tel }, cEmail: { value: '' },
+      cDireccion: { value: '' }, saveClienteBtn: { disabled: false, innerHTML: '' }, 'sec-clientes': { classList: { contains: () => false } } };
+    const reg = { agregados: [], avisos: [], elegidos: [], preguntas: [] };
+    m.ctx.document.getElementById = id => campos[id] || null;
+    Object.assign(m.ctx, {
+      editingClienteId: null, _clienteDesde: 'venta',
+      db: { collection: () => ({ add: async d => { reg.agregados.push(d); return { id: 'nuevo1' }; } }) },
+      firebase: { firestore: { FieldValue: { serverTimestamp: () => 'ts' } } },
+      logAction: () => {}, showAdminToast: (msg, tp) => reg.avisos.push((tp || '') + ':' + msg),
+      pedirConfirmacion: async msg => { reg.preguntas.push(msg); return responde; },
+      pickCliente: (id, n) => reg.elegidos.push(id + ':' + n), pickPedCliente: () => {}, pickVentaMayCliente: () => {},
+      closeClienteModal: () => {}, loadClientes: () => {},
+    });
+    vm.runInContext('async ' + cuerpo(html, 'saveCliente'), m.ctx);
+    await m.ctx.saveCliente({ preventDefault() {} });
+    return reg;
+  };
+  let r = await correr('351 555-0101', true);
+  t('un cliente nuevo con teléfono se guarda (desde el 26/09 se cortaba con "Cannot read properties of null")',
+    r.agregados.length === 1 && r.agregados[0].telefono === '351 555-0101' && r.avisos.join().indexOf('Error') < 0 && r.preguntas.length === 0, r.avisos);
+  t('  y queda elegido en la venta', r.elegidos.join() === 'nuevo1:Pepe Prueba', r.elegidos);
+  r = await correr('351-555-1234', false);
+  t('con el teléfono de otro (José Pérez) pregunta antes, y si dicen que no, no se guarda',
+    r.preguntas.length === 1 && r.preguntas[0].indexOf('Ya hay un cliente con ese teléfono: "José Pérez"') === 0 && r.agregados.length === 0, r.preguntas);
+  r = await correr('', true);
+  t('sin teléfono se guarda como siempre', r.agregados.length === 1 && r.preguntas.length === 0 && r.avisos.join().indexOf('Error') < 0, r.avisos);
 }
 
 console.log('\n-- el panel --');
@@ -272,7 +318,7 @@ console.log('\n-- el panel --');
   t('  el fiado se salda en su colección', cuerpo(html, 'confirmarCobroCC').indexOf("db.collection(v._col||'ventas').doc(v.docId)") > 0);
   t('  borrar el cliente las cuenta, y sincronizar las pasa', cuerpo(html, 'deleteCliente').indexOf("db.collection('ventasMayoristas').where('clienteId','==',id).get()") > 0 &&
     cuerpo(html, 'confirmarSincronizar').indexOf("db.collection('ventasMayoristas').where('clienteId','==',clienteId).get()") > 0);
-  t('el aviso de repetido dice teléfono solo con la regla de 6 dígitos', guardar.indexOf("const _porTel=_dig(data.telefono).length>=6&&_dig(_rep.telefono)===_dig(data.telefono);") > 0);
+  t('el aviso de repetido dice teléfono solo con la regla de 6 dígitos', guardar.indexOf("const _porTel=!!_rep&&_dig(data.telefono).length>=6&&_dig(_rep.telefono)===_dig(data.telefono);") > 0);
   t('el módulo está enganchado y check-admin revisa sus clases', html.indexOf('<script src="admin-clientes.js"></script>') > 0 &&
     leer('check-admin.js').indexOf("'admin-clientes.js'") > 0);
 }
