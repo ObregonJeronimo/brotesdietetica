@@ -337,12 +337,139 @@ const filas = h => [...h.matchAll(/<div class="(stock-row[^"]*)" data-id="([^"]+
       html.indexOf("(typeof totalGrupoStockHtml==='function'?totalGrupoStockHtml(g.miembros):'')") > 0 && html.indexOf('id="stkKpis"') > 0);
   }
 
+  console.log('\n-- el filtro por cómo está el stock (07/10) --');
+  {
+    const prods = [
+      P('ok', { stock: 40 }), P('bajo', { stock: 3 }), P('cero', { stock: 0 }), P('neg', { stock: -2 }),
+      P('gbajo', { tipoVenta: 'peso', stock: 200 }), P('gok', { tipoVenta: 'peso', stock: 900 }), P('gneg', { tipoVenta: 'peso', stock: -500 }),
+      P('dep', { stock: 0, depurado: true }),
+    ];
+    const w = armar({ productos: prods });
+    w.ctx.esStockBajo = p => { const s = Number(p.stock || 0); return s > 0 && s < (p.tipoVenta === 'peso' ? 500 : 10); };
+    const vis = est => { w.campos.stockFilterEstado = { value: est }; w.ctx.renderStockList(); return w.ctx._stockVisibles.join(' '); };
+    t('todo el stock: todos los que están en uso (el depurado no)', vis('') === 'ok bajo cero neg gbajo gok gneg', vis(''));
+    t('  stock bajo: los de menos de 10 unidades o 500 g (los vacíos no)', vis('bajo') === 'bajo gbajo', vis('bajo'));
+    t('  sin stock: los que están en 0 y los que están en negativo, por unidad y por peso', vis('sin') === 'cero neg gneg', vis('sin'));
+    t('  en negativo: solo esos', vis('neg') === 'neg gneg', vis('neg'));
+    const r = w.ctx.resumenStockHtml(prods);
+    const val = etq => (r.match(new RegExp('<span class="vt-kpi-etq">' + etq + '</span><strong class="vt-kpi-val">([^<]*)</strong>')) || [])[1];
+    t('  cuentan lo mismo que los recuadros de arriba (2 bajos, 3 sin stock, 2 en negativo)',
+      val('Stock bajo') === String(vis('bajo').split(' ').length) && val('Sin stock') === String(vis('sin').split(' ').length) &&
+      r.indexOf(vis('neg').split(' ').length + ' en negativo') > 0, val('Stock bajo') + ' / ' + val('Sin stock'));
+    w.campos.stockFilterEstado = { value: 'neg' }; w.campos.stockSearch.value = 'gn';
+    w.ctx.renderStockList();
+    t('  se suma a la búsqueda: "gn" en negativo', w.ctx._stockVisibles.join() === 'gneg', w.ctx._stockVisibles.join());
+    w.campos.stockSearch.value = 'zzz';
+    w.ctx.renderStockList();
+    t('  y si no queda ninguno, dice cuál filtro: "No hay productos en negativo"', w.campos.stockList.innerHTML.indexOf('<p>No hay productos en negativo</p>') > 0 && w.ctx._stockVisibles.length === 0);
+    w.campos.stockFilterEstado = { value: '' };
+    w.ctx.renderStockList();
+    t('  sin el filtro por estado, "No hay productos" como antes', w.campos.stockList.innerHTML.indexOf('<p>No hay productos</p>') > 0);
+  }
+  {
+    const w = armar();
+    w.campos.stockFilterEstado = { value: 'sin' };
+    w.ctx.renderStockList();
+    const h = w.campos.stockList.innerHTML;
+    t('con un bloque: sale el bloque entero, y marcado el tamaño sin stock (x12 en 0)', bloques(h) === 1 && filas(h) === 'alf1(tam),alf6(tam),alf12(tam)(marcada)', filas(h));
+    t('  y "Seleccionar los visibles" alcanza solo a ese', w.ctx._stockVisibles.join() === 'alf12', w.ctx._stockVisibles.join());
+  }
+
+  console.log('\n-- seleccionar TODOS pregunta antes, y queda el aviso (07/10) --');
+  {
+    const w = armar();
+    Object.assign(w.campos, {
+      stockSelTodos: { checked: false, indeterminate: false }, stockSelTodosTxt: { textContent: '' },
+      stockSelCuenta: { textContent: '' }, stockMasivoLimpiar: { hidden: true }, stockTodosAviso: { hidden: true },
+    });
+    vm.runInContext(['pintarSeleccionStock', 'stockAlternar', 'stockSeleccionarTodos', 'stockLimpiarSeleccion'].map(extraer).join(';'), w.ctx);
+    let respuesta = false; const pedidos = [];
+    w.ctx.pedirConfirmacion = async (m, o) => { pedidos.push({ m, o }); return respuesta; };
+    w.ctx.renderStockList();
+    const chk = w.campos.stockSelTodos, aviso = w.campos.stockTodosAviso;
+    const tildar = async v => { chk.checked = v; await w.ctx.stockCasillaTodos(chk); };
+    t('sin filtro, los visibles son todos los productos en uso (8)', w.ctx._stockVisibles.length === 8 && aviso.hidden === true);
+
+    await tildar(true);
+    const p0 = pedidos[0] || { m: '', o: {} };
+    t('tildar la casilla pregunta antes de elegir', pedidos.length === 1);
+    t('  dice que son TODOS y cuántos', p0.m.indexOf('Vas a seleccionar TODOS los productos (8)') === 0, p0.m.split('\n')[0]);
+    t('  y que entran las bolsas y presentaciones: 5, de 2 productos (Maní 2 y Alfajor 3; el depurado no)',
+      p0.m.indexOf('[!] Incluye las 5 bolsas y presentaciones de 2 productos: lo que cargues se suma o se resta en cada una por separado.') > 0, p0.m);
+    t('  con cuidado, y el foco en "Cancelar" (un Enter de más no acepta)', p0.m.indexOf('Hacelo con cuidado') > 0 &&
+      p0.o.titulo === 'Seleccionar todos los productos' && p0.o.aceptar === 'Sí, seleccionar todos' && p0.o.focoEnNo === true && p0.o.cuidado === true);
+    t('  si dicen que no: no se elige nada, la casilla sin tildar y sin aviso', w.ctx._stockSel.size === 0 && chk.checked === false && aviso.hidden === true);
+
+    respuesta = true;
+    await tildar(true);
+    t('si dicen que sí: quedan los 8, la casilla tildada y el aviso al lado', w.ctx._stockSel.size === 8 && chk.checked === true && aviso.hidden === false &&
+      w.campos.stockSelCuenta.textContent === '8 seleccionados');
+
+    w.ctx.stockAlternar('nuez', false);
+    t('al sacar uno, el aviso se va y la casilla queda a medias', aviso.hidden === true && chk.checked === false && chk.indeterminate === true);
+    await tildar(true);
+    t('  volver a tildarla pregunta otra vez (vuelven a ser todos)', pedidos.length === 3 && w.ctx._stockSel.size === 8 && aviso.hidden === false);
+
+    w.campos.stockSearch.value = 'mani';
+    w.ctx.renderStockList();
+    t('con todos elegidos y una búsqueda puesta, el aviso sigue: la tanda iría a los 8, no a los 2 que se ven',
+      aviso.hidden === false && w.ctx._stockVisibles.length === 2 && w.campos.stockSelCuenta.textContent === '8 seleccionados');
+    await tildar(false);
+    t('  destildar la casilla saca los que se ven, sin preguntar, y el aviso se va', pedidos.length === 3 && w.ctx._stockSel.size === 6 && aviso.hidden === true);
+    w.ctx.stockLimpiarSeleccion();
+    t('  "Limpiar" deja todo vacío', w.ctx._stockSel.size === 0 && aviso.hidden === true);
+
+    await tildar(true);
+    t('con una búsqueda puesta, tildar elige solo los que se ven, sin preguntar (no son todos)',
+      pedidos.length === 3 && [...w.ctx._stockSel].sort().join() === 'm1,m3' && aviso.hidden === true);
+    await tildar(false);
+    ['alm', 'alf1', 'alf12', 'alf6', 'chia1', 'nuez'].forEach(id => w.ctx.stockAlternar(id, true));
+    respuesta = false;
+    await tildar(true);
+    t('  pero si los demás ya estaban elegidos y los que se ven los completan, son todos: pregunta', pedidos.length === 4 && w.ctx._stockSel.size === 6 && aviso.hidden === true && chk.checked === false);
+    respuesta = true;
+    await tildar(true);
+    t('    y con "sí" quedan los 8 y el aviso', pedidos.length === 5 && w.ctx._stockSel.size === 8 && aviso.hidden === false);
+    w.ctx.stockLimpiarSeleccion();
+    w.campos.stockSearch.value = '';
+    w.campos.stockFilterEstado = { value: 'sin' };
+    w.ctx.renderStockList();
+    await tildar(true);
+    t('  lo mismo con el filtro por estado', pedidos.length === 5 && [...w.ctx._stockSel].join() === 'alf12' && aviso.hidden === true);
+    await tildar(false);
+
+    /* La tanda con todos elegidos: cada tamaño recibe lo suyo y el aviso se va. */
+    w.campos.stockFilterEstado = { value: '' };
+    w.ctx.renderStockList();
+    await tildar(true);
+    const antes = new Map(w.ctx.allProducts.map(p => [p.id, Number(p.stock || 0)]));
+    const ops = [];
+    w.ctx.db = { collection: () => ({ doc: id => ({ id }) }), batch: () => ({ update: (ref, d) => ops.push([ref.id, d.stock.__inc]), commit: async () => {} }) };
+    w.campos.stockMasivoCant.value = '5';
+    await w.ctx.agregarStockMasivo();
+    const cambio = w.ctx.allProducts.filter(p => p.depurado !== true).map(p => p.id + (Number(p.stock || 0) - antes.get(p.id) ? '+' + (Number(p.stock || 0) - antes.get(p.id)) : '')).join(' ');
+    t('cargar 5 unidades con todos elegidos: +5 a cada producto por unidad, también a cada presentación; los de peso no se tocan',
+      cambio === 'alm m1 m3 alf1+5 alf12+5 alf6+5 chia1 nuez+5' && ops.map(o => o.join('+')).join() === 'alf1+5,alf12+5,alf6+5,nuez+5', cambio);
+    t('  y después de cargar se vacía la selección y el aviso se va', w.ctx._stockSel.size === 0 && aviso.hidden === true && chk.checked === false);
+  }
+  t('la casilla llama a stockCasillaTodos, y el aviso y el filtro están en la pantalla',
+    html.indexOf("onchange=\"if(typeof stockCasillaTodos==='function')stockCasillaTodos(this);else stockSeleccionarTodos(this.checked)\"") > 0 &&
+    html.indexOf('id="stockTodosAviso" role="status" hidden') > 0 &&
+    html.indexOf('<option value="">Todo el stock</option><option value="bajo">Stock bajo</option><option value="sin">Sin stock</option><option value="neg">En negativo</option>') > 0 &&
+    html.indexOf("if(typeof pintarAvisoTodosStock==='function')pintarAvisoTodosStock();") > 0 &&
+    html.indexOf("if(est&&typeof coincideEstadoStock==='function')f=f.filter(p=>coincideEstadoStock(p,est));") > 0);
+
   console.log('\n-- los estilos --');
   {
     const css = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
     ['.stock-grupo{', '.stock-grupo-cab{', '.stock-grupo-cab img{', '.stock-chk-hueco{', '.stock-tam-hueco{',
       '.stock-row.stock-row-tam{', '.stock-row.stock-row-tam.coincide{', '.var-chip.fijo{', '.var-chip.fijo:hover{']
       .forEach(s => t('existe ' + s.slice(0, -1), css.indexOf(s) >= 0));
+    /* Revisión del 08/10: la tarjeta nueva de Stock (07/10) tapaba el verde del tamaño que coincide. */
+    const reglaVerde = '#sec-stock .stock-grupo .stock-row.stock-row-tam.coincide{background:rgba(95,168,122,0.14)}';
+    t('en Stock, el tamaño que coincide sigue marcado en verde (la regla le gana a la de la tarjeta y va después de la del mouse)',
+      css.indexOf('#sec-stock .stock-grupo .stock-row.stock-row-tam:hover{') > 0 &&
+      css.indexOf(reglaVerde) > css.indexOf('#sec-stock .stock-grupo .stock-row.stock-row-tam:hover{'));
     t('el hueco de la foto mide lo mismo que la foto de una fila suelta (40px)',
       /\.stock-tam-hueco\{width:40px;flex:0 0 40px/.test(css) && /\.stock-row img\{width:40px;height:40px/.test(css));
     t('el hueco de la casilla, lo mismo que la casilla (16px y 2px de margen)',

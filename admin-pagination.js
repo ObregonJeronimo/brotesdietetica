@@ -32,8 +32,8 @@ filterTable = function () {
     _origFilterTable();
 };
 
-/* Stock: el buscador y el filtro de categoria son los unicos que llaman a
-   filterStockList(), asi que aca el reset puede ser directo. */
+/* Stock: el buscador, el filtro de categoria y el de estado (07/10/2026) son los
+   unicos que llaman a filterStockList(), asi que aca el reset puede ser directo. */
 const _origFilterStockList = filterStockList;
 filterStockList = function () {
     adminStockPage = 1;

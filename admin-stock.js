@@ -287,3 +287,59 @@ function pintarResumenStock() {
   }
 }
 
+/* SELECCIONAR TODOS (pedido de Thiago, 07/10/2026): si la casilla de arriba deja elegidos TODOS
+   los productos, antes pregunta, porque lo que se cargue en la tanda va a cada uno, también a
+   cada bolsa y cada presentación por separado. Si dicen que sí, al lado de la casilla queda el
+   aviso de que están todos, hasta que se saque alguno, se toque "Limpiar" o se cargue la tanda.
+   Con una búsqueda o un filtro puesto la casilla elige solo los que se ven, sin preguntar (como
+   antes): ahí no son todos. Salvo que los demás ya estuvieran elegidos y con esos se completen:
+   entonces sí son todos, y pregunta. */
+const _stkActivos = () => (typeof allProducts !== 'undefined' && Array.isArray(allProducts) ? allProducts : []).filter(p => p && p.depurado !== true);
+
+/* ¿Están todos los productos en uso en la selección? Con extra, ¿lo estarían sumando esos? */
+function stockSonTodos(extra) {
+  const act = _stkActivos();
+  const sel = typeof _stockSel !== 'undefined' && _stockSel ? _stockSel : new Set();
+  const mas = new Set(extra || []);
+  return act.length > 0 && act.every(p => sel.has(p.id) || mas.has(p.id));
+}
+
+/* La casilla "Seleccionar los N visibles" (onchange en admin.html). */
+async function stockCasillaTodos(chk) {
+  const marcar = !!(chk && chk.checked);
+  const visibles = typeof _stockVisibles !== 'undefined' && _stockVisibles ? _stockVisibles : [];
+  if (!marcar || stockSonTodos() || !stockSonTodos(visibles)) return stockSeleccionarTodos(marcar);
+  /* Hasta que digan que sí, la casilla queda como estaba. */
+  if (chk) chk.checked = false;
+  pintarSeleccionStock();
+  const act = _stkActivos();
+  const grupos = typeof agruparParaStock === 'function'
+    ? agruparParaStock(act).filter(x => x && x.__stockGrupo).map(x => x.__stockGrupo) : [];
+  const tamanios = grupos.reduce((s, g) => s + g.miembros.length, 0);
+  const n = x => Number(x).toLocaleString('es-AR');
+  const msg = 'Vas a seleccionar TODOS los productos (' + n(act.length) + ') para cambiarles el stock de una vez.' + _STK_NL + _STK_NL +
+    (grupos.length ? '[!] Incluye las ' + n(tamanios) + ' bolsas y presentaciones de ' + n(grupos.length) + ' producto' +
+      (grupos.length === 1 ? '' : 's') + ': lo que cargues se suma o se resta en cada una por separado.' + _STK_NL + _STK_NL : '') +
+    'Hacelo con cuidado y revisá bien la cantidad antes de cargarla.' + _STK_NL + '¿Querés seleccionarlos igual?';
+  const si = await pedirConfirmacion(msg, { titulo: 'Seleccionar todos los productos', aceptar: 'Sí, seleccionar todos',
+    icono: 'bi-exclamation-triangle', cuidado: true, focoEnNo: true });
+  if (si) stockSeleccionarTodos(true);
+  else pintarSeleccionStock();
+}
+
+/* El aviso al lado de la casilla. Lo llama pintarSeleccionStock (admin.html) cada vez que
+   cambia la selección, así que se va solo cuando dejan de estar todos. */
+function pintarAvisoTodosStock() {
+  const a = document.getElementById('stockTodosAviso');
+  if (a) a.hidden = !stockSonTodos();
+}
+
+/* EL FILTRO POR CÓMO ESTÁ EL STOCK (pedido de Thiago, 07/10/2026), al lado del de categorías,
+   con las mismas cuentas que los recuadros de arriba: "Sin stock" son los que están en 0 y
+   los que están en negativo. Lo usa renderStockList (admin.html). */
+function coincideEstadoStock(p, filtro) {
+  if (!filtro) return true;
+  const e = _stkEstado(p);
+  return filtro === 'sin' ? (e === 'sin' || e === 'neg') : e === filtro;
+}
+
