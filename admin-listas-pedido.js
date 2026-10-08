@@ -1,11 +1,15 @@
 /* =============================================================================
    LISTAS DE PEDIDOS  —  Brotes Dietética
    =============================================================================
-   Pedido de Thiago (08/10/2026): en Proveedores, un botón "Lista de pedidos" para armar
-   listas con nombre (productos y cuánto pedir de cada uno), guardarlas, y abajo de cada
-   una "Copiar mensaje" y "Mandar mensaje". Mandar pide primero el WhatsApp y el nombre de
-   la persona, que quedan guardados en la lista ("El mensaje se enviará a: …"), y abre
-   WhatsApp Web o la app de escritorio con el mensaje ya escrito.
+   Pedido de Thiago (08/10/2026): en un proveedor, el botón "Lista de pedidos" para armar
+   listas con nombre (productos de ESE proveedor y cuánto pedir de cada uno), guardarlas, y
+   abajo de cada una "Copiar mensaje" y "Mandar mensaje". Mandar pide primero el WhatsApp y el
+   nombre de la persona, que quedan guardados en la lista ("El mensaje se enviará a: …"), y
+   abre WhatsApp Web o la app de escritorio con el mensaje ya escrito.
+
+   POR PROVEEDOR (Thiago, después de verlo): el botón está en la ficha del proveedor, no arriba
+   de todo; la ventana dice "Lista de pedidos para el proveedor FRUTICOR", muestra solo sus
+   listas y el buscador solo sus productos (los que en el catálogo son de esa lista).
 
    CUÁNTO SE PIDE, con las mismas reglas que Cargar compra (_cpGramosBolsa, admin-compras.js):
    - la bolsa de un producto con varias bolsas ("Mani RC x 1 kg"): en bolsas;
@@ -14,14 +18,17 @@
      dice ("Almendra: 2 bolsas de 5 kg");
    - uno por peso sin bolsa conocida: en kilos, con coma ("2,5 kg");
    - uno por unidad, con presentaciones o no ("Alfajor x6"): en unidades.
+   La cantidad arranca vacía y puede quedar vacía: al guardar se avisa, y en el mensaje ese
+   producto va sin cantidad (Thiago, 08/10).
 
    DÓNDE SE GUARDA: la colección `listasPedido`, solo para admins (firestore.rules), una por
-   lista: { nombre, items: [{ id, nombre, tipo, gramos, cantidad }], contacto: { nombre,
-   whatsapp, escrito } | null, creadaEn, actualizadaEn }. El nombre de cada producto queda
-   guardado por si después se borra del catálogo; si sigue, el mensaje usa el de ahora.
+   lista: { proveedorId, nombre, items: [{ id, nombre, tipo, gramos, cantidad|null }],
+   contacto: { nombre, whatsapp, escrito } | null, creadaEn, actualizadaEn }. El nombre de cada
+   producto queda guardado por si después se borra del catálogo; si sigue, va el de ahora.
    ============================================================================= */
 
 let _lpListas = [];
+let _lpProveedor = null;    /* { id, nombre } del proveedor de la ventana abierta */
 let _lpEdit = null;         /* la lista que se arma o se edita: { id, nombre, items, contacto } */
 let _lpEditInicial = '';    /* cómo estaba al abrirla, para avisar si se sale sin guardar */
 
@@ -31,6 +38,7 @@ const _lpProds = () => (typeof allProducts !== 'undefined' && Array.isArray(allP
 const _lpProd = id => _lpProds().find(p => p && p.id === id) || null;
 const _lpNum = (n, dec) => Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: dec == null ? 3 : dec });
 const _lpMs = f => (f && typeof f.toMillis === 'function') ? f.toMillis() : (f ? (new Date(f).getTime() || 0) : 0);
+const _lpHay = it => Number(it && it.cantidad) > 0;
 
 /* El tamaño de una bolsa para leer: "5 kg", "2,5 kg", "500 g". */
 function _lpTam(g) { return g >= 1000 ? _lpNum(g / 1000) + ' kg' : _lpNum(g, 0) + ' g'; }
@@ -72,27 +80,37 @@ function _lpDeBolsa(nombre, g) {
   return c && c.unidad === 'g' && c.valor === g ? '' : ' de ' + _lpTam(g);
 }
 
-/* Cuánto se pide, para leer: "3 bolsas", "2 bolsas de 5 kg", "2,5 kg", "1 unidad". */
+/* En qué se pide, para leer al lado del campo y en el aviso: "bolsas de 5 kg", "kilos". */
+function lpUnidadTxt(it) {
+  if (it.tipo === 'kilo') return 'kilos';
+  if (it.tipo === 'bolsa') return 'bolsas' + _lpDeBolsa(lpNombreItem(it), Number(it.gramos));
+  return 'unidades';
+}
+
+/* Cuánto se pide, para leer: "3 bolsas", "2 bolsas de 5 kg", "2,5 kg", "1 unidad". Vacío si no
+   tiene cantidad. */
 function lpCantidadTxt(it) {
-  const n = Number(it.cantidad || 0);
+  if (!_lpHay(it)) return '';
+  const n = Number(it.cantidad);
   if (it.tipo === 'kilo') return _lpNum(n) + ' kg';
   if (it.tipo === 'bolsa') return _lpNum(n) + (n === 1 ? ' bolsa' : ' bolsas') + _lpDeBolsa(lpNombreItem(it), Number(it.gramos));
   return _lpNum(n) + (n === 1 ? ' unidad' : ' unidades');
 }
 
 /* El mensaje: el saludo (con el nombre de la persona, si está guardado), un renglón por
-   producto y "Gracias!". Los que no tienen cantidad no van. */
+   producto y "Gracias!". El que no tiene cantidad va solo con el nombre. */
 function lpMensaje(lista) {
   const c = lista && lista.contacto;
-  const renglones = ((lista && lista.items) || []).filter(i => Number(i.cantidad) > 0)
-    .map(i => '- ' + lpNombreItem(i) + ': ' + lpCantidadTxt(i));
+  const renglones = ((lista && lista.items) || [])
+    .map(i => '- ' + lpNombreItem(i) + (_lpHay(i) ? ': ' + lpCantidadTxt(i) : ''));
   return 'Hola' + (c && c.nombre ? ' ' + c.nombre : '') + '! Te paso el pedido:\n\n' + renglones.join('\n') + '\n\nGracias!';
 }
 
 /* Lo escrito en una cantidad: los kilos con coma o con punto ("2,5"); bolsas y unidades,
-   enteras. 0 si no es un número que sirva. */
+   enteras. null si está vacío; 0 si lo escrito no sirve. */
 function lpLeerCantidad(s, tipo) {
   const t = String(s == null ? '' : s).trim().replace(',', '.');
+  if (!t) return null;
   if (!/^\d+(\.\d+)?$/.test(t)) return 0;
   const n = Number(t);
   if (tipo === 'kilo') return Math.round(n * 1000) / 1000;
@@ -101,7 +119,8 @@ function lpLeerCantidad(s, tipo) {
 
 /* El número para WhatsApp, con el código de Argentina: 549, la característica y el número,
    sin el 0 ni el 15 ("0351 15 555-1234" -> 5493515551234). Uno de otro país, escrito con +
-   o 00 adelante, queda como está. null si no parece un celular. */
+   o 00 adelante, queda como está (el campo del número ya no deja escribirlo: le llega
+   acomodado por lpFormatoWhatsapp). null si no parece un celular. */
 function lpNormalizarWhatsapp(s) {
   const txt = String(s == null ? '' : s).trim();
   let d = txt.replace(/\D/g, '');
@@ -118,6 +137,44 @@ function lpNormalizarWhatsapp(s) {
   return d.length === 10 ? '549' + d : null;
 }
 
+/* EL NÚMERO SE ESCRIBE SOLO CON NÚMEROS (Thiago, 08/10): sin letras ni espacios, y se acomoda
+   mientras se escribe: la característica separada del resto, "351 999 9999" (en Buenos Aires,
+   "11 2345 6789"). Diez números, sin el 0 ni el 15. Pegado con +54 9 o con el 0, se lo saca. */
+function lpFormatoWhatsapp(s) {
+  let d = String(s == null ? '' : s).replace(/\D/g, '');
+  if (d.length > 10 && d.indexOf('549') === 0) d = d.slice(3);
+  else if (d.length > 10 && d.indexOf('54') === 0) d = d.slice(2);
+  d = d.replace(/^0+/, '');
+  /* Con más de 10, el 15 de después de la característica (351 o 11) se saca: escrito a mano
+     ("351 15 555...") o pegado. */
+  const k = d.indexOf('11') === 0 ? 2 : 3;
+  if (d.length > 10 && d.substr(k, 2) === '15') d = d.slice(0, k) + d.slice(k + 2);
+  d = d.slice(0, 10);
+  const corte = d.indexOf('11') === 0 ? [2, 6] : [3, 6];
+  return [d.slice(0, corte[0]), d.slice(corte[0], corte[1]), d.slice(corte[1])].filter(Boolean).join(' ');
+}
+/* En el campo del número: solo números y las teclas para moverse o borrar. El teclado del
+   celular no dice qué tecla es ("Unidentified"): ahí se deja pasar y lo limpia lpFormatearNumero. */
+function lpTeclaNumero(e) {
+  if (!e || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.keyCode === 229 || e.key === 'Unidentified' || e.key === 'Process') return true;
+  if (/^\d$/.test(e.key) || ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter', 'Escape'].indexOf(e.key) >= 0) return true;
+  if (e.preventDefault) e.preventDefault();
+  return false;
+}
+function lpFormatearNumero(el) {
+  if (!el) return;
+  const f = lpFormatoWhatsapp(el.value);
+  if (el.value === f) return;
+  /* El cursor queda después de los mismos números que antes: así se puede corregir uno del
+     medio sin que salte al final. */
+  const cursor = typeof el.selectionStart === 'number' ? el.value.slice(0, el.selectionStart).replace(/\D/g, '').length : -1;
+  el.value = f;
+  if (cursor < 0 || typeof el.setSelectionRange !== 'function') return;
+  let i = 0;
+  for (let n = 0; i < f.length && n < cursor; i++) if (/\d/.test(f[i])) n++;
+  el.setSelectionRange(i, i);
+}
+
 /* El enlace que abre el chat con el mensaje escrito: WhatsApp Web o la app de escritorio. */
 function lpLinkWhatsapp(numero, texto, modo) {
   const t = encodeURIComponent(texto);
@@ -126,14 +183,28 @@ function lpLinkWhatsapp(numero, texto, modo) {
     : 'https://web.whatsapp.com/send?phone=' + numero + '&text=' + t;
 }
 
-/* Lo que falta para poder guardar la lista, o '' si está bien. */
+/* Lo que no deja guardar la lista, o '' si se puede. Una cantidad vacía sí se puede (se
+   avisa aparte); una escrita que no sirve ("abc", o 2,5 bolsas), no. */
 function lpValidar(l) {
   if (!String((l && l.nombre) || '').trim()) return 'Ponele un nombre a la lista.';
   const items = (l && l.items) || [];
   if (!items.length) return 'Agregá al menos un producto.';
-  const sinCant = items.filter(i => !(Number(i.cantidad) > 0));
-  if (sinCant.length) return 'Falta la cantidad de ' + lpNombreItem(sinCant[0]) + (sinCant.length > 1 ? ' y de ' + (sinCant.length - 1) + ' más' : '') + '.';
+  const mal = items.find(i => i.cantidad === 0 || (i._txt != null && String(i._txt).trim() !== '' && !_lpHay(i)));
+  if (mal) return 'Revisá la cantidad de ' + lpNombreItem(mal) + (mal.tipo === 'kilo' ? ': en kilos, por ejemplo 2,5.' : ': un número entero, por ejemplo 2.');
   return '';
+}
+
+/* Los que van sin cantidad. */
+function lpSinCantidad(l) { return ((l && l.items) || []).filter(i => !_lpHay(i)); }
+
+/* El aviso antes de guardar con productos sin cantidad (Thiago, 08/10). */
+function lpAvisoSinCantidad(sin) {
+  if (sin.length === 1) {
+    return lpNombreItem(sin[0]) + ' no tiene cantidad (se pide en ' + lpUnidadTxt(sin[0]) + ').\n\n' +
+      'Si guardás así, en el mensaje va a ir sin cantidad: el proveedor va a ver solo el nombre.\n\n¿Guardar igual?';
+  }
+  return 'Estos productos no tienen cantidad:\n' + sin.map(i => '- ' + lpNombreItem(i) + ' (se pide en ' + lpUnidadTxt(i) + ')').join('\n') +
+    '\n\nSi guardás así, en el mensaje van a ir sin cantidad: el proveedor va a ver solo el nombre.\n\n¿Guardar igual?';
 }
 
 /* Lo que se guarda de la lista (sin el contacto, que se guarda aparte). */
@@ -143,7 +214,7 @@ function lpDatosParaGuardar(l) {
     items: (l.items || []).map(i => ({
       id: i.id, nombre: lpNombreItem(i), tipo: i.tipo,
       gramos: i.tipo === 'bolsa' ? Number(i.gramos) || null : null,
-      cantidad: Number(i.cantidad) || 0,
+      cantidad: _lpHay(i) ? Number(i.cantidad) : null,
     })),
     actualizadaEn: firebase.firestore.FieldValue.serverTimestamp(),
   };
@@ -151,8 +222,7 @@ function lpDatosParaGuardar(l) {
 
 /* ============================ PANTALLA ============================ */
 
-/* Una ventana del panel, creada la primera vez (al final de la página: Escape cierra la de
-   más arriba, admin-atajos.js). */
+/* Una ventana del panel (las tres están vacías al final de admin.html; si no están, se crean). */
 function _lpOverlay(id, z) {
   let m = document.getElementById(id);
   if (!m) {
@@ -166,20 +236,25 @@ function _lpOverlay(id, z) {
 }
 
 async function _lpCargar() {
-  const snap = await db.collection('listasPedido').get();
+  const snap = await db.collection('listasPedido').where('proveedorId', '==', _lpProveedor.id).get();
   _lpListas = snap.docs.map(d => Object.assign({ id: d.id }, d.data()))
     .sort((a, b) => _lpMs(b.actualizadaEn) - _lpMs(a.actualizadaEn));
 }
 
-/* El botón "Lista de pedidos" de Proveedores. */
-async function abrirListasPedido() {
+const _lpTituloLista = () => 'Lista de pedidos para el proveedor ' + _lpEsc(_lpProveedor ? _lpProveedor.nombre : '');
+
+/* El botón "Lista de pedidos" de la ficha de un proveedor. */
+async function abrirListasPedido(proveedorId) {
+  const prov = ((typeof listasData !== 'undefined' && listasData) || []).find(l => l && l.id === proveedorId);
+  if (!prov) { if (typeof showAdminToast === 'function') showAdminToast('Elegí un proveedor primero.', 'error'); return; }
+  _lpProveedor = { id: prov.id, nombre: prov.nombre || '' };
+  _lpEdit = null;
   const m = _lpOverlay('listasPedidoModal');
   m.innerHTML = '<div class="modal-box lp-box">' +
     '<div class="modal-header"><h3 id="lpTitulo"></h3><button class="modal-close" onclick="cerrarListasPedido()">&times;</button></div>' +
     '<div id="lpCuerpo"><p class="lp-nota">Cargando...</p></div></div>';
   m.classList.add('show');
-  _lpEdit = null;
-  document.getElementById('lpTitulo').innerHTML = '<i class="bi bi-clipboard-check"></i> Listas de pedidos';
+  document.getElementById('lpTitulo').innerHTML = '<i class="bi bi-clipboard-check"></i> ' + _lpTituloLista();
   try {
     await _lpCargar();
     _lpRenderListas();
@@ -196,20 +271,22 @@ async function cerrarListasPedido() {
   if (m) m.classList.remove('show');
 }
 
-const _lpCambio = () => !!_lpEdit && JSON.stringify({ n: _lpEdit.nombre, i: _lpEdit.items }) !== _lpEditInicial;
+/* Lo que importa de la lista para saber si cambió (no lo escrito a medias en un campo). */
+const _lpFoto = l => JSON.stringify({ n: l.nombre, i: (l.items || []).map(i => [i.id, i.tipo, i.gramos || null, _lpHay(i) ? Number(i.cantidad) : null]) });
+const _lpCambio = () => !!_lpEdit && _lpFoto(_lpEdit) !== _lpEditInicial;
 
 function _lpRenderListas() {
   _lpEdit = null;
   const tit = document.getElementById('lpTitulo');
-  if (tit) tit.innerHTML = '<i class="bi bi-clipboard-check"></i> Listas de pedidos';
+  if (tit) tit.innerHTML = '<i class="bi bi-clipboard-check"></i> ' + _lpTituloLista();
   const cuerpo = document.getElementById('lpCuerpo');
   if (!cuerpo) return;
-  const barra = '<div class="lp-barra"><p class="lp-ayuda">Armá la lista de lo que le querés pedir a un proveedor, ' +
-    'guardala y mandásela por WhatsApp.</p>' +
+  const barra = '<div class="lp-barra"><p class="lp-ayuda">Armá la lista de lo que le querés pedir a ' + _lpEsc(_lpProveedor.nombre) +
+    ', guardala y mandásela por WhatsApp.</p>' +
     '<button class="btn btn-primary" style="width:auto" onclick="lpNuevaLista()"><i class="bi bi-plus-lg"></i> Nueva lista</button></div>';
   cuerpo.innerHTML = barra + (_lpListas.length
     ? _lpListas.map(_lpTarjeta).join('')
-    : '<div class="lp-vacio">Todavía no hay listas. Tocá "Nueva lista" para armar la primera.</div>');
+    : '<div class="lp-vacio">Todavía no hay listas para este proveedor. Tocá "Nueva lista" para armar la primera.</div>');
 }
 
 function _lpFecha(f) {
@@ -223,7 +300,7 @@ function _lpFecha(f) {
    guardado, a quién se le manda. */
 function _lpTarjeta(l) {
   const id = _lpAttr(l.id);
-  const items = (l.items || []).filter(i => Number(i.cantidad) > 0);
+  const items = l.items || [];
   const c = l.contacto;
   const fecha = _lpFecha(l.actualizadaEn);
   const hay = items.length ? '' : ' disabled';
@@ -235,7 +312,8 @@ function _lpTarjeta(l) {
         '<button class="btn btn-sm btn-secondary" style="color:var(--danger)" onclick="lpEliminarLista(\'' + id + '\')">Eliminar</button>' +
       '</div></div>' +
     '<ul class="lp-renglones">' + items.map(i =>
-      '<li><span>' + _lpEsc(lpNombreItem(i)) + '</span><b>' + _lpEsc(lpCantidadTxt(i)) + '</b></li>').join('') + '</ul>' +
+      '<li><span>' + _lpEsc(lpNombreItem(i)) + '</span>' +
+        (_lpHay(i) ? '<b>' + _lpEsc(lpCantidadTxt(i)) + '</b>' : '<em class="lp-sin">sin cantidad</em>') + '</li>').join('') + '</ul>' +
     '<div class="lp-lista-pie">' +
       '<button class="btn btn-sm btn-secondary" onclick="lpCopiarMensaje(\'' + id + '\')"' + hay + '><i class="bi bi-clipboard"></i> Copiar mensaje</button>' +
       '<button class="btn btn-sm btn-primary" onclick="lpMandarMensaje(\'' + id + '\')"' + hay + '><i class="bi bi-whatsapp"></i> Mandar mensaje</button>' +
@@ -258,14 +336,15 @@ function lpEditarLista(id) {
 
 function _lpEditar(l) {
   _lpEdit = l;
-  _lpEditInicial = JSON.stringify({ n: l.nombre, i: l.items });
-  document.getElementById('lpTitulo').innerHTML = '<i class="bi bi-clipboard-plus"></i> ' + (l.id ? 'Editar lista' : 'Nueva lista');
+  _lpEditInicial = _lpFoto(l);
+  document.getElementById('lpTitulo').innerHTML = '<i class="bi bi-clipboard-plus"></i> ' + (l.id ? 'Editar lista' : 'Nueva lista') +
+    ' para el proveedor ' + _lpEsc(_lpProveedor.nombre);
   document.getElementById('lpCuerpo').innerHTML =
     '<div class="form-group"><label class="form-label">Nombre de la lista *</label>' +
-      '<input type="text" class="form-input" id="lpNombre" maxlength="80" placeholder="Por ejemplo: Fruticor, pedido de los lunes" ' +
+      '<input type="text" class="form-input" id="lpNombre" maxlength="80" placeholder="Por ejemplo: pedido de los lunes" ' +
       'value="' + _lpAttr(l.nombre) + '" oninput="lpNombreCambio(this.value)"></div>' +
     '<div class="lp-edicion">' +
-      '<div class="lp-col"><label class="form-label">Agregar productos</label>' +
+      '<div class="lp-col"><label class="form-label">Productos de ' + _lpEsc(_lpProveedor.nombre) + '</label>' +
         '<div class="search-box campo-destacado"><i class="bi bi-search"></i>' +
           '<input type="text" id="lpBuscar" placeholder="Buscar por nombre o código..." autocomplete="off" oninput="lpBuscar(this.value)"></div>' +
         '<div id="lpResultados" class="lp-resultados"></div></div>' +
@@ -282,28 +361,31 @@ function _lpEditar(l) {
 
 function lpNombreCambio(v) { if (_lpEdit) _lpEdit.nombre = v; }
 
-/* El buscador: todos los productos en uso, con las bolsas de un mismo producto juntas, como
-   en Cargar compra. Cada uno dice de qué proveedor es, cuánto stock hay y cómo se pide. */
+/* El buscador: solo los productos de este proveedor (en uso), con las bolsas de un mismo
+   producto juntas, como en Cargar compra. Sin escribir nada, están todos. Cada uno dice cuánto
+   stock hay y cómo se pide. */
 function lpBuscar(q) {
   const cont = document.getElementById('lpResultados');
-  if (!cont || !_lpEdit) return;
+  if (!cont || !_lpEdit || !_lpProveedor) return;
   const t = String(q || '').trim().toLowerCase();
-  if (!t) { cont.innerHTML = '<p class="lp-nota">Escribí el nombre o el código del producto.</p>'; return; }
   const ya = new Set(_lpEdit.items.map(i => i.id));
   const dice = s => String(s || '').toLowerCase().includes(t);
-  const prods = _lpProds().filter(p => p && p.depurado !== true && !ya.has(p.id) &&
-    (dice(p.nombreMostrado) || dice(p.nombre) || dice(p.codigo) || dice(_lpNombreDe(p)))).slice(0, 40);
-  if (!prods.length) { cont.innerHTML = '<p class="lp-nota">Ningún producto coincide con la búsqueda.</p>'; return; }
-  const proveedores = (typeof listasData !== 'undefined' && listasData) || [];
+  const delProv = _lpProds().filter(p => p && p.depurado !== true && p.lista === _lpProveedor.id);
+  const prods = delProv.filter(p => !ya.has(p.id) &&
+    (!t || dice(p.nombreMostrado) || dice(p.nombre) || dice(p.codigo) || dice(_lpNombreDe(p))))
+    .sort((a, b) => _lpNombreDe(a).localeCompare(_lpNombreDe(b), 'es')).slice(0, 80);
+  if (!prods.length) {
+    cont.innerHTML = '<p class="lp-nota">' + (!delProv.length ? 'Este proveedor no tiene productos en el catálogo.'
+      : t ? 'Ningún producto de este proveedor coincide con la búsqueda.' : 'Ya están todos en la lista.') + '</p>';
+    return;
+  }
   const boton = p => {
     const como = lpComoSePide(p);
-    const prov = proveedores.find(x => x && x.id === p.lista);
     const s = Number(p.stock || 0);
     const stock = p.tipoVenta === 'peso' ? (Math.abs(s) >= 1000 ? _lpNum(s / 1000) + ' kg' : _lpNum(s, 0) + ' g')
       : _lpNum(s, 0) + (Math.abs(s) === 1 ? ' unidad' : ' unidades');
-    const det = [prov ? prov.nombre : '', 'Stock: ' + stock,
-      como.tipo === 'bolsa' ? 'se pide por bolsa' + _lpDeBolsa(_lpNombreDe(p), como.gramos)
-        : como.tipo === 'kilo' ? 'se pide por kilo' : 'se pide por unidad'].filter(Boolean).join(' · ');
+    const det = 'Stock: ' + stock + ' · ' + (como.tipo === 'bolsa' ? 'se pide por bolsa' + _lpDeBolsa(_lpNombreDe(p), como.gramos)
+      : como.tipo === 'kilo' ? 'se pide por kilo' : 'se pide por unidad');
     return '<button type="button" class="cp-prod" onclick="lpAgregar(\'' + _lpAttr(p.id) + '\')">' +
       '<span class="cp-prod-n">' + _lpEsc(_lpNombreDe(p)) + '</span><span class="cp-prod-d">' + _lpEsc(det) + '</span></button>';
   };
@@ -320,12 +402,12 @@ function lpAgregar(id) {
   const p = _lpProd(id);
   if (!p || !_lpEdit || _lpEdit.items.some(i => i.id === id)) return;
   const como = lpComoSePide(p);
-  _lpEdit.items.push({ id: p.id, nombre: _lpNombreDe(p), tipo: como.tipo, gramos: como.gramos || null, cantidad: 1 });
+  /* La cantidad arranca vacía (Thiago, 08/10): se escribe, o se deja sin cantidad. */
+  _lpEdit.items.push({ id: p.id, nombre: _lpNombreDe(p), tipo: como.tipo, gramos: como.gramos || null, cantidad: null });
   _lpRenderItems();
   lpBuscar((document.getElementById('lpBuscar') || {}).value || '');
-  /* La cantidad arranca en 1 y queda marcada: se escribe encima. */
   const el = document.getElementById('lpCant' + (_lpEdit.items.length - 1));
-  if (el) { el.focus(); if (el.select) el.select(); }
+  if (el) el.focus();
 }
 
 function lpQuitar(i) {
@@ -338,9 +420,10 @@ function lpQuitar(i) {
 function lpCantidad(i, v) {
   const it = _lpEdit && _lpEdit.items[i];
   if (!it) return;
+  it._txt = v;
   it.cantidad = lpLeerCantidad(v, it.tipo);
   const el = document.getElementById('lpCant' + i);
-  if (el && el.classList) el.classList.toggle('lp-mal', String(v).trim() !== '' && !(it.cantidad > 0));
+  if (el && el.classList) el.classList.toggle('lp-mal', it.cantidad === 0);
 }
 
 /* Lo que ya está en la lista, cada uno con su cantidad y en qué se pide. */
@@ -350,12 +433,12 @@ function _lpRenderItems() {
   if (!_lpEdit.items.length) { cont.innerHTML = '<p class="lp-nota">Todavía no agregaste productos.</p>'; return; }
   cont.innerHTML = _lpEdit.items.map((it, i) => {
     const nombre = lpNombreItem(it);
-    const unidad = it.tipo === 'kilo' ? 'kg' : it.tipo === 'bolsa' ? 'bolsas' + _lpDeBolsa(nombre, Number(it.gramos)) : 'unidades';
-    const val = it.cantidad > 0 ? String(it.cantidad).replace('.', ',') : '';
+    const val = it._txt != null ? it._txt : (_lpHay(it) ? String(it.cantidad).replace('.', ',') : '');
     return '<div class="lp-item"><span class="lp-item-n">' + _lpEsc(nombre) + '</span>' +
-      '<input type="text" class="form-input lp-cant" id="lpCant' + i + '" inputmode="' + (it.tipo === 'kilo' ? 'decimal' : 'numeric') + '" ' +
+      '<input type="text" class="form-input lp-cant' + (it.cantidad === 0 ? ' lp-mal' : '') + '" id="lpCant' + i + '" ' +
+        'inputmode="' + (it.tipo === 'kilo' ? 'decimal' : 'numeric') + '" ' +
         'value="' + _lpAttr(val) + '" oninput="lpCantidad(' + i + ',this.value)" aria-label="Cantidad de ' + _lpAttr(nombre) + '">' +
-      '<span class="lp-item-u">' + _lpEsc(unidad) + '</span>' +
+      '<span class="lp-item-u">' + _lpEsc(lpUnidadTxt(it)) + '</span>' +
       '<button type="button" class="lp-quitar" onclick="lpQuitar(' + i + ')" title="Sacar de la lista" aria-label="Sacar ' + _lpAttr(nombre) + '">&times;</button></div>';
   }).join('');
 }
@@ -370,15 +453,23 @@ async function lpGuardarLista() {
   if (!_lpEdit) return;
   const err = lpValidar(_lpEdit);
   if (err) { showAdminToast(err, 'error'); return; }
+  /* Con productos sin cantidad, se avisa antes (Thiago, 08/10): en el mensaje van solo con el nombre. */
+  const sin = lpSinCantidad(_lpEdit);
+  if (sin.length && !(await pedirConfirmacion(lpAvisoSinCantidad(sin),
+      { titulo: sin.length === 1 ? 'Un producto sin cantidad' : 'Productos sin cantidad', aceptar: 'Guardar igual', cancelar: 'Completar cantidades', cuidado: true, icono: 'bi-exclamation-triangle' }))) {
+    const el = document.getElementById('lpCant' + _lpEdit.items.indexOf(sin[0]));
+    if (el) el.focus();
+    return;
+  }
   const btn = document.getElementById('lpGuardarBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Guardando...'; }
   const datos = lpDatosParaGuardar(_lpEdit);
   const nueva = !_lpEdit.id;
   try {
-    if (nueva) await db.collection('listasPedido').add(Object.assign({ creadaEn: firebase.firestore.FieldValue.serverTimestamp(), contacto: null }, datos));
+    if (nueva) await db.collection('listasPedido').add(Object.assign({ proveedorId: _lpProveedor.id, creadaEn: firebase.firestore.FieldValue.serverTimestamp(), contacto: null }, datos));
     else await db.collection('listasPedido').doc(_lpEdit.id).update(datos);
     if (typeof logAction === 'function') logAction(nueva ? 'crear' : 'editar', 'Lista de pedidos ' + (nueva ? 'creada' : 'editada') + ': ' + datos.nombre,
-      datos.items.length + (datos.items.length === 1 ? ' producto' : ' productos'));
+      _lpProveedor.nombre + ' · ' + datos.items.length + (datos.items.length === 1 ? ' producto' : ' productos'));
     showAdminToast('Lista guardada', 'success');
     _lpEdit = null;
     await _lpCargar();
@@ -395,7 +486,7 @@ async function lpEliminarLista(id) {
   if (!(await pedirConfirmacion('¿Eliminar la lista "' + (l.nombre || '') + '"? No se puede deshacer.', { titulo: 'Eliminar lista', peligro: true }))) return;
   try {
     await db.collection('listasPedido').doc(id).delete();
-    if (typeof logAction === 'function') logAction('eliminar', 'Lista de pedidos eliminada: ' + (l.nombre || ''), '');
+    if (typeof logAction === 'function') logAction('eliminar', 'Lista de pedidos eliminada: ' + (l.nombre || ''), _lpProveedor ? _lpProveedor.nombre : '');
     showAdminToast('Lista eliminada', 'success');
     await _lpCargar();
     _lpRenderListas();
@@ -442,10 +533,11 @@ function _lpPedirContacto(l, desdeMandar) {
       '<button class="modal-close" onclick="lpCerrarContacto()">&times;</button></div>' +
     (desdeMandar ? '<p class="lp-aviso">Primero tenés que guardar el número de WhatsApp de la persona y el nombre.</p>' : '') +
     '<div class="form-group"><label class="form-label">Nombre *</label>' +
-      '<input type="text" class="form-input" id="lpContNombre" maxlength="60" placeholder="Por ejemplo: Juan de Fruticor" value="' + _lpAttr(c.nombre || '') + '"></div>' +
+      '<input type="text" class="form-input" id="lpContNombre" maxlength="60" placeholder="Por ejemplo: Juan" value="' + _lpAttr(c.nombre || '') + '"></div>' +
     '<div class="form-group"><label class="form-label">WhatsApp *</label>' +
-      '<input type="tel" class="form-input" id="lpContNum" maxlength="30" placeholder="351 555 1234" value="' + _lpAttr(c.escrito || '') + '">' +
-      '<small class="lp-nota" style="display:block;padding-top:0.3rem">Con la característica, sin el 0 ni el 15.</small></div>' +
+      '<input type="tel" class="form-input" id="lpContNum" inputmode="numeric" autocomplete="off" placeholder="351 999 9999" ' +
+        'value="' + _lpAttr(lpFormatoWhatsapp(c.escrito || '')) + '" onkeydown="return lpTeclaNumero(event)" oninput="lpFormatearNumero(this)">' +
+      '<small class="lp-nota" style="display:block;padding-top:0.3rem">Solo números, con la característica y sin el 0 ni el 15.</small></div>' +
     '<div class="lp-pie" style="border-top:none;padding-top:0">' +
       '<button class="btn btn-secondary" style="width:auto" onclick="lpCerrarContacto()">Cancelar</button>' +
       '<button class="btn btn-primary" style="width:auto" id="lpContGuardar" onclick="lpGuardarContacto(\'' + _lpAttr(l.id) + '\')">Guardar</button>' +
@@ -458,10 +550,10 @@ function lpCerrarContacto() { const m = document.getElementById('lpContactoModal
 
 async function lpGuardarContacto(id) {
   const nombre = String((document.getElementById('lpContNombre') || {}).value || '').trim();
-  const escrito = String((document.getElementById('lpContNum') || {}).value || '').trim();
+  const escrito = lpFormatoWhatsapp((document.getElementById('lpContNum') || {}).value || '');
   if (!nombre) { showAdminToast('Escribí el nombre de la persona.', 'error'); return; }
-  const whatsapp = lpNormalizarWhatsapp(escrito);
-  if (!whatsapp) { showAdminToast('Revisá el número: tiene que ser un celular con la característica, por ejemplo 351 555 1234.', 'error'); return; }
+  const whatsapp = escrito.replace(/\D/g, '').length === 10 ? lpNormalizarWhatsapp(escrito) : null;
+  if (!whatsapp) { showAdminToast('Revisá el número: son 10 números con la característica, por ejemplo 351 999 9999.', 'error'); return; }
   const btn = document.getElementById('lpContGuardar');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
   try {

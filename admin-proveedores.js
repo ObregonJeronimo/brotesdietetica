@@ -298,10 +298,6 @@ function renderProveedores() {
   let cab =
     '<div class="toolbar" style="margin-bottom:1rem;align-items:center">' +
       '<h3 style="font-size:1.05rem;font-weight:700;flex:1">Proveedores</h3>' +
-      /* Pedido de Thiago (08/10/2026): las listas de lo que se le pide a cada proveedor, para
-         mandarlas por WhatsApp (admin-listas-pedido.js). */
-      '<button class="btn btn-primary" style="width:auto;flex:0 0 auto;padding:0.4rem 0.9rem;font-size:0.82rem" ' +
-        'onclick="if(typeof abrirListasPedido===\'function\')abrirListasPedido()"><i class="bi bi-clipboard-check"></i> Lista de pedidos</button>' +
       '<div style="display:flex;gap:0.4rem;flex-wrap:wrap">' + per + '</div>' +
     '</div>' +
     '<p style="font-size:0.83rem;color:var(--text-dim);line-height:1.55;margin-bottom:1rem;max-width:70ch">' +
@@ -461,8 +457,14 @@ function _provRenderDetalle() {
         (r.ocultos ? _provFila('Ocultos en la tienda', String(r.ocultos), true) : '') +
         (r.sinStock ? _provFila('Sin stock', String(r.sinStock), true) : '') +
         '</div>',
-        '<button class="btn btn-secondary" style="width:auto;flex:0 0 auto;padding:0.28rem 0.7rem;font-size:0.78rem" ' +
-          'onclick="openProvExportModal()"><i class="bi bi-download"></i> Exportar</button>') +
+        '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end">' +
+          /* Pedido de Thiago (08/10/2026): la lista de lo que se le pide a ESTE proveedor, para
+             mandarla por WhatsApp (admin-listas-pedido.js). Solo acá, con el proveedor elegido. */
+          '<button class="btn btn-primary" style="width:auto;flex:0 0 auto;padding:0.28rem 0.7rem;font-size:0.78rem" ' +
+            'onclick="if(typeof abrirListasPedido===\'function\')abrirListasPedido(\'' + esc(lista.id) + '\')"><i class="bi bi-clipboard-check"></i> Lista de pedidos</button>' +
+          '<button class="btn btn-secondary" style="width:auto;flex:0 0 auto;padding:0.28rem 0.7rem;font-size:0.78rem" ' +
+            'onclick="openProvExportModal()"><i class="bi bi-download"></i> Exportar</button>' +
+        '</div>') +
       _provCard('Los 10 productos más vendidos de este proveedor',
         top.length ? top.map(filaProd).join('') : nadaVendido) +
       ((typeof renderComprasDeProveedor === 'function')
