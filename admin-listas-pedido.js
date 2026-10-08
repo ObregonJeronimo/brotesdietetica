@@ -97,13 +97,13 @@ function lpCantidadTxt(it) {
   return _lpNum(n) + (n === 1 ? ' unidad' : ' unidades');
 }
 
-/* El mensaje: el saludo (con el nombre de la persona, si está guardado), un renglón por
-   producto y "Gracias!". El que no tiene cantidad va solo con el nombre. */
+/* El mensaje: "Hola!", un renglón por producto y "Gracias!". El que no tiene cantidad va solo
+   con el nombre. El saludo va sin el nombre de la persona (Thiago, 08/10): se guarda como
+   sirva para reconocerla y en el mensaje podría quedar raro. */
 function lpMensaje(lista) {
-  const c = lista && lista.contacto;
   const renglones = ((lista && lista.items) || [])
     .map(i => '- ' + lpNombreItem(i) + (_lpHay(i) ? ': ' + lpCantidadTxt(i) : ''));
-  return 'Hola' + (c && c.nombre ? ' ' + c.nombre : '') + '! Te paso el pedido:\n\n' + renglones.join('\n') + '\n\nGracias!';
+  return 'Hola! Te paso el pedido:\n\n' + renglones.join('\n') + '\n\nGracias!';
 }
 
 /* Lo escrito en una cantidad: los kilos con coma o con punto ("2,5"); bolsas y unidades,

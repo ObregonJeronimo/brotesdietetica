@@ -144,10 +144,10 @@ console.log('\n-- el mensaje --');
   ] };
   const m = ctx.lpMensaje(lista);
   const n1 = ctx.lpNombreItem({ id: 'mrc1' });
-  t('saludo con el nombre, un renglón por producto y "Gracias!"; el que no tiene cantidad va solo con el nombre',
-    m === 'Hola Juan! Te paso el pedido:\n\n- ' + n1 + ': 3 bolsas\n- Almendra: 2 bolsas de 5 kg\n- Chia: 2,5 kg\n- Galletas De Arroz: 4 unidades\n' +
-      '- Alfajor x6\n- Producto Viejo: 1 unidad\n\nGracias!', m);
-  t('sin nadie guardado: "Hola!"', ctx.lpMensaje(Object.assign({}, lista, { contacto: null })).indexOf('Hola! Te paso el pedido:') === 0);
+  t('"Hola!" (sin el nombre de la persona guardada), un renglón por producto y "Gracias!"; el que no tiene cantidad va solo con el nombre',
+    m === 'Hola! Te paso el pedido:\n\n- ' + n1 + ': 3 bolsas\n- Almendra: 2 bolsas de 5 kg\n- Chia: 2,5 kg\n- Galletas De Arroz: 4 unidades\n' +
+      '- Alfajor x6\n- Producto Viejo: 1 unidad\n\nGracias!' && m.indexOf('Juan') < 0, m);
+  t('sin nadie guardado, el mismo mensaje', ctx.lpMensaje(Object.assign({}, lista, { contacto: null })) === m);
 }
 
 console.log('\n-- lo que se escribe --');
@@ -309,8 +309,8 @@ console.log('\n-- la pantalla: copiar y mandar --');
     w.els.lpMandarModal.innerHTML.indexOf("lpAbrirWhatsapp('L-1','web')") > 0 && w.els.lpMandarModal.innerHTML.indexOf("lpAbrirWhatsapp('L-1','app')") > 0);
   w.ctx.lpAbrirWhatsapp('L-1', 'web');
   const msg = w.ctx.lpMensaje(w.ver('_lpListas')[0]);
-  t('  WhatsApp Web: en otra pestaña, con el mensaje para Juan', w.reg.abiertos[0] === w.ctx.lpLinkWhatsapp('5493515551234', msg, 'web') + '|_blank' &&
-    msg.indexOf('Hola Juan!') === 0, w.reg.abiertos);
+  t('  WhatsApp Web: en otra pestaña, al número de Juan, y el mensaje con "Hola!" sin su nombre', w.reg.abiertos[0] === w.ctx.lpLinkWhatsapp('5493515551234', msg, 'web') + '|_blank' &&
+    msg.indexOf('Hola! Te paso el pedido:') === 0 && msg.indexOf('Juan') < 0, w.reg.abiertos);
   w.ctx.lpAbrirWhatsapp('L-1', 'app');
   t('  la app: con su enlace whatsapp://', w.ctx.window.location.href === w.ctx.lpLinkWhatsapp('5493515551234', msg, 'app'));
   w.ctx.lpEditarLista('L-1');

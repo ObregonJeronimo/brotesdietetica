@@ -2796,9 +2796,10 @@ mandar pide primero "el número de WhatsApp de la persona y el nombre", después
   con el 0 o con el 15, se sacan; uno de otro país ya no se puede poner). Se guarda en el formato de WhatsApp
   (549 y los 10 números): "El mensaje se enviará a: Juan (351 999 9999) · Cambiar". Al mandar: "WhatsApp Web" (pestaña nueva, `web.whatsapp.com/send`) o "App de
   escritorio" (`whatsapp://send`), con el mensaje ya escrito.
-- **El mensaje**: "Hola Juan! Te paso el pedido:" y un renglón por producto ("- Mani x 1 kg: 3 bolsas",
+- **El mensaje**: "Hola! Te paso el pedido:" y un renglón por producto ("- Mani x 1 kg: 3 bolsas",
   "- Almendra: 2 bolsas de 5 kg") y "Gracias!". Uno sin cantidad va solo con el nombre ("- Galleta De Arroz").
-  Sin nadie guardado, "Hola!".
+  El saludo va sin el nombre de la persona guardada (Thiago, 08/10: "capaz guardan con algo raro para
+  identificarlo y va a quedar raro en el mensaje"); el nombre solo sirve para saber a quién se le manda.
 - **Dónde**: la colección nueva `listasPedido` (solo admins, regla nueva en `firestore.rules`). Queda en el
   historial al crear, editar y eliminar.
 - **Para subirlo hay que publicar las reglas** (`firebase deploy --only firestore:rules --project
@@ -2822,6 +2823,9 @@ vacía (null) y en el mensaje solo el nombre; el número con el teclado: las let
 "35144" queda "351 44", corregir uno del medio no corre el cursor y el número 11 no entra; pegado "+54 9 351
 555-1234" queda "351 555 1234"; con menos de 10 no se guarda; WhatsApp Web con el mensaje entero
 (5493519998877; la app no se abrió); en el celular, sin correrse. Pruebas: 75 (t-listas-pedido). Total: 4305.
+Después, el saludo sin el nombre: probado en el sandbox con la lista de FRUTICOR (guardada a nombre de
+"Fruticor"): "Copiar mensaje" y WhatsApp Web arrancan con "Hola! Te paso el pedido:" y siguen yendo al número
+guardado.
 
 ---
 
