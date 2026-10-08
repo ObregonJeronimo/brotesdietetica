@@ -2723,12 +2723,41 @@ Probado sin el sandbox (a pedido) en una página de prueba local, `_test-cliente
 se sube), que toma el CSS, las ventanas y las funciones del admin.html real con clientes de mentira y sin
 Firebase: elegir; "Cambiar" y salir sin elegir (vuelve el mismo); cambiar por otro; escribir y salir
 (Consumidor Final en la minorista, el nombre escrito en la mayorista); uno de la web con su número; en compu y
-en celular. Pruebas: 19 más (t-clientes-local). Total: 4223. **Falta probarlo en el sandbox antes de subir**:
-guardar una venta con el cliente elegido (que quede en su ficha), editarla, pasar un pedido a venta y crear
-un cliente desde la venta.
-Visto y NO tocado (ya estaba): en la mayorista, si se escribe un nombre a mano y se sale del campo, la lista de
-clientes queda abierta encima de los campos de abajo, y un clic ahí puede elegir un cliente sin querer (la
-minorista la cierra al salir). Arreglo propuesto: cerrarla al salir del campo, como la minorista.
+en celular. Pruebas: 19 más (t-clientes-local). Total: 4223.
+- **La mayorista cierra la lista al salir del campo** (Thiago dijo que sí, 08/10): con un nombre escrito a mano
+  la lista quedaba abierta encima de "Medio de pago", y un clic ahí elegía un cliente sin querer. Ahora
+  `onBlurClienteVentaMay` (admin.html) la cierra, como la minorista; no completa nada (la mayorista acepta un
+  nombre escrito) y, si había un cliente elegido, vuelve el recuadro.
+**Probado en el sandbox (08/10)**, con clientes creados desde el panel (el sandbox no trae): "Agregar cliente
+nuevo: Pepe Prueba" desde la venta → al guardar la ficha queda elegido con el recuadro → venta #41 ($25.330) con
+`cliente` y `clienteId`; editarla (tarjeta fija de siempre) y guardar con Transferencia → el cliente sigue;
+editar la #1 (Consumidor Final, $600) y elegirle a Pepe con el buscador → queda con su id; un cliente de la web
+(creado en el emulador) → "#7 Bruno Web · Web · mail" → venta #42 con `clienteAuthUid`; el pedido #1 con Pepe
+→ "Convertir a venta" ya trae el recuadro → venta #43 ($1.200) con su id y el pedido "confirmado"; mayorista con
+Pepe → venta #1 ($19.370) con su id; la lista de la mayorista se cierra al tocar afuera y con Tab; sin tocar el
+cliente → #44 "Consumidor Final" sin id. La ficha de Pepe: 4 compras y $46.500 (= 25.330 + 600 + 1.200 + 19.370).
+"Ver cobros" abre esa ficha, "Editar" su ficha de edición y "Eliminar" la pregunta de siempre (cancelada).
+Vistos y NO tocados (ya estaban, para hablar con Thiago):
+- En Clientes del local, la tarjeta ("3 ventas | $27.130") y los números de arriba cuentan solo las ventas
+  minoristas (`loadClientes` lee `ventas`), y la ficha suma también las mayoristas ("4 compras, $46.500"):
+  con compras mayoristas no coinciden.
+- Al editar una venta con un cliente del local, la tarjeta fija muestra su código interno ("#T42NI30…"),
+  que no le dice nada a la clienta.
+
+### AS) Crear un cliente con teléfono se cortaba (en producción desde el 26/09) · arreglado, solo local, SIN SUBIR (08/10/2026)
+
+Encontrado probando §AR en el sandbox: "Nuevo cliente" (desde Clientes, la venta, la mayorista o el pedido) con
+un teléfono de 6 dígitos o más, y sin otro cliente con ese teléfono o DNI, NO se guardaba: salía "Error: Cannot
+read properties of null (reading 'telefono')". El aviso de "Cliente repetido" (revisión del 26/09, commit
+`b393a7a`, en producción desde ese día) leía `_rep.telefono` también cuando no había repetido (`_rep` null). Sin
+teléfono, o con menos de 6 dígitos, sí se guardaba.
+- Arreglo (`saveCliente`, admin.html): `const _porTel=!!_rep&&…`. El aviso de repetido sigue igual.
+- La prueba de entonces miraba solo que la línea estuviera escrita; ahora `saveCliente` se corre de verdad: con
+  teléfono se guarda y queda elegido en la venta; con el teléfono de otro pregunta y, si dicen que no, no se
+  guarda; sin teléfono, como siempre. Con la línea vieja, la prueba falla con el mismo mensaje.
+- Probado en el sandbox: "Pepe Prueba" (desde la venta) y "María Prueba" (desde Clientes), los dos con teléfono.
+**Para Thiago: está roto en producción ahora**; conviene subirlo cuando se pueda (es una línea). Se puede
+averiguar, leyendo sin tocar nada, cuántos clientes se crearon desde el 26/09.
 
 ---
 
