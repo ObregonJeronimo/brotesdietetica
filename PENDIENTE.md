@@ -2675,7 +2675,7 @@ arriba se hizo y lo que encontró en lo nuevo se arregló y se probó antes). Pu
 `admin.html`, `admin-stock.js` y `admin-pagination.js` que el repo; la tienda y la pantalla de ingreso del
 panel cargan sin errores (sin iniciar sesión), ya con el código nuevo. La clienta lo ve al recargar (F5).
 
-### AQ) Stock: la confirmación de la carga en tanda se lee bien · solo local, SIN SUBIR (08/10/2026)
+### AQ) Stock: la confirmación de la carga en tanda se lee bien · **SUBIDO A PRODUCCIÓN el 08/10/2026** (08/10/2026)
 
 Pedido de Thiago ("mejorá lo del punto 2, que se lee mal"): la confirmación de "Agregar al stock" en tanda
 decía "Sumar 1 unidad a 65 productos a 99 productos:" (el "a 99" sobraba, y con las dos cantidades quedaba
@@ -2696,6 +2696,11 @@ cambió en la base; la selección y la cantidad quedan). Con "tostado" (41: 27 p
 unidad y 1.500 g: llegó +1 a los 27 y +1.500 g a los 14, y son justo los 41 elegidos (comparado en la base,
 uno por uno); con -1 y -1.500 ("se descuenta 1 unidad de cada uno", "se descuentan 1.500 gramos (1,5 kg) de
 cada uno") todo volvió a como estaba, recuadros incluidos. Pruebas: 9 más (t-stock-agrupado). Total: 4204.
+
+**AQ, subido el 08/10/2026** (Thiago: "si ya revisaste que todo está OK, subilo"; antes se repasó el cambio
+entero, el build y las pruebas). Push a `main` de `91275ed` a `bfad2cd` (con los commits de docs). Solo cambia el
+panel. Verificado a las 00:29: Vercel sirve el mismo `admin.html` que el repo; la tienda y la pantalla de
+ingreso del panel cargan sin errores (sin iniciar sesión). La clienta lo ve al recargar (F5).
 
 ---
 
