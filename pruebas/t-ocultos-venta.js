@@ -144,7 +144,7 @@ t('  y pregunta antes de pedir los gramos', agregar.indexOf("titulo:'Producto oc
   agregar.indexOf("titulo:'Producto oculto'") < agregar.indexOf('pedirCantidadPeso'));
 t('la venta mayorista usa el mismo buscador',
   /function filterVentaMayProducts\(\)\{_pintarBusqueda\('ventaMayProdListDropdown'/.test(html) &&
-  /_buscarProdVentaConEtiqueta\(q\)/.test(cuerpo(html, '_pintarBusqueda')));
+  /_buscarProdVentaConEtiqueta\(q(?:,_fv)?\)/.test(cuerpo(html, '_pintarBusqueda')));
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);

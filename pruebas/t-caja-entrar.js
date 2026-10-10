@@ -260,7 +260,7 @@ const correrSeguro = (js) => { try { return correr(js); } catch (e) { return '__
 
   grupo('El historial no parpadea cuando la relectura va por detras');
   t('el "Cargando..." del historial esta condicionado',
-    /if \(!_cajasHistorial\.length\) cont\.innerHTML = '<p[^']*>Cargando/.test(SRC));
+    /if \(!(?:_cajasHistorial|C\.historial)\.length\) cont\.innerHTML = '<p[^']*>Cargando/.test(SRC));
 
   console.log('\n' + ok + ' pasaron, ' + mal + ' fallaron');
   process.exit(mal ? 1 : 0);

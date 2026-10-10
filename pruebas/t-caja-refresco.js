@@ -45,9 +45,9 @@ const cerrar = cuerpo('confirmarCierre');
 const abrir = cuerpo('abrirCaja');
 
 /* El refresco tiene que estar en su propio try, DESPUES del aviso de exito. */
-const refrescoAparte = /closeCierreModal\(\);[\s\S]{0,900}?try \{\s*await loadCaja\(\);\s*\} catch/;
+const refrescoAparte = /closeCierreModal\((?:k)?\);[\s\S]{0,900}?try \{\s*await loadCaja\((?:k)?\);\s*\} catch/;
 t('al cerrar, loadCaja va en su propio try', refrescoAparte.test(cerrar));
-t('al abrir, tambien', /closeAbrirCajaModal\(\);[\s\S]{0,700}?try \{\s*await loadCaja\(\);\s*\} catch/.test(abrir));
+t('al abrir, tambien', /closeAbrirCajaModal\((?:k)?\);[\s\S]{0,700}?try \{\s*await loadCaja\((?:k)?\);\s*\} catch/.test(abrir));
 
 /* Y el mensaje de ese catch NO puede decir que fallo el cierre. */
 const msgCerrar = (cerrar.match(/La caja se cerró[^']*/) || [''])[0];

@@ -50,7 +50,7 @@
         .menu-acciones button{display:flex;align-items:center;gap:0.6rem;width:100%;background:transparent;border:none;color:var(--text);font-family:inherit;font-size:0.85rem;text-align:left;padding:0.55rem 0.7rem;border-radius:7px;cursor:pointer}
         .menu-acciones button:hover{background:var(--bg-input)}
         .menu-acciones button i{color:var(--text-dim);font-size:0.95rem}
-        .badge-editado{background:rgba(237,184,51,0.18);color:#EDB833;padding:1px 6px;border-radius:4px;font-size:0.68rem;font-weight:700;cursor:help}.badge-deshecho{background:rgba(229,69,69,0.15);color:#f56c6c;padding:1px 6px;border-radius:4px;font-size:0.68rem;font-weight:700;cursor:help;margin-left:4px}.mov-deshecho td{opacity:0.6}
+        .badge-editado{background:rgba(237,184,51,0.18);color:#EDB833;padding:1px 6px;border-radius:4px;font-size:0.68rem;font-weight:700;cursor:help}.badge-medio{background:rgba(110,168,254,0.16);color:#8fb8ff;padding:1px 6px;border-radius:4px;font-size:0.68rem;font-weight:700;cursor:help}.badge-deshecho{background:rgba(229,69,69,0.15);color:#f56c6c;padding:1px 6px;border-radius:4px;font-size:0.68rem;font-weight:700;cursor:help;margin-left:4px}.mov-deshecho td{opacity:0.6}
         /* Campana de alertas. El panel va con position:fixed y montado en <body>:
            la barra superior es sticky y crea su propio contexto de apilado, asi
            que un panel absolute adentro se mete debajo del contenido al scrollear. */
@@ -1130,11 +1130,13 @@
         <div class="sidebar-section">
             <div class="sidebar-rotulo">Local</div>
             <a class="sidebar-item" onclick="switchSection('caja')"><i class="bi bi-cash-stack"></i><span>Caja</span></a>
+            <a class="sidebar-item" onclick="switchSection('cajaViandas')"><i class="bi bi-egg-fried"></i><span>Caja viandas</span></a>
             <div id="sidebarVentasGroup">
                 <a class="sidebar-item sidebar-group-toggle" onclick="toggleSidebarVentas()"><i class="bi bi-cart-check"></i><span>Ventas</span><i class="bi bi-chevron-right sidebar-chevron" id="ventasChevron"></i></a>
                 <div class="sidebar-subitems" id="sidebarVentasSub">
                     <a class="sidebar-item sidebar-subitem" onclick="switchSection('ventas')"><i class="bi bi-person"></i><span>Minoristas</span></a>
                     <a class="sidebar-item sidebar-subitem" onclick="switchSection('ventasMay')"><i class="bi bi-buildings"></i><span>Mayoristas</span></a>
+                    <a class="sidebar-item sidebar-subitem" onclick="switchSection('ventasViandas')"><i class="bi bi-egg-fried"></i><span>Viandas</span></a>
                 </div>
             </div>
         </div>
@@ -1216,6 +1218,20 @@
       <div class="vt-filtros"><select class="form-input vt-mes" id="ventaMayMesFiltro" onchange="filterVentasMay()"><option value="">Todos los meses</option></select><div class="search-box campo-destacado"><i class="bi bi-search"></i><input type="text" placeholder="Buscar por cliente, número o medio de pago..." id="ventaMaySearch" oninput="filterVentasMay()"></div><button class="btn btn-secondary vt-refrescar" onclick="loadVentasMay()" title="Volver a cargar"><i class="bi bi-arrow-clockwise"></i></button></div>
       <div id="ventasMayList" class="hist-list vt-lista"><div class="empty-state" style="padding:2rem"><p>Cargando...</p></div></div>
       <div class="price-pager" id="ventasMayPager"></div>
+    </div>
+    <!-- Ventas de viandas (10/10/2026): las de `ventas` con cajaTipo 'viandas'. Las mismas
+         piezas que Minoristas (admin-viandas.js). -->
+    <div class="section-content" id="sec-ventasViandas">
+      <div class="vt-cab"><div><h2 class="vt-tit">Ventas de viandas</h2><p class="vt-per">Estos números son de <b id="vtVdsStatPeriodo">-</b> · se cobran con la <a href="#" onclick="event.preventDefault();switchSection('cajaViandas')">caja de viandas</a></p></div><button class="btn btn-primary vt-nueva" onclick="abrirVentaViandas()"><i class="bi bi-plus-lg"></i> Nueva venta de viandas</button></div>
+      <div class="vt-kpis">
+        <div class="vt-kpi"><span class="vt-kpi-ico"><i class="bi bi-egg-fried"></i></span><div class="vt-kpi-txt"><span class="vt-kpi-etq">Ventas de viandas</span><strong class="vt-kpi-val" id="vtVdsStatTotal">0</strong></div></div>
+        <div class="vt-kpi"><span class="vt-kpi-ico verde"><i class="bi bi-cash-coin"></i></span><div class="vt-kpi-txt"><span class="vt-kpi-etq">Facturado</span><strong class="vt-kpi-val" id="vtVdsStatTotal$">$0</strong><span class="vt-kpi-sub" id="vtVdsStatEnvios"></span></div></div>
+        <div class="vt-kpi"><span class="vt-kpi-ico ambar"><i class="bi bi-graph-up-arrow"></i></span><div class="vt-kpi-txt"><span class="vt-kpi-etq">Ticket promedio</span><strong class="vt-kpi-val" id="vtVdsStatProm">$0</strong></div></div>
+        <div class="vt-kpi"><span class="vt-kpi-ico rojo"><i class="bi bi-journal-bookmark"></i></span><div class="vt-kpi-txt"><span class="vt-kpi-etq">Fiado sin cobrar</span><strong class="vt-kpi-val" id="vtVdsStatFiado">$0</strong></div></div>
+      </div>
+      <div class="vt-filtros"><select class="form-input vt-mes" id="ventaVdsMesFiltro" onchange="loadVentasViandas()"><option value="">Todos los meses</option></select><div class="search-box campo-destacado"><i class="bi bi-search"></i><input type="text" placeholder="Buscar por cliente, número o medio de pago..." id="ventaVdsSearch" oninput="filterVentasViandas()"></div><button class="btn btn-secondary vt-refrescar" onclick="loadVentasViandas()" title="Volver a cargar"><i class="bi bi-arrow-clockwise"></i></button></div>
+      <div id="ventasVdsList" class="hist-list vt-lista"><div class="empty-state" style="padding:2rem"><p>Cargando...</p></div></div>
+      <div class="price-pager" id="ventasVdsPager"></div>
     </div>
     <div class="section-content" id="sec-pedidos">
       <div class="toolbar" style="flex-wrap:wrap;gap:0.4rem;margin-bottom:0.75rem">
@@ -1320,6 +1336,34 @@
         <div id="cajaHistResumen" style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.7rem"></div>
         <div id="cajaHistorial"><p style="color:var(--text-dim);font-size:0.85rem">Cargando...</p></div>
         <div id="cajaHistPager"></div>
+      </div>
+    </div>
+
+    <!-- Caja de viandas (pedido de la clienta, 10/10/2026): la misma caja, aparte, con su
+         propia plata. Los ids son los de la caja del local con una "v" adelante (CAJAS en
+         admin-caja.js). -->
+    <div class="section-content" id="sec-cajaViandas">
+      <div class="toolbar" style="margin-bottom:1.25rem">
+        <h3 style="font-size:1.05rem;font-weight:700;flex:1">Caja de viandas</h3>
+        <button class="btn btn-secondary" style="width:auto" onclick="loadCaja('viandas')"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+      </div>
+      <div id="vCajaTop"><p style="color:var(--text-dim);font-size:0.88rem">Cargando...</p></div>
+      <div class="card" style="padding:1.25rem;margin-top:1.5rem">
+        <div class="toolbar" style="margin-bottom:0.85rem">
+          <h3 style="font-size:0.95rem;font-weight:700;flex:1;margin:0">Cajas de viandas anteriores</h3>
+          <select class="form-input" id="vCajaHistMes" style="width:auto;min-width:165px" onchange="loadHistorialCajas('viandas')"></select>
+          <select class="form-input" id="vCajaHistDif" style="width:auto;min-width:150px" onchange="cajaHistFiltrar('viandas')">
+            <option value="">Todas</option>
+            <option value="con">Con diferencia</option>
+            <option value="exactas">Exactas</option>
+            <option value="faltante">Con faltante</option>
+            <option value="sobrante">Con sobrante</option>
+          </select>
+          <button class="btn btn-secondary" style="width:auto" onclick="loadHistorialCajas('viandas')" title="Recargar"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+        <div id="vCajaHistResumen" style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.7rem"></div>
+        <div id="vCajaHistorial"><p style="color:var(--text-dim);font-size:0.85rem">Cargando...</p></div>
+        <div id="vCajaHistPager"></div>
       </div>
     </div>
 
@@ -1901,7 +1945,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
         _initAuth();
         function logout(){auth.signOut();}
         function toggleSidebarVentas(){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(!sub)return;const open=sub.classList.toggle('open');if(chev)chev.style.transform=open?'rotate(90deg)':'rotate(0deg)';}
-        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='inicio'&&typeof entrarAInicio==='function')entrarAInicio();/* El recuadro de proveedores mide su alto para ofrecer 'Ver todas', y oculto mide cero: desde que se entra por Inicio del dia, se dibujaba con Productos escondido y las pastillas quedaban recortadas sin el boton. Se vuelve a medir al entrar. */if(sec==='products'&&typeof renderListasPanel==='function')renderListasPanel();if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')entrarACaja();if(sec==='config'){loadAdmins();/* Son 9 lecturas y la tarjeta vacia no dice nada. */if(typeof verContadores==='function')verContadores();/* Los dos admins trabajan a la vez y este formulario se llenaba UNA sola vez, al iniciar sesion. El que dejaba la pestana abierta desde la manana entraba a Configuracion, tocaba una sola casilla y al Guardar escribia TODOS los campos con los valores viejos que tenia en pantalla: le revertia al otro el precio de envio recien cambiado (y el atajo, que se guarda con .set del mapa cargado al login). Ahora el formulario se relee de la base cada vez que se entra a la seccion. */loadPedidosCfgEditor();loadAtajos();if(typeof renderTicketCfg==='function')renderTicketCfg();}if(sec==='stats')loadStats();if(sec==='proveedores')loadProveedores();if(sec==='depuracion'&&typeof loadDepuracion==='function')loadDepuracion();document.getElementById('adminSidebar').classList.remove('open');}
+        function switchSection(sec){document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));const el=document.getElementById('sec-'+sec);if(el)el.classList.add('active');document.querySelectorAll('.sidebar-item').forEach(i=>{const oc=i.getAttribute('onclick')||'';if(oc.includes("'"+sec+"'"))i.classList.add('active');});if(sec==='ventas'||sec==='ventasMay'||sec==='ventasViandas'){const sub=document.getElementById('sidebarVentasSub');const chev=document.getElementById('ventasChevron');if(sub&&!sub.classList.contains('open')){sub.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';}}if(sec==='inicio'&&typeof entrarAInicio==='function')entrarAInicio();/* El recuadro de proveedores mide su alto para ofrecer 'Ver todas', y oculto mide cero: desde que se entra por Inicio del dia, se dibujaba con Productos escondido y las pastillas quedaban recortadas sin el boton. Se vuelve a medir al entrar. */if(sec==='products'&&typeof renderListasPanel==='function')renderListasPanel();if(sec==='stock')renderStockList();if(sec==='historial')loadHistorial();if(sec==='ventas'){_buildMesOptions('ventaMesFiltro');loadVentas();}if(sec==='ventasMay'){_buildMesOptions('ventaMayMesFiltro');loadVentasMay();}if(sec==='ventasViandas'&&typeof loadVentasViandas==='function'){_buildMesOptions('ventaVdsMesFiltro');loadVentasViandas();}if(sec==='pedidos'){loadPedidos();}else if(_pedidosUnsubscribe){_pedidosUnsubscribe();_pedidosUnsubscribe=null;}if(sec==='clientes')loadClientes();if(sec==='clientesAuth')loadClientesAuth();if(sec==='editor')loadSiteContent();if(sec==='resenas')loadAdminReviews();if(sec==='cupones')loadCupones();if(sec==='factura')loadFceEditor();if(sec==='insumos')loadInsumos();if(sec==='caja')entrarACaja();if(sec==='cajaViandas')entrarACaja('viandas');if(sec==='config'){loadAdmins();/* Son 9 lecturas y la tarjeta vacia no dice nada. */if(typeof verContadores==='function')verContadores();/* Los dos admins trabajan a la vez y este formulario se llenaba UNA sola vez, al iniciar sesion. El que dejaba la pestana abierta desde la manana entraba a Configuracion, tocaba una sola casilla y al Guardar escribia TODOS los campos con los valores viejos que tenia en pantalla: le revertia al otro el precio de envio recien cambiado (y el atajo, que se guarda con .set del mapa cargado al login). Ahora el formulario se relee de la base cada vez que se entra a la seccion. */loadPedidosCfgEditor();loadAtajos();if(typeof renderTicketCfg==='function')renderTicketCfg();}if(sec==='stats')loadStats();if(sec==='proveedores')loadProveedores();if(sec==='depuracion'&&typeof loadDepuracion==='function')loadDepuracion();document.getElementById('adminSidebar').classList.remove('open');}
         /* Visor de imagen. Se abre desde la miniatura de la tabla y no deja tocar nada
            de atras hasta cerrarlo: el fondo tapa la pantalla completa, asi que un click
            afuera cae en el propio fondo y cierra, en vez de apretar el boton que estaba
@@ -3666,8 +3710,8 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             else if(window._pedidoEnvioVenta&&window._pedidoEnvioVenta.tipoEntrega===ventaTipoEntrega&&envio!==0)envio=Number(window._pedidoEnvioVenta.envio)||0;
             return {subtotal,descuentoPct,descuentoMonto,subtotalConDesc,envio,total:subtotalConDesc+envio};
         }
-        function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='retiro';/* De entrada Retiro (pedido del dueño, 26/09): con los envios apagados la venta igual arrancaba en 'envio' y decia "Envio GRATIS". */window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;if(typeof cuponCajaReset==='function')setTimeout(cuponCajaReset,0);/* _pedidoOrigenVentaId lo soltaba SOLO closeVentaModal, y Escape (admin-atajos.js) cierra el modal sacandole la clase 'show' sin pasar por ahi: convertir un pedido, arrepentirse con Escape y despues cargar una venta de mostrador la guardaba como origen 'web' colgada de aquel pedido, y le marcaba el pedido como confirmado con la venta equivocada. */window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaCliente');document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='retiro'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value='0';/* El buscador se limpia tambien al ABRIR: Escape cierra la venta sin pasar por closeVentaModal, y la siguiente arrancaba con la busqueda vieja, y con sus ocultos a la vista si se habia tocado Ver. */const _psAbrir=document.getElementById('ventaProdSearch');if(_psAbrir)_psAbrir.value='';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
-        async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio',stockDescontado:!!v.stockDescontado}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';/* Con los envios apagados, una venta vieja guardada como envio sin cargo es un retiro: antes toda venta nueva arrancaba en 'envio' y se guardaba asi, y al editarla quedaba "Envio GRATIS" sin poder cambiarlo (el boton esta escondido). Una con envio cobrado se deja como esta (revision del 27/09). */if(typeof HACE_ENVIOS!=='undefined'&&HACE_ENVIOS===false&&ventaTipoEntrega==='envio'&&!(Number(v.envio)>0))ventaTipoEntrega='retiro';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';/* El uid del cliente registrado vive en clienteAuthUid, no en clienteId: precargando solo clienteId el input oculto quedaba VACIO, y al guardar cualquier cambio (por ejemplo pasar de Efectivo a Transferencia) saveVenta lee ese mismo input y escribe clienteId:null Y clienteAuthUid:null, con lo que la venta se desengancha del cliente para siempre y deja de aparecer en su ficha (admin.html:1265). El formato 'auth:<uid>' es el que ya usa el flujo de pedido a venta. */document.getElementById('ventaClienteId').value=v.clienteAuthUid?('auth:'+v.clienteAuthUid):(v.clienteId||'');if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaCliente');document.getElementById('ventaMedio').value=v.medioPago||'Efectivo';/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+nroVta(v.numero||0);const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value=v.descuentoMonto||0;
+        function openVentaModal(){window._ventaViandas=false;editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='retiro';/* De entrada Retiro (pedido del dueño, 26/09): con los envios apagados la venta igual arrancaba en 'envio' y decia "Envio GRATIS". */window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;if(typeof cuponCajaReset==='function')setTimeout(cuponCajaReset,0);/* _pedidoOrigenVentaId lo soltaba SOLO closeVentaModal, y Escape (admin-atajos.js) cierra el modal sacandole la clase 'show' sin pasar por ahi: convertir un pedido, arrepentirse con Escape y despues cargar una venta de mostrador la guardaba como origen 'web' colgada de aquel pedido, y le marcaba el pedido como confirmado con la venta equivocada. */window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaCliente');document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='retiro'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value='0';/* El buscador se limpia tambien al ABRIR: Escape cierra la venta sin pasar por closeVentaModal, y la siguiente arrancaba con la busqueda vieja, y con sus ocultos a la vista si se habia tocado Ver. */const _psAbrir=document.getElementById('ventaProdSearch');if(_psAbrir)_psAbrir.value='';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
+        async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio',stockDescontado:!!v.stockDescontado}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';/* Con los envios apagados, una venta vieja guardada como envio sin cargo es un retiro: antes toda venta nueva arrancaba en 'envio' y se guardaba asi, y al editarla quedaba "Envio GRATIS" sin poder cambiarlo (el boton esta escondido). Una con envio cobrado se deja como esta (revision del 27/09). */if(typeof HACE_ENVIOS!=='undefined'&&HACE_ENVIOS===false&&ventaTipoEntrega==='envio'&&!(Number(v.envio)>0))ventaTipoEntrega='retiro';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';/* El uid del cliente registrado vive en clienteAuthUid, no en clienteId: precargando solo clienteId el input oculto quedaba VACIO, y al guardar cualquier cambio (por ejemplo pasar de Efectivo a Transferencia) saveVenta lee ese mismo input y escribe clienteId:null Y clienteAuthUid:null, con lo que la venta se desengancha del cliente para siempre y deja de aparecer en su ficha (admin.html:1265). El formato 'auth:<uid>' es el que ya usa el flujo de pedido a venta. */document.getElementById('ventaClienteId').value=v.clienteAuthUid?('auth:'+v.clienteAuthUid):(v.clienteId||'');if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaCliente');document.getElementById('ventaMedio').value=v.medioPago||'Efectivo';/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+nroVta(v.numero||0);const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';/* Una venta de viandas se edita en modo viandas: su buscador muestra solo viandas. */window._ventaViandas=v.cajaTipo==='viandas';if(window._ventaViandas&&typeof pintarModoVentaViandas==='function')pintarModoVentaViandas(true,nroVta(v.numero||0));const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value=v.descuentoMonto||0;
             /* Restaurar cupón si la venta lo tiene */
             window._pedidoCuponVenta=v.cupon||null;
             const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();
@@ -3692,7 +3736,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                SIGUIENTE venta de mostrador —una cualquiera, sin relacion— se guardaba con
                origen 'web', se ataba a ese pedido viejo, y le marcaba el pedido como
                confirmado apuntando a la venta equivocada. */
-            window._pedidoOrigenVentaId=null;window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;window._pedidoEstadoDestino=null;
+            window._pedidoOrigenVentaId=null;window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;window._pedidoEstadoDestino=null;window._ventaViandas=false;
             /* El buscador de productos no se limpiaba nunca: al volver a abrir Nueva Venta (o Editar
                en otra venta) el campo seguia diciendo "yerba" y, como los tres caminos de apertura
                llaman a filterVentaProducts(), el desplegable aparecia ya cargado con los resultados
@@ -3779,46 +3823,50 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             return ((p.nombreMostrado||'')+' '+(p.nombre||'')+' '+(p.gramaje||'')+' '+(p.codigo||'')).toLowerCase().includes(t)
                 || String(p.codigoBarras||'')===t;
         }
-        function _buscarProdVenta(q){
+        function _buscarProdVenta(q,f){
             const t=(q||'').toLowerCase().trim();
             if(!t)return null;
             /* Los ocultos no salen en la lista (pedido del comercio, 14/09). Abajo se avisa
-               cuantos coinciden y se pueden ver: _ocultosVenta. */
-            return allProducts.filter(p=>p.depurado!==true&&p.oculto!==true).filter(p=>_coincideVenta(p,t)).slice(0,25);
+               cuantos coinciden y se pueden ver: _ocultosVenta. El filtro f deja afuera lo que no va
+               en esta venta (las viandas, o lo que no es vianda): ANTES del tope de 25, para
+               que lo que si va no quede cortado por lo que no. */
+            return allProducts.filter(p=>p.depurado!==true&&p.oculto!==true).filter(p=>_coincideVenta(p,t)).filter(p=>!f||f(p)).slice(0,25);
         }
         /* Los ocultos que coinciden, para el aviso de abajo de la lista. Con el codigo de una
            etiqueta, solo ese producto. */
-        function _ocultosVenta(q){
+        function _ocultosVenta(q,f){
             const t=(q||'').toLowerCase().trim();
             if(!t)return [];
             const propio=(typeof etiquetaProductoDe==='function')?etiquetaProductoDe((q||'').trim(),allProducts||[]):null;
-            if(propio)return (propio.oculto===true&&propio.depurado!==true)?[propio]:[];
+            if(propio)return (propio.oculto===true&&propio.depurado!==true&&(!f||f(propio)))?[propio]:[];
             /* Sin tope: _pintarBusqueda dibuja 25, pero el aviso cuenta todos. */
-            return allProducts.filter(p=>p.depurado!==true&&p.oculto===true).filter(p=>_coincideVenta(p,t));
+            return allProducts.filter(p=>p.depurado!==true&&p.oculto===true).filter(p=>_coincideVenta(p,t)).filter(p=>!f||f(p));
         }
 
         /* El buscador de la caja tambien tiene que entender las etiquetas que
            imprime el local: si alguien tipea o pega esos trece digitos en vez de
            escanearlos, no puede quedar en la nada. */
-        function _buscarProdVentaConEtiqueta(q){
-            const propio=(typeof etiquetaProductoDe==='function')
+        function _buscarProdVentaConEtiqueta(q,f){
+            let propio=(typeof etiquetaProductoDe==='function')
                 ? etiquetaProductoDe((q||'').trim(),allProducts||[]) : null;
+            if(propio&&f&&!f(propio))return [];
             /* La etiqueta de un depurado lo trae aunque ademas este oculto. Si no, no salia en
                ningun lado -ni en la lista ni en el aviso de ocultos, que no cuenta depurados- y
                escribiendo su codigo no habia forma de ofrecer restaurarlo. */
-            return (propio&&(propio.oculto!==true||propio.depurado===true))?[propio]:_buscarProdVenta(q);
+            return (propio&&(propio.oculto!==true||propio.depurado===true))?[propio]:_buscarProdVenta(q,f);
         }
 
         function _pintarBusqueda(contId,q,ctx){
             const c=document.getElementById(contId);
             if(!c)return;
-            const res=_buscarProdVentaConEtiqueta(q);
+            const _fv=(typeof _filtroVentaCtx==='function')?_filtroVentaCtx(ctx):null;
+            const res=_buscarProdVentaConEtiqueta(q,_fv);
             window._ventaVerOcultos=window._ventaVerOcultos||{};
             if(res===null){window._ventaVerOcultos[contId]=false;c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Escriba el nombre del producto o escanee su c\u00f3digo de barras.</div>';return;}
             /* Los ocultos no se listan, pero se dice cuantos coinciden y se pueden ver (pedido del
                comercio, 14/09): quien busca un producto que oculto tiene que poder encontrarlo sin
                ir a Productos a mostrarlo. */
-            const ocultos=_ocultosVenta(q);
+            const ocultos=_ocultosVenta(q,_fv);
             const n=ocultos.length;
             /* "Ver" vale para el texto EXACTO en el que se toco. Con otro -escribir mas, pisarlo o
                borrarlo- vuelven a esconderse. Antes seguia valiendo mientras el texto empezara
@@ -3826,8 +3874,9 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                y esos se agregaban sin la pregunta de "Vender igual" sin que nadie los hubiera visto. */
             const vistoCon=window._ventaVerOcultos[contId];
             const ver=n>0&&typeof vistoCon==='string'&&vistoCon!==''&&(q||'').toLowerCase().trim()===vistoCon;
-            const pie=n?'<div class="vprod-ocultos"><span><i class="bi bi-eye-slash"></i> '+n+(n===1?' producto oculto coincide':' productos ocultos coinciden')+' con la b\u00fasqueda</span>'+
-                '<button type="button" onclick="event.stopPropagation();_verOcultosVenta(\''+contId+'\',\''+ctx+'\','+(ver?'false':'true')+')">'+(ver?'No mostrarlos':'Ver')+'</button></div>':'';
+            const pie=(n?'<div class="vprod-ocultos"><span><i class="bi bi-eye-slash"></i> '+n+(n===1?' producto oculto coincide':' productos ocultos coinciden')+' con la b\u00fasqueda</span>'+
+                '<button type="button" onclick="event.stopPropagation();_verOcultosVenta(\''+contId+'\',\''+ctx+'\','+(ver?'false':'true')+')">'+(ver?'No mostrarlos':'Ver')+'</button></div>':'')+
+                ((typeof viandasPieBusqueda==='function')?viandasPieBusqueda(ctx,q):'');
             if(!res.length&&!ver){c.innerHTML='<div style="padding:12px 10px;color:var(--text-dim);font-size:0.82rem">Ning\u00fan producto '+(n?'visible ':'')+'coincide con esa b\u00fasqueda.</div>'+pie;return;}
             /* Se cuentan todos y se dibujan 25. Con el conteo cortado en 25, el aviso decia
                "25 ocultos coinciden" aunque fueran 80. */
@@ -3865,6 +3914,11 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
            reemplaza el 1 que dejo la original. */
         async function _agregarItemVenta(id, ctx, ocultoVisto){
             const p=(allProducts||[]).find(x=>x.id===id);
+            /* Caja viandas (10/10/2026): las viandas solo en la venta de viandas, y en esa
+               solo viandas. Antes de cualquier pregunta: no tiene sentido ofrecer restaurar
+               un depurado que igual no puede ir en esta venta. */
+            const _noVa=(typeof ventaTipoPermite==='function')?ventaTipoPermite(p,ctx):'';
+            if(_noVa){showAdminToast(_noVa,'error');return;}
             const may = ctx==='may';
             const lista = may ? ventaMayItems : ventaItems;
             const orig = may ? _origAddVentaMayItem : _origAddVentaItem;
@@ -4032,7 +4086,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             throw new Error('No se pudo generar un id unico para la resena');
         }
 
-        async function saveVenta(){if(!ventaClienteSelected){showAdminToast('Selecciona un cliente de la lista','error');document.getElementById('ventaCliente').focus();return;}if(!ventaItems.length){showAdminToast('Agrega al menos un producto','error');return;}const isEdit=!!editingVentaId;/* Para edicion: el "stock disponible" para validar es stockActual + cantidad del original (que ya esta descontada y vamos a devolver) */const originalInsumos={};if(isEdit&&editingVentaOriginal&&editingVentaOriginal.insumosUsados){editingVentaOriginal.insumosUsados.forEach(u=>{originalInsumos[u.id]=Number(u.cantidad||0);});}for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i){showAdminToast('Insumo "'+u.nombre+'" ya no existe','error');return;}const stockEfectivo=Number(i.stockActual||0)+(originalInsumos[u.id]||0);if(u.cantidad>stockEfectivo){showAdminToast('Stock insuficiente de "'+u.nombre+'" (hay '+stockEfectivo+', usas '+u.cantidad+')','error');return;}}/* Lo que se vende de mas que el stock: se pregunta una vez, con todo (ver avisoStockInsuficiente en admin-variantes.js). */if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaItems,'min')))return;/* Aviso de costos viejos (pedido del comercio, 24/09/2026): antes de escribir nada y solo al crear. Ver admin-costos.js. */if(!isEdit&&typeof avisoCostosViejos==='function'&&!(await avisoCostosViejos(ventaItems,'min')))return;/* Lo que se vende sin ganancia (pedido del dueño, 02/10): solo al crear. Ver avisoVentaSinGanancia en admin-costos.js. */if(!isEdit&&typeof avisoVentaSinGanancia==='function'&&!(await avisoVentaSinGanancia(ventaItems,'min')))return;const btn=document.getElementById('saveVentaBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{const totales=calcularTotalesVenta();const subtotalProductos=totales.subtotal;/* El cupon se revalida contra el subtotal FINAL. Al aplicarlo se miro el carrito   de ese momento, y desde ahi hasta aca se pueden haber sacado productos: sin esto   se esquivaba la compra minima sin ningun truco. Tambien atrapa el cupon que se   uso en otra venta o vencio mientras el modal estaba abierto. *//* Solo al CREAR. Al editar una venta que ya uso el cupon, ese cupon figura   usado -por esta misma venta-, asi que revalidarlo la rechazaria y no se   podria ni corregir el nombre del cliente. */if(!isEdit&&typeof cuponCajaRevalidar==='function'){const _rev=await cuponCajaRevalidar(subtotalProductos);if(!_rev.ok){btn.disabled=false;btn.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';showAdminToast('El cupón ya no se puede usar: '+_rev.motivo,'error');if(typeof cuponCajaQuitar==='function')cuponCajaQuitar();return;}}const envio=totales.envio;const total=totales.total;const now=new Date();const fechaStr=document.getElementById('ventaFecha').value;const fechaParts=fechaStr.split('-');const fechaVenta=new Date(fechaParts[0],fechaParts[1]-1,fechaParts[2],now.getHours(),now.getMinutes(),now.getSeconds());if(isEdit){/* === MODO EDICION === */const ventaPrevia=ventasData.find(x=>x.docId===editingVentaId);const numActual=ventaPrevia?ventaPrevia.numero:0;/* 1. Devolver stock de insumos originales */const stockUpdates={};(editingVentaOriginal.insumosUsados||[]).forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)+Number(u.cantidad||0);});/* 2. Restar stock de insumos nuevos */ventaInsumosUsados.forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)-Number(u.cantidad||0);});/* 3. Aplicar deltas al stock */await aplicarStockInsumos(stockUpdates);/* 3b. Stock de productos: devolver los del original y descontar los nuevos.
+        async function saveVenta(){if(!ventaClienteSelected){showAdminToast('Selecciona un cliente de la lista','error');document.getElementById('ventaCliente').focus();return;}if(!ventaItems.length){showAdminToast('Agrega al menos un producto','error');return;}const isEdit=!!editingVentaId;/* Caja viandas (10/10/2026): la venta de viandas va a la caja de viandas y lleva cajaTipo. Se lee la bandera ACA: closeVentaModal la borra antes de terminar. Y se controla todo de nuevo: hay caminos que cargan productos sin pasar por _agregarItemVenta (otra presentacion sugerida, las bolsas de granel, editar, los pedidos). Al editar solo los renglones nuevos. */const _vds=window._ventaViandas===true;if(typeof viandasControlVenta==='function'){if(typeof listasData!=='undefined'&&!listasData.length&&typeof loadListas==='function'){try{await loadListas();}catch(_e){}}const _mvds=viandasControlVenta(ventaItems,'min',isEdit&&editingVentaOriginal?editingVentaOriginal.items:null);if(_mvds){showAdminToast(_mvds,'error');return;}}/* Para edicion: el "stock disponible" para validar es stockActual + cantidad del original (que ya esta descontada y vamos a devolver) */const originalInsumos={};if(isEdit&&editingVentaOriginal&&editingVentaOriginal.insumosUsados){editingVentaOriginal.insumosUsados.forEach(u=>{originalInsumos[u.id]=Number(u.cantidad||0);});}for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i){showAdminToast('Insumo "'+u.nombre+'" ya no existe','error');return;}const stockEfectivo=Number(i.stockActual||0)+(originalInsumos[u.id]||0);if(u.cantidad>stockEfectivo){showAdminToast('Stock insuficiente de "'+u.nombre+'" (hay '+stockEfectivo+', usas '+u.cantidad+')','error');return;}}/* Lo que se vende de mas que el stock: se pregunta una vez, con todo (ver avisoStockInsuficiente en admin-variantes.js). */if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaItems,'min')))return;/* Aviso de costos viejos (pedido del comercio, 24/09/2026): antes de escribir nada y solo al crear. Ver admin-costos.js. */if(!isEdit&&typeof avisoCostosViejos==='function'&&!(await avisoCostosViejos(ventaItems,'min')))return;/* Lo que se vende sin ganancia (pedido del dueño, 02/10): solo al crear. Ver avisoVentaSinGanancia en admin-costos.js. */if(!isEdit&&typeof avisoVentaSinGanancia==='function'&&!(await avisoVentaSinGanancia(ventaItems,'min')))return;const btn=document.getElementById('saveVentaBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{const totales=calcularTotalesVenta();const subtotalProductos=totales.subtotal;/* El cupon se revalida contra el subtotal FINAL. Al aplicarlo se miro el carrito   de ese momento, y desde ahi hasta aca se pueden haber sacado productos: sin esto   se esquivaba la compra minima sin ningun truco. Tambien atrapa el cupon que se   uso en otra venta o vencio mientras el modal estaba abierto. *//* Solo al CREAR. Al editar una venta que ya uso el cupon, ese cupon figura   usado -por esta misma venta-, asi que revalidarlo la rechazaria y no se   podria ni corregir el nombre del cliente. */if(!isEdit&&typeof cuponCajaRevalidar==='function'){const _rev=await cuponCajaRevalidar(subtotalProductos);if(!_rev.ok){btn.disabled=false;btn.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';showAdminToast('El cupón ya no se puede usar: '+_rev.motivo,'error');if(typeof cuponCajaQuitar==='function')cuponCajaQuitar();return;}}const envio=totales.envio;const total=totales.total;const now=new Date();const fechaStr=document.getElementById('ventaFecha').value;const fechaParts=fechaStr.split('-');const fechaVenta=new Date(fechaParts[0],fechaParts[1]-1,fechaParts[2],now.getHours(),now.getMinutes(),now.getSeconds());if(isEdit){/* === MODO EDICION === */const ventaPrevia=ventasData.find(x=>x.docId===editingVentaId);const numActual=ventaPrevia?ventaPrevia.numero:0;/* 1. Devolver stock de insumos originales */const stockUpdates={};(editingVentaOriginal.insumosUsados||[]).forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)+Number(u.cantidad||0);});/* 2. Restar stock de insumos nuevos */ventaInsumosUsados.forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)-Number(u.cantidad||0);});/* 3. Aplicar deltas al stock */await aplicarStockInsumos(stockUpdates);/* 3b. Stock de productos: devolver los del original y descontar los nuevos.
    Solo se devuelve si la venta original REALMENTE habia descontado (stockDescontado).
    Sin ese guardia, editar una venta anterior a esta funcion inflaria el stock
    devolviendo mercaderia que nunca se habia restado. */
@@ -4045,7 +4099,7 @@ await aplicarStockProductos(dProd);
    no cuadra mas con el cierre de ese dia, y no habia forma de darse cuenta: el cartel
    EDITADA del historial de cajas existe desde el principio (admin-caja.js:285) pero nadie
    escribia el campo, solo se escribia en false al abrir la caja. Se guarda tambien el delta
-   acumulado para poder explicar cuanto se movio despues del cierre. */const _cajaIdVenta=(editingVentaOriginal&&editingVentaOriginal.cajaId)||(ventaPrevia&&ventaPrevia.cajaId)||null;if(_cajaIdVenta){try{const _cjRef=db.collection('cajas').doc(_cajaIdVenta);const _cjSnap=await _cjRef.get();if(_cjSnap.exists&&_cjSnap.data().estado==='cerrada'){await _cjRef.update({editadaPostCierre:true,ventasEditadasDelta:firebase.firestore.FieldValue.increment(Number(total||0)-(ventaPrevia?Number(ventaPrevia.total||0):0))});}}catch(e){console.warn('No se pudo marcar la caja como editada:',e);}}/* Log con detalles */const origTotal=ventaPrevia?(ventaPrevia.total||0):0;const origItems=editingVentaOriginal.items.length;const newItems=ventaItems.length;let detalle='Total: $'+origTotal.toLocaleString('es-AR')+' -> $'+total.toLocaleString('es-AR');if(origItems!==newItems)detalle+=' | items: '+origItems+' -> '+newItems;if((editingVentaOriginal.tipoEntrega||'envio')!==ventaTipoEntrega)detalle+=' | entrega: '+(editingVentaOriginal.tipoEntrega||'envio')+' -> '+ventaTipoEntrega;logAction('editar','Venta #'+numActual+' editada',detalle);showAdminToast('Venta #'+numActual+' actualizada','success');}else{/* === MODO CREAR === *//* En transaccion, como ya lo hacia saveVentaMay. Con get()+set() sueltos, los dos
+   acumulado para poder explicar cuanto se movio despues del cierre. */const _cajaIdVenta=(editingVentaOriginal&&editingVentaOriginal.cajaId)||(ventaPrevia&&ventaPrevia.cajaId)||null;if(_cajaIdVenta){try{const _cjRef=db.collection((ventaPrevia&&ventaPrevia.cajaTipo==='viandas')?'cajasViandas':'cajas').doc(_cajaIdVenta);const _cjSnap=await _cjRef.get();if(_cjSnap.exists&&_cjSnap.data().estado==='cerrada'){await _cjRef.update({editadaPostCierre:true,ventasEditadasDelta:firebase.firestore.FieldValue.increment(Number(total||0)-(ventaPrevia?Number(ventaPrevia.total||0):0))});}}catch(e){console.warn('No se pudo marcar la caja como editada:',e);}}/* Log con detalles */const origTotal=ventaPrevia?(ventaPrevia.total||0):0;const origItems=editingVentaOriginal.items.length;const newItems=ventaItems.length;let detalle='Total: $'+origTotal.toLocaleString('es-AR')+' -> $'+total.toLocaleString('es-AR');if(origItems!==newItems)detalle+=' | items: '+origItems+' -> '+newItems;if((editingVentaOriginal.tipoEntrega||'envio')!==ventaTipoEntrega)detalle+=' | entrega: '+(editingVentaOriginal.tipoEntrega||'envio')+' -> '+ventaTipoEntrega;logAction('editar',(ventaPrevia&&ventaPrevia.cajaTipo==='viandas'?'Venta viandas #':'Venta #')+numActual+' editada',detalle);showAdminToast('Venta #'+numActual+' actualizada','success');}else{/* === MODO CREAR === *//* En transaccion, como ya lo hacia saveVentaMay. Con get()+set() sueltos, los dos
    admins registrando a la vez leian el mismo contador y las dos ventas salian con
    el mismo numero: dos tickets distintos con el mismo #, y una pisando a la otra
    en cualquier listado que busque por numero. */
@@ -4071,13 +4125,13 @@ const _pedOrigen=window._pedidoOrigenVentaId?pedidosData.find(x=>x.docId===windo
    Confundirlas hacia que una venta de mostrador comun dejara de descontar. */
 const _yaDescontado=!!(_pedOrigen&&_pedOrigen.stockDescontado);
 const _ventaPoseeStock=_yaDescontado||!!DESCONTAR_STOCK;
-const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,tipoVenta:i.tipoVenta||'unidad',subtotal:subtotalItem(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,cupon:window._pedidoCuponVenta||null,usuario:auth.currentUser?auth.currentUser.email:'',cajaId:(typeof getCajaAbiertaIdLive==='function'?await getCajaAbiertaIdLive():null),medioPagoKey:(typeof keyDeMedio==='function'?keyDeMedio(document.getElementById('ventaMedio').value):null),origen:window._pedidoOrigenVentaId?'web':'mostrador',pedidoId:window._pedidoOrigenVentaId||null,stockDescontado:_ventaPoseeStock,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};const ventaRefNueva=await db.collection('ventas').add(venta);if(typeof cajaRegistrarVenta==='function')cajaRegistrarVenta(Object.assign({docId:ventaRefNueva.id},venta),'minorista');/* El cupon que se USO se marca ahora, con la venta ya creada: si algo se   reclama despues, hay que poder ir del cupon a su venta. Y si la cajera   pidio ENTREGAR uno, se genera y se le pega a la venta para que salga   impreso en el ticket. Las dos cosas van despues del add a proposito:   ninguna puede impedir que la venta se guarde. */if(typeof cuponCajaRegistrarUso==='function')await cuponCajaRegistrarUso(ventaRefNueva.id,num);if(typeof cuponTicketEmitir==='function'){const _cupEmit=await cuponTicketEmitir(ventaRefNueva.id);if(_cupEmit){venta.cuponEmitido=_cupEmit;await ventaRefNueva.update({cuponEmitido:_cupEmit});}}/* el contador ya quedo escrito dentro de la transaccion de arriba *//* Descontar stock de productos (gondola). Si la venta viene de un pedido web el
+const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,tipoVenta:i.tipoVenta||'unidad',subtotal:subtotalItem(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,cupon:window._pedidoCuponVenta||null,usuario:auth.currentUser?auth.currentUser.email:'',cajaId:(typeof getCajaAbiertaIdLive==='function'?await getCajaAbiertaIdLive(_vds?'viandas':undefined):null),...(_vds?{cajaTipo:'viandas'}:{}),medioPagoKey:(typeof keyDeMedio==='function'?keyDeMedio(document.getElementById('ventaMedio').value):null),origen:window._pedidoOrigenVentaId?'web':'mostrador',pedidoId:window._pedidoOrigenVentaId||null,stockDescontado:_ventaPoseeStock,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};const ventaRefNueva=await db.collection('ventas').add(venta);if(typeof cajaRegistrarVenta==='function')cajaRegistrarVenta(Object.assign({docId:ventaRefNueva.id},venta),'minorista');/* El cupon que se USO se marca ahora, con la venta ya creada: si algo se   reclama despues, hay que poder ir del cupon a su venta. Y si la cajera   pidio ENTREGAR uno, se genera y se le pega a la venta para que salga   impreso en el ticket. Las dos cosas van despues del add a proposito:   ninguna puede impedir que la venta se guarde. */if(typeof cuponCajaRegistrarUso==='function')await cuponCajaRegistrarUso(ventaRefNueva.id,num);if(typeof cuponTicketEmitir==='function'){const _cupEmit=await cuponTicketEmitir(ventaRefNueva.id);if(_cupEmit){venta.cuponEmitido=_cupEmit;await ventaRefNueva.update({cuponEmitido:_cupEmit});}}/* el contador ya quedo escrito dentro de la transaccion de arriba *//* Descontar stock de productos (gondola). Si la venta viene de un pedido web el
    stock YA lo descontó la tienda al confirmar, asi que no se resta dos veces. */
 /* Se mira la bandera del pedido, no de donde viene la venta. Antes alcanzaba con
    que la venta naciera de un pedido web para NO descontar, dando por hecho que la
    tienda ya lo habia hecho; si esa vez fallaba, las unidades no se restaban nunca
    y nadie se enteraba. Ahora: se descuenta salvo que alguien ya lo haya hecho. */
-if(!_yaDescontado)await aplicarStockProductos(deltasDeItems(ventaItems,-1));/* Descontar insumos */await aplicarStockInsumos(deltasDeInsumos(ventaInsumosUsados,-1));logAction('crear','Venta #'+num+' - $'+total.toLocaleString('es-AR'),venta.cliente+' | '+venta.medioPago+' | '+(ventaTipoEntrega==='envio'?'Envio':'Retiro')+' | '+ventaItems.length+' items'+(ventaInsumosUsados.length?' | insumos: '+ventaInsumosUsados.map(u=>u.nombre+'x'+u.cantidad).join(', '):''));showAdminToast('Venta #'+num+' registrada','success');/* La venta recien registrada queda a mano para ofrecer el ticket cuando se cierre
+if(!_yaDescontado)await aplicarStockProductos(deltasDeItems(ventaItems,-1));/* Descontar insumos */await aplicarStockInsumos(deltasDeInsumos(ventaInsumosUsados,-1));logAction('crear',(_vds?'Venta viandas #':'Venta #')+num+' - $'+total.toLocaleString('es-AR'),venta.cliente+' | '+venta.medioPago+' | '+(ventaTipoEntrega==='envio'?'Envio':'Retiro')+' | '+ventaItems.length+' items'+(ventaInsumosUsados.length?' | insumos: '+ventaInsumosUsados.map(u=>u.nombre+'x'+u.cantidad).join(', '):''));showAdminToast('Venta #'+num+' registrada','success');/* La venta recien registrada queda a mano para ofrecer el ticket cuando se cierre
    el modal. Se guarda ACA y no abajo porque `venta` solo existe dentro de esta
    rama: la de editar no crea ninguna, y editar no es cobrar de nuevo. */window._tkVentaRecien=Object.assign({docId:ventaRefNueva.id},venta);/* Marcar pedido origen como confirmado */if(window._pedidoOrigenVentaId){try{/* Usamos el id que devolvio add(): buscar "la venta con el numero mas alto" ataba el pedido a la venta equivocada si el otro admin registraba una en el medio */const ventaDocId=ventaRefNueva.id;/* stockDescontado:false traspasa la responsabilidad del stock a la venta:
    sin esto, borrar el pedido Y la venta devolveria la mercaderia dos veces. */
@@ -4086,7 +4140,7 @@ if(!_yaDescontado)await aplicarStockProductos(deltasDeItems(ventaItems,-1));/* D
 const _destinoPed=(window._pedidoEstadoDestino==='entregado')?'entregado':'confirmado';
 await db.collection('pedidos').doc(window._pedidoOrigenVentaId).update({estado:_destinoPed,ventaId:ventaDocId,stockDescontado:false,confirmedAt:firebase.firestore.FieldValue.serverTimestamp()});const ped=pedidosData.find(x=>x.docId===window._pedidoOrigenVentaId);if(ped){ped.estado=_destinoPed;ped.stockDescontado=false;if(ventaDocId)ped.ventaId=ventaDocId;}}catch(e){console.warn('No se pudo marcar pedido como confirmado:',e);}window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;}}sessionStorage.removeItem(STOCK_BAJO_VISTOS_KEY);closeVentaModal();/* EL TICKET, DESPUES DE CERRAR EL MODAL Y SIN ESPERARLO. La venta ya esta guardada
    y nada de la impresion puede hacerla fallar ni demorar el mostrador: si la
-   pregunta se cae, se cae sola. */if(!editingVentaId&&window._tkVentaRecien&&typeof preguntarImprimirTicket==='function'){const _tkV=window._tkVentaRecien;window._tkVentaRecien=null;preguntarImprimirTicket(_tkV);}editingVentaId=null;editingVentaOriginal=null;loadVentas();if(ventaInsumosUsados.length)checkStockBajoInsumos();}catch(e){showAdminToast('Error: '+e.message,'error');}finally{btn.disabled=false;btn.innerHTML=editingVentaId?'<i class="bi bi-check-lg"></i> Guardar cambios':'<i class="bi bi-check-lg"></i> Registrar Venta';}}
+   pregunta se cae, se cae sola. */if(!editingVentaId&&window._tkVentaRecien&&typeof preguntarImprimirTicket==='function'){const _tkV=window._tkVentaRecien;window._tkVentaRecien=null;preguntarImprimirTicket(_tkV);}editingVentaId=null;editingVentaOriginal=null;if(_vds&&typeof loadVentasViandas==='function')loadVentasViandas();else loadVentas();if(ventaInsumosUsados.length)checkStockBajoInsumos();}catch(e){showAdminToast('Error: '+e.message,'error');}finally{btn.disabled=false;btn.innerHTML=editingVentaId?'<i class="bi bi-check-lg"></i> Guardar cambios':'<i class="bi bi-check-lg"></i> Registrar Venta';}}
 
         /* Genera un link de resena anonimo (sin venta asociada) y lo muestra en un modal para copiar */
         async function generarLinkResena(){
@@ -4315,7 +4369,7 @@ if(_pSnap.exists){
 }catch(e){_liberado=' | NO se pudo liberar el pedido '+_pedDeVenta+': '+e.message;showAdminToast('La venta se borro, pero el pedido quedo enganchado a ella: '+e.message,'error');}}
 /* El historial dice lo que PASO, no lo que se intento. Afirmar "liberado" cuando el update
    fallo es exactamente la forma de mentir que ya costo mercaderia en kanbanDrop. */
-showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta #'+num+' eliminada','DocID: '+docId+_liberado);ventasData=ventasData.filter(v=>v.docId!==docId);filterVentas();}catch(e){showAdminToast('Error: '+e.message,'error');}}
+showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ventasData||[]).find(v=>v.docId===docId)||{}).cajaTipo==='viandas'?'Venta viandas #':'Venta #')+num+' eliminada','DocID: '+docId+_liberado);ventasData=ventasData.filter(v=>v.docId!==docId);filterVentas();if(typeof filterVentasViandas==='function')filterVentasViandas();}catch(e){showAdminToast('Error: '+e.message,'error');}}
         function _buildMesOptions(selId,noDefault){const sel=document.getElementById(selId);if(!sel)return;const now=new Date();let opts='<option value="">Todos los meses</option>';for(let i=0;i<12;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');const label=d.toLocaleDateString('es-AR',{month:'long',year:'numeric'});opts+='<option value="'+val+'"'+(!noDefault&&i===0?' selected':'')+'>'+label.charAt(0).toUpperCase()+label.slice(1)+'</option>';}sel.innerHTML=opts;}
         /* Se trae SOLO el mes elegido, no la coleccion entera.
            Antes esto hacia un get() de todas las ventas ordenadas por fecha y recien
@@ -4367,7 +4421,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
            la lista quedaba parada en la pagina 5 del resultado nuevo: se veian las ventas
            mas viejas de ese cliente y nada indicaba que habia 48 arriba. Y si el resultado
            tenia menos paginas, el clamp de renderVentas dejaba la ULTIMA, no la primera. */
-        function filterVentas(){ventasPage=0;const q=(document.getElementById('ventaSearch')?.value||'').toLowerCase();const mes=document.getElementById('ventaMesFiltro')?.value||'';ventasFiltered=ventasData;if(mes){const[my,mm]=mes.split('-').map(Number);ventasFiltered=ventasFiltered.filter(v=>v.fecha.getFullYear()===my&&(v.fecha.getMonth()+1)===mm);}if(q)ventasFiltered=ventasFiltered.filter(v=>(v.cliente||'').toLowerCase().includes(q)||String(v.numero).includes(q)||(v.medioPago||'').toLowerCase().includes(q));renderVentas();}
+        function filterVentas(){ventasPage=0;const q=(document.getElementById('ventaSearch')?.value||'').toLowerCase();const mes=document.getElementById('ventaMesFiltro')?.value||'';ventasFiltered=ventasData.filter(v=>v.cajaTipo!=='viandas');if(mes){const[my,mm]=mes.split('-').map(Number);ventasFiltered=ventasFiltered.filter(v=>v.fecha.getFullYear()===my&&(v.fecha.getMonth()+1)===mm);}if(q)ventasFiltered=ventasFiltered.filter(v=>(v.cliente||'').toLowerCase().includes(q)||String(v.numero).includes(q)||(v.medioPago||'').toLowerCase().includes(q));renderVentas();}
         /* Las tarjetas describen LO QUE SE ESTA VIENDO, no toda la base.
            Antes sumaban ventasData (todo) mientras la lista de abajo mostraba
            ventasFiltered, y como el filtro de mes arranca en el mes actual, los
@@ -4395,7 +4449,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar','Venta
             set(pref+'Envios',envios?('+ '+fmt(envios)+' de envios, aparte'):'');
             const sel=document.getElementById(selMesId);
             const per=(sel&&sel.value&&sel.options[sel.selectedIndex])?sel.options[sel.selectedIndex].text:'Todos los meses';
-            const q=(document.getElementById(pref==='vtStat'?'ventaSearch':'ventaMaySearch')||{}).value||'';
+            const q=(document.getElementById(pref==='vtStat'?'ventaSearch':(pref==='vtVdsStat'?'ventaVdsSearch':'ventaMaySearch'))||{}).value||'';
             set(pref+'Periodo',per+(q.trim()?' - buscando "'+q.trim()+'"':''));
         }
         function renderVentasStats(){renderResumenVentas('vtStat',ventasFiltered||[],'ventaMesFiltro');}/* LA LISTA DE VENTAS (pedido del comercio, 26/09/2026: "modernizar la parte de ventas,
@@ -7585,6 +7639,13 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
         async function saveVentaMay(){
             if(!ventaMayClienteSelected&&!document.getElementById('ventaMayCliente').value.trim()){showAdminToast('Ingresá un cliente','error');return;}
             if(!ventaMayItems.length){showAdminToast('Agregá al menos un producto','error');return;}
+            /* Las viandas no se venden por mayor (Thiago, 10/10/2026): van en Ventas -> Viandas,
+               con su caja. Al editar solo se controlan los renglones nuevos. */
+            if(typeof viandasControlVenta==='function'){
+                const _orMay=editingVentaMayId?((ventasMayData.find(x=>x.id===editingVentaMayId)||{}).items||[]):null;
+                const _mvMay=viandasControlVenta(ventaMayItems,'may',_orMay);
+                if(_mvMay){showAdminToast(_mvMay,'error');return;}
+            }
             /* Un producto sin precioMayorista se agrega al precio de MOSTRADOR: en
                addVentaMayItem el precio es `p.precioMayorista||p.precio||0`. Antes eso
                pasaba sin que nadie se enterara, asi que la venta salia al precio
@@ -8326,6 +8387,7 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
     <script src="admin-dialogo.js"></script>
     <script src="admin-pagination.js"></script>
     <script src="admin-caja.js"></script>
+    <script src="admin-viandas.js"></script>
     <script src="admin-alertas.js"></script>
     <script src="admin-stats.js"></script>
 <script src="admin-archivos.js"></script>
@@ -8766,6 +8828,92 @@ await db.collection('ventasMayoristas').doc(docId).delete();showAdminToast('Vent
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeCierreModal()">Cancelar</button>
         <button class="btn btn-primary" id="cajaCerrarBtn" onclick="confirmarCierre()" disabled><i class="bi bi-lock"></i> Cerrar caja</button>
+      </div>
+    </div></div>
+
+    <!-- Los cuatro de la caja de viandas: los mismos que los de la caja del local, con una
+         "v" adelante en los ids y 'viandas' en cada llamada (CAJAS en admin-caja.js). Propios
+         y no compartidos: asi un cierre de una caja no puede pintarse en el de la otra. -->
+    <div class="modal-overlay" id="vAbrirCajaModal"><div class="modal-box" style="max-width:460px;width:96vw">
+      <div class="modal-header"><h3><i class="bi bi-unlock"></i> Abrir caja de viandas</h3><button class="modal-close" onclick="closeAbrirCajaModal('viandas')">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Fondo inicial (efectivo con el que arranca la caja de viandas)</label>
+          <input type="text" inputmode="numeric" class="form-input" id="vCajaMontoInicial" placeholder="0" oninput="limpiarMonto(this)">
+          <small style="color:var(--text-dim);font-size:0.78rem">Es aparte del de la caja del local. Sugerido: lo que qued&oacute; al cerrar la caja de viandas anterior.</small>
+        </div>
+        <div class="form-group">
+          <label>Nota (opcional)</label>
+          <input type="text" class="form-input" id="vCajaNotaApertura" maxlength="120" placeholder="Ej: falta cambio chico">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAbrirCajaModal('viandas')">Cancelar</button>
+        <button class="btn btn-primary" id="vCajaAbrirBtn" onclick="abrirCaja('viandas')"><i class="bi bi-unlock"></i> Abrir caja de viandas</button>
+      </div>
+    </div></div>
+
+    <div class="modal-overlay" id="vMovModal"><div class="modal-box" style="max-width:460px;width:96vw">
+      <div class="modal-header"><h3 id="vMovTitulo"><i class="bi bi-arrow-down-circle"></i> Registrar movimiento</h3><button class="modal-close" onclick="closeMovModal('viandas')">&times;</button></div>
+      <div class="modal-body">
+        <p style="font-size:0.78rem;color:var(--text-dim);margin:-0.2rem 0 0.8rem"><i class="bi bi-egg-fried"></i> En la caja de viandas</p>
+        <div class="form-group"><label>Concepto</label><select class="form-input" id="vMovConcepto"></select></div>
+        <div class="form-group"><label>Monto</label><input type="text" inputmode="numeric" class="form-input" id="vMovMonto" placeholder="0" oninput="limpiarMonto(this)"></div>
+        <div class="form-group">
+          <label>Detalle <span style="color:var(--danger)">*</span></label>
+          <input type="text" class="form-input" id="vMovDetalle" maxlength="160" placeholder="Ej: compra de bandejas para la cocina">
+          <small style="color:var(--text-dim);font-size:0.78rem">Obligatorio: es lo que despu&eacute;s explica la diferencia en el arqueo.</small>
+        </div>
+        <div class="form-group" id="vMovMotivoWrap" style="display:none">
+          <label>Motivo del cambio <span style="color:var(--text-dim);font-weight:400">(opcional)</span></label>
+          <input type="text" class="form-input" id="vMovMotivo" maxlength="160" placeholder="Ej: hab&iacute;a cargado 5.000 de m&aacute;s">
+          <small style="color:var(--text-dim);font-size:0.78rem">Queda guardado junto con los valores anteriores. El movimiento no se borra nunca: se corrige y se deja el rastro.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeMovModal('viandas')">Cancelar</button>
+        <button class="btn btn-primary" id="vMovGuardarBtn" onclick="guardarMovimiento('viandas')"><i class="bi bi-check-lg"></i> Guardar</button>
+      </div>
+    </div></div>
+
+    <div class="modal-overlay" id="vCorteParcialModal"><div class="modal-box" style="max-width:520px;width:96vw">
+      <div class="modal-header">
+        <h3 id="vCorteParcialTitulo"><i class="bi bi-eyeglasses"></i> Corte parcial</h3>
+        <button class="modal-close" onclick="closeCorteParcialModal('viandas')">&times;</button>
+      </div>
+      <div class="modal-body" id="vCorteParcialBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCorteParcialModal('viandas')">Cerrar</button>
+        <button class="btn btn-primary" onclick="imprimirCorteParcial('viandas')"><i class="bi bi-printer"></i> Imprimir</button>
+      </div>
+    </div></div>
+
+    <div class="modal-overlay" id="vCierreModal"><div class="modal-box" style="max-width:520px;width:96vw;max-height:92vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h3><i class="bi bi-lock"></i> Cerrar caja de viandas y arquear</h3><button class="modal-close" onclick="closeCierreModal('viandas')">&times;</button></div>
+      <div class="modal-body" style="overflow-y:auto">
+        <div id="vCierreResumen" style="margin-bottom:1.1rem"></div>
+        <div class="form-group">
+          <label>Efectivo contado en la caja de viandas</label>
+          <input type="text" inputmode="numeric" class="form-input" id="vCajaContado" placeholder="0" oninput="limpiarMonto(this);onContadoInput('viandas')">
+        </div>
+        <div id="vCierreDiferencia"></div>
+        <div class="form-group" id="vCajaMotivoWrap" style="display:none;margin-top:0.75rem">
+          <label>&iquest;Por qu&eacute; no coincide? <span style="color:var(--danger)">*</span></label>
+          <input type="text" class="form-input" id="vCajaMotivo" maxlength="200" placeholder="Ej: falt&oacute; cargar un gasto de $500" oninput="validarCierre('viandas')">
+        </div>
+        <div class="form-group" style="margin-top:0.75rem">
+          <label>Retiro final (opcional)</label>
+          <input type="text" inputmode="numeric" class="form-input" id="vCajaRetiro" placeholder="0" oninput="limpiarMonto(this)">
+          <small style="color:var(--text-dim);font-size:0.78rem">Lo que sac&aacute;s de la caja de viandas. El resto queda como su fondo de ma&ntilde;ana.</small>
+        </div>
+        <div class="form-group">
+          <label>Observaciones (opcional)</label>
+          <input type="text" class="form-input" id="vCajaObs" maxlength="200">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCierreModal('viandas')">Cancelar</button>
+        <button class="btn btn-primary" id="vCajaCerrarBtn" onclick="confirmarCierre('viandas')" disabled><i class="bi bi-lock"></i> Cerrar caja de viandas</button>
       </div>
     </div></div>
 

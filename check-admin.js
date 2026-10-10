@@ -458,7 +458,7 @@ revisarEstiloEnLinea(html, problemas);
    contra el CSS de admin.html. Se pasa SOLO el modulo como texto que usa, para no
    volver a reportar lo que ya se reporto arriba. */
 ['admin-caja.js', 'admin-alertas.js', 'admin-dialogo.js', 'admin-stats.js',
- 'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js', 'admin-depuracion.js', 'admin-selector.js', 'admin-costos.js', 'admin-variantes.js', 'admin-escalas.js', 'admin-stock.js', 'admin-inicio.js', 'admin-listas-pedido.js', 'admin-clientes.js']
+ 'admin-lector.js', 'admin-admins.js', 'admin-pagination.js', 'admin-atajos.js', 'admin-depuracion.js', 'admin-selector.js', 'admin-costos.js', 'admin-variantes.js', 'admin-escalas.js', 'admin-stock.js', 'admin-inicio.js', 'admin-listas-pedido.js', 'admin-clientes.js', 'admin-viandas.js']
   .forEach((f) => {
     const ruta = path.join(__dirname, f);
     if (!fs.existsSync(ruta)) return;
@@ -822,6 +822,10 @@ CODIGO.forEach(([, t]) => {
   while ((m = ra.exec(t))) sumarParams(m[1]);
   const rs = /([A-Za-z_$][\w$]*)\s*=>/g;
   while ((m = rs.exec(t))) NOMBRES.add(m[1]);
+  /* `get actual() {...}` y `set actual(v) {...}` DEFINEN una propiedad (CAJAS en
+     admin-caja.js): no son llamadas a una funcion que falte. */
+  const rg = /\b(?:get|set)\s+([A-Za-z_$][\w$]*)\s*\(/g;
+  while ((m = rg.exec(t))) NOMBRES.add(m[1]);
   /* Un `typeof x === 'function'` dice "esto puede no estar, y ya lo tuve en
      cuenta". Es un gancho opcional a proposito, no un olvido. */
   const rt = /typeof\s+([A-Za-z_$][\w$]*)\s*===?\s*$/g;

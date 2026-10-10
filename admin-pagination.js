@@ -101,5 +101,7 @@ function adminGoPage(type, page) {
        consulta a Firestore la hace loadHistorialCajas() al cambiar de mes, no
        al cambiar de pagina. */
     else if (type === 'cajas' && typeof cajaHistGoPage === 'function') cajaHistGoPage(page);
+    /* Y el de la caja de viandas, que es la misma pantalla con otra coleccion. */
+    else if (type === 'cajasViandas' && typeof cajaHistGoPage === 'function') cajaHistGoPage(page, 'viandas');
     else if ((type === 'depCand' || type === 'depDep') && typeof depuracionIrPagina === 'function') depuracionIrPagina(type, page);
 }

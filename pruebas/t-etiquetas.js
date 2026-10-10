@@ -325,7 +325,7 @@ t('el lector reconoce las etiquetas del local',
 })();
 t('el buscador de la caja tambien las entiende',
   html.indexOf('function _buscarProdVentaConEtiqueta') > 0 &&
-  html.indexOf('const res=_buscarProdVentaConEtiqueta(q);') > 0);
+  /const res=_buscarProdVentaConEtiqueta\(q(?:,_fv)?\);/.test(html));
 /* El campo de codigo de barras del producto es para el codigo del ENVASE. */
 t('no deja guardar una etiqueta propia como codigo de fabrica',
   lector.indexOf('es un código impreso por el local') > 0);
