@@ -520,6 +520,8 @@ const ts = (d, h) => new Date(d + 'T' + (h || '12:00') + ':00');
   t('  y la nota se borra al abrir y al cerrar cualquier venta',
     /cuponRowOld\.remove\(\);const _vdsApOld=document\.getElementById\('ventaVdsAparte'\);if\(_vdsApOld\)_vdsApOld\.remove\(\);/.test(ADMIN) &&
     /function closeVentaModal\(\)\{const ac=[^\n]{0,200}?if\(cr\)cr\.remove\(\);const _vdsAp=document\.getElementById\('ventaVdsAparte'\);if\(_vdsAp\)_vdsAp\.remove\(\);/.test(ADMIN));
+  t('  y al editar otra venta (Escape cierra el modal sin closeVentaModal)',
+    /const _vdsApEd=document\.getElementById\('ventaVdsAparte'\);if\(_vdsApEd\)_vdsApEd\.remove\(\);/.test(ADMIN));
   t('borrar la del local de un pedido a medio pasar limpia tambien la memoria del tablero',
     /delete _pm\.viandasPendientes;delete _pm\.viandasStockDescontado;delete _pm\.viandasIds;delete _pm\.viandasCupon;/.test(ADMIN));
 

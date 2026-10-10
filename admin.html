@@ -3730,6 +3730,8 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             /* Restaurar cupón si la venta lo tiene */
             window._pedidoCuponVenta=v.cupon||null;
             const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();
+            /* La nota del pedido mixto (Escape cierra el modal sin closeVentaModal). */
+            const _vdsApEd=document.getElementById('ventaVdsAparte');if(_vdsApEd)_vdsApEd.remove();
             if(v.cupon){
                 const row=document.createElement('div');
                 row.id='ventaCuponRow';
