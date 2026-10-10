@@ -64,6 +64,16 @@ async function calcularAlertas(forzar) {
         items: [], seccion: 'caja'
       });
     }
+    /* La de viandas (10/10/2026), lo mismo: su arqueo es aparte (CAJAS en admin-caja.js). */
+    const vds = (typeof CAJAS !== 'undefined' && CAJAS && CAJAS.viandas) ? CAJAS.viandas.actual : null;
+    if (vds && vds.estado === 'abierta' && typeof hoyAR === 'function' && vds.fecha && vds.fecha !== hoyAR()) {
+      out.push({
+        id: 'caja-viandas-vieja', nivel: 'critico', icono: 'bi-egg-fried',
+        titulo: 'La caja de viandas quedó abierta del ' + vds.fecha,
+        detalle: 'Todo lo que se venda hoy de viandas entra al arqueo de ese día. Conviene cerrarla.',
+        items: [], seccion: 'cajaViandas'
+      });
+    }
   } catch (e) { console.warn('alertas/caja:', e); }
 
   /* --- Productos ---------------------------------------------------------

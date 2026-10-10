@@ -60,7 +60,8 @@ function tramoMarcarPedido() {
   const ini = src.indexOf('const _destinoPed=');
   const fin = src.indexOf(`}catch(e){console.warn('No se pudo marcar pedido como confirmado:'`, ini);
   if (ini < 0 || fin < 0) throw new Error('no encontre el tramo de saveVenta que marca el pedido');
-  return 'async function _marcarPedido(ventaDocId){' + src.slice(ini, fin) + '}';
+  /* _pv1 y _pv2: las dos vueltas de un pedido con viandas (caja viandas, 10/10/2026), que en saveVenta se leen al empezar. */
+  return 'async function _marcarPedido(ventaDocId,_pv1,_pv2){' + src.slice(ini, fin) + '}';
 }
 
 let ok = 0, fail = 0;

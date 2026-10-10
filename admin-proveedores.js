@@ -456,7 +456,14 @@ function _provRenderDetalle() {
         (r.porPeso ? _provFila('Se venden por peso', String(r.porPeso), true) : '') +
         (r.ocultos ? _provFila('Ocultos en la tienda', String(r.ocultos), true) : '') +
         (r.sinStock ? _provFila('Sin stock', String(r.sinStock), true) : '') +
-        '</div>',
+        '</div>' +
+        /* Caja viandas (10/10/2026): los productos del proveedor marcado como la cocina son
+           viandas y se cobran con su propia caja (admin-viandas.js). */
+        '<label class="prov-cocina">' +
+          '<input type="checkbox" ' + (lista.cocina === true ? 'checked ' : '') +
+            'onchange="if(typeof provMarcarCocina===\'function\')provMarcarCocina(\'' + esc(lista.id) + '\',this)">' +
+          '<span><b>Es la cocina</b><small>Sus productos son viandas: se venden en Ventas → Viandas y se cobran con la caja de viandas.</small></span>' +
+        '</label>',
         '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end">' +
           /* Pedido de Thiago (08/10/2026): la lista de lo que se le pide a ESTE proveedor, para
              mandarla por WhatsApp (admin-listas-pedido.js). Solo acá, con el proveedor elegido. */

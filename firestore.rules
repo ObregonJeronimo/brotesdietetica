@@ -239,6 +239,15 @@ service cloud.firestore {
     match /cajas/{doc}/movimientos/{mov} {
       allow read, write: if isAdmin();
     }
+    /* La caja de viandas (pedido de la clienta, 10/10/2026): la misma caja, aparte, con su
+       propia plata. Vive en su propia coleccion para que ninguna consulta de la caja del
+       local la encuentre (admin-caja.js, CAJAS). Tambien los DOS match. */
+    match /cajasViandas/{doc} {
+      allow read, write: if isAdmin();
+    }
+    match /cajasViandas/{doc}/movimientos/{mov} {
+      allow read, write: if isAdmin();
+    }
 
     /* ===== RESEÑAS ===== */
     /* Las resenas. El id del documento es el token que va en el QR del ticket:

@@ -104,7 +104,7 @@ async function loadStats() {
 
 async function cargarDatosMes(mes) {
   const b = _mesBounds(mes);
-  const vac = { cajas: [], ventas: [], pedidos: [] };
+  const vac = { cajas: [], cajasViandas: [], ventas: [], pedidos: [] };
   const pedir = async (col, campo, desde, hasta, tipo) => {
     try {
       const q = await db.collection(col).where(campo, '>=', desde).where(campo, '<=', hasta).get();
@@ -113,19 +113,21 @@ async function cargarDatosMes(mes) {
       return out;
     } catch (e) { console.warn('stats ' + col + ':', e); return []; }
   };
-  const [cajas, vMin, vMay, pedidos] = await Promise.all([
+  const [cajas, vMin, vMay, pedidos, cajasVds] = await Promise.all([
     /* cajas.fecha es el string 'AAAA-MM-DD': el rango se compara alfabéticamente */
     pedir('cajas', 'fecha', mes + '-01', mes + '-31', 'caja'),
     pedir('ventas', 'fecha', b.desde, b.hasta, 'minorista'),
     pedir('ventasMayoristas', 'fecha', b.desde, b.hasta, 'mayorista'),
-    pedir('pedidos', 'creadoEn', b.desde, b.hasta, 'pedido')
+    pedir('pedidos', 'creadoEn', b.desde, b.hasta, 'pedido'),
+    /* La caja de viandas (10/10/2026), aparte: su arqueo no se mezcla con el del local. */
+    pedir('cajasViandas', 'fecha', mes + '-01', mes + '-31', 'cajaViandas')
   ]);
-  const d = Object.assign({}, vac, { cajas: cajas, ventas: vMin.concat(vMay), pedidos: pedidos });
+  const d = Object.assign({}, vac, { cajas: cajas, cajasViandas: cajasVds, ventas: vMin.concat(vMay), pedidos: pedidos });
 
   /* Qué venta nació de un pedido web. No alcanza con mirar `origen`: las ventas
      anteriores a ese campo no lo tienen, y quedarían contadas como mostrador. */
   const idsWeb = new Set();
-  d.pedidos.forEach(p => { if (p.ventaId) idsWeb.add(p.ventaId); });
+  d.pedidos.forEach(p => { if (p.ventaId) idsWeb.add(p.ventaId); if (p.ventaViandasId) idsWeb.add(p.ventaViandasId); });
   d.ventas.forEach(v => {
     v._online = (v.origen === 'web') || idsWeb.has(v.docId) || !!v.pedidoId;
     v._dia = _diaDe(v.fecha);
@@ -139,10 +141,14 @@ function agruparPorDia(d) {
   const dias = {};
   const tocar = f => (dias[f] = dias[f] || { fecha:f, ventas:0, count:0, local:0, online:0,
     caja:null, cajas:[], movs:0,
+    /* La caja de viandas (10/10/2026) va aparte: sus ventas, su caja (la peor del dia,
+       como la del local) y cuantas ventas son de cada caja, para saber si a alguna le
+       faltó abrirse. */
+    countNormal:0, countVds:0, cajaVds:null, cajasVds:[],
     /* Con que medio se cobro y de que tipo fue cada venta. El panel del dia decia
        "Ventas: 1" y ahi terminaba: para saber QUE se habia vendido y como se
        habia cobrado habia que irse a la seccion de ventas y buscarlo a mano. */
-    porMedio:{}, porTipo:{ minorista:{ count:0, total:0 }, mayorista:{ count:0, total:0 } } });
+    porMedio:{}, porTipo:{ minorista:{ count:0, total:0 }, mayorista:{ count:0, total:0 }, viandas:{ count:0, total:0 } } });
   d.ventas.forEach(v => {
     if (!v._dia) return;
     const x = tocar(v._dia);
@@ -150,8 +156,19 @@ function agruparPorDia(d) {
     if (v._online) x.online += v._neto; else x.local += v._neto;
     const k = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
     x.porMedio[k] = (x.porMedio[k] || 0) + v._neto;
-    const t = (v._tipo === 'mayorista') ? 'mayorista' : 'minorista';
+    const vds = v.cajaTipo === 'viandas';
+    if (vds) x.countVds++; else x.countNormal++;
+    const t = vds ? 'viandas' : ((v._tipo === 'mayorista') ? 'mayorista' : 'minorista');
     x.porTipo[t].count++; x.porTipo[t].total += v._neto;
+  });
+  /* La peor caja de viandas del dia, con el mismo criterio que la del local (abajo). */
+  (d.cajasViandas || []).forEach(c => {
+    if (!c.fecha) return;
+    const x = tocar(c.fecha);
+    x.cajasVds.push(c);
+    const cAbierta = c.estado === 'abierta', yaAbierta = !!x.cajaVds && x.cajaVds.estado === 'abierta';
+    if (!x.cajaVds || (cAbierta && !yaAbierta)
+        || (cAbierta === yaAbierta && Math.abs(Number(c.diferencia || 0)) > Math.abs(Number(x.cajaVds.diferencia || 0)))) x.cajaVds = c;
   });
   /* Un mismo dia puede tener DOS cajas: corte de turno, o una que se cerro por error y se
      abrio otra a la tarde. Esto asignaba de a una, asi que la ultima que salia de la
@@ -180,10 +197,16 @@ function agruparPorDia(d) {
    porque son dos mensajes distintos: uno es que está todo bien y el otro que hay
    algo suelto, aunque sea poco. */
 function estadoDelDia(x) {
-  const c = x.caja;
-  if (!c) return x.count ? 'sin_caja' : 'sin_actividad';
-  if (c.estado === 'abierta') return 'abierta';
-  const dif = Math.abs(Number(c.diferencia || 0));
+  /* Con la caja de viandas (10/10/2026) el color es el de la PEOR de las dos: ventas de
+     una caja que ese dia no se abrio, despues una abierta, despues la mayor diferencia.
+     Sin el detalle por caja (un dia armado a mano), todas las ventas son del local. */
+  const nNormal = (x.countNormal != null) ? x.countNormal : x.count;
+  const nVds = x.countVds || 0;
+  if ((!x.caja && nNormal) || (!x.cajaVds && nVds)) return 'sin_caja';
+  const cs = [x.caja, x.cajaVds].filter(Boolean);
+  if (!cs.length) return 'sin_actividad';
+  if (cs.some(c => c.estado === 'abierta')) return 'abierta';
+  const dif = Math.max.apply(null, cs.map(c => Math.abs(Number(c.diferencia || 0))));
   if (dif === 0) return 'exacta';
   return dif <= _statsTolerancia ? 'diferencia_ok' : 'diferencia';
 }
@@ -193,12 +216,15 @@ function estadoDelDia(x) {
 function totalesMes(d) {
   const t = {
     facturado:0, count:0, local:0, localCount:0, online:0, onlineCount:0,
+    /* Lo de cada caja (10/10/2026): la del local (minoristas y mayoristas) y la de viandas. */
+    normal:0, normalCount:0, viandas:0, viandasCount:0,
     envios:0, descuentos:0, porMedio:{}, productos:{},
     pedidosRecibidos:d.pedidos.length, pedidosConfirmados:0, pedidosCancelados:0,
     diasConVenta:0, diasCajaCerrada:0, diferenciaAcumulada:0, diasConDiferencia:0
   };
   d.ventas.forEach(v => {
     t.facturado += v._neto; t.count++;
+    if (v.cajaTipo === 'viandas') { t.viandas += v._neto; t.viandasCount++; } else { t.normal += v._neto; t.normalCount++; }
     if (v._online) { t.online += v._neto; t.onlineCount++; } else { t.local += v._neto; t.localCount++; }
     t.envios += Number(v.envio || 0);
     t.descuentos += Number(v.descuentoMonto || 0);
@@ -282,8 +308,16 @@ function renderKpis(t) {
       '<div style="font-size:1.5rem;font-weight:800;line-height:1.1' + (color ? ';color:' + color : '') + '">' + val + '</div>' +
       (sub ? '<div style="font-size:0.78rem;color:var(--text-dim);margin-top:0.25rem">' + sub + '</div>' : '') +
     '</div>';
+  /* Caja viandas (pedido de la clienta, 10/10/2026): lo de cada caja por separado, y el
+     facturado de arriba es el total de las dos. Solo si hay viandas (una cocina marcada o
+     ventas de viandas en el mes). */
+  const conVds = t.viandasCount > 0 || (typeof hayCocina === 'function' && hayCocina());
   return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem">' +
-    kpi('Facturado en el mes', _sp(t.facturado), t.count + ' venta' + (t.count === 1 ? '' : 's') + ' · sin contar envíos') +
+    kpi('Facturado en el mes', _sp(t.facturado), t.count + ' venta' + (t.count === 1 ? '' : 's') + ' · sin contar envíos' + (conVds ? ' · las dos cajas' : '')) +
+    (conVds
+      ? kpi('Ventas caja normal', _sp(t.normal), t.normalCount + ' venta' + (t.normalCount === 1 ? '' : 's') + ' · minoristas y mayoristas') +
+        kpi('Ventas caja viandas', _sp(t.viandas), t.viandasCount + ' venta' + (t.viandasCount === 1 ? '' : 's') + ' · los platos de la cocina')
+      : '') +
     kpi('Local (mostrador)', _sp(t.local), t.localCount + ' venta' + (t.localCount === 1 ? '' : 's') + ' · ticket ' + _sp(t.ticketLocal)) +
     kpi('Online (web)', _sp(t.online), t.onlineCount + ' venta' + (t.onlineCount === 1 ? '' : 's') + ' · ticket ' + _sp(t.ticketOnline)) +
     kpi('Ticket promedio', _sp(t.ticket), t.diasConVenta + ' día' + (t.diasConVenta === 1 ? '' : 's') + ' con ventas') +
@@ -350,40 +384,45 @@ function renderDetalleDia() {
   const dd = new Date(f + 'T12:00:00');
   const titulo = dd.toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
 
-  if (!x || (!x.count && !x.caja)) {
+  if (!x || (!x.count && !x.caja && !x.cajaVds)) {
     return _card(titulo.charAt(0).toUpperCase() + titulo.slice(1),
       '<p style="font-size:0.85rem;color:var(--text-dim)">Sin ventas ni caja ese día.</p>');
   }
-  const c = x.caja;
+  const nNormal = (x.countNormal != null) ? x.countNormal : x.count;
   let cuerpo =
     '<div style="display:inline-flex;align-items:center;gap:0.45rem;background:rgba(255,255,255,0.05);border-radius:20px;padding:0.25rem 0.7rem;margin-bottom:0.85rem;font-size:0.78rem;font-weight:600">' +
       '<span style="width:9px;height:9px;border-radius:50%;background:' + est.color + '"></span>' + est.etq + '</div>' +
     _fila('Facturado (sin envíos)', _sp(x.ventas)) +
     _fila('Ventas', String(x.count)) +
     _detalleVentasDelDia(f, x);
-  if (c) {
-    cuerpo += '<div style="margin-top:0.9rem;padding-top:0.7rem;border-top:1px solid var(--border)">' +
-      '<div style="font-size:0.78rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:0.4rem">Caja #' + String(c.numero || 0).padStart(4, '0') + '</div>' +
-      _fila('Fondo inicial', _sp(c.montoInicial));
-    if (c.estado === 'cerrada') {
-      const dif = Number(c.diferencia || 0);
-      cuerpo +=
-        _fila('Esperado en efectivo', _sp(c.esperadoEfectivo)) +
-        _fila('Contado', _sp(c.contadoEfectivo)) +
-        _fila('Diferencia', (dif > 0 ? '+' : '') + _sp(dif), dif === 0 ? '#5FA87A' : (Math.abs(dif) <= _statsTolerancia ? '#EDB833' : '#e54545')) +
-        (c.totalIngresos ? _fila('Ingresos', '+ ' + _sp(c.totalIngresos)) : '') +
-        (c.totalEgresos ? _fila('Egresos', '− ' + _sp(c.totalEgresos)) : '') +
-        (c.motivoDiferencia ? '<p style="font-size:0.8rem;color:var(--text-dim);margin-top:0.6rem;line-height:1.5"><b>Motivo:</b> ' + esc(c.motivoDiferencia) + '</p>' : '') +
-        (c.observaciones ? '<p style="font-size:0.8rem;color:var(--text-dim);margin-top:0.3rem;line-height:1.5"><b>Obs:</b> ' + esc(c.observaciones) + '</p>' : '');
-    } else {
-      cuerpo += '<p style="font-size:0.82rem;color:var(--text-dim);margin-top:0.5rem">Todavía sin cerrar.</p>';
-    }
-    cuerpo += '</div>';
-  } else if (x.count) {
-    cuerpo += '<p style="font-size:0.82rem;color:#EDB833;margin-top:0.85rem;line-height:1.5">' +
-      'Hubo ventas pero no se abrió la caja, así que ese día no tiene arqueo.</p>';
-  }
+  /* El arqueo de cada caja: la del local y, aparte, la de viandas (10/10/2026). */
+  cuerpo += _bloqueCajaDelDia(x.caja, 'Caja', nNormal, 'Hubo ventas pero no se abrió la caja, así que ese día no tiene arqueo.');
+  cuerpo += _bloqueCajaDelDia(x.cajaVds, 'Caja viandas', x.countVds || 0, 'Hubo ventas de viandas pero no se abrió la caja de viandas, así que no tienen arqueo.');
   return _card(titulo.charAt(0).toUpperCase() + titulo.slice(1), cuerpo);
+}
+
+function _bloqueCajaDelDia(c, nombre, nVentas, sinCaja) {
+  if (!c) {
+    return nVentas ? '<p style="font-size:0.82rem;color:#EDB833;margin-top:0.85rem;line-height:1.5">' + sinCaja + '</p>' : '';
+  }
+  let h = '<div style="margin-top:0.9rem;padding-top:0.7rem;border-top:1px solid var(--border)">' +
+    '<div style="font-size:0.78rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:0.4rem">' + nombre + ' #' + String(c.numero || 0).padStart(4, '0') + '</div>' +
+    _fila('Fondo inicial', _sp(c.montoInicial));
+  if (c.estado === 'cerrada') {
+    const dif = Number(c.diferencia || 0);
+    h +=
+      _fila('Esperado en efectivo', _sp(c.esperadoEfectivo)) +
+      _fila('Contado', _sp(c.contadoEfectivo)) +
+      _fila('Diferencia', (dif > 0 ? '+' : '') + _sp(dif), dif === 0 ? '#5FA87A' : (Math.abs(dif) <= _statsTolerancia ? '#EDB833' : '#e54545')) +
+      (c.totalIngresos ? _fila('Ingresos', '+ ' + _sp(c.totalIngresos)) : '') +
+      (c.ingresosNoEfectivo ? _fila('Cobros por transferencia o tarjeta', _sp(c.ingresosNoEfectivo)) : '') +
+      (c.totalEgresos ? _fila('Egresos', '− ' + _sp(c.totalEgresos)) : '') +
+      (c.motivoDiferencia ? '<p style="font-size:0.8rem;color:var(--text-dim);margin-top:0.6rem;line-height:1.5"><b>Motivo:</b> ' + esc(c.motivoDiferencia) + '</p>' : '') +
+      (c.observaciones ? '<p style="font-size:0.8rem;color:var(--text-dim);margin-top:0.3rem;line-height:1.5"><b>Obs:</b> ' + esc(c.observaciones) + '</p>' : '');
+  } else {
+    h += '<p style="font-size:0.82rem;color:var(--text-dim);margin-top:0.5rem">Todavía sin cerrar.</p>';
+  }
+  return h + '</div>';
 }
 
 /* Todo lo que se sabe de las ventas de ese dia: cuantas de cada tipo, con que
@@ -396,7 +435,7 @@ function _detalleVentasDelDia(f, x) {
   if (!x.count) {
     return _fila('Mostrador', _sp(x.local)) + _fila('Web', _sp(x.online));
   }
-  const pt = x.porTipo || { minorista:{count:0,total:0}, mayorista:{count:0,total:0} };
+  const pt = x.porTipo || { minorista:{count:0,total:0}, mayorista:{count:0,total:0}, viandas:{count:0,total:0} };
   const nV = n => n + (n === 1 ? ' venta' : ' ventas');
   const sub = (etq, val) =>
     '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.28rem 0;font-size:0.82rem">' +
@@ -406,6 +445,7 @@ function _detalleVentasDelDia(f, x) {
   let t = '';
   if (pt.minorista.count) t += sub('Minorista - ' + nV(pt.minorista.count), _sp(pt.minorista.total));
   if (pt.mayorista.count) t += sub('Mayorista - ' + nV(pt.mayorista.count), _sp(pt.mayorista.total));
+  if (pt.viandas && pt.viandas.count) t += sub('Viandas (caja aparte) - ' + nV(pt.viandas.count), _sp(pt.viandas.total));
   t += _fila('Mostrador', _sp(x.local)) + _fila('Web', _sp(x.online));
 
   const medios = Object.keys(x.porMedio || {}).filter(k => x.porMedio[k] > 0)
@@ -531,8 +571,10 @@ async function renderComparativa(t) {
         Math.abs(dif).toFixed(0) + '%</span></div>';
   };
   const nDias = Object.values(prev.porDia).filter(x => x.count).length;
+  const conVds = t.viandasCount > 0 || p.viandasCount > 0;
   cont.innerHTML = _card('Contra ' + _mesLabel(_mesSumar(_statsMes, -1)),
     delta(t.facturado, p.facturado, 'Facturado') +
+    (conVds ? delta(t.normal, p.normal, 'Caja normal') + delta(t.viandas, p.viandas, 'Caja viandas') : '') +
     delta(t.local, p.local, 'Local') +
     delta(t.online, p.online, 'Online') +
     delta(t.count, p.count, 'Cantidad de ventas', n => String(n)) +

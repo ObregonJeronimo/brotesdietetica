@@ -320,10 +320,17 @@ function stockYaTomadoPorVenta(ctx) {
       if (typeof editingVentaOriginal !== 'undefined' && editingVentaOriginal && editingVentaOriginal.stockDescontado) sumar(editingVentaOriginal.items);
     } else if (typeof window !== 'undefined' && window._pedidoOrigenVentaId && typeof pedidosData !== 'undefined') {
       const ped = pedidosData.find(x => x && x.docId === window._pedidoOrigenVentaId);
-      if (ped && ped.stockDescontado === true) sumar(ped.items);
+      if (ped && (ped.stockDescontado === true || _parteViandasYaDescontada())) sumar(ped.items);
     }
   } catch (e) { /* sin venta en edición: solo el stock */ }
   return orig;
+}
+
+/* La venta de las viandas de un pedido partido en dos (caja viandas, 10/10/2026): la de
+   lo del local ya le sacó al pedido la marca de stock descontado, pero las viandas
+   siguen descontadas por la tienda. Lo dice la segunda parte (admin-viandas.js). */
+function _parteViandasYaDescontada() {
+  return typeof window !== 'undefined' && !!window._pedidoParteViandas2 && window._pedidoParteViandas2.stockDescontado === true;
 }
 
 /* VENDER MÁS DE LO QUE HAY. La venta del mostrador nunca miró el stock: se registraba
@@ -342,7 +349,7 @@ function _stockNoAplica(ctx) {
   try {
     if (ctx !== 'may' && typeof window !== 'undefined' && window._pedidoOrigenVentaId && typeof pedidosData !== 'undefined') {
       const ped = pedidosData.find(x => x && x.docId === window._pedidoOrigenVentaId);
-      if (ped && ped.stockDescontado === true) return true;
+      if (ped && (ped.stockDescontado === true || _parteViandasYaDescontada())) return true;
     }
   } catch (e) { /* sin pedido: se mira */ }
   return false;

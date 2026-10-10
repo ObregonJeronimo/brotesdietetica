@@ -426,7 +426,7 @@ function procesarCodigoLeido(cod) {
        en Productos -> abre su ficha
        en cualquier otra seccion no se adivina: se pregunta. */
   const _sec = (document.querySelector('.section-content.active') || {}).id || '';
-  if (_sec === 'sec-ventas') { _venderEscaneado(prod); return; }
+  if (_sec === 'sec-ventas' || _sec === 'sec-ventasViandas') { _venderEscaneado(prod); return; }
   if (_sec === 'sec-products') { _fichaEscaneada(prod); return; }
   if (typeof pedirConfirmacion === 'function') {
     pedirConfirmacion('"' + (prod.nombreMostrado || prod.nombre) + '"', {
@@ -442,8 +442,13 @@ function procesarCodigoLeido(cod) {
 
 /* Escanear parado en Ventas: si no hay una venta abierta, se abre. Antes habia que
    tocar V primero, y con la pistola en la mano ese paso es el que se olvida. */
-function _venderEscaneado(prod) {
-  if (!_modalAbierto('ventaModal') && typeof openVentaModal === 'function') openVentaModal();
+async function _venderEscaneado(prod) {
+  if (!_modalAbierto('ventaModal')) {
+    /* Caja viandas (10/10/2026): una vianda abre la venta de viandas, con su caja; lo
+       demás, la minorista. Con una venta ya abierta, agregar avisa si no va ahí. */
+    if (typeof esVianda === 'function' && esVianda(prod) && typeof abrirVentaViandas === 'function') await abrirVentaViandas();
+    else if (typeof openVentaModal === 'function') openVentaModal();
+  }
   _agregarYAvisar(prod, addVentaItem, () => _cantEnVenta('min', prod.id));
 }
 

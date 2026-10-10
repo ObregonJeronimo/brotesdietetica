@@ -99,7 +99,8 @@ function armar(opts) {
       const docs = (col === 'ventas' ? (o.ventas || ventas()) : []).filter(v => v.fecha >= desde);
       return { docs: docs.map(v => ({ id: v.docId, data: () => v })) };
     } }) }) },
-    getCajaAbierta: async () => { lecturas.push({ col: 'caja' }); return o.caja || null; },
+    /* Las dos cajas (10/10/2026): la del local y la de viandas, cada una con lo suyo. */
+    getCajaAbierta: async (k) => { lecturas.push({ col: k === 'viandas' ? 'cajaViandas' : 'caja' }); return (k === 'viandas' ? o.cajaViandas : o.caja) || null; },
     actualizarBadgeAlertas: async () => 'campana',
     /* La de admin.html: la envuelve admin-inicio.js para repintar después de vender. */
     aplicarStockProductos: async () => 'aplicado',
@@ -332,7 +333,7 @@ console.log('\n-- lo que se lee de la base --');
   await m.ctx.entrarAInicio();
   t('una vez por día: volver a entrar no lee de nuevo', m.lecturas.length === antes);
   await m.ctx.refrescarInicio(true);
-  t('"Volver a revisar" sí relee', m.lecturas.length === antes + 3);
+  t('"Volver a revisar" sí relee (las ventas, las mayoristas y las dos cajas)', m.lecturas.length === antes + 4 && m.lecturas.slice(-4).some(l => l.col === 'cajaViandas'));
   const f = armar({ fallaVentas: true });
   f.run('_iniListo = true;');
   await f.ctx.refrescarInicio(false);
@@ -407,6 +408,12 @@ console.log('\n-- lo que se ve --');
   t('la caja abierta de otro día es un cartel rojo con el botón a Caja', m.cuerpoIni.innerHTML.indexOf('La caja quedó abierta del') > 0 &&
     m.cuerpoIni.innerHTML.indexOf('data-ini="ir" data-sec="caja"') > 0 &&
     m.cuerpoIni.innerHTML.indexOf('Hoy hay 2 cosas importantes para resolver') > 0);
+  /* La de viandas (10/10/2026): su propio cartel, con el boton a Caja viandas. */
+  const mv = armar({ cajaViandas: { estado: 'abierta', fecha: diaDe(hace(2)) } });
+  mv.run('_iniListo = true;');
+  await mv.ctx.refrescarInicio(false);
+  t('la caja de viandas abierta de otro día es otro cartel rojo, con el botón a Caja viandas', mv.cuerpoIni.innerHTML.indexOf('La caja de viandas quedó abierta del') > 0 &&
+    mv.cuerpoIni.innerHTML.indexOf('data-ini="ir" data-sec="cajaViandas"') > 0 && mv.cuerpoIni.innerHTML.indexOf('La caja quedó abierta del') < 0);
   const hoy = armar({ caja: { estado: 'abierta', fecha: diaDe(new Date()) } });
   hoy.run('_iniListo = true;');
   await hoy.ctx.refrescarInicio(false);

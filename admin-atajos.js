@@ -21,7 +21,7 @@
 const ATAJOS_ACCIONES = {
   /* --- acciones --- */
   nuevaVenta:   { def:'v', grupo:'Acciones', etq:'Nueva venta',
-                  desc:'Abre el formulario de venta del mostrador, sin importar en qué pantalla estés.' },
+                  desc:'Abre el formulario de venta del mostrador, sin importar en qué pantalla estés. En Caja viandas o en Ventas → Viandas, la venta de viandas.' },
   nuevaVentaMay:{ def:'m', grupo:'Acciones', etq:'Nueva venta mayorista',
                   desc:'Abre el formulario de venta mayorista.' },
   nuevoProducto:{ def:'p', grupo:'Acciones', etq:'Nuevo producto',
@@ -171,9 +171,15 @@ function ejecutarAtajo(accion) {
 
   if (a.sec) { if (_existe('switchSection')) switchSection(a.sec); return; }
 
+  /* Caja viandas (10/10/2026): parado en Caja viandas o en Ventas -> Viandas, la venta
+     y los atajos de caja son los de viandas. En cualquier otra pantalla, los del local. */
+  const enViandas = _enPantallaDeViandas();
+  const kCaja = enViandas ? 'viandas' : undefined;
+
   switch (accion) {
     case 'nuevaVenta':
-      if (_existe('openVentaModal')) openVentaModal(); else _aviso('No se pudo abrir la venta');
+      if (enViandas && _existe('abrirVentaViandas')) abrirVentaViandas();
+      else if (_existe('openVentaModal')) openVentaModal(); else _aviso('No se pudo abrir la venta');
       break;
     case 'nuevaVentaMay':
       if (_existe('openVentaMayModal')) openVentaMayModal(); else _aviso('No se pudo abrir la venta mayorista');
@@ -192,20 +198,26 @@ function ejecutarAtajo(accion) {
     }
     case 'cajaIngreso':
     case 'cajaEgreso':
-      if (!_cajaAbiertaEnPantalla()) { _aviso('Primero abra la caja'); if (_existe('switchSection')) switchSection('caja'); break; }
-      if (_existe('openMovModal')) openMovModal(accion === 'cajaIngreso' ? 'ingreso' : 'egreso');
+      if (!_cajaAbiertaEnPantalla(kCaja)) { _aviso(enViandas ? 'Primero abra la caja de viandas' : 'Primero abra la caja'); if (_existe('switchSection')) switchSection(enViandas ? 'cajaViandas' : 'caja'); break; }
+      if (_existe('openMovModal')) openMovModal(accion === 'cajaIngreso' ? 'ingreso' : 'egreso', kCaja);
       break;
     case 'cajaCerrar':
-      if (!_cajaAbiertaEnPantalla()) { _aviso('No hay caja abierta'); if (_existe('switchSection')) switchSection('caja'); break; }
-      if (_existe('openCierreModal')) openCierreModal();
+      if (!_cajaAbiertaEnPantalla(kCaja)) { _aviso(enViandas ? 'No hay caja de viandas abierta' : 'No hay caja abierta'); if (_existe('switchSection')) switchSection(enViandas ? 'cajaViandas' : 'caja'); break; }
+      if (_existe('openCierreModal')) openCierreModal(kCaja);
       break;
   }
 }
 
 /* Los modales de caja leen la caja que ya cargó la pantalla. Si nunca se entró a
    la sección, no hay nada cargado y abrirlos daría un formulario que no guarda. */
-function _cajaAbiertaEnPantalla() {
-  return _existe('getCajaAbiertaId') && !!getCajaAbiertaId();
+function _cajaAbiertaEnPantalla(k) {
+  return _existe('getCajaAbiertaId') && !!getCajaAbiertaId(k);
+}
+
+/* Si la pantalla de ahora es de viandas (su caja o su lista de ventas). */
+function _enPantallaDeViandas() {
+  const sec = (document.querySelector('.section-content.active') || {}).id || '';
+  return sec === 'sec-cajaViandas' || sec === 'sec-ventasViandas';
 }
 
 function _buscadorActivo() {

@@ -255,10 +255,15 @@ function _iniClaveTop(i, prods) {
 
 function _iniResumenDia(dia, ventas, prods) {
   let total = 0, local = 0, online = 0, ganancia = 0, sinCosto = 0;
+  /* Caja viandas (10/10/2026): lo de cada caja por separado. "Normal" es todo lo que no
+     es de viandas: la minorista y la mayorista, que van a la caja del local. */
+  const normal = { count: 0, total: 0 }, viandas = { count: 0, total: 0 };
   const top = {};
   ventas.forEach(v => {
     const neto = (typeof netoVenta === 'function') ? netoVenta(v) : Number(v.total || 0) - Number(v.envio || 0);
     total += neto;
+    const deCaja = v.cajaTipo === 'viandas' ? viandas : normal;
+    deCaja.count++; deCaja.total += neto;
     if (v.origen === 'web' || v.pedidoId) online += neto; else local += neto;
     const g = _iniGanancia(v, prods);
     ganancia += g.ganancia; sinCosto += g.sinCosto;
@@ -272,6 +277,7 @@ function _iniResumenDia(dia, ventas, prods) {
   });
   return {
     dia: dia, count: ventas.length, total: total, local: local, online: online,
+    normal: normal, viandas: viandas,
     ganancia: ganancia, sinCosto: sinCosto,
     top: Object.values(top).sort((a, b) => b.monto - a.monto).slice(0, 3),
   };
@@ -325,12 +331,15 @@ async function _iniCargar(forzar) {
       const q = await db.collection(col).where('fecha', '>=', desde).get();
       return q.docs.map(d => Object.assign({ docId: d.id }, d.data()));
     };
-    /* Las tres a la vez. Si falla solo la de mayoristas, las minoristas se muestran igual. */
+    /* Todas a la vez. Si falla solo la de mayoristas, las minoristas se muestran igual.
+       Las dos cajas: la del local y la de viandas (10/10/2026), cada una con su aviso. */
     const r = await Promise.all([
       leer('ventas').catch(e => ({ fallo: e })),
       leer('ventasMayoristas').catch(e => ({ fallo: e })),
       Promise.resolve(typeof getCajaAbierta === 'function' ? getCajaAbierta() : null)
         .catch(e => { console.warn('inicio/caja:', e); return null; }),
+      Promise.resolve(typeof getCajaAbierta === 'function' ? getCajaAbierta('viandas') : null)
+        .catch(e => { console.warn('inicio/caja de viandas:', e); return null; }),
     ]);
     let ventas = null, error = '';
     if (Array.isArray(r[0])) {
@@ -340,7 +349,7 @@ async function _iniCargar(forzar) {
       error = (r[0].fallo && r[0].fallo.message) || String(r[0].fallo);
       console.warn('inicio/ventas:', r[0].fallo);
     }
-    _iniDatos = { dia: dia, ventas: ventas, caja: r[2], error: error, en: Date.now() };
+    _iniDatos = { dia: dia, ventas: ventas, caja: r[2], cajaViandas: r[3] || null, error: error, en: Date.now() };
     return _iniDatos;
   })();
   try { return await _iniCarga; } finally { _iniCarga = null; }
@@ -353,6 +362,13 @@ function _iniCaja() {
   const enCaja = typeof _cajaCargadaEn !== 'undefined' && _cajaCargadaEn && typeof cajaActual !== 'undefined';
   if (!_iniDatos) return enCaja ? cajaActual : null;
   return (enCaja && _cajaCargadaEn > _iniDatos.en) ? cajaActual : _iniDatos.caja;
+}
+/* Lo mismo con la caja de viandas (admin-caja.js, CAJAS.viandas). */
+function _iniCajaViandas() {
+  const C = (typeof CAJAS !== 'undefined' && CAJAS && CAJAS.viandas) ? CAJAS.viandas : null;
+  const enCaja = !!(C && C.cargadaEn);
+  if (!_iniDatos) return enCaja ? C.actual : null;
+  return (enCaja && C.cargadaEn > _iniDatos.en) ? C.actual : (_iniDatos.cajaViandas || null);
 }
 
 /* ============================ EL DIBUJO ============================ */
@@ -410,6 +426,14 @@ function _iniHtmlAyer(r) {
   h += '<div class="ini-ayer-fila"><div class="ini-ayer-total">' + _iniPlata(a.total) + '</div>' +
     '<div class="ini-ayer-cant">en ' + a.count + _iniS(a.count, ' venta', ' ventas') + '</div>' + comp + '</div>';
   const det = [];
+  /* Caja viandas (pedido de la clienta, 10/10/2026): lo de cada caja por separado, y arriba
+     el total de las dos. Solo si hay una cocina marcada (si no, no hay viandas). */
+  if ((a.viandas && a.viandas.count) || (typeof hayCocina === 'function' && hayCocina())) {
+    const n = a.normal || { count: 0, total: 0 }, v = a.viandas || { count: 0, total: 0 };
+    det.push('Ventas caja normal: <b>' + _iniPlata(n.total) + '</b> en ' + n.count + _iniS(n.count, ' venta', ' ventas') +
+      ' · Ventas caja viandas: <b>' + _iniPlata(v.total) + '</b> en ' + v.count + _iniS(v.count, ' venta', ' ventas') +
+      ' · Total: <b>' + _iniPlata(a.total) + '</b>');
+  }
   det.push('Ganancia aproximada: <b>' + _iniPlata(a.ganancia) + '</b>' + (a.sinCosto
     ? ' (sin contar ' + a.sinCosto + _iniS(a.sinCosto, ' producto que no tiene', ' productos que no tienen') + ' costo cargado)' : ''));
   if (a.online > 0) det.push('Mostrador ' + _iniPlata(a.local) + ' · Tienda online ' + _iniPlata(a.online));
@@ -420,8 +444,14 @@ function _iniHtmlAyer(r) {
   return h + '<p class="ini-ayer-det">' + det.join('<br>') + '</p></div>';
 }
 
-function _iniHtmlCaja(caja) {
+function _iniHtmlCaja(caja, deViandas) {
   if (!caja || caja.estado !== 'abierta' || !caja.fecha || caja.fecha === _iniDia(new Date())) return '';
+  if (deViandas) {
+    return _iniAviso('critico', 'bi-egg-fried',
+      'La caja de viandas quedó abierta del ' + _iniEsc(_iniDiaTxt(caja.fecha)),
+      'Todo lo que se venda hoy de viandas entra en el arqueo de ese día. Cerrala y abrí la de hoy.',
+      '', '<button type="button" class="btn btn-primary btn-sm" data-ini="ir" data-sec="cajaViandas"><i class="bi bi-egg-fried"></i> Ir a Caja viandas</button>');
+  }
   return _iniAviso('critico', 'bi-cash-stack',
     'La caja quedó abierta del ' + _iniEsc(_iniDiaTxt(caja.fecha)),
     'Todo lo que se venda hoy entra en el arqueo de ese día. Cerrala y abrí la de hoy.',
@@ -567,6 +597,8 @@ function renderInicio() {
   const avisos = [];
   const caja = _iniHtmlCaja(_iniCaja());
   if (caja) avisos.push({ nivel: 'critico', html: caja });
+  const cajaVds = _iniHtmlCaja(_iniCajaViandas(), true);
+  if (cajaVds) avisos.push({ nivel: 'critico', html: cajaVds });
   /* Con "Descontar stock" apagado (Configuración) el stock no se mueve ni frena ventas:
      un aviso de stock diría algo que no es cierto. */
   const stockActivo = !(typeof DESCONTAR_STOCK !== 'undefined' && DESCONTAR_STOCK === false);

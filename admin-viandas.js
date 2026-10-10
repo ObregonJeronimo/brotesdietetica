@@ -106,6 +106,36 @@ function viandasPieBusqueda(ctx, q) {
   return '<div class="vprod-ocultos"><span><i class="bi bi-egg-fried"></i> ' + txt + '</span></div>';
 }
 
+/* ======================= LA MARCA EN EL PROVEEDOR =======================
+
+   La casilla "Es la cocina" de la ficha del proveedor (admin-proveedores.js). Se guarda
+   en el documento del proveedor (`listas` es solo para admins): no hace falta ninguna
+   regla nueva y no queda a la vista de la tienda. Pregunta antes, porque cambia por
+   dónde se venden todos sus productos. */
+async function provMarcarCocina(id, el) {
+  const ls = (typeof listasData !== 'undefined' && Array.isArray(listasData)) ? listasData : [];
+  const l = ls.find(x => x && x.id === id);
+  if (!l) return;
+  const marcar = !!(el && el.checked);
+  const prods = ((typeof allProducts !== 'undefined' && allProducts) || []).filter(p => p && p.lista === id && p.depurado !== true);
+  const n = prods.length + (prods.length === 1 ? ' producto' : ' productos');
+  const ok = await pedirConfirmacion(marcar
+    ? '¿' + l.nombre + ' es la cocina?\n\nSus ' + n + ' pasan a ser viandas: se venden solo en Ventas → Viandas y su plata va a la caja de viandas. En las ventas minoristas y mayoristas ya no se van a poder cargar.\n\nLas ventas que ya se hicieron no cambian.'
+    : '¿' + l.nombre + ' deja de ser la cocina?\n\nSus ' + n + ' vuelven a venderse como productos comunes, en las ventas minoristas, con la caja del local.\n\nLas ventas de viandas que ya se hicieron no cambian.',
+    { titulo: marcar ? 'Marcar como la cocina' : 'Ya no es la cocina', aceptar: marcar ? 'Sí, es la cocina' : 'Sí, ya no es', cancelar: 'No', cuidado: true, icono: 'bi-egg-fried' });
+  if (!ok) { if (el) el.checked = !marcar; return; }
+  try {
+    await db.collection('listas').doc(id).update({ cocina: marcar });
+    l.cocina = marcar;
+    if (typeof logAction === 'function')
+      logAction('editar', 'Proveedor ' + l.nombre + (marcar ? ': es la cocina (sus productos son viandas)' : ': ya no es la cocina'), n);
+    showAdminToast(marcar ? l.nombre + ' quedó como la cocina: sus productos son viandas' : l.nombre + ' ya no es la cocina', 'success');
+  } catch (e) {
+    if (el) el.checked = !marcar;
+    showAdminToast('No se pudo guardar: ' + e.message, 'error');
+  }
+}
+
 /* ======================= LA VENTA DE VIANDAS ======================= */
 
 /* "Nueva venta de viandas": el mismo modal de la minorista, en modo viandas. */
@@ -125,6 +155,41 @@ function pintarModoVentaViandas(editando, numero) {
   if (tit) tit.innerHTML = '<i class="bi bi-egg-fried"></i> ' + (editando ? 'Editar venta de viandas #' + numero : 'Nueva venta de viandas');
   const btn = document.getElementById('saveVentaBtn');
   if (btn) btn.innerHTML = '<i class="bi bi-check-lg"></i> ' + (editando ? 'Guardar cambios' : 'Registrar venta de viandas');
+}
+
+/* ======================= PEDIDOS DE LA TIENDA CON VIANDAS =======================
+
+   Thiago (10/10/2026): un pedido que trae viandas y otras cosas se pasa a DOS ventas
+   solas: primero la del local (con el envío y el cupón) y, apenas se guarda, se abre la
+   de las viandas con los mismos datos del cliente. Uno con solo viandas es una venta de
+   viandas, y listo.
+
+   El pedido guarda las dos: `ventaId` (la primera, como siempre) y `ventaViandasId`.
+   Mientras falte la de viandas (se cerró sin guardar, o se borró) queda
+   `viandasPendientes: true` y la ficha del pedido ofrece "Pasar las viandas a venta".
+
+   EL STOCK: la tienda descontó el pedido entero. La primera venta se queda con lo suyo y
+   le saca al pedido la marca `stockDescontado` (como siempre); lo de las viandas queda
+   anotado en `viandasStockDescontado`, para que su venta no lo vuelva a descontar. */
+function viandasDelPedido(p) {
+  const cocinas = _cocinasIds();
+  const items = (p && Array.isArray(p.items)) ? p.items : [];
+  return {
+    vds: items.filter(i => i && esViandaId(i.id, cocinas)),
+    nor: items.filter(i => !(i && esViandaId(i.id, cocinas)))
+  };
+}
+/* Ya tiene la venta del local pero le falta la de sus viandas. */
+function viandasPendientesDelPedido(p) {
+  return !!(p && p.ventaId && p.viandasPendientes === true && !p.ventaViandasId);
+}
+/* La segunda venta, apenas se guarda la primera (saveVenta). `medio`: el que se eligió en
+   la primera, que puede no ser el del pedido. */
+function viandasSegundaParte(pedidoId, medio) {
+  if (typeof convertirPedidoEnVentaDesdeModal !== 'function') return;
+  editingPedidoId = pedidoId;
+  window._viandasMedioElegido = medio || null;
+  convertirPedidoEnVentaDesdeModal();
 }
 
 /* ======================= VENTAS → VIANDAS (la lista) =======================
