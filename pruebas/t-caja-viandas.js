@@ -525,6 +525,45 @@ const ts = (d, h) => new Date(d + 'T' + (h || '12:00') + ':00');
   t('borrar la del local de un pedido a medio pasar limpia tambien la memoria del tablero',
     /delete _pm\.viandasPendientes;delete _pm\.viandasStockDescontado;delete _pm\.viandasIds;delete _pm\.viandasCupon;/.test(ADMIN));
 
+  /* ------------------------------------------------------------------ 13 */
+  grupo('13. La tecla C abre la venta de viandas (Thiago, 10/10/2026)');
+  {
+    const ATJ = fs.readFileSync(path.join(RAIZ, 'admin-atajos.js'), 'utf8');
+    let escucha = null, hayVentana = false;
+    const llamadas = [], cola = [];
+    const ctxA = {
+      console: { log() {}, warn() {}, error() {} },
+      document: {
+        addEventListener: (tipo, fn) => { if (tipo === 'keydown') escucha = fn; },
+        getElementById: () => null,
+        querySelector: s => ((hayVentana && /modal-overlay\.show/.test(s)) ? {} : null),
+        querySelectorAll: () => []
+      },
+      /* La demora de los atajos (por el lector de codigos): se corre a mano. */
+      setTimeout: f => { cola.push(f); return cola.length; }, clearTimeout() {},
+      abrirVentaViandas: () => llamadas.push('viandas'), openVentaModal: () => llamadas.push('minorista'),
+      openVentaMayModal: () => llamadas.push('mayorista'), showAdminToast() {}
+    };
+    ctxA.window = ctxA;
+    vm.createContext(ctxA);
+    vm.runInContext(ATJ, ctxA, { filename: 'admin-atajos.js' });
+    vm.runInContext('ATAJOS = atajosPorDefecto();', ctxA);
+    const tecla = k => { escucha({ key: k, target: { tagName: 'BODY' }, ctrlKey: false, altKey: false, metaKey: false, preventDefault() {} }); cola.splice(0).forEach(f => f()); };
+    tecla('c');
+    t('la C abre la venta de viandas', llamadas.join() === 'viandas', llamadas);
+    tecla('C');
+    t('  tambien con mayuscula', llamadas.join() === 'viandas,viandas', llamadas);
+    tecla('v'); tecla('m');
+    t('  y la V y la M siguen con lo suyo', llamadas.slice(2).join() === 'minorista,mayorista', llamadas);
+    hayVentana = true; llamadas.length = 0;
+    tecla('c');
+    t('  con una ventana abierta no hace nada (como los demas atajos)', llamadas.length === 0);
+    const defs = vm.runInContext('Object.keys(ATAJOS_ACCIONES).map(function (k) { return ATAJOS_ACCIONES[k].def; })', ctxA);
+    t('ninguna tecla se repite entre los atajos', new Set(defs).size === defs.length, defs);
+    t('sale en la ayuda y en Configuracion como "Nueva venta de viandas"',
+      vm.runInContext('ATAJOS_ACCIONES.nuevaVentaVds.etq + "|" + ATAJOS_ACCIONES.nuevaVentaVds.grupo', ctxA) === 'Nueva venta de viandas|Acciones');
+  }
+
   console.log('\n' + ok + ' pasaron, ' + mal + ' fallaron');
   process.exit(mal ? 1 : 0);
 })().catch(e => { console.error('  EXPLOTO: ' + e.stack); console.log('\n' + ok + ' pasaron, ' + (mal + 1) + ' fallaron'); process.exit(1); });

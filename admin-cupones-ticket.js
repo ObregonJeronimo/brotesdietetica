@@ -335,6 +335,15 @@ function cuponEmitirCambio() {
   const chk = document.getElementById('ventaEmitirCupon');
   const caja = document.getElementById('ventaCuponPromoWrap');
   if (caja) caja.style.display = (chk && chk.checked) ? 'flex' : 'none';
+  /* Las promos (cuponesData) las lee loadCupones, que corría solo al entrar a Cupones: sin
+     pasar antes por ahí, la lista decía "No hay promos activas" aunque hubiera (Thiago,
+     10/10/2026). Se leen la primera vez que hacen falta. */
+  if (chk && chk.checked && typeof loadCupones === 'function' &&
+      typeof cuponesData !== 'undefined' && !cuponesData.length) {
+    const sel = document.getElementById('ventaCuponPromo');
+    if (sel) sel.innerHTML = '<option value="">Buscando promos...</option>';
+    return Promise.resolve(loadCupones()).then(cuponTicketPromosPintar, cuponTicketPromosPintar);
+  }
 }
 
 /* Genera el codigo y lo guarda. Devuelve lo que hay que imprimir, o null.

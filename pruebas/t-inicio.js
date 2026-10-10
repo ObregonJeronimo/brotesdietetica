@@ -318,6 +318,35 @@ console.log('\n-- cómo fue ayer --');
     g.ayer.top[0].cantidad === 1000, g.ayer.top);
 }
 
+/* ================================================= AYER, POR CAJA */
+/* Caja viandas (10/10/2026): lo de cada caja en su recuadro y el total de las dos. En una
+   línea con puntos no se distinguía cuál era cuál (Thiago). */
+console.log('\n-- ayer, por caja --');
+{
+  const { ctx } = armar();
+  ctx.hayCocina = () => true;
+  const conVds = ventas().concat([{ docId: 'vv1', fecha: hace(1, 13), cajaTipo: 'viandas', items: [it('gal', 2, 900, 400)], total: 1800, envio: 0 }]);
+  const r = ctx.resumenDeAyer(conVds, AHORA, ctx.allProducts);
+  t('ayer separa: caja normal $10.600 en 3 ventas y caja viandas $1.800 en 1', r.ayer.normal.total === 10600 && r.ayer.normal.count === 3 &&
+    r.ayer.viandas.total === 1800 && r.ayer.viandas.count === 1, r.ayer);
+  const h = ctx._iniHtmlAyer(r);
+  const recuadro = cls => (h.match(new RegExp('(<div class="ini-caja ' + cls + '">[\\s\\S]*?</div></div></div>)')) || [])[1] || '';
+  const n = recuadro('normal'), v = recuadro('viandas'), tot = recuadro('total');
+  t('  la caja normal en su recuadro: su ícono, "Caja normal", $10.600, 3 ventas',
+    n.indexOf('bi-cash-stack') > 0 && n.indexOf('>Caja normal<') > 0 && n.indexOf('>$10.600<') > 0 && n.indexOf('>3 ventas<') > 0, n);
+  t('  la de viandas en el suyo: "Caja viandas", $1.800, 1 venta',
+    v.indexOf('bi-egg-fried') > 0 && v.indexOf('>Caja viandas<') > 0 && v.indexOf('>$1.800<') > 0 && v.indexOf('>1 venta<') > 0, v);
+  t('  y el total de las dos: $12.400 en 4 ventas (lo mismo que dice arriba)',
+    tot.indexOf('>Total de las dos<') > 0 && tot.indexOf('>$12.400<') > 0 && tot.indexOf('>4 ventas<') > 0 &&
+    h.indexOf('<div class="ini-ayer-total">$12.400</div>') > 0, tot);
+  t('  los recuadros van antes de la ganancia, y la línea de puntos ya no está',
+    h.indexOf('class="ini-cajas"') < h.indexOf('Ganancia aproximada') && h.indexOf('Ventas caja normal:') < 0);
+  ctx.hayCocina = () => false;
+  const sinVds = ctx._iniHtmlAyer(ctx.resumenDeAyer(ventas(), AHORA, ctx.allProducts));
+  t('sin cocina marcada y sin ventas de viandas, la tarjeta queda como antes (sin recuadros)', sinVds.indexOf('ini-cajas') < 0 &&
+    sinVds.indexOf('Ganancia aproximada') > 0);
+}
+
 /* ================================================= LA LECTURA */
 console.log('\n-- lo que se lee de la base --');
 {

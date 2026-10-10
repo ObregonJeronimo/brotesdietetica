@@ -407,6 +407,34 @@ console.log('\n-- el cupon de un pedido de la tienda se anota una sola vez --');
     html.indexOf('window._pedidoCuponVenta=p.cupon||null;') > 0);
   t('y solo cuponCajaAplicar pone la marca', (mod.match(/deCaja: true/g) || []).length === 1);
 
+  /* ================== "NO HAY PROMOS ACTIVAS" SIN HABER ENTRADO A CUPONES
+     Las promos las lee loadCupones, que corria solo al entrar a Cupones: sin pasar antes
+     por ahi, la venta decia "No hay promos activas" aunque hubiera (Thiago, 10/10/2026). */
+  console.log('\n-- las promos se leen al tildar "Imprimir un cupon" --');
+  {
+    const els = { ventaEmitirCupon: { checked: true }, ventaCuponPromoWrap: { style: {} }, ventaCuponPromo: { innerHTML: '' } };
+    let lecturas = 0;
+    const m = new Function('document', 'esc', 'contar',
+      'let cuponesData = [];' +
+      'async function loadCupones() { contar(); cuponesData = [' +
+      '{ id: "VOLVE2000", nombre: "Volve", monto: 2000, activo: true },' +
+      '{ id: "TYPT4K3", origen: "ticket", monto: 2000, activo: true }]; }' +
+      src.slice(0, src.indexOf("if (typeof window !== 'undefined')")) +
+      ';return { cuponEmitirCambio: cuponEmitirCambio, promos: function () { return cuponesData; } };')(
+      { getElementById: id => els[id] || null }, s => String(s == null ? '' : s), () => { lecturas++; });
+    const p = m.cuponEmitirCambio();
+    t('al tildarlo sin haber pasado por Cupones, la lista dice "Buscando promos..."',
+      /Buscando promos/.test(els.ventaCuponPromo.innerHTML) && els.ventaCuponPromoWrap.style.display === 'flex');
+    await p;
+    t('  y despues muestra las promos que hay (no los codigos ya entregados)',
+      /VOLVE2000/.test(els.ventaCuponPromo.innerHTML) && !/TYPT4K3/.test(els.ventaCuponPromo.innerHTML) && lecturas === 1, els.ventaCuponPromo.innerHTML);
+    const otra = m.cuponEmitirCambio();
+    t('  la segunda vez no vuelve a leer', lecturas === 1 && otra === undefined);
+    els.ventaEmitirCupon.checked = false;
+    m.cuponEmitirCambio();
+    t('  y destildado se esconde, sin leer nada', els.ventaCuponPromoWrap.style.display === 'none' && lecturas === 1);
+  }
+
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
   process.exit(fail ? 1 : 0);
 })();

@@ -24,6 +24,9 @@ const ATAJOS_ACCIONES = {
                   desc:'Abre el formulario de venta del mostrador, sin importar en qué pantalla estés. En Caja viandas o en Ventas → Viandas, la venta de viandas.' },
   nuevaVentaMay:{ def:'m', grupo:'Acciones', etq:'Nueva venta mayorista',
                   desc:'Abre el formulario de venta mayorista.' },
+  /* Pedido de Thiago (10/10/2026): la C, de cocina. */
+  nuevaVentaVds:{ def:'c', grupo:'Acciones', etq:'Nueva venta de viandas',
+                  desc:'Abre la venta de viandas, que se cobra con la caja de viandas, sin importar en qué pantalla estés.' },
   nuevoProducto:{ def:'p', grupo:'Acciones', etq:'Nuevo producto',
                   desc:'Abre el formulario para cargar un producto al catálogo.' },
   buscar:       { def:'/', grupo:'Acciones', etq:'Buscar',
@@ -183,6 +186,9 @@ function ejecutarAtajo(accion) {
       break;
     case 'nuevaVentaMay':
       if (_existe('openVentaMayModal')) openVentaMayModal(); else _aviso('No se pudo abrir la venta mayorista');
+      break;
+    case 'nuevaVentaVds':
+      if (_existe('abrirVentaViandas')) abrirVentaViandas(); else _aviso('No se pudo abrir la venta de viandas');
       break;
     case 'nuevoProducto':
       /* El formulario de producto vive en la sección Productos: si estás en otra,

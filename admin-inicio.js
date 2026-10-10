@@ -425,15 +425,25 @@ function _iniHtmlAyer(r) {
   else comp = '<span class="ini-comp">Igual que el ' + _iniEsc(semana) + ' anterior (' + _iniPlata(r.antes.total) + ')</span>';
   h += '<div class="ini-ayer-fila"><div class="ini-ayer-total">' + _iniPlata(a.total) + '</div>' +
     '<div class="ini-ayer-cant">en ' + a.count + _iniS(a.count, ' venta', ' ventas') + '</div>' + comp + '</div>';
-  const det = [];
-  /* Caja viandas (pedido de la clienta, 10/10/2026): lo de cada caja por separado, y arriba
-     el total de las dos. Solo si hay una cocina marcada (si no, no hay viandas). */
+  /* Caja viandas (pedido de la clienta, 10/10/2026): lo de cada caja en su recuadro, con el
+     ícono que tiene en el menú, y el total de las dos. Thiago (10/10): en una línea con
+     puntos no se distinguía cuál era cuál. Solo si hay una cocina marcada (si no, no hay
+     viandas). */
+  let cajas = '';
   if ((a.viandas && a.viandas.count) || (typeof hayCocina === 'function' && hayCocina())) {
     const n = a.normal || { count: 0, total: 0 }, v = a.viandas || { count: 0, total: 0 };
-    det.push('Ventas caja normal: <b>' + _iniPlata(n.total) + '</b> en ' + n.count + _iniS(n.count, ' venta', ' ventas') +
-      ' · Ventas caja viandas: <b>' + _iniPlata(v.total) + '</b> en ' + v.count + _iniS(v.count, ' venta', ' ventas') +
-      ' · Total: <b>' + _iniPlata(a.total) + '</b>');
+    const recuadro = (clase, icono, rotulo, total, count) =>
+      '<div class="ini-caja ' + clase + '"><span class="ini-caja-ico"><i class="bi ' + icono + '"></i></span>' +
+        '<div><div class="ini-caja-rot">' + rotulo + '</div><div class="ini-caja-plata">' + _iniPlata(total) + '</div>' +
+        '<div class="ini-caja-cant">' + count + _iniS(count, ' venta', ' ventas') + '</div></div></div>';
+    cajas = '<div class="ini-cajas">' +
+      recuadro('normal', 'bi-cash-stack', 'Caja normal', n.total, n.count) +
+      recuadro('viandas', 'bi-egg-fried', 'Caja viandas', v.total, v.count) +
+      recuadro('total', 'bi-wallet2', 'Total de las dos', a.total, a.count) +
+    '</div>';
   }
+  h += cajas;
+  const det = [];
   det.push('Ganancia aproximada: <b>' + _iniPlata(a.ganancia) + '</b>' + (a.sinCosto
     ? ' (sin contar ' + a.sinCosto + _iniS(a.sinCosto, ' producto que no tiene', ' productos que no tienen') + ' costo cargado)' : ''));
   if (a.online > 0) det.push('Mostrador ' + _iniPlata(a.local) + ' · Tienda online ' + _iniPlata(a.online));
