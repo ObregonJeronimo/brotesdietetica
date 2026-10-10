@@ -576,7 +576,8 @@ producción (de los "gramajes" viejos).
 8. **Caja viandas** (§5.12, sin subir): confirmar las decisiones de `PENDIENTE.md` §1-bis AU (el cupón de un pedido
    mixto primero en la venta del local; la numeración compartida); para subirla, reglas y push con OK; después
    tildar "Es la cocina" en el proveedor de la cocina, pasar las 12 viandas del proveedor general cuando Thiago
-   avise, y avisarle a la clienta. Y el cupón de un pedido web que se cuenta dos veces (viejo, §AU).
+   avise, y avisarle a la clienta. El cupón de un pedido web que se contaba dos veces ya está arreglado (§AV, sin
+   subir); los contadores de producción quedan contados de más hasta que Thiago diga si se corrigen.
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 

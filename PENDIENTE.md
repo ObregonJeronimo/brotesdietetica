@@ -2959,10 +2959,35 @@ de viandas no abre; 2) el push. Después: tildar "Es la cocina" en el proveedor 
 (`P1aeb1vKVlCUsj13NaFj`) y pasar las 12 viandas del proveedor general cuando Thiago avise. Lo vendido antes queda como
 caja normal. Avisarle a la clienta (texto simple) y que recargue (F5).
 
-**Cosas viejas encontradas al probar (NO tocadas)**: al pasar a venta un pedido web con cupón, el panel anota otro
+**Cosas viejas encontradas al probar**: (ARREGLADO el 10/10, ver §AV) al pasar a venta un pedido web con cupón, el panel anotaba otro
 uso del cupón (`cuponCajaRegistrarUso` en `saveVenta`, desde el 07/09; la tienda ya lo había anotado): cada pedido web
-con cupón cuenta dos usos y uno con tope de usos se apaga antes. Editar una venta le cambia la hora a la de la
+con cupón contaba dos usos y uno con tope de usos se apagaba antes. Editar una venta le cambia la hora a la de la
 edición. El corte parcial y el cierre dicen "Fiado (no cobrado)" aunque después se haya cobrado.
+
+### AV) El cupón de un pedido web se contaba dos veces · ARREGLADO, solo local, SIN SUBIR (10/10/2026)
+
+Encontrado probando la caja viandas; Thiago: "Arreglá primero eso del cupón web que se cuenta dos veces". La tienda
+anota el uso del cupón al confirmar el pedido (app.js, en `cuponesUsos` con el uid del cliente; comprar exige sesión).
+Al pasar ese pedido a venta, el panel lo volvía a anotar (`cuponCajaRegistrarUso` en `saveVenta`, canal "mostrador",
+desde el 07/09, commit 64b5248) y la Cloud Function `procesarUsoCupon` suma 1 por cada registro: cada pedido web con
+cupón contaba 2 usos. Efecto: una promo con tope de usos se apagaba a la mitad (con tope 100, a los 50 pedidos); una
+sin tope mostraba el doble de usos; los de un solo uso (los de reseña) no cambiaban (ya se apagaban con el primero).
+
+**Arreglo** (750581e): el panel anota solo los cupones que aplicó la cajera (`deCaja`, que pone `cuponCajaAplicar`),
+igual que ya hacía `cuponCajaRevalidar`. El cupón de un pedido siempre viene de la tienda (el panel no tiene cómo
+ponérselo a un pedido) y la tienda ya lo anotó. Pruebas: `t-cupones-ticket.js` (+5, con la función ejecutada; sin el
+arreglo fallan); suite 4433, 0 fallas. Sandbox: cupón WEB1000 con tope 2 y el pedido #10 con el uso anotado como lo
+anota la tienda → pasado a venta (#56): sigue en 1 uso y ACTIVO (antes quedaba en 2 y apagado). Cupón impreso TYPT4K3
+canjeado en el mostrador (#58: $12.800 − $2.000 = $10.800): 1 registro "mostrador", 1 uso, apagado (era de un solo uso).
+
+**En producción**: los usos de los cupones usados en pedidos web desde el 07/09 están contados de más, y alguna promo
+con tope pudo haberse apagado antes de tiempo. No se puede ver sin entrar al panel (`cuponesUsos` es solo para admins):
+se ve en Cupones ("X/Y usos" e INACTIVO). Corregir los contadores es una escritura en producción, solo con OK de Thiago
+(se puede armar un script que recuente sin los duplicados: los registros "mostrador" cuya venta viene de un pedido web).
+
+**Otro detalle viejo visto al probar (NO tocado)**: "Imprimir un cupón de descuento en el ticket" dice "No hay promos
+activas" si en esa sesión no se entró antes a Cupones: las promos se cargan solo en esa sección (`cuponTicketPromosPintar`
+usa `cuponesData`, que llena `loadCupones`).
 
 ---
 
