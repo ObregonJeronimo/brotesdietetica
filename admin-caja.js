@@ -1376,7 +1376,8 @@ function renderCorteParcial(t, k) {
     '</div>' +
     '<p style="font-size:0.8rem;color:var(--text-dim);margin-top:0.9rem;line-height:1.55">' +
       'Esto es solo una consulta. No cierra la caja, no congela ningún total y no queda ' +
-      'guardado como arqueo: el cierre del día se sigue haciendo desde <b>Cerrar caja y arquear</b>.</p>';
+      'guardado como arqueo: el cierre del día se sigue haciendo desde <b>' +
+      (_caja(k).k === 'viandas' ? 'Cerrar caja de viandas y arquear' : 'Cerrar caja y arquear') + '</b>.</p>';
 }
 
 function imprimirCorteParcial(k) {

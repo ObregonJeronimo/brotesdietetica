@@ -499,6 +499,30 @@ const ts = (d, h) => new Date(d + 'T' + (h || '12:00') + ':00');
   t('"Ver ventas" lleva tambien a Viandas', /irASeccionVentas\('viandas'\)/.test(ADMIN));
   t('la primera caja de viandas sugiere 0 de fondo (no el del cajon del local)', /let sugerido = C\.k === 'viandas' \? 0 : cajaCfg\.fondoFijoSugerido;/.test(CAJA));
 
+  /* ------------------------------------------------------------------ 12 */
+  grupo('12. Lo que encontro la prueba en el sandbox (10/10/2026), arreglado');
+  {
+    const base = crearBase({
+      config: { cajaEstado: { cajaAbiertaId: 'cL' }, cajaViandasEstado: { cajaAbiertaId: 'cV' } },
+      cajas: { cL: { numero: 3, estado: 'abierta', fecha: HOY, montoInicial: 20000, abiertoEn: ts(HOY, '08:00') } },
+      cajasViandas: { cV: { numero: 4, estado: 'abierta', fecha: HOY, montoInicial: 5000, abiertoEn: ts(HOY, '08:05') } }
+    });
+    const P = crearPanel(base);
+    await P.run('loadCaja()');
+    await P.run("loadCaja('viandas')");
+    const corteV = P.run("renderCorteParcial(calcularTotalesCaja('viandas'),'viandas')");
+    const corteL = P.run('renderCorteParcial(calcularTotalesCaja())');
+    t('el corte parcial de la de viandas nombra SU boton de cierre', /<b>Cerrar caja de viandas y arquear<\/b>/.test(corteV));
+    t('  y el de la del local, el suyo', /<b>Cerrar caja y arquear<\/b>/.test(corteL) && !/de viandas/.test(corteL));
+  }
+  t('el pedido mixto deja a la vista que sus viandas van en otra venta (no solo un cartel que se va)',
+    /_nVds\.id='ventaVdsAparte';/.test(ADMIN) && /se cobran aparte, con la caja de viandas: al registrar esta venta se abre sola la de las viandas\./.test(ADMIN));
+  t('  y la nota se borra al abrir y al cerrar cualquier venta',
+    /cuponRowOld\.remove\(\);const _vdsApOld=document\.getElementById\('ventaVdsAparte'\);if\(_vdsApOld\)_vdsApOld\.remove\(\);/.test(ADMIN) &&
+    /function closeVentaModal\(\)\{const ac=[^\n]{0,200}?if\(cr\)cr\.remove\(\);const _vdsAp=document\.getElementById\('ventaVdsAparte'\);if\(_vdsAp\)_vdsAp\.remove\(\);/.test(ADMIN));
+  t('borrar la del local de un pedido a medio pasar limpia tambien la memoria del tablero',
+    /delete _pm\.viandasPendientes;delete _pm\.viandasStockDescontado;delete _pm\.viandasIds;delete _pm\.viandasCupon;/.test(ADMIN));
+
   console.log('\n' + ok + ' pasaron, ' + mal + ' fallaron');
   process.exit(mal ? 1 : 0);
 })().catch(e => { console.error('  EXPLOTO: ' + e.stack); console.log('\n' + ok + ' pasaron, ' + (mal + 1) + ' fallaron'); process.exit(1); });
