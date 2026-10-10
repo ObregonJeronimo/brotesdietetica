@@ -519,7 +519,9 @@ producción (de los "gramajes" viejos).
   pagó y va a la caja de cada venta. Centro de avisos y Estadísticas separan caja normal y caja viandas, con el total.
   Hecho en tres etapas (investigación, implementación, revisión con pruebas): 4428 pruebas sin fallas y todo
   probado en el sandbox con los números. **Para subirlo hay que publicar las reglas antes del push.** Detalle,
-  decisiones a confirmar y pasos de subida en `PENDIENTE.md` §1-bis AU.
+  decisiones a confirmar y pasos de subida en `PENDIENTE.md` §1-bis AU. Después (10/10, a pedido de Thiago): el cupón de un
+  pedido web ya no se cuenta dos veces (§AV), y en el Centro de avisos un recuadro por caja, la tecla C para la venta de
+  viandas y las promos del ticket sin entrar a Cupones (§AW).
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 

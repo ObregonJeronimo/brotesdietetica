@@ -2985,9 +2985,31 @@ con tope pudo haberse apagado antes de tiempo. No se puede ver sin entrar al pan
 se ve en Cupones ("X/Y usos" e INACTIVO). Corregir los contadores es una escritura en producción, solo con OK de Thiago
 (se puede armar un script que recuente sin los duplicados: los registros "mostrador" cuya venta viene de un pedido web).
 
-**Otro detalle viejo visto al probar (NO tocado)**: "Imprimir un cupón de descuento en el ticket" dice "No hay promos
+**Otro detalle viejo visto al probar (ARREGLADO el 10/10, ver §AW)**: "Imprimir un cupón de descuento en el ticket" decía "No hay promos
 activas" si en esa sesión no se entró antes a Cupones: las promos se cargan solo en esa sección (`cuponTicketPromosPintar`
 usa `cuponesData`, que llena `loadCupones`).
+
+### AW) Centro de avisos con un recuadro por caja, tecla C y promos sin entrar a Cupones · solo local, SIN SUBIR (10/10/2026)
+
+Pedido de Thiago (10/10): "Arreglá lo de no hay promos activas, y acá en centro de avisos separá esto que quede más
+claro cuáles ventas son de caja normal y cuál de viandas. Y agregá de atajo la letra C del teclado para abrir ventas
+viandas".
+- **Centro de avisos, tarjeta de Ayer**: en vez de la línea "Ventas caja normal: … · Ventas caja viandas: … · Total: …",
+  tres recuadros: "Caja normal" (verde, el ícono de Caja), "Caja viandas" (ámbar, el ícono de Caja viandas) y "Total de
+  las dos", cada uno con la plata y la cantidad de ventas. En el celular quedan uno abajo del otro. Sin cocina marcada y
+  sin ventas de viandas, la tarjeta queda como antes. Solo visual (`_iniHtmlAyer` en admin-inicio.js y su CSS `.ini-caja`).
+- **Tecla C** (de cocina): "Nueva venta de viandas" en el grupo Acciones, abre la venta de viandas desde cualquier
+  pantalla (como V la venta y M la mayorista). Sale en la ayuda ("?") y se puede cambiar en Configuración. En producción
+  no hay atajos personalizados (`config/atajos` no existe, leído el 10/10), así que la C está libre.
+- **"No hay promos activas"** (visto en §AV): al tildar "Imprimir un cupón de descuento en el ticket", si las promos no
+  se leyeron todavía, se leen en ese momento (`loadCupones`, la misma de la sección Cupones; dice "Buscando promos..."
+  mientras tanto) y una sola vez.
+
+Pruebas: t-inicio.js (+6, los recuadros con sus números), t-cupones-ticket.js (+4, las promos al tildar),
+t-caja-viandas.js (+6, la C pasando por el teclado de verdad, sin teclas repetidas); suite 4449, 0 fallas. Sandbox:
+la tarjeta de Ayer ($12.800 caja normal, $18.000 caja viandas, $30.800 las dos) en la computadora y en el celular; recién
+recargado y sin entrar a Cupones, al tildar el cupón aparecen las 4 promos; la C en el Centro de avisos abre "Nueva venta
+de viandas"; la ayuda la muestra. Commit d3596b7.
 
 ---
 
