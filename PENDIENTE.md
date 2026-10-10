@@ -2909,8 +2909,11 @@ una venta de una caja cerrada no la marca (editarla sí; la mayorista tampoco al
 y "Debe" de la ficha (con envío) difieren por el envío; si falla una lectura al cerrar, la caja podría cerrarse con
 las ventas en cero (hoy vuelve a abrir el cierre si cambian los números).
 
-**Decisiones abiertas para Thiago**: las 12 viandas del proveedor general; pedidos web mixtos (dos ventas);
-viandas por mayor (no); el cobro del fiado (lo de arriba). Lo demás, con la propuesta.
+**Decidido por Thiago (10/10)**: las 12 viandas del proveedor general van a la cocina, pero NO moverlas hasta que
+Thiago avise (lo habla con la clienta); pedidos web mixtos: dos ventas solas (la normal con envío y cupón, y la de
+viandas); viandas por mayor: no, solo en Ventas → Viandas; el cobro del fiado: que pregunte cómo pagó (el efectivo
+suma al cajón; transferencia y tarjeta quedan anotadas sin sumar al efectivo esperado). Lo demás, con la propuesta.
+Etapa 2 (implementación) arrancada el 10/10.
 
 ---
 
