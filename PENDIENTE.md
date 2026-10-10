@@ -2827,7 +2827,7 @@ Después, el saludo sin el nombre: probado en el sandbox con la lista de FRUTICO
 "Fruticor"): "Copiar mensaje" y WhatsApp Web arrancan con "Hola! Te paso el pedido:" y siguen yendo al número
 guardado. Sandbox cerrado el 08/10 (puertos verificados).
 
-### AU) Caja viandas aparte · ETAPA 1 (investigación) HECHA, falta que Thiago decida lo abierto (10/10/2026)
+### AU) Caja viandas aparte · ETAPAS 1, 2 y 3 HECHAS (investigación, implementación y revisión con pruebas) · solo local, SIN SUBIR (10/10/2026)
 
 Pedido de Thiago (10/10, con lo que dijo la clienta): "quiere literalmente una caja aparte, para ver el dinero
 aparte que generó solo las viandas (platos de cocina)… una copia exacta de la caja actual, pero solo para viandas,
@@ -2914,6 +2914,55 @@ Thiago avise (lo habla con la clienta); pedidos web mixtos: dos ventas solas (la
 viandas); viandas por mayor: no, solo en Ventas → Viandas; el cobro del fiado: que pregunte cómo pagó (el efectivo
 suma al cajón; transferencia y tarjeta quedan anotadas sin sumar al efectivo esperado). Lo demás, con la propuesta.
 Etapa 2 (implementación) arrancada el 10/10.
+
+**Hecho (etapa 2, 10/10; commits 4fa6842 y 6c4365b).** El diseño de arriba, con las decisiones de Thiago:
+- Menú: "Caja viandas" abajo de Caja y "Viandas" en Ventas. La caja de viandas es la misma pantalla que la del
+  local (abrir con su fondo, movimientos, corte parcial, cierre y arqueo, historial, imprimir/PDF/CSV con
+  "viandas" en el título y en el nombre del archivo), con su colección `cajasViandas`, su puntero y su numeración.
+  admin-caja.js tiene una instancia por caja (`CAJAS.principal` y `CAJAS.viandas`); la del local conserva sus nombres.
+- Qué es vianda: lo de un proveedor tildado "Es la cocina" (casilla nueva en la ficha del proveedor, campo
+  `cocina` en `listas/{id}`). **Sin ningún proveedor tildado no hay viandas y todo sigue como antes.**
+- Ventas → Viandas: la lista y "Nueva venta de viandas" (el modal de la minorista en modo viandas,
+  admin-viandas.js). Tres frenos: el buscador, agregar y el control al guardar (la mayorista también: las viandas
+  no se venden por mayor).
+- Pedidos web: solo viandas → una venta de viandas; mixtos → dos ventas solas (primero la del local con el envío
+  y el cupón, con una nota fija que avisa; al guardarla se abre la de las viandas). Si la de viandas no se hace,
+  el tablero muestra "Faltan las viandas" y el pedido el botón "Pasar las viandas a venta"; no se lo deja pasar a
+  confirmado o entregado sin cobrarlas. El cupón que no entra en la del local pasa a la de viandas. El ticket del
+  pedido junta las dos. Borrar la del local se frena mientras exista la de viandas.
+- Fiado: el cobro pregunta cómo pagó (efectivo suma al cajón; transferencia y tarjeta quedan anotadas sin sumar
+  al efectivo esperado) y va a la caja de cada venta.
+- Resúmenes: Centro de avisos ("Ventas caja normal · Ventas caja viandas · Total"), aviso de la caja de viandas
+  abierta de otro día, Estadísticas (totales por caja, el día con las dos cajas, "Contra <mes>", "Ver ventas" con
+  las de viandas aparte y botón a Viandas). Atajos i/e/x y V según la pantalla; el lector manda una vianda a la
+  venta de viandas.
+
+**Revisión y pruebas (etapa 3, 10/10; commits bfca023 y 2075407).** Dos revisiones de código encontraron 17 cosas
+(el cupón del pedido partido, el ticket del pedido, el stock al borrar o volver a pendiente un pedido a medio pasar,
+las viandas del pedido anotadas al pasar la primera venta, la segunda venta releída, el freno al pasar a entregado,
+la marca de la cocina releída antes de vender, la carrera entre las dos listas, textos): todas arregladas. Pruebas:
+`t-caja-viandas.js` (120) y la suite entera (4427, 0 fallas); 10 de 10 roturas a propósito detectadas. En el
+sandbox, con los números comprobados contra la base en cada paso: ventas de las dos cajas y sus frenos; pedido mixto
+(las dos ventas, el stock sin descontarse dos veces, cancelar la de viandas, borrar en orden, volver a pendiente y
+facturar de nuevo); pedido con cupón de $20.000 ($18.620 en la del local, $1.380 en la de viandas, total $16.620);
+pedido solo de viandas; fiado por transferencia; las dos cajas cerradas (una exacta y otra con $120 de faltante y
+su motivo); el arqueo impreso y el CSV; abrir las dos de nuevo (cada una sugiere su fondo); Estadísticas, Centro de
+avisos y campanita; editar una venta de viandas de una caja cerrada (marca SU caja); atajos, lector y celular.
+
+**Decisiones que tomé y conviene confirmar**: el cupón de un pedido mixto se usa primero en la venta del local y lo
+que sobra en la de viandas; las ventas de viandas siguen la misma numeración que las minoristas (números únicos,
+con saltos en cada lista); la primera caja de viandas sugiere $0 de fondo (después, lo que quedó en la anterior).
+
+**Para subirlo (con el OK de Thiago)**: 1) publicar las reglas (`firebase deploy --only firestore:rules`:
+`cajasViandas` y sus `movimientos`; van también las de `listasPedido` de §AT) ANTES del push, porque sin ellas la caja
+de viandas no abre; 2) el push. Después: tildar "Es la cocina" en el proveedor de la cocina
+(`P1aeb1vKVlCUsj13NaFj`) y pasar las 12 viandas del proveedor general cuando Thiago avise. Lo vendido antes queda como
+caja normal. Avisarle a la clienta (texto simple) y que recargue (F5).
+
+**Cosas viejas encontradas al probar (NO tocadas)**: al pasar a venta un pedido web con cupón, el panel anota otro
+uso del cupón (`cuponCajaRegistrarUso` en `saveVenta`, desde el 07/09; la tienda ya lo había anotado): cada pedido web
+con cupón cuenta dos usos y uno con tope de usos se apaga antes. Editar una venta le cambia la hora a la de la
+edición. El corte parcial y el cierre dicen "Fiado (no cobrado)" aunque después se haya cobrado.
 
 ---
 
