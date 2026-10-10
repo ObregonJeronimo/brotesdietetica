@@ -259,6 +259,10 @@ function cuponCajaReset() {
 async function cuponCajaRegistrarUso(ventaId, numero) {
   const c = window._pedidoCuponVenta;
   if (!c || !c.codigo) return;
+  /* Solo los que aplicó la cajera (deCaja). El cupón de un pedido de la tienda ya lo
+     anotó la tienda al confirmar el pedido (app.js): anotarlo otra vez al pasarlo a
+     venta lo contaba dos veces, y uno con tope de usos se apagaba a la mitad (10/10/2026). */
+  if (!c.deCaja) return;
   try {
     await db.collection('cuponesUsos').doc().set({
       cuponId: c.codigo,

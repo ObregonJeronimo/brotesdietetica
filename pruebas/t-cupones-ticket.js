@@ -376,5 +376,37 @@ t('  y no aparece si la venta no uso ninguno', /_vCup&&_vCup\.codigo/.test(html)
 t('el uso se registra una sola vez, al crear la venta',
   (html.match(/cuponCajaRegistrarUso\(/g) || []).length === 1);
 
-console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
-process.exit(fail ? 1 : 0);
+/* ================== EL CUPON DE UN PEDIDO DE LA TIENDA SE ANOTA UNA SOLA VEZ
+   La tienda anota el uso al confirmar el pedido (app.js, con el uid del cliente). Al
+   pasar el pedido a venta, el panel lo volvia a anotar como "mostrador" y la Cloud
+   Function procesarUsoCupon contaba los dos: cada pedido web con cupon gastaba dos usos
+   y uno con tope se apagaba a la mitad (desde el 07/09; arreglado el 10/10/2026). */
+console.log('\n-- el cupon de un pedido de la tienda se anota una sola vez --');
+(async () => {
+  const escritos = [];
+  const dbFalsa = { collection: col => ({ doc: () => ({ set: async d => { escritos.push(Object.assign({ _col: col }, d)); } }) }) };
+  const ventana = {};
+  const registrar = new Function('window', 'db', 'auth', 'firebase', 'showAdminToast',
+    src.slice(0, src.indexOf("if (typeof window !== 'undefined')")) + ';return cuponCajaRegistrarUso;')(
+    ventana, dbFalsa, { currentUser: { email: 'caja@local' } },
+    { firestore: { FieldValue: { serverTimestamp: () => 'ahora' } } }, () => {});
+  /* Como lo deja convertirPedidoEnVentaDesdeModal: el cupon del pedido, sin la marca de la cajera. */
+  ventana._pedidoCuponVenta = { codigo: 'PROMO20', monto: 20000 };
+  await registrar('venta1', 50);
+  t('el cupon de un pedido de la tienda NO se vuelve a anotar al pasarlo a venta', escritos.length === 0);
+  /* Como lo deja cuponCajaAplicar. */
+  ventana._pedidoCuponVenta = { codigo: 'ABC1234', monto: 500, id: 'ABC1234', deCaja: true };
+  await registrar('venta2', 51);
+  t('el que aplica la cajera si: uno, en cuponesUsos, canal mostrador, con su venta',
+    escritos.length === 1 && escritos[0]._col === 'cuponesUsos' && escritos[0].canal === 'mostrador' &&
+    escritos[0].codigo === 'ABC1234' && escritos[0].ventaId === 'venta2' && escritos[0].ventaNum === 51);
+  ventana._pedidoCuponVenta = null;
+  await registrar('venta3', 52);
+  t('sin cupon no anota nada', escritos.length === 1);
+  t('la conversion del pedido deja el cupon de la tienda sin la marca de la cajera',
+    html.indexOf('window._pedidoCuponVenta=p.cupon||null;') > 0);
+  t('y solo cuponCajaAplicar pone la marca', (mod.match(/deCaja: true/g) || []).length === 1);
+
+  console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
+  process.exit(fail ? 1 : 0);
+})();
