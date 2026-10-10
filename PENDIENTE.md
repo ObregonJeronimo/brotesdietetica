@@ -2949,7 +2949,7 @@ pedido solo de viandas; fiado por transferencia; las dos cajas cerradas (una exa
 su motivo); el arqueo impreso y el CSV; abrir las dos de nuevo (cada una sugiere su fondo); Estadísticas, Centro de
 avisos y campanita; editar una venta de viandas de una caja cerrada (marca SU caja); atajos, lector y celular.
 
-**Decisiones que tomé y conviene confirmar**: el cupón de un pedido mixto se usa primero en la venta del local y lo
+**Decisiones que tomé, CONFIRMADAS por Thiago el 10/10** (las tres como estaban): el cupón de un pedido mixto se usa primero en la venta del local y lo
 que sobra en la de viandas; las ventas de viandas siguen la misma numeración que las minoristas (números únicos,
 con saltos en cada lista); la primera caja de viandas sugiere $0 de fondo (después, lo que quedó en la anterior).
 

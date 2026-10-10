@@ -573,8 +573,9 @@ producción (de los "gramajes" viejos).
    (F5). Y decidir con Thiago lo que la revisión dejó anotado sin tocar (`PENDIENTE.md` §1-bis AP): la
    selección con productos depurados y la regla de "poco stock" de la campanita (el texto de la
    confirmación de la tanda ya se arregló y se subió: §1-bis AQ).
-8. **Caja viandas** (§5.12, sin subir): confirmar las decisiones de `PENDIENTE.md` §1-bis AU (el cupón de un pedido
-   mixto primero en la venta del local; la numeración compartida); para subirla, reglas y push con OK; después
+8. **Caja viandas** (§5.12, sin subir; Thiago confirmó el 10/10 las decisiones de `PENDIENTE.md` §1-bis AU: el cupón
+   de un pedido mixto primero en la venta del local, la numeración compartida y el fondo de /usr/bin/bash la primera vez): para
+   subirla, reglas y push con OK; después
    tildar "Es la cocina" en el proveedor de la cocina, pasar las 12 viandas del proveedor general cuando Thiago
    avise, y avisarle a la clienta. El cupón de un pedido web que se contaba dos veces ya está arreglado (§AV, sin
    subir); los contadores de producción quedan contados de más hasta que Thiago diga si se corrigen.
