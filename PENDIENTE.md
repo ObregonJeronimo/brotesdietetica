@@ -2827,32 +2827,90 @@ Después, el saludo sin el nombre: probado en el sandbox con la lista de FRUTICO
 "Fruticor"): "Copiar mensaje" y WhatsApp Web arrancan con "Hola! Te paso el pedido:" y siguen yendo al número
 guardado. Sandbox cerrado el 08/10 (puertos verificados).
 
-### AU) Caja de viandas · solo la idea, NO HECHO: espera las respuestas de la clienta (08/10/2026)
+### AU) Caja viandas aparte · ETAPA 1 (investigación) HECHA, falta que Thiago decida lo abierto (10/10/2026)
 
-Pedido de la clienta (por Thiago): "una especie de caja pero que sea específica para viandas (productos de la
-cocina) para cobrarlos por esa caja"; Thiago: "no complicársela mucho… quizás una extensión de la caja en vez de
-una caja completamente nueva". Thiago: "después lo vemos".
-- **Propuesta**: un apartado "Viandas" dentro de la misma caja, que se arma solo. Se vende igual (una venta
-  puede mezclar viandas y otras cosas); en Caja, un recuadro "Viandas de hoy" (cuántas, total, y por medio:
-  efectivo, transferencia/tarjeta, fiado); el cierre dice qué parte del efectivo es de viandas ("de viandas
-  $35.000"), y queda en el historial y en el arqueo impreso. Una sola caja para abrir y cerrar. Descartado: una
-  caja aparte (dos cajas por día, dos fondos) y un botón "Vender viandas" (partir la compra en dos).
-- **Qué es vianda** (leído en producción, solo lectura, 08/10): "Viandas y comidas listas" tiene 77 productos;
-  25 parecen de la cocina, todos con el mismo proveedor (P1aeb1vKVlCUsj13NaFj: tartas, creps, canelones,
-  tortillas…); el resto se compra hecho (Sojitas, Manjar, Hesai…). "Tortilla de espinaca mediana" (de ese
-  proveedor) no tiene categoría. Propuesta: elegir por proveedor, una vez, desde la Caja (la config de la caja no
-  tiene pantalla hoy).
-- **Cuentas**: en una venta mezclada con descuento general o cupón, a las viandas les toca su parte
-  proporcional; el envío nunca es vianda; viandas + el resto = el total exacto (el redondeo, del lado general).
-  La vianda al fiado no es efectivo, y el cobro del fiado entra sin saber qué productos eran: propuesta, a la
-  parte general. Lo cerrado queda congelado, como hoy. Sin cambios en las ventas, el stock, las reglas ni los
-  datos.
-- **Preguntas para la clienta**: ¿la plata de viandas va a otro cajón o sobre (contar las dos al cerrar) o al
-  mismo cajón y solo quiere saber cuánto es?; ¿las transferencias de viandas van a la misma cuenta?; ¿viandas son
-  solo las de la cocina o también las compradas hechas?; ¿para qué es: pagarle a la cocina (mostrar el costo) o
-  saber cuánto vende? Lo que vendió un proveedor en 30/90 días ya está en Proveedores.
-- Si Thiago dice de arrancar sin las respuestas: por proveedor, mismo cajón con el aviso de cuánto separar, y
-  el fiado a la parte general.
+Pedido de Thiago (10/10, con lo que dijo la clienta): "quiere literalmente una caja aparte, para ver el dinero
+aparte que generó solo las viandas (platos de cocina)… una copia exacta de la caja actual, pero solo para viandas,
+y que el dinero de ambas cajas esté separado, no se juntan… que se tenga que arquear la caja también y todo". En
+Ventas, además de Minoristas y Mayoristas, "Viandas"; abajo de "Caja", "Caja viandas". Los resúmenes separados
+("Ventas caja normal y ventas caja viandas, y el total"), por ejemplo en el Centro de avisos. "En la caja viandas
+solo deberían aparecer las viandas… y en la caja normal solo productos normales que NO sean viandas." Pidió
+trabajarlo en etapas: 1 investigación, 2 implementación, 3 revisión profunda con pruebas. Reemplaza la idea vieja
+de un apartado dentro de la misma caja (08/10).
+
+**Qué es vianda (leído en producción, solo lectura, 10/10).** El proveedor `P1aeb1vKVlCUsj13NaFj` tiene 25
+productos, todos platos de cocina y nada más (uno, "Tortilla de espinaca mediana", sin categoría). Pero otras 12
+viandas de cocina están en `ZrIt3Woh5qLkOIa6qsWo`, un proveedor "general" con 237 productos de todo (bazar, velas,
+especias…): Lasagna bolonesa, Bombas de papa CHICAS, Guiso de alubias, Guiso de lentejas, Tartas de pollo o espinaca
+(integral o manteca), Tarta brocoli o 3 cebollas Int o Manteca, Humita, Crepes de Pollo, Croquetas de trigo,
+Croquetas de puerro, Pastel de quinoa y mani, Pollitos (varias parecen repetidas de las de la cocina). Sojitas,
+Manjar, Hesai y Arrolladito están en "Viandas y comidas listas" pero son de marcas compradas. Los nombres de los
+proveedores no se pueden leer sin entrar al panel. Propuesta: por proveedor, con una marca en el proveedor
+("cocina", como `pdfSemanal`: `listas/{id}` es solo para admins, sin regla nueva), y las 12 pasarlas a la cocina.
+
+**Diseño propuesto.**
+- **Cajas de viandas en una colección aparte** `cajasViandas` (+ `movimientos`), con su puntero
+  `config/cajaViandasEstado` y su contador `config/cajasViandasCount` ("Caja viandas #0001"). Así ninguna
+  consulta de la caja de siempre cambia de sentido (con un campo `tipo` en `cajas`, el respaldo
+  `where estado==abierta limit 1` (admin-caja.js:228) agarraría la de viandas, el freno "Ya hay una caja abierta"
+  (:915) no dejaría abrir la segunda, el fondo sugerido (:898) y el historial (:486) se mezclarían, y Estadísticas
+  tomaría "la peor caja del día"). Necesita DOS bloques nuevos en firestore.rules (la colección y su subcolección:
+  las reglas no bajan) y publicarlas (paso aparte, con OK). Sin índices compuestos nuevos si las consultas se arman
+  bien (fondo sugerido con `orderBy(abiertoEn)` + filtro en memoria).
+- **admin-caja.js parametrizado** (una instancia por caja; las cuentas en una sola función): la caja de siempre
+  conserva sus nombres y variables globales (`cajaActual`, `loadCaja`, `getCajaAbiertaIdLive`…), que leen
+  admin-alertas.js:58-62, admin-inicio.js:353-355, admin-atajos.js y las pruebas. Copiar el módulo (~1845 líneas,
+  ~80 nombres) se descartó: un nombre sin cambiar pisa la caja de siempre, y los arreglos de plata se separarían.
+  Copias del HTML para lo que actúa sobre la caja abierta (sección, abrir, movimiento, corte parcial, cierre) con
+  ids nuevos; detalle, exportar y "Ver ventas" compartidos, sabiendo de qué caja son.
+- **Las ventas de viandas en `ventas`** con `cajaTipo:'viandas'` (escrito al crearla, aunque no haya caja
+  abierta) y el `cajaId` de la caja de viandas. Así siguen andando sin tocar: editar, borrar, ticket, factura,
+  stock, el fiado del cliente, unir clientes, Depuración y Proveedores. Una colección aparte (`ventasViandas`)
+  se descartó: unos 12 lugares la ignorarían en silencio (deudas del cliente que no se ven ni se pueden cobrar,
+  productos de la cocina propuestos para depurar, uniones de clientes rotas). Numeración: la misma serie que las
+  minoristas (`config/ventasCount`; números únicos, con saltos en cada lista).
+- **La venta de viandas**: el mismo modal de la minorista en "modo viandas" (bandera que se pone al abrir y se
+  borra en `openVentaModal`, porque Escape no pasa por `closeVentaModal`). Tres frenos para que nada se mezcle:
+  el buscador muestra solo lo que corresponde; `_agregarItemVenta` (admin.html:3866) frena; y un control final
+  en `saveVenta`/`saveVentaMay` (por `sugerirPresentacion`, las bolsas de granel, editar y los pedidos, que
+  cargan productos sin pasar por `_agregarItemVenta`). Al editar, solo se controlan los renglones nuevos (las
+  ventas viejas tienen platos de cocina vendidos como minoristas).
+- **Ventas → Viandas**: lista igual a Minoristas (Ventas, Facturado, Ticket promedio, Fiado sin cobrar, filtro por
+  mes, buscar, Editar/Factura/Ticket/Eliminar); Minoristas deja afuera las de viandas. El arreglo `ventasData`
+  puede seguir con las dos (cada lista filtra) para que las búsquedas por id de editar/factura/ticket/pedido anden.
+- **Pedidos web**: la tienda vende viandas y un pedido puede mezclar. Propuesta: al pasarlo a venta, si mezcla, dos
+  ventas (la normal con el envío y el cupón, y la de viandas), las dos con el stock ya descontado por el pedido; el
+  pedido guarda las dos (hoy tiene un solo `ventaId`, usado al borrar, al volverlo a pendiente, en Estadísticas,
+  el ticket del pedido y la reseña). Solo viandas → venta de viandas.
+- **Fiado**: el cobro (`confirmarCobroCC`, admin.html:5645) hoy pone UN ingreso en la caja de siempre. Debe ir a la
+  caja de cada venta (dos ingresos si paga de las dos), con el aviso por caja si alguna está cerrada.
+- **"Ventas fuera de caja" / Adjuntar** (admin-caja.js:255-276, 1441-1455): cada caja solo las suyas (si no, la
+  plata de una venta de viandas hecha con la caja cerrada entra al arqueo de la otra).
+- **Resúmenes**: Centro de avisos, tarjeta "Ayer" (admin-inicio.js:256-304, 392-421): caja normal, caja viandas y
+  total. Aviso "La caja de viandas quedó abierta del…" en la campanita (admin-alertas.js:57-67), el Centro y la
+  caja. Estadísticas (admin-stats.js:105-541): viandas aparte en los totales, el día (las dos cajas), "Contra
+  <mes>" y "Ver ventas" (tercera columna); el color del día por la caja de siempre. Clientes: el total del cliente
+  sigue sumando todo; en la ficha, la deuda separada por caja y una marca "VIANDAS". Proveedores y Depuración
+  siguen contando las viandas (son por producto).
+- **Mayorista**: sin viandas (propuesta). Atajos i/e/x: la caja que está en pantalla. El lector: en Ventas →
+  Viandas vende viandas; una vianda en una venta normal, aviso. Historial, arqueo impreso/PDF/CSV y nombres de
+  archivo con "viandas".
+- **Lo vendido antes de subirlo** queda como caja normal (no se toca el pasado).
+
+**Riesgos de plata y cómo se cubren**: venta a la caja equivocada (los tres frenos + `cajaTipo` al crear + el
+puntero de viandas sin respaldo a la caja de siempre); la caja de siempre agarrando la de viandas (colección
+aparte); "Adjuntar" con ventas de la otra caja (filtro por `cajaTipo`); fiado a la caja equivocada (un ingreso por
+caja); cerrar la caja equivocada desde un atajo o un modal compartido (modales propios + atajos según la pantalla);
+una regla faltante en la subcolección (falla en silencio: se prueba en el sandbox, que aplica las reglas).
+
+**Cosas que ya estaban así (encontradas al investigar, NO incluidas sin el OK de Thiago)**: el cobro de un fiado
+no pregunta cómo pagó y siempre suma al efectivo esperado (si pagó por transferencia, el arqueo da faltante); borrar
+una venta de una caja cerrada no la marca (editarla sí; la mayorista tampoco al editar); "Fiado sin cobrar" (neto)
+y "Debe" de la ficha (con envío) difieren por el envío; si falla una lectura al cerrar, la caja podría cerrarse con
+las ventas en cero (hoy vuelve a abrir el cierre si cambian los números).
+
+**Decisiones abiertas para Thiago**: las 12 viandas del proveedor general; pedidos web mixtos (dos ventas);
+viandas por mayor (no); el cobro del fiado (lo de arriba). Lo demás, con la propuesta.
 
 ---
 
