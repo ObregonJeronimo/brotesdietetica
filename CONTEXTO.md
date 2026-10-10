@@ -517,7 +517,7 @@ producción (de los "gramajes" viejos).
   su plata separada; "Caja viandas" en el menú y "Viandas" en Ventas. Es vianda lo de un proveedor tildado "Es la
   cocina" (sin ninguno tildado, todo sigue como antes). Pedidos web mixtos: dos ventas solas. El fiado pregunta cómo
   pagó y va a la caja de cada venta. Centro de avisos y Estadísticas separan caja normal y caja viandas, con el total.
-  Hecho en tres etapas (investigación, implementación, revisión con pruebas): 4427 pruebas sin fallas y todo
+  Hecho en tres etapas (investigación, implementación, revisión con pruebas): 4428 pruebas sin fallas y todo
   probado en el sandbox con los números. **Para subirlo hay que publicar las reglas antes del push.** Detalle,
   decisiones a confirmar y pasos de subida en `PENDIENTE.md` §1-bis AU.
 

@@ -2937,11 +2937,11 @@ Etapa 2 (implementación) arrancada el 10/10.
   las de viandas aparte y botón a Viandas). Atajos i/e/x y V según la pantalla; el lector manda una vianda a la
   venta de viandas.
 
-**Revisión y pruebas (etapa 3, 10/10; commits bfca023 y 2075407).** Dos revisiones de código encontraron 17 cosas
+**Revisión y pruebas (etapa 3, 10/10; commits bfca023, 2075407 y dc343b3).** Dos revisiones de código encontraron 17 cosas
 (el cupón del pedido partido, el ticket del pedido, el stock al borrar o volver a pendiente un pedido a medio pasar,
 las viandas del pedido anotadas al pasar la primera venta, la segunda venta releída, el freno al pasar a entregado,
 la marca de la cocina releída antes de vender, la carrera entre las dos listas, textos): todas arregladas. Pruebas:
-`t-caja-viandas.js` (120) y la suite entera (4427, 0 fallas); 10 de 10 roturas a propósito detectadas. En el
+`t-caja-viandas.js` (121) y la suite entera (4428, 0 fallas); 10 de 10 roturas a propósito detectadas. En el
 sandbox, con los números comprobados contra la base en cada paso: ventas de las dos cajas y sus frenos; pedido mixto
 (las dos ventas, el stock sin descontarse dos veces, cancelar la de viandas, borrar en orden, volver a pendiente y
 facturar de nuevo); pedido con cupón de $20.000 ($18.620 en la del local, $1.380 en la de viandas, total $16.620);
