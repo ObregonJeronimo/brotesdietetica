@@ -33,6 +33,28 @@ function _cocinasIds() {
 }
 function hayCocina() { return _cocinasIds().size > 0; }
 
+/* La marca de la cocina al día. `listasData` se lee una vez al entrar al panel: si la
+   clienta tilda "Es la cocina" en otra compu, esta seguiría vendiendo viandas como
+   productos comunes hasta recargar. Se relee antes de vender (y al abrir la venta de
+   viandas o un pedido), como mucho cada 5 minutos: una sola lectura chica. Sin proveedores
+   cargados todavía (el primer segundo después de entrar), se cargan enteros. */
+const VIANDAS_COCINA_FRESCA_MS = 5 * 60 * 1000;
+let _cocinasLeidasEn = 0;
+async function viandasRefrescarCocinas(forzar) {
+  const ls = (typeof listasData !== 'undefined' && Array.isArray(listasData)) ? listasData : null;
+  if (ls && !ls.length && typeof loadListas === 'function') {
+    try { await loadListas(); _cocinasLeidasEn = Date.now(); } catch (e) { /* sigue con lo que hay */ }
+    return;
+  }
+  if (!forzar && Date.now() - _cocinasLeidasEn < VIANDAS_COCINA_FRESCA_MS) return;
+  try {
+    const s = await db.collection('listas').where('cocina', '==', true).get();
+    const ids = new Set(s.docs.map(d => d.id));
+    (ls || []).forEach(l => { if (l) l.cocina = ids.has(l.id); });
+    _cocinasLeidasEn = Date.now();
+  } catch (e) { console.warn('cocina de los proveedores:', e); }
+}
+
 function esVianda(p, cocinas) {
   if (!p || !p.lista) return false;
   return (cocinas || _cocinasIds()).has(p.lista);
@@ -82,9 +104,10 @@ function viandasControlVenta(items, ctx, originales) {
   const malos = (items || []).filter(i => i && !viejos.has(i.id)).filter(i => (vds ? !esViandaId(i.id, cocinas) : esViandaId(i.id, cocinas)));
   if (!malos.length) return '';
   const nombres = malos.map(i => i.nombre || i.id).slice(0, 4).join(', ') + (malos.length > 4 ? ' y ' + (malos.length - 4) + ' más' : '');
-  if (ctx === 'may') return 'Las viandas no se venden por mayor: sacá ' + nombres + ' y cobralas en Ventas → Viandas.';
-  if (vds) return 'En la venta de viandas solo van viandas: sacá ' + nombres + ' y cobralo en una venta minorista.';
-  return nombres + (malos.length === 1 ? ' es una vianda' : ' son viandas') + ': se cobran en Ventas → Viandas, con la caja de viandas. Sacalas de esta venta.';
+  const uno = malos.length === 1;
+  if (ctx === 'may') return 'Las viandas no se venden por mayor: sacá ' + nombres + ' y ' + (uno ? 'cobrala' : 'cobralas') + ' en Ventas → Viandas.';
+  if (vds) return 'En la venta de viandas solo van viandas: sacá ' + nombres + ' y ' + (uno ? 'cobralo' : 'cobralos') + ' en una venta minorista.';
+  return nombres + (uno ? ' es una vianda: se cobra' : ' son viandas: se cobran') + ' en Ventas → Viandas, con la caja de viandas. ' + (uno ? 'Sacala' : 'Sacalas') + ' de esta venta.';
 }
 
 /* El aviso de abajo del buscador cuando lo que se busca está del otro lado. */
@@ -127,6 +150,7 @@ async function provMarcarCocina(id, el) {
   try {
     await db.collection('listas').doc(id).update({ cocina: marcar });
     l.cocina = marcar;
+    _cocinasLeidasEn = Date.now();
     if (typeof logAction === 'function')
       logAction('editar', 'Proveedor ' + l.nombre + (marcar ? ': es la cocina (sus productos son viandas)' : ': ya no es la cocina'), n);
     showAdminToast(marcar ? l.nombre + ' quedó como la cocina: sus productos son viandas' : l.nombre + ' ya no es la cocina', 'success');
@@ -140,9 +164,7 @@ async function provMarcarCocina(id, el) {
 
 /* "Nueva venta de viandas": el mismo modal de la minorista, en modo viandas. */
 async function abrirVentaViandas() {
-  if (typeof listasData !== 'undefined' && !(listasData || []).length && typeof loadListas === 'function') {
-    try { await loadListas(); } catch (e) { /* sin proveedores: el buscador lo avisa */ }
-  }
+  await viandasRefrescarCocinas();
   openVentaModal();
   window._ventaViandas = true;
   pintarModoVentaViandas(false);
@@ -172,8 +194,15 @@ function pintarModoVentaViandas(editando, numero) {
    le saca al pedido la marca `stockDescontado` (como siempre); lo de las viandas queda
    anotado en `viandasStockDescontado`, para que su venta no lo vuelva a descontar. */
 function viandasDelPedido(p) {
-  const cocinas = _cocinasIds();
   const items = (p && Array.isArray(p.items)) ? p.items : [];
+  /* Pasada la primera venta, el pedido guarda cuáles eran sus viandas (`viandasIds`): se usa
+     esa lista y no se vuelve a calcular. Si en el medio cambió el catálogo o la marca de la
+     cocina, la segunda venta y lo que se devuelve al stock siguen siendo lo mismo. */
+  if (p && Array.isArray(p.viandasIds)) {
+    const fijas = new Set(p.viandasIds);
+    return { vds: items.filter(i => i && fijas.has(i.id)), nor: items.filter(i => !(i && fijas.has(i.id))) };
+  }
+  const cocinas = _cocinasIds();
   return {
     vds: items.filter(i => i && esViandaId(i.id, cocinas)),
     nor: items.filter(i => !(i && esViandaId(i.id, cocinas)))
@@ -207,6 +236,8 @@ async function loadVentasViandas() {
   const c = document.getElementById('ventasVdsList');
   if (!c) return;
   c.innerHTML = '<div class="empty-state" style="padding:2rem"><p>Cargando...</p></div>';
+  /* La misma ficha que loadVentas: la carga que llega tarde no pisa la que se ve. */
+  const tk = (window._ventasCargaTk = (window._ventasCargaTk || 0) + 1);
   try {
     const mes = (sel && sel.value) || '';
     let q = db.collection('ventas');
@@ -219,6 +250,7 @@ async function loadVentasViandas() {
       _ventasVdsTope = true;
     }
     const snap = await q.get();
+    if (tk !== window._ventasCargaTk) return;
     ventasData = snap.docs.map(d => {
       const r = d.data();
       return Object.assign({ docId: d.id }, r, { fecha: r.fecha ? (r.fecha.toDate ? r.fecha.toDate() : new Date(r.fecha)) : new Date() });

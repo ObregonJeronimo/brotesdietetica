@@ -358,7 +358,8 @@ t('  saca el cupon para que se pueda guardar sin el',
 /* Sin restaurar el boton, la pantalla queda con "Guardando..." para siempre y
    parece colgada. */
 t('  y devuelve el boton a su estado',
-  /_rev\.ok\)\{btn\.disabled=false;btn\.innerHTML='<i class="bi bi-check-lg"><\/i> Registrar Venta'/.test(html));
+  /* En la venta de viandas el boton vuelve a decir lo suyo (caja viandas, 10/10/2026). */
+  /_rev\.ok\)\{btn\.disabled=false;btn\.innerHTML=(?:_vds\?'<i class="bi bi-check-lg"><\/i> Registrar venta de viandas':)?'<i class="bi bi-check-lg"><\/i> Registrar Venta'/.test(html));
 
 /* El uso se anota UNA vez, al crear. Al editar una venta que ya tenia cupon no se
    puede volver a anotar: contaria dos veces y el cupon se apagaria antes de tiempo. */

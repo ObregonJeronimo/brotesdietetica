@@ -1017,7 +1017,9 @@ function renderCajaDetalle(d) {
 
 async function openAbrirCajaModal(k) {
   const C = _caja(k);
-  let sugerido = cajaCfg.fondoFijoSugerido;
+  /* La primera de viandas arranca en 0: el fondo sugerido de la configuración es el del
+     cajón del local. */
+  let sugerido = C.k === 'viandas' ? 0 : cajaCfg.fondoFijoSugerido;
   /* Lo que quedó en el cajón al cerrar ayer es el fondo natural de hoy (de ESTA caja).
      La de viandas lo busca sin `where`: con el filtro haría falta un índice compuesto
      nuevo en su colección, y son unas pocas cajas por mes. */

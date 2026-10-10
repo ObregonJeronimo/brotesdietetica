@@ -1200,7 +1200,8 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     await w2.ctx.repartirGranelDeVenta('min');
     t('  si no se acepta, queda como vino', renglones(w2.ctx.ventaItems) === 'y3:3000@7000/c4500');
     t('el panel lo llama al convertir un pedido que no descontó stock',
-      html.indexOf("if(p.stockDescontado!==true&&typeof repartirGranelDeVenta==='function')await repartirGranelDeVenta('min');") > 0);
+      /* En la segunda venta de un pedido partido (caja viandas, 10/10/2026) la marca que cuenta es la de sus viandas. */
+      html.indexOf("if((_segundaVds?p.viandasStockDescontado!==true:p.stockDescontado!==true)&&typeof repartirGranelDeVenta==='function')await repartirGranelDeVenta('min');") > 0);
   }
 
   console.log('\n-- una bolsa más cara por kilo que una más chica (01/10) --');

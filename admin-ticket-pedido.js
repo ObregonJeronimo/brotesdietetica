@@ -120,8 +120,10 @@ function ticketPedidoDocumento(pedido, cfg, extra) {
 
   let pago = '';
   if (venta) {
+    /* Un pedido partido en dos ventas (la del local y la de viandas) dice los dos números. */
+    const nros = Array.isArray(venta._numeros) ? venta._numeros.filter(Boolean) : (venta.numero ? [venta.numero] : []);
     pago = _tpFila('Pagado', _tpEsc(venta.medioPago || 'Efectivo')) +
-      (venta.numero && typeof NEGOCIO !== 'undefined' && NEGOCIO.nroVenta ? _tpFila('Venta', _tpEsc(NEGOCIO.nroVenta(venta.numero))) : '');
+      (nros.length && typeof NEGOCIO !== 'undefined' && NEGOCIO.nroVenta ? _tpFila(nros.length > 1 ? 'Ventas' : 'Venta', _tpEsc(nros.map(n => NEGOCIO.nroVenta(n)).join(' y '))) : '');
   } else if (p.medioPago) {
     pago = _tpFila('Medio de pago', _tpEsc(p.medioPago));
   }
@@ -184,6 +186,24 @@ async function _tpVentaDe(ventaId) {
   }
 }
 
+/* Las dos ventas de un pedido partido (la del local y la de viandas) como si fueran una, para
+   el ticket del pedido: los renglones de las dos y la plata sumada. */
+function _tpVentasJuntas(a, b) {
+  const n = x => Number(x || 0);
+  const ca = a.cupon && n(a.cupon.monto) > 0 ? a.cupon : null, cb = b.cupon && n(b.cupon.monto) > 0 ? b.cupon : null;
+  return Object.assign({}, a, {
+    items: (a.items || []).concat(b.items || []),
+    subtotalProductos: n(a.subtotalProductos) + n(b.subtotalProductos),
+    descuentoMonto: n(a.descuentoMonto) + n(b.descuentoMonto),
+    descuentoPct: 0,
+    cupon: (ca || cb) ? { codigo: (ca || cb).codigo, monto: (ca ? n(ca.monto) : 0) + (cb ? n(cb.monto) : 0) } : null,
+    envio: n(a.envio) + n(b.envio),
+    total: n(a.total) + n(b.total),
+    medioPago: (a.medioPago || '') === (b.medioPago || '') ? a.medioPago : (a.medioPago || '-') + ' y ' + (b.medioPago || '-'),
+    _numeros: [a.numero, b.numero]
+  });
+}
+
 /* Como imprimirTicket (admin-ticket.js): una ventana aparte, el papel adentro y print(). */
 function _tpImprimir(html) {
   const win = window.open('', '_blank', 'width=420,height=640');
@@ -239,7 +259,18 @@ async function _tpImprimirPedido(docId) {
     }
     return false;
   }
-  const venta = await _tpVentaDe(p.ventaId);
+  let venta = await _tpVentaDe(p.ventaId);
+  /* Caja viandas (10/10/2026): un pedido con viandas y otras cosas se cobra en DOS ventas.
+     Con las dos hechas, el ticket las muestra juntas (todo lo del pedido y lo cobrado en las
+     dos). Si las viandas todavia no se pasaron, sale con lo del pedido entero y sin decir
+     "Pagado": la venta del local sola dejaria afuera las viandas, y al cliente se le cobraria
+     de menos. */
+  if (p.ventaViandasId) {
+    const vds = await _tpVentaDe(p.ventaViandasId);
+    if (venta && vds) venta = _tpVentasJuntas(venta, vds);
+  } else if (typeof viandasPendientesDelPedido === 'function' && viandasPendientesDelPedido(p)) {
+    venta = null;
+  }
   const cfg = typeof ticketCfgActual === 'function' ? ticketCfgActual() : {};
   const hecho = _tpImprimir(ticketPedidoDocumento(p, cfg, { venta: venta, ahora: new Date() }));
   if (hecho && typeof logAction === 'function') {

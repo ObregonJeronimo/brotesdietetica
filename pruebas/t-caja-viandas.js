@@ -432,7 +432,7 @@ const ts = (d, h) => new Date(d + 'T' + (h || '12:00') + ':00');
   t('el cobro del fiado: pregunta como pago y va a la caja de cada venta',
     ADMIN.indexOf('id="cobroCCMedio"') > 0 && /col:'cajasViandas'/.test(ADMIN) && /monto:g\.total, medio:medio/.test(ADMIN) && /getCajaAbiertaIdLive\(g\.k\)/.test(ADMIN));
   t('el pedido partido: la primera vuelta deja las viandas pendientes y la segunda se anota aparte',
-    /viandasPendientes:true,viandasStockDescontado:_pv1\.stockDescontado===true/.test(ADMIN) && /update\(\{ventaViandasId:ventaDocId,viandasPendientes:false,viandasStockDescontado:false\}\)/.test(ADMIN));
+    /viandasPendientes:true,viandasStockDescontado:_pv1\.stockDescontado===true,viandasIds:_pv1\.ids\|\|\[\]/.test(ADMIN) && /update\(Object\.assign\(\{ventaViandasId:ventaDocId,viandasPendientes:false,viandasStockDescontado:false\}/.test(ADMIN));
   t('  la segunda no vuelve a descontar el stock que la tienda ya desconto',
     /const _yaDescontado=_pv2\?\(_pv2\.stockDescontado===true\):/.test(ADMIN));
   t('  ni crea otro token de reseña', /const _esVentaWeb=!!window\._pedidoOrigenVentaId&&!_pv2;/.test(ADMIN));
@@ -440,6 +440,64 @@ const ts = (d, h) => new Date(d + 'T' + (h || '12:00') + ':00');
   t('la regla nueva: cajasViandas y sus movimientos, solo admins',
     /match \/cajasViandas\/\{doc\} \{\s*allow read, write: if isAdmin\(\);\s*\}/.test(REGLAS) && /match \/cajasViandas\/\{doc\}\/movimientos\/\{mov\} \{\s*allow read, write: if isAdmin\(\);\s*\}/.test(REGLAS));
   t('el modulo nuevo se carga despues de la caja', ADMIN.indexOf('<script src="admin-viandas.js">') > ADMIN.indexOf('<script src="admin-caja.js">'));
+
+  /* ------------------------------------------------------------------ 11 */
+  grupo('11. Lo que encontro la revision (10/10/2026), arreglado');
+  {
+    const P = crearPanel(crearBase({}), {
+      listasData: [{ id: 'L1' }, { id: 'COC', cocina: true }],
+      allProducts: [{ id: 'tarta', lista: 'COC' }, { id: 'almen', lista: 'L1' }, { id: 'yerba', lista: 'L1' }]
+    });
+    const ped = { items: [{ id: 'tarta' }, { id: 'almen' }, { id: 'yerba' }], viandasIds: ['tarta', 'yerba'] };
+    const r = P.ctx.viandasDelPedido(ped);
+    t('pasada la primera venta, las viandas del pedido son las que quedaron anotadas (no se recalculan)',
+      r.vds.map(i => i.id).join() === 'tarta,yerba' && r.nor.map(i => i.id).join() === 'almen');
+    P.run("listasData[1].cocina = false;");
+    t('  aunque despues se destilde la cocina, siguen siendo las mismas', P.ctx.viandasDelPedido(ped).vds.length === 2);
+
+    /* La marca de la cocina se relee de la base (otra compu pudo tildarla). */
+    const base = crearBase({ listas: { L1: { nombre: 'GENERAL' }, COC: { nombre: 'COCINA', cocina: true } } });
+    const P2 = crearPanel(base, { listasData: [{ id: 'L1', nombre: 'GENERAL' }, { id: 'COC', nombre: 'COCINA' }] });
+    t('sin releer, esta compu no sabe que COCINA es la cocina', P2.run('hayCocina()') === false);
+    await P2.run('viandasRefrescarCocinas(true)');
+    t('  al releer (antes de vender) se entera', P2.run('hayCocina()') === true && base.ops.some(o => /get listas where cocina==/.test(o)), base.ops);
+    const n = base.ops.length;
+    await P2.run('viandasRefrescarCocinas()');
+    t('  y no vuelve a leer hasta dentro de 5 minutos', base.ops.length === n);
+  }
+  {
+    /* El ticket del pedido con las dos ventas juntas. */
+    const TP = fs.readFileSync(path.join(RAIZ, 'admin-ticket-pedido.js'), 'utf8');
+    const ctx = { console, Math, Number, String, Object, Array, Date, window: {}, document: { getElementById: () => null }, db: null };
+    vm.createContext(ctx);
+    vm.runInContext(TP, ctx, { filename: 'admin-ticket-pedido.js' });
+    const a = { numero: 45, items: [{ id: 'almen', subtotal: 2000 }], subtotalProductos: 2000, descuentoMonto: 0, cupon: { codigo: 'PROMO', monto: 2000 }, envio: 1500, total: 1500, medioPago: 'Efectivo' };
+    const b = { numero: 46, items: [{ id: 'tarta', subtotal: 9000 }], subtotalProductos: 9000, descuentoMonto: 0, cupon: { codigo: 'PROMO', monto: 1000 }, envio: 0, total: 8000, medioPago: 'Efectivo' };
+    const j = ctx._tpVentasJuntas(a, b);
+    t('el ticket del pedido junta las dos ventas: los renglones de las dos', j.items.length === 2);
+    t('  la plata sumada: subtotal 11.000, cupon 3.000, envio 1.500, total 9.500', j.subtotalProductos === 11000 && j.cupon.monto === 3000 && j.envio === 1500 && j.total === 9500, j);
+    t('  y los dos numeros de venta', Array.isArray(j._numeros) && j._numeros.join() === '45,46');
+    t('  con medios distintos lo dice', ctx._tpVentasJuntas(a, Object.assign({}, b, { medioPago: 'Transferencia' })).medioPago === 'Efectivo y Transferencia');
+    t('imprimir el ticket del pedido usa las dos (o el pedido entero si faltan las viandas)',
+      /if \(p\.ventaViandasId\) \{\s*const vds = await _tpVentaDe\(p\.ventaViandasId\);\s*if \(venta && vds\) venta = _tpVentasJuntas\(venta, vds\);/.test(TP) &&
+      /viandasPendientesDelPedido\(p\)\) \{\s*venta = null;/.test(TP));
+  }
+  t('el cupon del pedido partido: la del local guarda lo que se le aplico y el resto pasa a la de viandas',
+    /cuponMonto,subtotalConDesc,envio,total:subtotalConDesc\+envio\}/.test(ADMIN) &&
+    /viandasCupon:\(window\._pedidoCuponVenta&&Number\(window\._pedidoCuponVenta\.monto\|\|0\)>Number\(totales\.cuponMonto\|\|0\)\)/.test(ADMIN) &&
+    /window\._pedidoCuponVenta=\(p\.viandasCupon&&Number\(p\.viandasCupon\.monto\)>0\)\?p\.viandasCupon:null;/.test(ADMIN));
+  t('  y el uso del cupon se registra una sola vez', /if\(!_pv2&&typeof cuponCajaRegistrarUso==='function'\)/.test(ADMIN));
+  t('borrar un pedido a medio pasar devuelve lo que la tienda desconto de sus viandas',
+    /const soloVds=!vivo\.stockDescontado&&vivo\.viandasPendientes===true&&vivo\.viandasStockDescontado===true;/.test(ADMIN));
+  t('pasar a confirmado o entregado un pedido con las viandas sin cobrar manda a pasarlas',
+    /&&\(!p\.ventaId\|\|\(typeof viandasPendientesDelPedido==='function'&&viandasPendientesDelPedido\(p\)\)\)\)\{/.test(ADMIN));
+  t('  y el tablero lo marca: "Faltan las viandas"', /<i class="bi bi-egg-fried"><\/i> Faltan las viandas<\/span>/.test(ADMIN));
+  t('la segunda venta relee el pedido antes de crearse', /if\(_pv2&&!isEdit\)\{try\{const _ps2=await db\.collection\('pedidos'\)\.doc\(_pv2\.pedidoId\)\.get\(\);/.test(ADMIN));
+  t('  solo se abre si el pedido quedo marcado, y nunca despues de editar otra venta', /if\(_pv1&&!isEdit&&typeof viandasSegundaParte==='function'\)\{if\(_pedMarcado\)/.test(ADMIN));
+  t('editar una venta borra las marcas de las dos vueltas', /showAdminToast\('Venta no encontrada','error'\);return;\}window\._pedidoParteViandas1=null;window\._pedidoParteViandas2=null;/.test(ADMIN));
+  t('la carga de Minoristas y la de Viandas no se pisan (ficha de carga)', /if\(_tkV!==window\._ventasCargaTk\)return;/.test(ADMIN) && /if \(tk !== window\._ventasCargaTk\) return;/.test(VDS));
+  t('"Ver ventas" lleva tambien a Viandas', /irASeccionVentas\('viandas'\)/.test(ADMIN));
+  t('la primera caja de viandas sugiere 0 de fondo (no el del cajon del local)', /let sugerido = C\.k === 'viandas' \? 0 : cajaCfg\.fondoFijoSugerido;/.test(CAJA));
 
   console.log('\n' + ok + ' pasaron, ' + mal + ' fallaron');
   process.exit(mal ? 1 : 0);
