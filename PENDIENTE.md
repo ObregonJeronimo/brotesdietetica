@@ -2808,7 +2808,7 @@ Verificado a las 10:47: Vercel sirve los mismos `admin.html` y `admin-clientes.j
 pantalla de ingreso del panel cargan sin errores (sin iniciar sesión). La clienta lo ve al recargar (F5),
 mejor entre una venta y otra.
 
-### AT) Proveedores: listas de pedidos para mandar por WhatsApp · solo local, SIN SUBIR (08/10/2026)
+### AT) Proveedores: listas de pedidos para mandar por WhatsApp · **SUBIDO A PRODUCCIÓN el 12/10/2026** (08/10/2026)
 
 Pedido de Thiago: en Proveedores, un botón "Lista de pedidos" para ir agregando productos y cuánto de cada uno
 ("teniendo en cuenta todo tipo de situación: bolsas, presentaciones, productos con una sola bolsa, productos
@@ -2868,7 +2868,7 @@ Después, el saludo sin el nombre: probado en el sandbox con la lista de FRUTICO
 "Fruticor"): "Copiar mensaje" y WhatsApp Web arrancan con "Hola! Te paso el pedido:" y siguen yendo al número
 guardado. Sandbox cerrado el 08/10 (puertos verificados).
 
-### AU) Caja viandas aparte · ETAPAS 1, 2 y 3 HECHAS (investigación, implementación y revisión con pruebas) · solo local, SIN SUBIR (10/10/2026)
+### AU) Caja viandas aparte · ETAPAS 1, 2 y 3 HECHAS (investigación, implementación y revisión con pruebas) · **SUBIDO A PRODUCCIÓN el 12/10/2026** (10/10/2026)
 
 Pedido de Thiago (10/10, con lo que dijo la clienta): "quiere literalmente una caja aparte, para ver el dinero
 aparte que generó solo las viandas (platos de cocina)… una copia exacta de la caja actual, pero solo para viandas,
@@ -2994,7 +2994,9 @@ avisos y campanita; editar una venta de viandas de una caja cerrada (marca SU ca
 que sobra en la de viandas; las ventas de viandas siguen la misma numeración que las minoristas (números únicos,
 con saltos en cada lista); la primera caja de viandas sugiere $0 de fondo (después, lo que quedó en la anterior).
 
-**Para subirlo (con el OK de Thiago)**: 1) publicar las reglas (`firebase deploy --only firestore:rules`:
+**Subido el 12/10/2026** (Thiago: "Genial, subí los cambios a prod", después de una revisión rápida: 4449 pruebas, reglas 61/61): las reglas publicadas primero (antes se comparó que las de producción eran las del repo; después se leyeron publicadas, con `cajasViandas`, sus `movimientos` y `listasPedido`) y el push `88eb353..ebbb1d6` (22 commits: §AT a §AW). Verificado: Vercel sirve los mismos archivos que el repo (16 revisados); la tienda y la pantalla de ingreso del panel cargan sin errores, sin iniciar sesión. Falta: tildar "Es la cocina", que la clienta recargue (F5) y avisarle; las 12 viandas cuando Thiago avise; los contadores de cupones de §AV si se corrigen.
+
+**Cómo se subió (referencia)**: 1) publicar las reglas (`firebase deploy --only firestore:rules`:
 `cajasViandas` y sus `movimientos`; van también las de `listasPedido` de §AT) ANTES del push, porque sin ellas la caja
 de viandas no abre; 2) el push. Después: tildar "Es la cocina" en el proveedor de la cocina
 (`P1aeb1vKVlCUsj13NaFj`) y pasar las 12 viandas del proveedor general cuando Thiago avise. Lo vendido antes queda como
@@ -3005,7 +3007,7 @@ uso del cupón (`cuponCajaRegistrarUso` en `saveVenta`, desde el 07/09; la tiend
 con cupón contaba dos usos y uno con tope de usos se apagaba antes. Editar una venta le cambia la hora a la de la
 edición. El corte parcial y el cierre dicen "Fiado (no cobrado)" aunque después se haya cobrado.
 
-### AV) El cupón de un pedido web se contaba dos veces · ARREGLADO, solo local, SIN SUBIR (10/10/2026)
+### AV) El cupón de un pedido web se contaba dos veces · ARREGLADO, **SUBIDO A PRODUCCIÓN el 12/10/2026** (10/10/2026)
 
 Encontrado probando la caja viandas; Thiago: "Arreglá primero eso del cupón web que se cuenta dos veces". La tienda
 anota el uso del cupón al confirmar el pedido (app.js, en `cuponesUsos` con el uid del cliente; comprar exige sesión).
@@ -3030,7 +3032,7 @@ se ve en Cupones ("X/Y usos" e INACTIVO). Corregir los contadores es una escritu
 activas" si en esa sesión no se entró antes a Cupones: las promos se cargan solo en esa sección (`cuponTicketPromosPintar`
 usa `cuponesData`, que llena `loadCupones`).
 
-### AW) Centro de avisos con un recuadro por caja, tecla C y promos sin entrar a Cupones · solo local, SIN SUBIR (10/10/2026)
+### AW) Centro de avisos con un recuadro por caja, tecla C y promos sin entrar a Cupones · **SUBIDO A PRODUCCIÓN el 12/10/2026** (10/10/2026)
 
 Pedido de Thiago (10/10): "Arreglá lo de no hay promos activas, y acá en centro de avisos separá esto que quede más
 claro cuáles ventas son de caja normal y cuál de viandas. Y agregá de atajo la letra C del teclado para abrir ventas
