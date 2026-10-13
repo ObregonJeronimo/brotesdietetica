@@ -3054,6 +3054,54 @@ la tarjeta de Ayer ($12.800 caja normal, $18.000 caja viandas, $30.800 las dos) 
 recargado y sin entrar a Cupones, al tildar el cupón aparecen las 4 promos; la C en el Centro de avisos abre "Nueva venta
 de viandas"; la ayuda la muestra. Commit d3596b7.
 
+### AX) Pagar una venta con varios medios · ETAPA 1 (investigación) HECHA, sin código (13/10/2026)
+
+Pedido de Thiago (13/10): una venta pagada con más de un medio ("mitad efectivo y mitad transferencia, o $2.000 de
+efectivo y $6.000 de transferencia"). Respuestas: en todas las ventas (minorista, mayorista, viandas y pedidos web);
+con todos los medios del sistema (Efectivo, Tarjeta, Transferencia y Cuenta Corriente: hasta 4 partes); el fiado en
+una parte, "creo que sí, pero puede ser delicado: depende de la investigación". Pidió investigar sin tocar código.
+
+**Hoy**: una venta guarda UN medio (`medioPago` y `medioPagoKey`, `keyDeMedio`/`medioKeyDeVenta` en admin.html) y el
+total entero cuenta en ese medio en todos lados. No hay nada de pago dividido (el "Paga con / Vuelto" del ticket existe
+en admin-ticket.js pero ninguna pantalla carga `pagoCon`).
+
+**Dónde pega** (unas 35 funciones en 6 archivos; mapa hecho con un script de lectura):
+- Plata que tiene que dar exacta: `calcularTotalesCaja` (las dos cajas: el efectivo esperado sale de acá y el cierre
+  congela `ventasPorMedio`); Estadísticas por día y por mes (`tocar`, `totalesMes` en admin-stats.js); el fiado
+  (`_esFiadoImpago`, "Debe" y la deuda por caja en la ficha, la lista y el total del cobro, el ingreso que el cobro
+  carga en la caja, "Fiado sin cobrar" de Minoristas y Viandas); y guardar la venta (las partes tienen que sumar el total,
+  también después de que `cuponCajaRevalidar` corrige el cupón al guardar, o de un cambio de envío).
+- Lo que se muestra: los chips y la búsqueda de las tres listas, el renglón de cada venta en la caja (detalle, arqueo
+  impreso, CSV y PDF, "Ver ventas"), el ticket, el ticket del pedido (`_tpVentasJuntas`), la factura A4 y el historial.
+- Los formularios: el de la venta minorista (lo usan también la de viandas y la conversión de pedidos; la segunda venta
+  de un pedido mixto hereda el medio de la primera) y el de la mayorista, cada uno con su forma de dividir y de cargar
+  las partes al editar.
+- NO cambian: las reglas de Firestore (ventas es solo de admins y no valida campos), las Cloud Functions (ninguna lee el
+  medio), la tienda (el pedido web no trae medio: se elige al pasarlo a venta) ni las ventas viejas.
+
+**Diseño propuesto**: las ventas con un solo medio quedan exactamente como hoy. La dividida guarda además `pagos` (cada
+parte con su medio y su monto), `medioPago` con el texto "Efectivo + Transferencia" y `medioPagoKey` en "mixto". Una sola
+función devuelve las partes de cualquier venta (la vieja, una sola parte con el total) y todos los lugares de arriba
+suman por parte. Así las 12 pruebas que hoy miran el medio siguen valiendo y se agregan las de la venta dividida.
+
+**El fiado en una parte**: encaja con la regla de hoy ("se saldan ventas ENTERAS": la parte fiada se cobra entera, con
+`ccPagado` en la venta), pero la deuda pasa a ser esa parte y no el total en unos 8 lugares; si alguno queda con el total,
+al cliente se le cobraría de más. Con dos frenos queda acotado: (1) con una parte fiada hay que elegir un cliente, y (2)
+una venta con el fiado ya cobrado no deja cambiar sus pagos. Es alrededor de un tercio del trabajo y la mayor parte de
+las pruebas.
+
+**Cosas viejas encontradas (NO tocadas)**: hoy se puede vender "Cuenta Corriente" a "Consumidor Final": esa deuda suma en
+"Fiado sin cobrar" pero no tiene ficha donde cobrarla, así que no se puede saldar nunca. Y editar una venta fiada que ya
+se cobró no está trabado: si se le cambia el medio o el total, la caja puede contar dos veces la misma plata. Los dos
+frenos de arriba los arreglarían también para el fiado entero (cambia cómo funciona hoy: a decidir).
+
+**Al subirlo**: F5 en todas las computadoras enseguida. Una pestaña vieja abierta leería una venta dividida como "otro"
+medio y su arqueo daría mal hasta recargar.
+
+**Tamaño estimado**: mediano, entre un tercio y la mitad de la caja de viandas (unas 25 a 30 partes del código, casi todas
+chicas, más el editor de pagos en los dos formularios y una prueba nueva con los números de cada relación). Por etapas como
+la caja de viandas: implementación y después revisión con pruebas y el sandbox.
+
 ---
 
 ## 2. Decisiones tuyas
