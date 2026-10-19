@@ -1137,10 +1137,19 @@
 .pg-dividir:hover{border-color:var(--accent);color:var(--accent)}
 .pg-dividir.activo{border-color:var(--accent);color:var(--accent);background:rgba(110,190,110,0.08)}
 #pagosWrap{margin-top:0.6rem;border:1px solid var(--border);border-radius:10px;padding:0.7rem;background:rgba(255,255,255,0.02)}
-.pg-fila{display:grid;grid-template-columns:1fr 120px 30px;gap:0.45rem;align-items:center;margin-bottom:0.45rem}
-.pg-fila select,.pg-fila input{margin:0}
+/* MEDIDO, no estimado: el .form-input del panel trae 16px de padding a cada lado
+   y 15,2px de letra. En la columna del modal -276px- al <select> le quedaban 55px
+   de texto, y "Cuenta Corriente" necesita 116. Un <select> NO desborda: el
+   navegador le recorta la etiqueta, asi que se leia "Cuenta Corr..." sin que
+   nada lo delatara. Acá se achican padding y letra, y sobre todo la fila es
+   FLEX CON WRAP: si el ancho no alcanza, el importe baja a la linea de abajo en
+   vez de ahogar al select. Asi aguanta cualquier ancho de columna sin media
+   queries, que no servirian porque lo que manda es el ancho del modal. */
+.pg-fila{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:0.45rem}
+.pg-fila select{flex:1 1 141px;min-width:0;margin:0;padding:0.5rem 0.4rem;font-size:0.85rem}
+.pg-fila .pg-monto{flex:0 0 76px;min-width:76px;margin:0;padding:0.5rem 0.4rem;font-size:0.85rem}
 .pg-monto{text-align:right;font-family:var(--mono,ui-monospace,monospace)}
-.pg-quitar{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.95rem;padding:2px;line-height:1}
+.pg-quitar{flex:0 0 24px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.95rem;padding:2px;line-height:1}
 .pg-quitar:hover{color:#f56c6c}
 .pg-agregar{background:none;border:1px dashed var(--border);color:var(--text-dim);border-radius:8px;
   padding:5px 10px;font-size:0.76rem;cursor:pointer;width:100%;margin-top:2px}
@@ -1152,7 +1161,7 @@
 .pg-falta{color:#EDB833}
 .pg-sobra{color:#f56c6c}
 .pg-ok{color:#67c23a}
-@media(max-width:560px){.pg-fila{grid-template-columns:1fr 92px 26px}}
+
 </style>
 <!-- cache bust -->
 </head>
@@ -4326,7 +4335,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             const lista = document.getElementById('pagosLista');
             lista.innerHTML = ventaPagos.map((p,i) =>
                 '<div class="pg-fila">' +
-                  '<select class="form-input" onchange="cambiarMedioPago(' + i + ',this.value)">' +
+                  '<select class="form-input" title="' + esc(p.medio) + '" onchange="cambiarMedioPago(' + i + ',this.value)">' +
                     PG_MEDIOS.concat(PG_MEDIOS.includes(p.medio)?[]:[p.medio]).map(m =>
                       '<option' + (m===p.medio?' selected':'') + '>' + esc(m) + '</option>').join('') +
                   '</select>' +

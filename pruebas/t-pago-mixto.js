@@ -401,5 +401,52 @@ t('una venta vieja se abre sin dividir', U.pagos() === null);
 U.call('cargarPagosDeVenta', UNICA);
 t('y una de un solo pago tambien', U.pagos() === null);
 
+grupo('NINGUN lugar se queda mostrando una etiqueta sola');
+/* Esta es la prueba que faltaba. Al rehacer el pago mixto sobre la caja de
+   viandas me olvide de reaplicar las etiquetas en admin-caja.js: el calculo
+   repartia bien, pero el comprobante del arqueo, el CSV y el PDF mostraban la
+   clave cruda "mixto" en vez de "Efectivo $6.000 + Transferencia $4.000".
+   No lo encontro ninguna prueba porque todas miraban los NUMEROS.
+
+   En vez de listar los sitios -que es lo que se olvida- se vigila la REGLA:
+   todo lugar que saque el medio de una venta para mostrarlo tiene que tener al
+   lado su desglose. Si manana se agrega un listado nuevo, esto lo cachea. */
+const SITIOS = (CAJA.match(/const medio = \(typeof medioKeyDeVenta/g) || []).length;
+t('hay sitios que etiquetan la venta en la caja', SITIOS >= 5, SITIOS + ' sitios');
+const CON_MIX = (CAJA.match(/const _mix = \(typeof detallePagos/g) || []).length;
+t('todos tienen su desglose al lado', CON_MIX === SITIOS, CON_MIX + ' de ' + SITIOS);
+
+/* Y que lo USEN: ninguna etiqueta puede imprimirse sin pasar antes por _mix. */
+const SIN_USAR = (CAJA.match(/(?<!_mix \|\| )_MEDIOS?_NOMBRE\[medio\] \|\| medio/g) || []);
+t('y ninguna se imprime sin el', SIN_USAR.length === 0, SIN_USAR.join(' / '));
+const SIN_USAR2 = (CAJA.match(/(?<!_mix \|\| )nombresMedio\[medio\] \|\| medio/g) || []);
+t('tampoco en la tabla del dia', SIN_USAR2.length === 0);
+
+t('las tablas de nombres conocen "mixto"',
+  (CAJA.match(/mixto: 'Mixto'/g) || []).length >= 2,
+  (CAJA.match(/mixto: 'Mixto'/g) || []).length + ' tablas');
+
+grupo('El reparto de la caja NO se cuela en las etiquetas');
+/* El sitio que reparte la plata usa _pagos, no _mix: son dos cosas distintas y
+   confundirlas haria que el arqueo sumara texto. */
+t('el calculo usa pagosDeVenta, no el texto', /_pagos\.forEach\(pg => \{ porMedio\[pg\.key\]/.test(CAJA));
+/* Un solo forEach reparte: el renglon es `porMedio[k] = (porMedio[k]||0) + monto`,
+   o sea que la clave aparece dos veces en esa unica linea. */
+t('y hay un solo lugar donde se reparte', (CAJA.match(/_pagos\.forEach\(/g) || []).length === 1);
+
+grupo('Los otros modulos tampoco muestran la etiqueta pelada');
+const TKPED = fs.readFileSync(path.join(RAIZ, 'admin-ticket-pedido.js'), 'utf8');
+t('el ticket del pedido muestra el desglose', /_mix \|\| venta\.medioPago/.test(TKPED));
+t('y el pedido partido junta los pagos de las dos ventas', /pagos: \(typeof pagosDeVenta/.test(TKPED));
+const VDS = fs.readFileSync(path.join(RAIZ, 'admin-viandas.js'), 'utf8');
+t('el buscador de viandas busca por cualquiera de los medios', /detallePagos\(v\)/.test(VDS));
+const STATS2 = fs.readFileSync(path.join(RAIZ, 'admin-stats.js'), 'utf8');
+t('las estadisticas no suman por un medio solo',
+  !/porMedio\[k\] = \(.*porMedio\[k\] \|\| 0\) \+ v\._neto/.test(STATS2));
+/* Dos llamadas, mas la definicion de la funcion: tres apariciones. */
+t('las dos sumas pasan por _porMedio', (STATS2.match(/_porMedio\(v, /g) || []).length === 3);
+t('el fiado suma solo la parte fiada', /p\.key==='cuenta_corriente'/.test(HTML));
+t('y sigue descartando lo ya cobrado', /_montoFiadoImpago[\s\S]{0,200}_esFiadoImpago\(v\)/.test(HTML));
+
 console.log('\n' + ok + ' pasaron, ' + mal + ' fallaron');
 process.exit(mal ? 1 : 0);

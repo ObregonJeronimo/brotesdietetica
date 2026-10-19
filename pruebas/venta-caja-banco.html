@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Banco del flujo: venta mixta → caja</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  body{margin:0;padding:1rem;background:#0d1117;color:#e6edf3;font:14px/1.5 system-ui,sans-serif}
+  h1{font-size:1rem;margin:0 0 .3rem}
+  .sub{color:#8b949e;font-size:.8rem;max-width:820px;margin-bottom:.8rem}
+  button.b{background:#238636;border:1px solid #2ea043;color:#fff;border-radius:6px;padding:.4rem .7rem;cursor:pointer;font-size:.8rem;margin:0 .3rem .4rem 0;position:relative;z-index:9999}
+  button.b.gris{background:#21262d;border-color:#30363d;color:#e6edf3}
+  #log{font-family:ui-monospace,Consolas,monospace;font-size:.75rem;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:.6rem;white-space:pre-wrap;max-height:50vh;overflow:auto;position:relative;z-index:9999}
+  .ok{color:#3fb950}.mal{color:#f85149}.info{color:#58a6ff}
+</style>
+</head>
+<body>
+<h1>Banco del flujo completo: venta mixta → caja</h1>
+<p class="sub">
+  Monta el <b>modal de venta entero</b> de <code>/admin</code> con sus estilos reales, para
+  ver el bloque de pago <b>al ancho que tiene de verdad</b> —que es donde se corta el
+  texto— y para recorrer el flujo: dividir el pago, cerrar la venta, verla caer en la
+  caja y ver qué dice el arqueo.
+</p>
+<div>
+  <button class="b" onclick="abrir()">Abrir el modal de venta</button>
+  <button class="b gris" onclick="dividir()">Dividir 6.000 / 4.000</button>
+  <button class="b gris" onclick="medirCorte()">¿Se corta algo?</button>
+  <button class="b gris" onclick="flujoCaja()">Cerrar la venta y ver la caja</button>
+</div>
+<div id="log">montando…</div>
+
+<script>
+function log(t,c){ const d=document.getElementById('log'); d.innerHTML+='<span class="'+(c||'')+'">'+String(t).replace(/</g,'&lt;')+'</span>\n'; d.scrollTop=1e9; }
+let TOTAL = 10000;
+function calcularTotalesVenta(){ return { total: TOTAL, subtotal: TOTAL }; }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function limpiarMonto(inp){ if(inp) inp.value=String(inp.value).replace(/[^0-9]/g,''); }
+
+function abrir(){ document.getElementById('ventaModal').classList.add('show'); renderPagos(); }
+function dividir(){
+  if(!pagoDividido()) togglePagoDividido();
+  const c=document.querySelectorAll('#pagosLista .pg-monto');
+  if(c[0]){ c[0].value='6000'; onInputPago(0,c[0]); renderPagos(); }
+  log('dividido: '+ventaPagos.map(p=>p.medio+' $'+p.monto).join(' + '));
+}
+
+/* MIDE EL CORTE DE VERDAD: compara el ancho que el texto necesita contra el que
+   tiene. Es lo unico que no se puede saber leyendo codigo. */
+function medirCorte(){
+  let malos=0;
+  document.querySelectorAll('#pagosLista select, #pagosLista input, #pgResumen, .pg-dividir, .pg-agregar').forEach(el=>{
+    const cortado = el.scrollWidth > el.clientWidth + 1;
+    const txt = (el.tagName==='SELECT') ? (el.options[el.selectedIndex]||{}).text : (el.value||el.textContent||'').trim();
+    log('   '+el.tagName.toLowerCase()+(el.id?'#'+el.id:'')+'  "'+String(txt).slice(0,24)+'"  '+
+        el.clientWidth+'px disponibles / '+el.scrollWidth+'px necesarios'+(cortado?'   << SE CORTA':''), cortado?'mal':'ok');
+    if(cortado) malos++;
+  });
+  const wrap=document.getElementById('pagosWrap');
+  log(malos?('HAY '+malos+' ELEMENTO(S) CORTADO(S)'):'No se corta nada', malos?'mal':'ok');
+  log('ancho del bloque de pago: '+Math.round(wrap.getBoundingClientRect().width)+'px','info');
+}
+
+/* El flujo: la venta se registra y cae en la caja; se mira el arqueo. */
+function flujoCaja(){
+  const pagos=pagosParaGuardar();
+  const err=validarPagos();
+  if(err){ log('la venta NO se guarda: '+err.replace(/&[a-z]+;/g,'?'),'mal'); return; }
+  const venta={ docId:'V1', numero:1, fecha:new Date(), total:TOTAL, envio:0,
+    cliente:'Consumidor Final', medioPago:medioParaGuardar(),
+    medioPagoKey:(pagos&&pagos.length>1)?MEDIO_MIXTO_KEY:keyDeMedio(medioParaGuardar()),
+    pagos:pagos, items:[{nombre:'Yerba',precio:TOTAL,cantidad:1,tipoVenta:'unidad',subtotal:TOTAL}] };
+  log('--- la venta que se guarda ---');
+  log('   medioPago: '+venta.medioPago+'   medioPagoKey: '+venta.medioPagoKey);
+  log('   pagos: '+JSON.stringify(venta.pagos));
+  log('   como se ve en la lista: "'+medioDeVenta(venta)+'"  /  desglose: "'+detallePagos(venta)+'"');
+
+  /* La caja, con el codigo REAL de admin-caja.js. */
+  const INICIAL=5000;
+  window._cajaFalsa={ ventas:[venta], movs:[], actual:{montoInicial:INICIAL}, k:'local' };
+  const t=_calcTot('local');
+  log('--- la caja ---');
+  Object.keys(t.porMedio).forEach(k=>{ if(t.porMedio[k]) log('   '+k+': $'+t.porMedio[k].toLocaleString('es-AR')); });
+  log('   inicial $'+INICIAL.toLocaleString('es-AR')+' + efectivo $'+t.porMedio.efectivo.toLocaleString('es-AR'));
+  log('   ESPERADO EN EL CAJON: $'+t.esperado.toLocaleString('es-AR'),
+      t.esperado===INICIAL+t.porMedio.efectivo?'ok':'mal');
+  const malo=INICIAL+TOTAL;
+  log('   (contando la venta entera como efectivo pediria $'+malo.toLocaleString('es-AR')+')',
+      t.esperado!==malo?'ok':'mal');
+  log('   bruto de ventas: $'+t.bruto.toLocaleString('es-AR')+'  (la venta entera, bien)',
+      t.bruto===TOTAL?'ok':'mal');
+  const suma=Object.values(t.porMedio).reduce((s,x)=>s+x,0);
+  log('   la suma de los medios da el bruto: '+(suma===t.bruto?'si':'NO'), suma===t.bruto?'ok':'mal');
+}
+
+function cuerpo(txt,n){
+  let i=txt.indexOf('function '+n+'(');
+  if(i<0) throw new Error('no esta '+n);
+  let b=txt.indexOf('{',i),prof=0,k;
+  for(k=b;k<txt.length;k++){ if(txt[k]==='{')prof++; else if(txt[k]==='}'){prof--;if(!prof)break;} }
+  return txt.slice(i,k+1);
+}
+Promise.all([fetch('/admin').then(r=>r.text()), fetch('/admin-caja.js').then(r=>r.text())]).then(([t,caja])=>{
+  const doc=new DOMParser().parseFromString(t,'text/html');
+  doc.querySelectorAll('style').forEach(s=>document.head.appendChild(s.cloneNode(true)));
+  const m=doc.getElementById('ventaModal');
+  document.body.appendChild(m.cloneNode(true));
+
+  const FUNCS=['keyDeMedio','medioKeyDeVenta','netoVenta','keyDePago','pagosDeVenta','_repartirPagos',
+    'esPagoMixto','medioDeVenta','detallePagos','cobradoEn','pagosCuadran',
+    'pagoDividido','_pgTotal','_pgSuma','_pgFalta','_pgMedioLibre','_pgAjustarUltimo',
+    'togglePagoDividido','agregarPago','quitarPago','cambiarMedioPago','onInputPago',
+    'renderPagos','renderResumenPagos','pagosParaGuardar','validarPagos','medioParaGuardar',
+    'cargarPagosDeVenta'].map(n=>cuerpo(t,n)).join('\n');
+  const CONSTS=t.slice(t.indexOf('const MEDIO_MIXTO = '), t.indexOf('function keyDePago'))
+    + t.slice(t.indexOf('const _NOMBRE_MEDIO = {'), t.indexOf('};', t.indexOf('const _NOMBRE_MEDIO = {'))+2)
+    + '\n' + t.slice(t.indexOf('let ventaPagos = null;'), t.indexOf('function pagoDividido()'));
+  /* calcularTotalesCaja del archivo REAL, con su contexto de mentira. */
+  const CAJA='function _caja(){return window._cajaFalsa;}function _movEnEfectivo(){return true;}'
+    + cuerpo(caja,'calcularTotalesCaja') + '\nwindow._calcTot=calcularTotalesCaja;';
+  const s=document.createElement('script');
+  s.textContent=CONSTS+'\n'+FUNCS+'\n'+CAJA;
+  document.body.appendChild(s);
+  log('modal de venta y admin-caja.js reales montados','ok');
+  abrir();
+}).catch(e=>log('no se pudo montar: '+e.message,'mal'));
+</script>
+</body>
+</html>

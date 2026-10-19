@@ -843,7 +843,7 @@ function _nVentas(n) {
 
 const _MEDIO_NOMBRE = {
   efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia',
-  cuenta_corriente: 'Fiado', otro: 'Otro',
+  cuenta_corriente: 'Fiado', otro: 'Otro', mixto: 'Mixto',
 };
 
 function _columnaVentas(titulo, icono, lista) {
@@ -851,6 +851,8 @@ function _columnaVentas(titulo, icono, lista) {
   const filas = lista.length
     ? lista.map(v => {
         const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+        /* Con varios medios se muestra el desglose en vez de una etiqueta sola. */
+        const _mix = (typeof detallePagos === 'function') ? detallePagos(v) : '';
         const items = Array.isArray(v.items) ? v.items : [];
         const detalle = items.map(i => {
           const cant = (typeof fmtCantidad === 'function') ? fmtCantidad(i) : String(i.cantidad || 0);
@@ -866,7 +868,7 @@ function _columnaVentas(titulo, icono, lista) {
           '<div style="display:flex;justify-content:space-between;gap:0.6rem;font-size:0.78rem;color:var(--text-dim);margin-bottom:' +
             (detalle ? '0.4rem' : '0') + '">' +
             '<span>' + esc(v.cliente || 'Consumidor final') + '</span>' +
-            '<span style="white-space:nowrap">' + _hora(v.fecha) + ' &middot; ' + esc(_MEDIO_NOMBRE[medio] || medio) + '</span>' +
+            '<span style="white-space:nowrap">' + _hora(v.fecha) + ' &middot; ' + esc(_mix || _MEDIO_NOMBRE[medio] || medio) + '</span>' +
           '</div>' + detalle +
         '</div>';
       }).join('')
@@ -957,12 +959,14 @@ function renderCajaDetalle(d) {
     ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.85rem">' +
       '<tbody>' + d.ventas.map(v => {
         const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+        /* Con varios medios se muestra el desglose en vez de una etiqueta sola. */
+        const _mix = (typeof detallePagos === 'function') ? detallePagos(v) : '';
         return '<tr>' +
           '<td style="padding:0.42rem 0.6rem;color:var(--text-dim);white-space:nowrap;font-size:0.8rem">' + _hora(v.fecha) + '</td>' +
           '<td style="padding:0.42rem 0.6rem;white-space:nowrap">' + esc(_nroVenta(v)) + '</td>' +
           '<td style="padding:0.42rem 0.6rem">' + esc(v.cliente || 'Consumidor final') +
             (v._tipo === 'mayorista' ? ' <span style="font-size:0.68rem;color:var(--text-dim)">MAY</span>' : '') + '</td>' +
-          '<td style="padding:0.42rem 0.6rem;color:var(--text-dim);white-space:nowrap">' + esc(nombresMedio[medio] || medio) + '</td>' +
+          '<td style="padding:0.42rem 0.6rem;color:var(--text-dim);white-space:nowrap">' + esc(_mix || nombresMedio[medio] || medio) + '</td>' +
           '<td style="padding:0.42rem 0.6rem;text-align:right;font-weight:600;white-space:nowrap">' + _pesos(v.total) + '</td>' +
         '</tr>';
       }).join('') + '</tbody></table></div>'
@@ -1637,7 +1641,7 @@ async function adjuntarVentasSueltas(k) {
    Va con estilos inline y colores literales, sin variables CSS: se escribe en una
    ventana nueva que no tiene el CSS del panel, y sobre papel blanco. */
 
-const _MEDIOS_NOMBRE = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', cuenta_corriente: 'Fiado (no cobrado)', otro: 'Otro' };
+const _MEDIOS_NOMBRE = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia', cuenta_corriente: 'Fiado (no cobrado)', otro: 'Otro', mixto: 'Mixto' };
 
 function buildArqueoHTML(d) {
   const c = d.caja;
@@ -1678,11 +1682,13 @@ function buildArqueoHTML(d) {
 
   const filasVta = d.ventas.length ? d.ventas.map(v => {
     const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+    /* Con varios medios se muestra el desglose en vez de una etiqueta sola. */
+    const _mix = (typeof detallePagos === 'function') ? detallePagos(v) : '';
     return '<tr>' +
       '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + _hora(v.fecha) + '</td>' +
       '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(_nroVenta(v)) + '</td>' +
       '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(v.cliente || 'Consumidor final') + '</td>' +
-      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(_MEDIOS_NOMBRE[medio] || medio) + '</td>' +
+      '<td style="padding:3px 4px;border-bottom:1px solid #eee">' + esc(_mix || _MEDIOS_NOMBRE[medio] || medio) + '</td>' +
       '<td style="padding:3px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">' + _pesos(v.total) + '</td>' +
     '</tr>';
   }).join('') : '<tr><td colspan="5" style="padding:6px 4px;color:#777">Sin ventas.</td></tr>';
@@ -1860,7 +1866,9 @@ function _exportarArqueoCSV() {
   push('VENTAS'); push('Hora', 'Número', 'Cliente', 'Medio', 'Total');
   d.ventas.forEach(v => {
     const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
-    push(_hora(v.fecha), _nroVenta(v), v.cliente || 'Consumidor final', _MEDIOS_NOMBRE[medio] || medio, Number(v.total || 0));
+    /* Con varios medios se muestra el desglose en vez de una etiqueta sola. */
+    const _mix = (typeof detallePagos === 'function') ? detallePagos(v) : '';
+    push(_hora(v.fecha), _nroVenta(v), v.cliente || 'Consumidor final', _mix || _MEDIOS_NOMBRE[medio] || medio, Number(v.total || 0));
   });
 
   /* Se escapa a mano en vez de usar XLSX: son filas de largo distinto (secciones,
@@ -1981,8 +1989,10 @@ function _exportarArqueoPDF() {
   tablaPDF(['Hora', 'N°', 'Cliente', 'Medio', 'Total'], [14, 16, ancho - 14 - 16 - 32 - 28, 32, 28],
     d.ventas.map(v => {
       const medio = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
+      /* Con varios medios se muestra el desglose en vez de una etiqueta sola. */
+      const _mix = (typeof detallePagos === 'function') ? detallePagos(v) : '';
       return [_hora(v.fecha), _nroVenta(v), v.cliente || 'Consumidor final',
-              _MEDIOS_NOMBRE[medio] || medio, _pesos(v.total)];
+              _mix || _MEDIOS_NOMBRE[medio] || medio, _pesos(v.total)];
     }));
 
   salto(20); y += 10;
