@@ -76,7 +76,12 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
    - los **1.311 productos sin código de barras** se quedan sin etiqueta imprimible;
    - las etiquetas **ya pegadas en las bolsas** dejan de escanear, porque el lector las
      decodifica con `etiquetaProductoDe()`.
-6. **Limpiar los 4 nombres repetidos que quedan en producción** (medido el 21/09).
+6. **Pago mixto en la venta MAYORISTA.** El minorista ya lo tiene (19/10); el modal
+   mayorista (`ventaMayModal`) sigue guardando un solo medio. El núcleo ya está hecho y
+   es retrocompatible -la caja y las estadísticas ya reparten-, así que es portar la UI
+   y el guardado, no rehacer nada. Hoy no molesta: una mayorista de un solo medio se
+   cuenta bien.
+7. **Limpiar los 4 nombres repetidos que quedan en producción** (medido el 21/09).
    Dentro de la MISMA lista, o sea que casi seguro sobra uno: `PRODUCTO PRUEBA`
    (002022 y 002023, los de la prueba del dueño), y en FRUTICOR-TODOS
    `CACAO AMARGO CALIDAD EXTRA X 1 KG` (000093 y 001224),
@@ -103,6 +108,33 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
   conviene que la base sea Brotes) está en la conversación del 18/09.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
+
+### Hecho el 19/10
+
+- **Pago mixto: una venta se puede cobrar con hasta cuatro medios.** La venta suma un
+  campo `pagos` y **se conservan** `medioPago` / `medioPagoKey` -con varios valen
+  `Mixto` / `mixto`-. **No se migró ni se tocó ninguna venta ya guardada**: el campo
+  nuevo lo escriben solo las ventas nuevas, y `pagosDeVenta()` le devuelve a una venta
+  vieja un renglón con su total, así que para el que suma plata es idéntica a antes.
+  **El hueco que importaba:** el arqueo hace
+  `esperado = montoInicial + porMedio.efectivo + ingresos - egresos`, o sea que espera en
+  el cajón **solo el efectivo**. Una venta mixta de $10.000 contada entera como efectivo
+  hacía que la caja pidiera $10.000 con $6.000 adentro: un **faltante de $4.000
+  inventado**, todos los días. Ahora reparte, y como `calcularTotalesCaja(k)` es la misma
+  para las dos cajas, **vale igual para la del local y la de viandas**.
+  También reparten las **estadísticas** (sobre el neto, proporcional, con el último
+  absorbiendo el resto para que no se escape un peso) y el **fiado**, que ahora puede ser
+  *parte* de una venta: `_esFiadoImpago()` sigue descartando lo ya cobrado (`ccPagado`) y
+  `_montoFiadoImpago()` suma solo la parte fiada.
+  **El ticket** imprime un renglón por medio y el **vuelto va contra la parte en
+  efectivo**: con $6.000 en efectivo y $4.000 transferidos, pagar con $10.000 devuelve
+  $4.000 y no $0. El ticket del **pedido partido** junta los pagos de las dos ventas
+  sumando por medio.
+  **En pantalla** sigue siendo un `<select>` por defecto; *Dividir el pago* abre los
+  renglones y **el último se queda con lo que falta**, así se tipea un número y no dos.
+  No deja guardar si no cuadra, y dice cuánto falta o sobra.
+  `pruebas/t-pago-mixto.js`, 101 asertos. Banco: `pruebas/pago-mixto-banco.html`.
+  **Queda afuera a propósito** la venta **mayorista**, que es otro modal (punto 6).
 
 ### Hecho el 22/09
 

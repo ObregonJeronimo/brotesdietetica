@@ -371,9 +371,20 @@ function calcularTotalesCaja(k) {
   const porTipo = { minorista: { count: 0, total: 0 }, mayorista: { count: 0, total: 0 } };
   let bruto = 0, envio = 0;
   C.ventas.forEach(v => {
-    const mk = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
     const t = Number(v.total || 0);
-    porMedio[mk] = (porMedio[mk] || 0) + t;
+    /* UNA VENTA PUEDE VENIR COBRADA CON VARIOS MEDIOS, y cada parte va a su
+       casillero. Es lo que decide cuanta plata tiene que haber en el cajon:
+       `esperado`, mas abajo, suma SOLO porMedio.efectivo. Contando una venta
+       mixta de $10.000 entera como efectivo, la caja pediria $10.000 con
+       $6.000 adentro y marcaria un faltante de $4.000 que no existe.
+       Vale para las dos cajas: calcularTotalesCaja(k) corre igual para la del
+       local y para la de viandas. Con un solo medio -y con las ventas viejas,
+       que no tienen `pagos`- pagosDeVenta devuelve un renglon con el total y
+       esto es exactamente lo de antes. */
+    const _pagos = (typeof pagosDeVenta === 'function')
+      ? pagosDeVenta(v)
+      : [{ key: (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro', monto: t }];
+    _pagos.forEach(pg => { porMedio[pg.key] = (porMedio[pg.key] || 0) + pg.monto; });
     const tipo = (v._tipo === 'mayorista') ? 'mayorista' : 'minorista';
     porTipo[tipo].count++;
     porTipo[tipo].total += t;

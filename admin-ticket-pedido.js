@@ -122,7 +122,10 @@ function ticketPedidoDocumento(pedido, cfg, extra) {
   if (venta) {
     /* Un pedido partido en dos ventas (la del local y la de viandas) dice los dos números. */
     const nros = Array.isArray(venta._numeros) ? venta._numeros.filter(Boolean) : (venta.numero ? [venta.numero] : []);
-    pago = _tpFila('Pagado', _tpEsc(venta.medioPago || 'Efectivo')) +
+    /* Con varios medios va el desglose, no la etiqueta "Mixto": el cliente
+       tiene que poder ver cuanto puso de cada forma. */
+    const _mix = (typeof detallePagos === 'function') ? detallePagos(venta) : '';
+    pago = _tpFila('Pagado', _tpEsc(_mix || venta.medioPago || 'Efectivo')) +
       (nros.length && typeof NEGOCIO !== 'undefined' && NEGOCIO.nroVenta ? _tpFila(nros.length > 1 ? 'Ventas' : 'Venta', _tpEsc(nros.map(n => NEGOCIO.nroVenta(n)).join(' y '))) : '');
   } else if (p.medioPago) {
     pago = _tpFila('Medio de pago', _tpEsc(p.medioPago));
@@ -200,6 +203,19 @@ function _tpVentasJuntas(a, b) {
     envio: n(a.envio) + n(b.envio),
     total: n(a.total) + n(b.total),
     medioPago: (a.medioPago || '') === (b.medioPago || '') ? a.medioPago : (a.medioPago || '-') + ' y ' + (b.medioPago || '-'),
+    /* Los pagos de las dos se juntan sumando por medio: si las dos se cobraron
+       en efectivo, el ticket dice UN renglon de efectivo con la suma, no dos.
+       Las ventas viejas no tienen `pagos` y pagosDeVenta les devuelve su total,
+       asi que esto funciona igual con una vieja y una nueva. */
+    pagos: (typeof pagosDeVenta === 'function') ? (function () {
+      const junta = {};
+      pagosDeVenta(a).concat(pagosDeVenta(b)).forEach(function (p) {
+        const j = junta[p.key] || (junta[p.key] = { key: p.key, medio: p.medio, monto: 0 });
+        j.monto += p.monto;
+        if (!j.medio) j.medio = p.medio;
+      });
+      return Object.keys(junta).map(function (k) { return junta[k]; });
+    })() : null,
     _numeros: [a.numero, b.numero]
   });
 }

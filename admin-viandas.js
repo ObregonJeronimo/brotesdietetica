@@ -272,7 +272,7 @@ function filterVentasViandas() {
     const [my, mm] = mes.split('-').map(Number);
     arr = arr.filter(v => v.fecha instanceof Date && v.fecha.getFullYear() === my && (v.fecha.getMonth() + 1) === mm);
   }
-  if (q) arr = arr.filter(v => (v.cliente || '').toLowerCase().includes(q) || String(v.numero).includes(q) || (v.medioPago || '').toLowerCase().includes(q));
+  if (q) arr = arr.filter(v => (v.cliente || '').toLowerCase().includes(q) || String(v.numero).includes(q) || (((v.medioPago || '') + ' ' + (typeof detallePagos === 'function' ? detallePagos(v) : '')).toLowerCase()).includes(q));
   ventasVdsFiltradas = arr;
   renderVentasViandas();
 }

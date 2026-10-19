@@ -96,13 +96,36 @@ function _tkNombreNegocio() {
   return (typeof NEGOCIO !== 'undefined' && NEGOCIO.nombre) ? NEGOCIO.nombre : 'Comprobante';
 }
 
-/* El vuelto solo tiene sentido en efectivo: en tarjeta o transferencia no hay
-   plata sobre el mostrador, y un "Vuelto: $0" impreso confunde al cliente. */
-function _tkEsEfectivo(v) {
-  const k = (v && v.medioPagoKey) || '';
-  if (k) return k === 'efectivo';
-  return /^efec/i.test(String((v && v.medioPago) || ''));
+/* Los pagos de la venta, siempre como lista. Si el panel esta cargado usa la
+   suya -pagosDeVenta()- y si no, arma la de siempre: un solo renglon con el
+   total. El ticket se imprime en una ventana aparte y tiene que poder armarse
+   igual, asi que no depende de que el modulo este. */
+function _tkPagos(v) {
+  if (typeof pagosDeVenta === 'function') return pagosDeVenta(v);
+  if (v && Array.isArray(v.pagos) && v.pagos.length) {
+    return v.pagos.map(p => ({ key: p.key || '', medio: p.medio || '', monto: Number(p.monto || 0) }))
+                  .filter(p => p.monto !== 0);
+  }
+  return [{ key: (v && v.medioPagoKey) || (/^efec/i.test(String((v && v.medioPago) || '')) ? 'efectivo' : ''),
+            medio: (v && v.medioPago) || 'Efectivo', monto: _tkTotal(v) }];
 }
+
+/* LO COBRADO EN EFECTIVO, que no siempre es el total: una venta puede venir
+   mitad en efectivo y mitad transferida. El vuelto se calcula contra ESA parte.
+   Contra el total, una venta de $10.000 pagada con $6.000 en efectivo y $4.000
+   transferidos daria vuelto $0 cuando hay que devolverle $4.000. Impreso, y en
+   la mano del cliente, que es donde mas caro sale el error.
+
+   El vuelto solo tiene sentido en efectivo: en tarjeta o transferencia no hay
+   plata sobre el mostrador, y un "Vuelto: $0" impreso confunde al cliente. */
+function _tkEfectivo(v) {
+  return _tkPagos(v).reduce((s, p) => {
+    const esEf = p.key ? p.key === 'efectivo' : /^efec/i.test(String(p.medio || ''));
+    return s + (esEf ? p.monto : 0);
+  }, 0);
+}
+
+function _tkEsEfectivo(v) { return _tkEfectivo(v) > 0; }
 
 /* Un renglón: el nombre arriba con la cantidad a la derecha, y debajo el precio
    unitario y el importe. Es lo que entra en 58 mm sin cortarse. */
@@ -142,10 +165,21 @@ function ticketDocumento(venta, cfg) {
   if (envio > 0) extra += '<div class="tk-row"><span>Envío</span><span>' + _tkPesos(envio) + '</span></div>';
 
   let vuelto = '';
-  if (_tkEsEfectivo(v) && pagoCon > total) {
+  const enEfectivo = _tkEfectivo(v);
+  if (enEfectivo > 0 && pagoCon > enEfectivo) {
     vuelto = '<div class="tk-row"><span>Paga con</span><span>' + _tkPesos(pagoCon) + '</span></div>' +
-             '<div class="tk-row"><span>Vuelto</span><span>' + _tkPesos(pagoCon - total) + '</span></div>';
+             '<div class="tk-row"><span>Vuelto</span><span>' + _tkPesos(pagoCon - enEfectivo) + '</span></div>';
   }
+
+  /* Con un solo medio va el nombre, como siempre. Con varios, un renglon por
+     cada uno con su importe: el cliente tiene que poder ver cuanto puso de cada
+     forma, que es justo lo que despues se reclama. */
+  const _pagosTk = _tkPagos(v);
+  const filasPago = _pagosTk.length > 1
+    ? _pagosTk.map(p => '<div class="tk-row"><span>' + _tkEsc(p.medio || p.key) + '</span><span>' +
+        _tkPesos(p.monto) + '</span></div>').join('')
+    : '<div class="tk-row"><span>' + _tkEsc(v.medioPago || (_pagosTk[0] && _pagosTk[0].medio) || 'Efectivo') +
+      '</span><span></span></div>';
 
   return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
     '<title>Ticket ' + _tkEsc(_tkNroVenta(v)) + '</title><style>' +
@@ -167,7 +201,7 @@ function ticketDocumento(venta, cfg) {
     '<div class="tk-sep"></div>' +
     ((desc > 0 || envio > 0) ? '<div class="tk-row"><span>Subtotal</span><span>' + _tkPesos(sub) + '</span></div>' + extra : '') +
     '<div class="tk-tot"><span>TOTAL</span><span>' + _tkPesos(total) + '</span></div>' +
-    '<div class="tk-row"><span>' + _tkEsc(v.medioPago || 'Efectivo') + '</span><span></span></div>' +
+    filasPago +
     vuelto +
     (c.pie ? '<div class="tk-sep"></div><div class="tk-pie">' + _tkEsc(c.pie) + '</div>' : '') +
     '</body></html>';

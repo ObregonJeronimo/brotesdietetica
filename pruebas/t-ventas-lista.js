@@ -31,7 +31,12 @@ const ctx = {
 };
 vm.createContext(ctx);
 vm.runInContext(['hoyAR', 'esPorPeso', 'fmtPeso', 'fmtCantidad', 'precioConDsc', 'subtotalItem', 'netoVenta', 'keyDeMedio',
-  'medioKeyDeVenta', 'nroVta'].map(cuerpo).join('\n') + '\n' + (html.match(/const _VT_MEDIOS=[^;]*;/) || [''])[0] +
+  'medioKeyDeVenta', 'nroVta', 'keyDePago', 'pagosDeVenta', '_repartirPagos', 'esPagoMixto',
+  'medioDeVenta', 'detallePagos', '_attrHtml'].map(cuerpo).join('\n') +
+  '\n' + (html.match(/const MEDIO_MIXTO = [^;]*;/) || [''])[0] +
+  '\n' + (html.match(/const MEDIO_MIXTO_KEY = [^;]*;/) || [''])[0] +
+  '\n' + (html.match(/const _NOMBRE_MEDIO = \{[^}]*\};/) || [''])[0] +
+  '\n' + (html.match(/const _VT_MEDIOS=[^;]*;/) || [''])[0] +
   '\n' + (html.match(/const _vtOk=[^;]*;/) || [''])[0] +
   '\n' + ['_vtDiaTxt', 'vtListaHtml', 'vtFilaHtml'].map(cuerpo).join('\n') +
   '\nthis._VT_MEDIOS = _VT_MEDIOS;', ctx);
@@ -97,7 +102,14 @@ console.log('\n-- el panel --');
   t('la venta (minorista y mayorista) arranca en Retiro (pedido del dueño, 26/09)', cuerpo('openVentaModal').indexOf("ventaTipoEntrega='retiro';") > 0 &&
     cuerpo('openVentaMayModal').indexOf("ventaMayTipoEntrega='retiro';") > 0 && cuerpo('openVentaModal').indexOf("==='retiro'));") > 0);
   t('el buscador mayorista busca también por medio de pago', cuerpo('filterVentasMay').indexOf("(v.medioPago||'').toLowerCase().includes(q)") > 0);
-  t('"Fiado sin cobrar" no cuenta lo ya cobrado', cuerpo('renderResumenVentas').indexOf('_esFiadoImpago(v)') > 0);
+  /* El fiado pasa por _montoFiadoImpago() desde que una venta puede estar cobrada
+     con varios medios: lo que se suma es la PARTE fiada, no la venta entera. La
+     garantia de antes -lo ya cobrado no cuenta- sigue, adentro de esa funcion. */
+  t('"Fiado sin cobrar" no cuenta lo ya cobrado',
+    cuerpo('renderResumenVentas').indexOf('_montoFiadoImpago(v)') > 0 &&
+    cuerpo('_montoFiadoImpago').indexOf('_esFiadoImpago(v)') > 0);
+  t('  y de una venta mixta suma SOLO la parte fiada',
+    cuerpo('_montoFiadoImpago').indexOf("p.key==='cuenta_corriente'") > 0);
   t('un granel de dos bolsas cuenta como un producto (ticketPedidoLineas)', cuerpo('vtFilaHtml').indexOf("ticketPedidoLineas(v.items||[])") > 0);
   t('los estilos de ventas van DESPUÉS de los originales (antes perdían)', html.indexOf('=== VENTAS (26/09/2026)') > html.indexOf('.venta-items{max-height:200px') &&
     html.indexOf('=== VENTAS (26/09/2026)') > html.indexOf('.entrega-btn{flex:1'));

@@ -349,7 +349,7 @@ t('guardar la venta la llama', html.indexOf('await cuponCajaRevalidar(subtotalPr
 t('  pero solo al crear, no al editar',
   html.indexOf("if(!isEdit&&typeof cuponCajaRevalidar==='function')") > 0);
 t('  y con el subtotal final, no con el de cuando se aplico',
-  /const totales=calcularTotalesVenta\(\);const subtotalProductos=totales\.subtotal;[\s\S]{0,900}cuponCajaRevalidar\(subtotalProductos\)/.test(html));
+  /const totales=calcularTotalesVenta\(\);const subtotalProductos=totales\.subtotal;[\s\S]{0,1800}cuponCajaRevalidar\(subtotalProductos\)/.test(html));
 /* Si no pasa, la venta NO se guarda: es plata. */
 t('si el cupon ya no sirve, no guarda', /if\(!_rev\.ok\)\{/.test(html));
 t('  avisa por que', html.indexOf("'El cupón ya no se puede usar: '+_rev.motivo") > 0);

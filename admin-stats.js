@@ -44,6 +44,16 @@ const _sp = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-AR');
 
 /* ============================ FECHAS ============================ */
 
+/* Suma el neto de una venta en el casillero de CADA medio con el que se cobro.
+   Una venta de un solo medio -y las viejas, sin `pagos`- cae en uno solo, que es
+   exactamente lo de antes. */
+function _porMedio(v, acum) {
+  const pagos = (typeof pagosDeVenta === 'function')
+    ? pagosDeVenta(v, 'neto')
+    : [{ key: (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro', monto: v._neto }];
+  pagos.forEach(p => { acum[p.key] = (acum[p.key] || 0) + p.monto; });
+}
+
 function _mesActual() {
   const h = new Date();
   return h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0');
@@ -154,8 +164,10 @@ function agruparPorDia(d) {
     const x = tocar(v._dia);
     x.ventas += v._neto; x.count++;
     if (v._online) x.online += v._neto; else x.local += v._neto;
-    const k = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
-    x.porMedio[k] = (x.porMedio[k] || 0) + v._neto;
+    /* Por medio, repartiendo la venta mixta. Se pide 'neto' porque las
+       estadisticas trabajan sobre el total MENOS el envio, y repartir eso
+       proporcionalmente es distinto de repartir el total. */
+    _porMedio(v, x.porMedio);
     const vds = v.cajaTipo === 'viandas';
     if (vds) x.countVds++; else x.countNormal++;
     const t = vds ? 'viandas' : ((v._tipo === 'mayorista') ? 'mayorista' : 'minorista');
@@ -228,8 +240,7 @@ function totalesMes(d) {
     if (v._online) { t.online += v._neto; t.onlineCount++; } else { t.local += v._neto; t.localCount++; }
     t.envios += Number(v.envio || 0);
     t.descuentos += Number(v.descuentoMonto || 0);
-    const k = (typeof medioKeyDeVenta === 'function') ? medioKeyDeVenta(v) : 'otro';
-    t.porMedio[k] = (t.porMedio[k] || 0) + v._neto;
+    _porMedio(v, t.porMedio);
     (v.items || []).forEach(i => {
       if (!i || !i.nombre) return;
       const p = (t.productos[i.nombre] = t.productos[i.nombre] || { unidades:0, gramos:0, monto:0 });

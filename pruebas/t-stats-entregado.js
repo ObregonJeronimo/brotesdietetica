@@ -37,7 +37,7 @@ const t = (d, c, extra) => {
   else { fail++; console.log('  FALLA ' + d + (extra !== undefined ? '   [' + extra + ']' : '')); }
 };
 
-const FUNCIONES = ['totalesMes', 'renderOnline', 'renderTopProductos', '_cantTop', '_card', '_fila']
+const FUNCIONES = ['_porMedio', 'totalesMes', 'renderOnline', 'renderTopProductos', '_cantTop', '_card', '_fila']
   .map(cuerpo).join('\n');
 
 const ent = {

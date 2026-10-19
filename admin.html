@@ -1128,7 +1128,32 @@
 #productModal .btn-icon.delete:hover{border-color:var(--danger);color:var(--danger)}
 /* Las flechas de las fotos traen el estilo escrito en el boton: por eso el !important. */
 #productModal button[onclick^="prodCarouselNav"]{background:#363c52!important;border:2px solid #8a90a8!important;color:#fff!important}
-    </style>
+    /* ---- Pago dividido en el modal de venta ---- */
+.pg-cab{display:flex;align-items:center;gap:0.6rem;margin-bottom:6px}
+.pg-cab label{flex:1}
+.pg-dividir{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:999px;
+  padding:3px 10px;font-size:0.72rem;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;
+  transition:border-color .15s,color .15s}
+.pg-dividir:hover{border-color:var(--accent);color:var(--accent)}
+.pg-dividir.activo{border-color:var(--accent);color:var(--accent);background:rgba(110,190,110,0.08)}
+#pagosWrap{margin-top:0.6rem;border:1px solid var(--border);border-radius:10px;padding:0.7rem;background:rgba(255,255,255,0.02)}
+.pg-fila{display:grid;grid-template-columns:1fr 120px 30px;gap:0.45rem;align-items:center;margin-bottom:0.45rem}
+.pg-fila select,.pg-fila input{margin:0}
+.pg-monto{text-align:right;font-family:var(--mono,ui-monospace,monospace)}
+.pg-quitar{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.95rem;padding:2px;line-height:1}
+.pg-quitar:hover{color:#f56c6c}
+.pg-agregar{background:none;border:1px dashed var(--border);color:var(--text-dim);border-radius:8px;
+  padding:5px 10px;font-size:0.76rem;cursor:pointer;width:100%;margin-top:2px}
+.pg-agregar:hover{border-color:var(--accent);color:var(--accent)}
+.pg-agregar:disabled{opacity:0.4;cursor:not-allowed}
+.pg-resumen{display:flex;justify-content:space-between;gap:0.6rem;margin-top:0.6rem;padding-top:0.55rem;
+  border-top:1px solid var(--border);font-size:0.8rem}
+.pg-resumen b{font-family:var(--mono,ui-monospace,monospace)}
+.pg-falta{color:#EDB833}
+.pg-sobra{color:#f56c6c}
+.pg-ok{color:#67c23a}
+@media(max-width:560px){.pg-fila{grid-template-columns:1fr 92px 26px}}
+</style>
 <!-- cache bust -->
 </head>
 <body>
@@ -1567,10 +1592,21 @@
               <div class="cliente-select-list" id="clienteSelectList"></div>
             </div>
           </div>
-          <div class="form-group"><label>Medio de pago</label>
-            <select class="form-input" id="ventaMedio">
+          <div class="form-group">
+            <div class="pg-cab">
+              <label style="margin:0">Medio de pago</label>
+              <button type="button" class="pg-dividir" id="pgDividirBtn" onclick="togglePagoDividido()">
+                <i class="bi bi-scissors"></i> <span id="pgDividirTxt">Dividir el pago</span></button>
+            </div>
+            <select class="form-input" id="ventaMedio" onchange="renderPagos()">
               <option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option><option>Cuenta Corriente</option>
             </select>
+            <div id="pagosWrap" style="display:none">
+              <div id="pagosLista"></div>
+              <button type="button" class="pg-agregar" id="pgAgregarBtn" onclick="agregarPago()">
+                <i class="bi bi-plus-lg"></i> Agregar otro medio</button>
+              <div class="pg-resumen" id="pgResumen"></div>
+            </div>
           </div>
           <div class="form-group"><label>Fecha</label><input type="date" class="form-input" id="ventaFecha"></div>
           <div class="form-group"><label>Tipo de entrega</label>
@@ -1720,6 +1756,117 @@ function keyDeMedio(m){const t=(m||'').toLowerCase();
   return'otro';}
 function medioKeyDeVenta(v){return (v&&v.medioPagoKey)||keyDeMedio(v&&v.medioPago);}
 function netoVenta(v){return Number((v&&v.total)||0)-Number((v&&v.envio)||0);}
+/* =============================================================================
+   PAGO MIXTO  —  una venta cobrada con más de un medio
+   =============================================================================
+   "Te pago $6.000 en efectivo y el resto te lo transfiero" es la cosa más común
+   del mostrador, y hasta acá la venta guardaba UN solo medio.
+
+   CÓMO SE GUARDA. La venta suma un campo `pagos`:
+
+       pagos: [ {key:'efectivo', medio:'Efectivo', monto:6000},
+                {key:'transferencia', medio:'Transferencia', monto:4000} ]
+
+   y SE CONSERVAN `medioPago` y `medioPagoKey`, que es lo que hace que no haga
+   falta migrar nada:
+     - con un solo pago valen lo de siempre;
+     - con varios valen 'Mixto' / 'mixto', así todo lo que solo MUESTRA el medio
+       sigue mostrando algo con sentido.
+   Las ventas viejas no tienen `pagos` y pagosDeVenta() les devuelve un renglón
+   con el total: para quien suma plata, una venta vieja y una nueva de un solo
+   medio son exactamente lo mismo.
+
+   DONDE IMPORTA DE VERDAD. El arqueo hace
+       esperado = montoInicial + porMedio.efectivo + ingresos - egresos
+   o sea que espera en el cajón SOLO lo cobrado en efectivo. Si una venta mixta
+   de $10.000 se contara entera como efectivo, la caja pediría $10.000 cuando en
+   el cajón hay $6.000, y marcaría un faltante de $4.000 que no existe. Por eso
+   todo el que suma plata por medio tiene que pasar por pagosDeVenta().
+   ============================================================================= */
+
+const MEDIO_MIXTO = 'Mixto';
+const MEDIO_MIXTO_KEY = 'mixto';
+
+function keyDePago(p) {
+  if (!p) return 'otro';
+  if (p.key) return p.key;
+  return keyDeMedio(p.medio || '');
+}
+
+/* Los pagos de una venta, SIEMPRE como lista, venga como venga guardada.
+   `base`:
+     - sin nada  -> los montos tal como se cobraron (suman el total)
+     - 'neto'    -> repartidos sobre el total MENOS el envío, que es la base con
+                    la que trabajan las estadísticas. */
+function pagosDeVenta(v, base) {
+  const lista = (v && Array.isArray(v.pagos) && v.pagos.length)
+    ? v.pagos
+        .map(p => ({ key: keyDePago(p), medio: (p && p.medio) || '', monto: Number((p && p.monto) || 0) }))
+        .filter(p => p.monto !== 0)
+    : [{ key: medioKeyDeVenta(v), medio: (v && v.medioPago) || '', monto: Number((v && v.total) || 0) }];
+  if (!lista.length) return [{ key: medioKeyDeVenta(v), medio: (v && v.medioPago) || '', monto: 0 }];
+  if (base !== 'neto') return lista;
+  return _repartirPagos(lista, netoVenta(v));
+}
+
+/* Reparte `objetivo` entre los pagos, en la misma proporción en que se cobraron.
+
+   EL ULTIMO ABSORBE EL RESTO, y no es un detalle: repartir 9.000 entre dos pagos
+   de 6.000 y 4.000 da 5.400 y 3.600, pero con números que no dividen justo el
+   redondeo de cada parte deja un peso suelto. Si cada renglón se redondeara por
+   su cuenta, la suma de las partes dejaría de ser el total y el arqueo mostraría
+   una diferencia de $1 que nadie puede explicar. */
+function _repartirPagos(pagos, objetivo) {
+  const suma = pagos.reduce((s, p) => s + p.monto, 0);
+  if (!suma) return pagos.map(p => Object.assign({}, p, { monto: 0 }));
+  let queda = Math.round(Number(objetivo) || 0);
+  return pagos.map((p, i) => {
+    const ultimo = i === pagos.length - 1;
+    const m = ultimo ? queda : Math.round((Number(objetivo) || 0) * p.monto / suma);
+    queda -= m;
+    return Object.assign({}, p, { monto: m });
+  });
+}
+
+/* Cuántos medios distintos se usaron. Es lo que decide si se muestra "Mixto". */
+function esPagoMixto(v) {
+  return !!(v && Array.isArray(v.pagos) && v.pagos.filter(p => Number((p && p.monto) || 0) !== 0).length > 1);
+}
+
+/* El medio como se MUESTRA. Con varios, "Mixto"; el desglose lo arma
+   detallePagos(), que es lo que va al lado en los listados. */
+function medioDeVenta(v) {
+  if (esPagoMixto(v)) return MEDIO_MIXTO;
+  const p = pagosDeVenta(v)[0];
+  return (v && v.medioPago) || (p && p.medio) || _NOMBRE_MEDIO[p && p.key] || 'Efectivo';
+}
+
+const _NOMBRE_MEDIO = {
+  efectivo: 'Efectivo', tarjeta: 'Tarjeta', transferencia: 'Transferencia',
+  cuenta_corriente: 'Cuenta Corriente', otro: 'Otro', mixto: 'Mixto'
+};
+
+/* "Efectivo $6.000 + Transferencia $4.000". Con un solo medio devuelve ''. */
+function detallePagos(v, sep) {
+  if (!esPagoMixto(v)) return '';
+  return pagosDeVenta(v)
+    .map(p => (p.medio || _NOMBRE_MEDIO[p.key] || p.key) + ' $' + Math.round(p.monto).toLocaleString('es-AR'))
+    .join(sep || ' + ');
+}
+
+/* Lo cobrado en un medio concreto. Atajo para el arqueo y para el ticket. */
+function cobradoEn(v, key) {
+  return pagosDeVenta(v).reduce((s, p) => s + (p.key === key ? p.monto : 0), 0);
+}
+
+/* Los pagos guardados tienen que sumar el total. Al guardar se valida, pero una
+   venta vieja editada a mano o un dato traido de otro lado puede no cuadrar, y
+   eso hay que poder verlo en vez de que desaparezca dentro de una suma. */
+function pagosCuadran(v) {
+  if (!v || !Array.isArray(v.pagos) || !v.pagos.length) return true;
+  const suma = v.pagos.reduce((s, p) => s + Number((p && p.monto) || 0), 0);
+  return Math.abs(suma - Number(v.total || 0)) < 1;
+}
 
 /* ---- Montos escritos como se escriben en Argentina ----
    Los campos de plata eran <input type="number"> y se leian con parseInt. Eso daba dos
@@ -3737,8 +3884,8 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             else if(window._pedidoEnvioVenta&&window._pedidoEnvioVenta.tipoEntrega===ventaTipoEntrega&&envio!==0)envio=Number(window._pedidoEnvioVenta.envio)||0;
             return {subtotal,descuentoPct,descuentoMonto,cuponMonto,subtotalConDesc,envio,total:subtotalConDesc+envio};
         }
-        function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='retiro';/* De entrada Retiro (pedido del dueño, 26/09): con los envios apagados la venta igual arrancaba en 'envio' y decia "Envio GRATIS". */window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;if(typeof cuponCajaReset==='function')setTimeout(cuponCajaReset,0);/* _pedidoOrigenVentaId lo soltaba SOLO closeVentaModal, y Escape (admin-atajos.js) cierra el modal sacandole la clase 'show' sin pasar por ahi: convertir un pedido, arrepentirse con Escape y despues cargar una venta de mostrador la guardaba como origen 'web' colgada de aquel pedido, y le marcaba el pedido como confirmado con la venta equivocada. */window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;/* Caja viandas (10/10/2026): la venta arranca minorista; la de viandas la pone abrirVentaViandas despues. Aca y no solo en closeVentaModal, por lo mismo que lo de arriba. */window._ventaViandas=false;window._pedidoParteViandas1=null;window._pedidoParteViandas2=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const _vdsApOld=document.getElementById('ventaVdsAparte');if(_vdsApOld)_vdsApOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaCliente');document.getElementById('ventaMedio').value='Efectivo';document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='retiro'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value='0';/* El buscador se limpia tambien al ABRIR: Escape cierra la venta sin pasar por closeVentaModal, y la siguiente arrancaba con la busqueda vieja, y con sus ocultos a la vista si se habia tocado Ver. */const _psAbrir=document.getElementById('ventaProdSearch');if(_psAbrir)_psAbrir.value='';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
-        async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}window._pedidoParteViandas1=null;window._pedidoParteViandas2=null;editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio',stockDescontado:!!v.stockDescontado}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';/* Con los envios apagados, una venta vieja guardada como envio sin cargo es un retiro: antes toda venta nueva arrancaba en 'envio' y se guardaba asi, y al editarla quedaba "Envio GRATIS" sin poder cambiarlo (el boton esta escondido). Una con envio cobrado se deja como esta (revision del 27/09). */if(typeof HACE_ENVIOS!=='undefined'&&HACE_ENVIOS===false&&ventaTipoEntrega==='envio'&&!(Number(v.envio)>0))ventaTipoEntrega='retiro';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';/* El uid del cliente registrado vive en clienteAuthUid, no en clienteId: precargando solo clienteId el input oculto quedaba VACIO, y al guardar cualquier cambio (por ejemplo pasar de Efectivo a Transferencia) saveVenta lee ese mismo input y escribe clienteId:null Y clienteAuthUid:null, con lo que la venta se desengancha del cliente para siempre y deja de aparecer en su ficha (admin.html:1265). El formato 'auth:<uid>' es el que ya usa el flujo de pedido a venta. */document.getElementById('ventaClienteId').value=v.clienteAuthUid?('auth:'+v.clienteAuthUid):(v.clienteId||'');if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaCliente');document.getElementById('ventaMedio').value=v.medioPago||'Efectivo';/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+nroVta(v.numero||0);const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';/* Una venta de viandas se edita en modo viandas: su buscador muestra solo viandas. */window._ventaViandas=v.cajaTipo==='viandas';if(window._ventaViandas&&typeof pintarModoVentaViandas==='function')pintarModoVentaViandas(true,nroVta(v.numero||0));const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value=v.descuentoMonto||0;
+        function openVentaModal(){editingVentaId=null;editingVentaOriginal=null;ventaItems=[];ventaClienteSelected=true;ventaInsumosUsados=[];ventaTipoEntrega='retiro';/* De entrada Retiro (pedido del dueño, 26/09): con los envios apagados la venta igual arrancaba en 'envio' y decia "Envio GRATIS". */window._pedidoCuponVenta=null;window._pedidoEnvioVenta=null;if(typeof cuponCajaReset==='function')setTimeout(cuponCajaReset,0);/* _pedidoOrigenVentaId lo soltaba SOLO closeVentaModal, y Escape (admin-atajos.js) cierra el modal sacandole la clase 'show' sin pasar por ahi: convertir un pedido, arrepentirse con Escape y despues cargar una venta de mostrador la guardaba como origen 'web' colgada de aquel pedido, y le marcaba el pedido como confirmado con la venta equivocada. */window._pedidoOrigenVentaId=null;window._pedidoEstadoDestino=null;/* Caja viandas (10/10/2026): la venta arranca minorista; la de viandas la pone abrirVentaViandas despues. Aca y no solo en closeVentaModal, por lo mismo que lo de arriba. */window._ventaViandas=false;window._pedidoParteViandas1=null;window._pedidoParteViandas2=null;const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();const _vdsApOld=document.getElementById('ventaVdsAparte');if(_vdsApOld)_vdsApOld.remove();const acOld=document.getElementById('ventaAuthCard');if(acOld)acOld.style.display='none';const cwOld=document.querySelector('#ventaModal .cliente-select-wrap');if(cwOld)cwOld.style.display='';document.getElementById('ventaFecha').value=hoyAR();document.getElementById('ventaCliente').value='';document.getElementById('ventaClienteId').value='';if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaCliente');document.getElementById('ventaMedio').value='Efectivo';ventaPagos=null;if(typeof renderPagos==='function')renderPagos();document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')==='retiro'));/* Update titulo y boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-cart-plus"></i> Nueva Venta';const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Registrar Venta';const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value='0';const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value='0';/* El buscador se limpia tambien al ABRIR: Escape cierra la venta sin pasar por closeVentaModal, y la siguiente arrancaba con la busqueda vieja, y con sus ocultos a la vista si se habia tocado Ver. */const _psAbrir=document.getElementById('ventaProdSearch');if(_psAbrir)_psAbrir.value='';renderVentaItems();renderVentaInsumosUsados();filterVentaProducts();if(!allClientes.length)loadClientes();if(!clientesAuthData.length){db.collection('clientesAuth').orderBy('nombre').get().then(snap=>{clientesAuthData=snap.docs.map(d=>({uid:d.id,...d.data()}));}).catch(()=>{});}if(!insumosData.length){db.collection('insumos').orderBy('nombre').get().then(snap=>{insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));refreshVentaInsumosSelect();}).catch(()=>{});}else{refreshVentaInsumosSelect();}document.getElementById('ventaModal').classList.add('show');}
+        async function openEditVentaModal(docId){const v=ventasData.find(x=>x.docId===docId);if(!v){showAdminToast('Venta no encontrada','error');return;}window._pedidoParteViandas1=null;window._pedidoParteViandas2=null;editingVentaId=docId;editingVentaOriginal=JSON.parse(JSON.stringify({items:v.items||[],insumosUsados:v.insumosUsados||[],tipoEntrega:v.tipoEntrega||'envio',stockDescontado:!!v.stockDescontado}));/* Cargar productos e insumos si faltan */if(!allProducts.length)await loadProducts();if(!insumosData.length){try{const snap=await db.collection('insumos').orderBy('nombre').get();insumosData=snap.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}}if(!allClientes.length)loadClientes();/* Precargar campos */ventaItems=(v.items||[]).map(i=>({id:i.id,nombre:i.nombre,precio:i.precio||0,costo:i.costo||0,cantidad:i.cantidad||1,descuento:i.descuento||0,tipoVenta:tipoVentaDe(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})}));ventaInsumosUsados=(v.insumosUsados||[]).map(u=>{const i=insumosData.find(x=>x.id===u.id);return{id:u.id,nombre:u.nombre,cantidad:u.cantidad||1,stockActual:i?Number(i.stockActual||0)+Number(u.cantidad||0):Number(u.cantidad||0)};});/* nota: para validar el stock al editar, sumamos lo que ya estaba descontado para esta venta a lo que hay actualmente */ventaTipoEntrega=v.tipoEntrega||'envio';/* Con los envios apagados, una venta vieja guardada como envio sin cargo es un retiro: antes toda venta nueva arrancaba en 'envio' y se guardaba asi, y al editarla quedaba "Envio GRATIS" sin poder cambiarlo (el boton esta escondido). Una con envio cobrado se deja como esta (revision del 27/09). */if(typeof HACE_ENVIOS!=='undefined'&&HACE_ENVIOS===false&&ventaTipoEntrega==='envio'&&!(Number(v.envio)>0))ventaTipoEntrega='retiro';ventaClienteSelected=true;document.getElementById('ventaCliente').value=v.cliente||'Consumidor Final';/* El uid del cliente registrado vive en clienteAuthUid, no en clienteId: precargando solo clienteId el input oculto quedaba VACIO, y al guardar cualquier cambio (por ejemplo pasar de Efectivo a Transferencia) saveVenta lee ese mismo input y escribe clienteId:null Y clienteAuthUid:null, con lo que la venta se desengancha del cliente para siempre y deja de aparecer en su ficha (admin.html:1265). El formato 'auth:<uid>' es el que ya usa el flujo de pedido a venta. */document.getElementById('ventaClienteId').value=v.clienteAuthUid?('auth:'+v.clienteAuthUid):(v.clienteId||'');if(typeof pintarClienteElegido==='function')pintarClienteElegido('ventaCliente');document.getElementById('ventaMedio').value=(v.medioPago&&v.medioPago!==MEDIO_MIXTO)?v.medioPago:'Efectivo';if(typeof cargarPagosDeVenta==='function')cargarPagosDeVenta(v);/* Fecha en formato YYYY-MM-DD */const fechaObj=v.fecha instanceof Date?v.fecha:new Date(v.fecha);const yyyy=fechaObj.getFullYear(),mm=String(fechaObj.getMonth()+1).padStart(2,'0'),dd=String(fechaObj.getDate()).padStart(2,'0');document.getElementById('ventaFecha').value=yyyy+'-'+mm+'-'+dd;document.querySelectorAll('.entrega-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('data-entrega')===ventaTipoEntrega));/* Cambiar titulo y texto del boton */const tituloEl=document.querySelector('#ventaModal .modal-header h3');if(tituloEl)tituloEl.innerHTML='<i class="bi bi-pencil"></i> Editar Venta #'+nroVta(v.numero||0);const btnSave=document.getElementById('saveVentaBtn');if(btnSave)btnSave.innerHTML='<i class="bi bi-check-lg"></i> Guardar cambios';/* Una venta de viandas se edita en modo viandas: su buscador muestra solo viandas. */window._ventaViandas=v.cajaTipo==='viandas';if(window._ventaViandas&&typeof pintarModoVentaViandas==='function')pintarModoVentaViandas(true,nroVta(v.numero||0));const dcInput=document.getElementById('ventaDescuentoPct');if(dcInput)dcInput.value=v.descuentoPct||0;const dcMon=document.getElementById('ventaDescuentoMonto');if(dcMon)dcMon.value=v.descuentoMonto||0;
             /* Restaurar cupón si la venta lo tiene */
             window._pedidoCuponVenta=v.cupon||null;
             const cuponRowOld=document.getElementById('ventaCuponRow');if(cuponRowOld)cuponRowOld.remove();
@@ -4049,6 +4196,209 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
      la clase .vi-dsc-wrap, asi que w.style.display arranca vacio y comparar contra
      'none' daba falso en el primer click. El campo se abria recien al segundo. */if(getComputedStyle(w).display==='none'){w.style.display='flex';w.querySelector('input').focus();}else{w.style.display='none';setVentaItemDsc(id,0);w.querySelector('input').value=0;}}
         function setVentaItemDsc(id,val){var pct=Math.min(100,Math.max(0,parseInt(val)||0));var inp=document.getElementById('dscwrap-vta-'+id)?.querySelector('input');if(inp&&parseInt(inp.value)!==pct)inp.value=pct;var it=ventaItems.find(function(x){return x.id===id;});if(!it)return;it.descuento=pct;var sub=subtotalItem({precio:it.precio,cantidad:it.cantidad,descuento:pct,tipoVenta:it.tipoVenta});var item=document.getElementById('dscwrap-vta-'+id)?.closest('.venta-item');if(item){var subEl=item.querySelector('.vi-sub');if(subEl)subEl.textContent='$'+sub.toLocaleString('es-AR');var badgeEl=document.getElementById('badge-vta-'+id);if(badgeEl){badgeEl.textContent=pct>0?'-'+pct+'%':'';badgeEl.style.display=pct>0?'inline':'none';}}var t=calcularTotalesVenta();var totalEl=document.getElementById('ventaTotal');if(totalEl)totalEl.textContent='$'+t.total.toLocaleString('es-AR');}
+
+        /* =====================================================================
+           DIVIDIR EL PAGO EN EL MOSTRADOR
+           =====================================================================
+           La venta sigue siendo, por defecto, un solo medio: un <select> y nada
+           mas. El 95% de las ventas son asi y no tienen que pagar ningun paso de
+           mas. Recien al tocar "Dividir el pago" aparecen los renglones.
+
+           LA REGLA QUE LO HACE COMODO: EL ULTIMO RENGLON SIEMPRE SE QUEDA CON LO
+           QUE FALTA. Se escribe 6000 en efectivo y transferencia pasa sola a
+           4000; se agrega un tercer medio y se lleva el resto. El que atiende
+           tipea UN numero, no dos, y la cuenta no puede quedar mal por una resta
+           hecha a mano con el cliente esperando. Si se escribe directo en el
+           ultimo renglon no se toca nada: ahi la persona esta siendo explicita,
+           y si no cuadra el resumen lo dice con el numero exacto.
+
+           Guardar con una diferencia esta bloqueado. Una venta cuyos pagos no
+           suman el total rompe el arqueo en silencio, que es el peor lugar donde
+           puede aparecer un error. */
+
+        let ventaPagos = null;   /* null = un solo medio, lo de siempre */
+
+        const PG_MEDIOS = ['Efectivo', 'Tarjeta', 'Transferencia', 'Cuenta Corriente'];
+        const PG_MAX = 4;
+
+        function pagoDividido(){ return Array.isArray(ventaPagos); }
+        function _pgTotal(){ try { return Math.round(calcularTotalesVenta().total || 0); } catch(e) { return 0; } }
+        function _pgSuma(){ return (ventaPagos||[]).reduce((s,p)=>s+Math.round(Number(p.monto)||0),0); }
+        function _pgFalta(){ return _pgTotal() - _pgSuma(); }
+
+        /* El primer medio que todavia no se uso, para que agregar un renglon no
+           repita el que ya esta. */
+        function _pgMedioLibre(){
+            const usados = (ventaPagos||[]).map(p=>p.medio);
+            return PG_MEDIOS.find(m=>!usados.includes(m)) || 'Otro';
+        }
+
+        /* El ultimo renglon se queda con lo que falta. */
+        function _pgAjustarUltimo(){
+            if(!pagoDividido() || !ventaPagos.length) return;
+            const otros = ventaPagos.slice(0,-1).reduce((s,p)=>s+Math.round(Number(p.monto)||0),0);
+            ventaPagos[ventaPagos.length-1].monto = Math.max(0, _pgTotal() - otros);
+        }
+
+        function togglePagoDividido(){
+            if(pagoDividido()){
+                /* Al volver atras queda elegido el medio del primer renglon: no se
+                   pierde lo que la persona ya habia decidido. */
+                const m = (ventaPagos[0] && ventaPagos[0].medio) || 'Efectivo';
+                ventaPagos = null;
+                const sel = document.getElementById('ventaMedio');
+                if(sel) sel.value = m;
+            } else {
+                ventaPagos = [{ medio: (document.getElementById('ventaMedio')||{}).value || 'Efectivo', monto: _pgTotal() }];
+                ventaPagos.push({ medio: _pgMedioLibre(), monto: 0 });
+                _pgAjustarUltimo();
+            }
+            renderPagos();
+        }
+
+        function agregarPago(){
+            if(!pagoDividido() || ventaPagos.length >= PG_MAX) return;
+            ventaPagos.push({ medio: _pgMedioLibre(), monto: 0 });
+            _pgAjustarUltimo();
+            renderPagos();
+            const filas = document.querySelectorAll('#pagosLista .pg-monto');
+            const ult = filas[filas.length-1];
+            if(ult) { ult.focus(); ult.select(); }
+        }
+
+        function quitarPago(i){
+            if(!pagoDividido()) return;
+            ventaPagos.splice(i,1);
+            /* Con un solo medio ya no hay nada que dividir: se vuelve al select,
+               que es mas simple de leer y de usar. */
+            if(ventaPagos.length <= 1){
+                const m = (ventaPagos[0] && ventaPagos[0].medio) || 'Efectivo';
+                ventaPagos = null;
+                const sel = document.getElementById('ventaMedio');
+                if(sel) sel.value = m;
+            } else {
+                _pgAjustarUltimo();
+            }
+            renderPagos();
+        }
+
+        function cambiarMedioPago(i, valor){
+            if(!pagoDividido() || !ventaPagos[i]) return;
+            ventaPagos[i].medio = valor;
+            renderPagos();
+        }
+
+        /* Mientras se escribe NO se redibuja la lista: redibujarla le saca el foco
+           al campo y la persona pierde lo que estaba tipeando. Se actualiza el
+           estado, el renglon que cambio solo y el resumen. */
+        function onInputPago(i, el){
+            if(!pagoDividido() || !ventaPagos[i]) return;
+            if(typeof limpiarMonto === 'function') limpiarMonto(el);
+            ventaPagos[i].monto = Math.round(Number(String(el.value).replace(/[^0-9]/g,'')) || 0);
+            const esUltimo = i === ventaPagos.length - 1;
+            if(!esUltimo){
+                _pgAjustarUltimo();
+                const campos = document.querySelectorAll('#pagosLista .pg-monto');
+                const ult = campos[campos.length-1];
+                if(ult && document.activeElement !== ult) ult.value = ventaPagos[ventaPagos.length-1].monto || '';
+            }
+            renderResumenPagos();
+        }
+
+        function renderPagos(){
+            const wrap = document.getElementById('pagosWrap');
+            const btn = document.getElementById('pgDividirBtn');
+            const txt = document.getElementById('pgDividirTxt');
+            const sel = document.getElementById('ventaMedio');
+            if(!wrap || !btn) return;
+            if(!pagoDividido()){
+                wrap.style.display = 'none';
+                if(sel) sel.style.display = '';
+                btn.classList.remove('activo');
+                if(txt) txt.textContent = 'Dividir el pago';
+                return;
+            }
+            wrap.style.display = '';
+            if(sel) sel.style.display = 'none';
+            btn.classList.add('activo');
+            if(txt) txt.textContent = 'Un solo medio';
+
+            const lista = document.getElementById('pagosLista');
+            lista.innerHTML = ventaPagos.map((p,i) =>
+                '<div class="pg-fila">' +
+                  '<select class="form-input" onchange="cambiarMedioPago(' + i + ',this.value)">' +
+                    PG_MEDIOS.concat(PG_MEDIOS.includes(p.medio)?[]:[p.medio]).map(m =>
+                      '<option' + (m===p.medio?' selected':'') + '>' + esc(m) + '</option>').join('') +
+                  '</select>' +
+                  '<input type="text" inputmode="numeric" class="form-input pg-monto" value="' +
+                    (p.monto || '') + '" placeholder="0" oninput="onInputPago(' + i + ',this)">' +
+                  '<button type="button" class="pg-quitar" title="Quitar este medio" ' +
+                    'onclick="quitarPago(' + i + ')"><i class="bi bi-x-lg"></i></button>' +
+                '</div>').join('');
+
+            const add = document.getElementById('pgAgregarBtn');
+            if(add) add.disabled = ventaPagos.length >= PG_MAX;
+            renderResumenPagos();
+        }
+
+        function renderResumenPagos(){
+            const r = document.getElementById('pgResumen');
+            if(!r || !pagoDividido()) return;
+            const total = _pgTotal(), suma = _pgSuma(), falta = total - suma;
+            const $ = n => '$' + Math.round(n).toLocaleString('es-AR');
+            const estado = falta === 0
+                ? '<span class="pg-ok"><i class="bi bi-check-circle-fill"></i> Justo</span>'
+                : (falta > 0
+                    ? '<span class="pg-falta">Falta ' + $(falta) + '</span>'
+                    : '<span class="pg-sobra">Sobra ' + $(-falta) + '</span>');
+            r.innerHTML = '<span>Total de la venta <b>' + $(total) + '</b></span>' + estado;
+        }
+
+        /* Lo que se guarda. null cuando no se dividio: la venta queda exactamente
+           como quedaba antes de que esto existiera. */
+        function pagosParaGuardar(){
+            if(!pagoDividido()) return null;
+            return ventaPagos
+                .filter(p => Math.round(Number(p.monto)||0) > 0)
+                .map(p => ({ medio: p.medio, key: keyDeMedio(p.medio), monto: Math.round(Number(p.monto)||0) }));
+        }
+
+        /* '' si esta bien, o el motivo. Se usa al guardar. */
+        function validarPagos(){
+            if(!pagoDividido()) return '';
+            const pagos = pagosParaGuardar();
+            if(!pagos.length) return 'Pon&eacute; cu&aacute;nto se pag&oacute; con cada medio.';
+            if(pagos.length < 2) return 'Qued&oacute; un solo medio con monto. Si la venta se paga de una sola forma, us&aacute; "Un solo medio".';
+            const falta = _pgTotal() - pagos.reduce((s,p)=>s+p.monto,0);
+            const $ = n => '$' + Math.round(n).toLocaleString('es-AR');
+            if(falta > 0) return 'Los pagos no llegan al total: faltan ' + $(falta) + '.';
+            if(falta < 0) return 'Los pagos se pasan del total por ' + $(-falta) + '.';
+            const vistos = {};
+            for(const p of pagos){
+                if(vistos[p.medio]) return 'Hay dos renglones con "' + p.medio + '". Jun&aacute;los en uno.';
+                vistos[p.medio] = true;
+            }
+            return '';
+        }
+
+        /* El medio que se guarda en `medioPago`: con varios, "Mixto". */
+        function medioParaGuardar(){
+            const pagos = pagosParaGuardar();
+            if(pagos && pagos.length > 1) return MEDIO_MIXTO;
+            if(pagos && pagos.length === 1) return pagos[0].medio;
+            return (document.getElementById('ventaMedio')||{}).value || 'Efectivo';
+        }
+
+        /* Al abrir una venta para editar. */
+        function cargarPagosDeVenta(v){
+            ventaPagos = null;
+            if(v && Array.isArray(v.pagos) && v.pagos.filter(p=>Number(p&&p.monto)>0).length > 1){
+                ventaPagos = v.pagos.filter(p=>Number(p&&p.monto)>0)
+                    .map(p => ({ medio: p.medio || (_NOMBRE_MEDIO[p.key]||'Otro'), monto: Math.round(Number(p.monto)||0) }));
+            }
+            renderPagos();
+        }
+
         function renderVentaItems(){
             var c=document.getElementById('ventaItems');
             if(!ventaItems.length){c.innerHTML='<div style="color:var(--text-dim);font-size:0.85rem;padding:0.5rem 0">Agrega productos buscando arriba</div>';var bde=document.getElementById('ventaTotalBreakdown');if(bde)bde.innerHTML='';document.getElementById('ventaTotal').textContent='$0';/* sin items no hay de que descontar: el campo no puede quedar con el numero de la venta anterior */var _me0=document.getElementById('ventaDescuentoMonto');if(_me0&&document.activeElement!==_me0)_me0.value=0;return;}
@@ -4073,6 +4423,15 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
                     '</div>';
             }).join('');
             var t=calcularTotalesVenta();
+            /* Agregar un producto, cambiar el descuento o el envio mueve el total:
+               el ultimo renglon del pago dividido lo sigue solo, para que no quede
+               una division vieja sobre un total nuevo. */
+            if(typeof pagoDividido==='function'&&pagoDividido()){
+                var _foco=document.activeElement;
+                var _enPago=_foco&&_foco.classList&&_foco.classList.contains('pg-monto');
+                _pgAjustarUltimo();
+                if(!_enPago)renderPagos(); else renderResumenPagos();
+            }
             var bd=document.getElementById('ventaTotalBreakdown');
             var costoTotalVta=ventaItems.reduce(function(s,i){return s+costoItem(i);},0);
             if(bd){
@@ -4115,7 +4474,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
             throw new Error('No se pudo generar un id unico para la resena');
         }
 
-        async function saveVenta(){if(!ventaClienteSelected){showAdminToast('Selecciona un cliente de la lista','error');document.getElementById('ventaCliente').focus();return;}if(!ventaItems.length){showAdminToast('Agrega al menos un producto','error');return;}const isEdit=!!editingVentaId;/* Caja viandas (10/10/2026): la venta de viandas va a la caja de viandas y lleva cajaTipo. Se lee la bandera ACA: closeVentaModal la borra antes de terminar. Y se controla todo de nuevo: hay caminos que cargan productos sin pasar por _agregarItemVenta (otra presentacion sugerida, las bolsas de granel, editar, los pedidos). Al editar solo los renglones nuevos. */const _vds=window._ventaViandas===true;const _pv1=window._pedidoParteViandas1||null;const _pv2=window._pedidoParteViandas2||null;const _medioElegido=(document.getElementById('ventaMedio')||{}).value||'';let _pedMarcado=false;/* La venta de las viandas de un pedido partido: antes de crearla se relee el pedido. Si otro (otra pestaña, el otro admin) borro la del local o ya paso las viandas, no se crea: se venderian dos veces. Y lo del stock se toma de la lectura, no de cuando se abrio el modal. */if(_pv2&&!isEdit){try{const _ps2=await db.collection('pedidos').doc(_pv2.pedidoId).get();const _pd2=_ps2.exists?_ps2.data():null;if(!_pd2||!_pd2.ventaId||_pd2.viandasPendientes!==true||_pd2.ventaViandasId){showAdminToast('Este pedido ya no tiene viandas para pasar a venta (lo cambio alguien mas). Cerrá esta venta y volvé a abrir el pedido.','error');return;}_pv2.stockDescontado=_pd2.viandasStockDescontado===true;}catch(_e){showAdminToast('No se pudo revisar el pedido: '+_e.message,'error');return;}}if(typeof viandasControlVenta==='function'){if(typeof viandasRefrescarCocinas==='function')await viandasRefrescarCocinas();const _mvds=viandasControlVenta(ventaItems,'min',isEdit&&editingVentaOriginal?editingVentaOriginal.items:null);if(_mvds){showAdminToast(_mvds,'error');return;}}/* Para edicion: el "stock disponible" para validar es stockActual + cantidad del original (que ya esta descontada y vamos a devolver) */const originalInsumos={};if(isEdit&&editingVentaOriginal&&editingVentaOriginal.insumosUsados){editingVentaOriginal.insumosUsados.forEach(u=>{originalInsumos[u.id]=Number(u.cantidad||0);});}for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i){showAdminToast('Insumo "'+u.nombre+'" ya no existe','error');return;}const stockEfectivo=Number(i.stockActual||0)+(originalInsumos[u.id]||0);if(u.cantidad>stockEfectivo){showAdminToast('Stock insuficiente de "'+u.nombre+'" (hay '+stockEfectivo+', usas '+u.cantidad+')','error');return;}}/* Lo que se vende de mas que el stock: se pregunta una vez, con todo (ver avisoStockInsuficiente en admin-variantes.js). */if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaItems,'min')))return;/* Aviso de costos viejos (pedido del comercio, 24/09/2026): antes de escribir nada y solo al crear. Ver admin-costos.js. */if(!isEdit&&typeof avisoCostosViejos==='function'&&!(await avisoCostosViejos(ventaItems,'min')))return;/* Lo que se vende sin ganancia (pedido del dueño, 02/10): solo al crear. Ver avisoVentaSinGanancia en admin-costos.js. */if(!isEdit&&typeof avisoVentaSinGanancia==='function'&&!(await avisoVentaSinGanancia(ventaItems,'min')))return;const btn=document.getElementById('saveVentaBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{const totales=calcularTotalesVenta();const subtotalProductos=totales.subtotal;/* El cupon se revalida contra el subtotal FINAL. Al aplicarlo se miro el carrito   de ese momento, y desde ahi hasta aca se pueden haber sacado productos: sin esto   se esquivaba la compra minima sin ningun truco. Tambien atrapa el cupon que se   uso en otra venta o vencio mientras el modal estaba abierto. *//* Solo al CREAR. Al editar una venta que ya uso el cupon, ese cupon figura   usado -por esta misma venta-, asi que revalidarlo la rechazaria y no se   podria ni corregir el nombre del cliente. */if(!isEdit&&typeof cuponCajaRevalidar==='function'){const _rev=await cuponCajaRevalidar(subtotalProductos);if(!_rev.ok){btn.disabled=false;btn.innerHTML=_vds?'<i class="bi bi-check-lg"></i> Registrar venta de viandas':'<i class="bi bi-check-lg"></i> Registrar Venta';showAdminToast('El cupón ya no se puede usar: '+_rev.motivo,'error');if(typeof cuponCajaQuitar==='function')cuponCajaQuitar();return;}}const envio=totales.envio;const total=totales.total;const now=new Date();const fechaStr=document.getElementById('ventaFecha').value;const fechaParts=fechaStr.split('-');const fechaVenta=new Date(fechaParts[0],fechaParts[1]-1,fechaParts[2],now.getHours(),now.getMinutes(),now.getSeconds());if(isEdit){/* === MODO EDICION === */const ventaPrevia=ventasData.find(x=>x.docId===editingVentaId);const numActual=ventaPrevia?ventaPrevia.numero:0;/* 1. Devolver stock de insumos originales */const stockUpdates={};(editingVentaOriginal.insumosUsados||[]).forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)+Number(u.cantidad||0);});/* 2. Restar stock de insumos nuevos */ventaInsumosUsados.forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)-Number(u.cantidad||0);});/* 3. Aplicar deltas al stock */await aplicarStockInsumos(stockUpdates);/* 3b. Stock de productos: devolver los del original y descontar los nuevos.
+        async function saveVenta(){if(!ventaClienteSelected){showAdminToast('Selecciona un cliente de la lista','error');document.getElementById('ventaCliente').focus();return;}if(!ventaItems.length){showAdminToast('Agrega al menos un producto','error');return;}const isEdit=!!editingVentaId;/* Caja viandas (10/10/2026): la venta de viandas va a la caja de viandas y lleva cajaTipo. Se lee la bandera ACA: closeVentaModal la borra antes de terminar. Y se controla todo de nuevo: hay caminos que cargan productos sin pasar por _agregarItemVenta (otra presentacion sugerida, las bolsas de granel, editar, los pedidos). Al editar solo los renglones nuevos. */const _vds=window._ventaViandas===true;const _pv1=window._pedidoParteViandas1||null;const _pv2=window._pedidoParteViandas2||null;const _medioElegido=(document.getElementById('ventaMedio')||{}).value||'';let _pedMarcado=false;/* La venta de las viandas de un pedido partido: antes de crearla se relee el pedido. Si otro (otra pestaña, el otro admin) borro la del local o ya paso las viandas, no se crea: se venderian dos veces. Y lo del stock se toma de la lectura, no de cuando se abrio el modal. */if(_pv2&&!isEdit){try{const _ps2=await db.collection('pedidos').doc(_pv2.pedidoId).get();const _pd2=_ps2.exists?_ps2.data():null;if(!_pd2||!_pd2.ventaId||_pd2.viandasPendientes!==true||_pd2.ventaViandasId){showAdminToast('Este pedido ya no tiene viandas para pasar a venta (lo cambio alguien mas). Cerrá esta venta y volvé a abrir el pedido.','error');return;}_pv2.stockDescontado=_pd2.viandasStockDescontado===true;}catch(_e){showAdminToast('No se pudo revisar el pedido: '+_e.message,'error');return;}}if(typeof viandasControlVenta==='function'){if(typeof viandasRefrescarCocinas==='function')await viandasRefrescarCocinas();const _mvds=viandasControlVenta(ventaItems,'min',isEdit&&editingVentaOriginal?editingVentaOriginal.items:null);if(_mvds){showAdminToast(_mvds,'error');return;}}/* Para edicion: el "stock disponible" para validar es stockActual + cantidad del original (que ya esta descontada y vamos a devolver) */const originalInsumos={};if(isEdit&&editingVentaOriginal&&editingVentaOriginal.insumosUsados){editingVentaOriginal.insumosUsados.forEach(u=>{originalInsumos[u.id]=Number(u.cantidad||0);});}for(const u of ventaInsumosUsados){const i=insumosData.find(x=>x.id===u.id);if(!i){showAdminToast('Insumo "'+u.nombre+'" ya no existe','error');return;}const stockEfectivo=Number(i.stockActual||0)+(originalInsumos[u.id]||0);if(u.cantidad>stockEfectivo){showAdminToast('Stock insuficiente de "'+u.nombre+'" (hay '+stockEfectivo+', usas '+u.cantidad+')','error');return;}}/* Lo que se vende de mas que el stock: se pregunta una vez, con todo (ver avisoStockInsuficiente en admin-variantes.js). */if(typeof avisoStockInsuficiente==='function'&&!(await avisoStockInsuficiente(ventaItems,'min')))return;/* Aviso de costos viejos (pedido del comercio, 24/09/2026): antes de escribir nada y solo al crear. Ver admin-costos.js. */if(!isEdit&&typeof avisoCostosViejos==='function'&&!(await avisoCostosViejos(ventaItems,'min')))return;/* Lo que se vende sin ganancia (pedido del dueño, 02/10): solo al crear. Ver avisoVentaSinGanancia en admin-costos.js. */if(!isEdit&&typeof avisoVentaSinGanancia==='function'&&!(await avisoVentaSinGanancia(ventaItems,'min')))return;const btn=document.getElementById('saveVentaBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Guardando...';try{const totales=calcularTotalesVenta();const subtotalProductos=totales.subtotal;/* LOS PAGOS SE VALIDAN ANTES DE ESCRIBIR NADA. Una venta cuyos pagos no suman el total rompe el arqueo en silencio, que es el peor lugar donde puede aparecer un error. */const _errPagos=(typeof validarPagos==='function')?validarPagos():'';if(_errPagos){showAdminToast(_errPagos.replace(/&[a-z]+;/g,function(m){return {'&eacute;':'é','&aacute;':'á','&oacute;':'ó'}[m]||m;}),'error');btn.disabled=false;btn.innerHTML=isEdit?'<i class="bi bi-check-lg"></i> Guardar cambios':'<i class="bi bi-check-lg"></i> Registrar Venta';return;}const _pagosVta=(typeof pagosParaGuardar==='function')?pagosParaGuardar():null;const _medioVta=(typeof medioParaGuardar==='function')?medioParaGuardar():document.getElementById('ventaMedio').value;/* El cupon se revalida contra el subtotal FINAL. Al aplicarlo se miro el carrito   de ese momento, y desde ahi hasta aca se pueden haber sacado productos: sin esto   se esquivaba la compra minima sin ningun truco. Tambien atrapa el cupon que se   uso en otra venta o vencio mientras el modal estaba abierto. *//* Solo al CREAR. Al editar una venta que ya uso el cupon, ese cupon figura   usado -por esta misma venta-, asi que revalidarlo la rechazaria y no se   podria ni corregir el nombre del cliente. */if(!isEdit&&typeof cuponCajaRevalidar==='function'){const _rev=await cuponCajaRevalidar(subtotalProductos);if(!_rev.ok){btn.disabled=false;btn.innerHTML=_vds?'<i class="bi bi-check-lg"></i> Registrar venta de viandas':'<i class="bi bi-check-lg"></i> Registrar Venta';showAdminToast('El cupón ya no se puede usar: '+_rev.motivo,'error');if(typeof cuponCajaQuitar==='function')cuponCajaQuitar();return;}}const envio=totales.envio;const total=totales.total;const now=new Date();const fechaStr=document.getElementById('ventaFecha').value;const fechaParts=fechaStr.split('-');const fechaVenta=new Date(fechaParts[0],fechaParts[1]-1,fechaParts[2],now.getHours(),now.getMinutes(),now.getSeconds());if(isEdit){/* === MODO EDICION === */const ventaPrevia=ventasData.find(x=>x.docId===editingVentaId);const numActual=ventaPrevia?ventaPrevia.numero:0;/* 1. Devolver stock de insumos originales */const stockUpdates={};(editingVentaOriginal.insumosUsados||[]).forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)+Number(u.cantidad||0);});/* 2. Restar stock de insumos nuevos */ventaInsumosUsados.forEach(u=>{stockUpdates[u.id]=(stockUpdates[u.id]||0)-Number(u.cantidad||0);});/* 3. Aplicar deltas al stock */await aplicarStockInsumos(stockUpdates);/* 3b. Stock de productos: devolver los del original y descontar los nuevos.
    Solo se devuelve si la venta original REALMENTE habia descontado (stockDescontado).
    Sin ese guardia, editar una venta anterior a esta funcion inflaria el stock
    devolviendo mercaderia que nunca se habia restado. */
@@ -4123,7 +4482,7 @@ const dProd=(editingVentaOriginal.stockDescontado?deltasDeItems(editingVentaOrig
 const dNuevo=deltasDeItems(ventaItems,-1);
 Object.keys(dNuevo).forEach(k=>{dProd[k]=(dProd[k]||0)+dNuevo[k];});
 await aplicarStockProductos(dProd);
-/* 4. Actualizar la venta */const ventaUpdate={fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,tipoVenta:i.tipoVenta||'unidad',subtotal:subtotalItem(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,medioPagoKey:keyDeMedio(document.getElementById('ventaMedio').value),stockDescontado:!!DESCONTAR_STOCK,editadoEn:new Date(),editadoPor:auth.currentUser?auth.currentUser.email:''};await db.collection('ventas').doc(editingVentaId).update(ventaUpdate);/* Si la venta era de una caja YA CERRADA, hay que marcar la caja. El arqueo queda
+/* 4. Actualizar la venta */const ventaUpdate={fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:_medioVta,pagos:_pagosVta,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,tipoVenta:i.tipoVenta||'unidad',subtotal:subtotalItem(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,medioPagoKey:(_pagosVta&&_pagosVta.length>1)?MEDIO_MIXTO_KEY:keyDeMedio(_medioVta),stockDescontado:!!DESCONTAR_STOCK,editadoEn:new Date(),editadoPor:auth.currentUser?auth.currentUser.email:''};await db.collection('ventas').doc(editingVentaId).update(ventaUpdate);/* Si la venta era de una caja YA CERRADA, hay que marcar la caja. El arqueo queda
    congelado a proposito, asi que a partir de esta edicion el listado de ventas de ese dia
    no cuadra mas con el cierre de ese dia, y no habia forma de darse cuenta: el cartel
    EDITADA del historial de cajas existe desde el principio (admin-caja.js:285) pero nadie
@@ -4154,7 +4513,7 @@ const _pedOrigen=window._pedidoOrigenVentaId?pedidosData.find(x=>x.docId===windo
    Confundirlas hacia que una venta de mostrador comun dejara de descontar. */
 const _yaDescontado=_pv2?(_pv2.stockDescontado===true):!!(_pedOrigen&&_pedOrigen.stockDescontado);
 const _ventaPoseeStock=_yaDescontado||!!DESCONTAR_STOCK;
-const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:document.getElementById('ventaMedio').value,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,tipoVenta:i.tipoVenta||'unidad',subtotal:subtotalItem(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,cupon:(_pv1&&window._pedidoCuponVenta&&Number(totales.cuponMonto||0)<Number(window._pedidoCuponVenta.monto||0))?Object.assign({},window._pedidoCuponVenta,{monto:Number(totales.cuponMonto||0)}):(window._pedidoCuponVenta||null),usuario:auth.currentUser?auth.currentUser.email:'',cajaId:(typeof getCajaAbiertaIdLive==='function'?await getCajaAbiertaIdLive(_vds?'viandas':undefined):null),...(_vds?{cajaTipo:'viandas'}:{}),medioPagoKey:(typeof keyDeMedio==='function'?keyDeMedio(document.getElementById('ventaMedio').value):null),origen:window._pedidoOrigenVentaId?'web':'mostrador',pedidoId:window._pedidoOrigenVentaId||null,stockDescontado:_ventaPoseeStock,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};const ventaRefNueva=await db.collection('ventas').add(venta);if(typeof cajaRegistrarVenta==='function')cajaRegistrarVenta(Object.assign({docId:ventaRefNueva.id},venta),'minorista');/* El cupon que se USO se marca ahora, con la venta ya creada: si algo se   reclama despues, hay que poder ir del cupon a su venta. Y si la cajera   pidio ENTREGAR uno, se genera y se le pega a la venta para que salga   impreso en el ticket. Las dos cosas van despues del add a proposito:   ninguna puede impedir que la venta se guarde. */if(!_pv2&&typeof cuponCajaRegistrarUso==='function')await cuponCajaRegistrarUso(ventaRefNueva.id,num);if(typeof cuponTicketEmitir==='function'){const _cupEmit=await cuponTicketEmitir(ventaRefNueva.id);if(_cupEmit){venta.cuponEmitido=_cupEmit;await ventaRefNueva.update({cuponEmitido:_cupEmit});}}/* el contador ya quedo escrito dentro de la transaccion de arriba *//* Descontar stock de productos (gondola). Si la venta viene de un pedido web el
+const venta={numero:num,resenaId:resenaOk?resenaId:null,fecha:fechaVenta,cliente:document.getElementById('ventaCliente').value.trim()||'Consumidor Final',clienteId:document.getElementById('ventaClienteId').value&&!document.getElementById('ventaClienteId').value.startsWith('auth:')?document.getElementById('ventaClienteId').value:null,clienteAuthUid:document.getElementById('ventaClienteId').value?.startsWith('auth:')?document.getElementById('ventaClienteId').value.replace('auth:',''):null,medioPago:_medioVta,pagos:_pagosVta,tipoEntrega:ventaTipoEntrega,items:ventaItems.map(i=>({id:i.id,nombre:i.nombre,precio:i.precio,costo:i.costo,cantidad:i.cantidad,descuento:i.descuento||0,tipoVenta:i.tipoVenta||'unidad',subtotal:subtotalItem(i),...(i.escalaId?{escala:i.escala||null,escalaId:i.escalaId}:{})})),insumosUsados:ventaInsumosUsados.map(u=>({id:u.id,nombre:u.nombre,cantidad:u.cantidad})),subtotalProductos:subtotalProductos,descuentoPct:totales.descuentoPct||0,descuentoMonto:totales.descuentoMonto||0,envio:envio,envioGratis:ventaTipoEntrega==='envio'&&envio===0,total:total,cupon:(_pv1&&window._pedidoCuponVenta&&Number(totales.cuponMonto||0)<Number(window._pedidoCuponVenta.monto||0))?Object.assign({},window._pedidoCuponVenta,{monto:Number(totales.cuponMonto||0)}):(window._pedidoCuponVenta||null),usuario:auth.currentUser?auth.currentUser.email:'',cajaId:(typeof getCajaAbiertaIdLive==='function'?await getCajaAbiertaIdLive(_vds?'viandas':undefined):null),...(_vds?{cajaTipo:'viandas'}:{}),medioPagoKey:(_pagosVta&&_pagosVta.length>1)?MEDIO_MIXTO_KEY:(typeof keyDeMedio==='function'?keyDeMedio(_medioVta):null),origen:window._pedidoOrigenVentaId?'web':'mostrador',pedidoId:window._pedidoOrigenVentaId||null,stockDescontado:_ventaPoseeStock,creadoEn:firebase.firestore.FieldValue.serverTimestamp()};const ventaRefNueva=await db.collection('ventas').add(venta);if(typeof cajaRegistrarVenta==='function')cajaRegistrarVenta(Object.assign({docId:ventaRefNueva.id},venta),'minorista');/* El cupon que se USO se marca ahora, con la venta ya creada: si algo se   reclama despues, hay que poder ir del cupon a su venta. Y si la cajera   pidio ENTREGAR uno, se genera y se le pega a la venta para que salga   impreso en el ticket. Las dos cosas van despues del add a proposito:   ninguna puede impedir que la venta se guarde. */if(!_pv2&&typeof cuponCajaRegistrarUso==='function')await cuponCajaRegistrarUso(ventaRefNueva.id,num);if(typeof cuponTicketEmitir==='function'){const _cupEmit=await cuponTicketEmitir(ventaRefNueva.id);if(_cupEmit){venta.cuponEmitido=_cupEmit;await ventaRefNueva.update({cuponEmitido:_cupEmit});}}/* el contador ya quedo escrito dentro de la transaccion de arriba *//* Descontar stock de productos (gondola). Si la venta viene de un pedido web el
    stock YA lo descontó la tienda al confirmar, asi que no se resta dos veces. */
 /* Se mira la bandera del pedido, no de donde viene la venta. Antes alcanzaba con
    que la venta naciera de un pedido web para NO descontar, dando por hecho que la
@@ -4469,7 +4828,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
            la lista quedaba parada en la pagina 5 del resultado nuevo: se veian las ventas
            mas viejas de ese cliente y nada indicaba que habia 48 arriba. Y si el resultado
            tenia menos paginas, el clamp de renderVentas dejaba la ULTIMA, no la primera. */
-        function filterVentas(){ventasPage=0;const q=(document.getElementById('ventaSearch')?.value||'').toLowerCase();const mes=document.getElementById('ventaMesFiltro')?.value||'';ventasFiltered=ventasData.filter(v=>v.cajaTipo!=='viandas');if(mes){const[my,mm]=mes.split('-').map(Number);ventasFiltered=ventasFiltered.filter(v=>v.fecha.getFullYear()===my&&(v.fecha.getMonth()+1)===mm);}if(q)ventasFiltered=ventasFiltered.filter(v=>(v.cliente||'').toLowerCase().includes(q)||String(v.numero).includes(q)||(v.medioPago||'').toLowerCase().includes(q));renderVentas();}
+        function filterVentas(){ventasPage=0;const q=(document.getElementById('ventaSearch')?.value||'').toLowerCase();const mes=document.getElementById('ventaMesFiltro')?.value||'';ventasFiltered=ventasData.filter(v=>v.cajaTipo!=='viandas');if(mes){const[my,mm]=mes.split('-').map(Number);ventasFiltered=ventasFiltered.filter(v=>v.fecha.getFullYear()===my&&(v.fecha.getMonth()+1)===mm);}if(q)ventasFiltered=ventasFiltered.filter(v=>(v.cliente||'').toLowerCase().includes(q)||String(v.numero).includes(q)||((v.medioPago||'')+' '+detallePagos(v)).toLowerCase().includes(q));renderVentas();}
         /* Las tarjetas describen LO QUE SE ESTA VIENDO, no toda la base.
            Antes sumaban ventasData (todo) mientras la lista de abajo mostraba
            ventasFiltered, y como el filtro de mes arranca en el mes actual, los
@@ -4489,7 +4848,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
             const neto=arr.reduce((s,v)=>s+netoVenta(v),0);
             const envios=arr.reduce((s,v)=>s+Number(v.envio||0),0);
             /* Sin cobrar de verdad: el fiado ya saldado (ccPagado) no cuenta. */
-            const fiado=arr.filter(v=>typeof _esFiadoImpago==='function'?_esFiadoImpago(v):medioKeyDeVenta(v)==='cuenta_corriente').reduce((s,v)=>s+netoVenta(v),0);
+            /* Se suma lo FIADO de cada venta, no la venta entera: una mixta deja fiada solo su parte. */const fiado=arr.reduce((s,v)=>s+(typeof _montoFiadoImpago==='function'?_montoFiadoImpago(v):0),0);
             set(pref+'Total',arr.length);
             set(pref+'Total$',fmt(neto));
             set(pref+'Prom',fmt(arr.length?neto/arr.length:0));
@@ -4535,7 +4894,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
             /* La mayorista se guarda a las 12:00 (saveVentaMay): no hay hora que mostrar. */
             const hora=(may||!_vtOk(v))?'':v.fecha.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
             const mk=medioKeyDeVenta(v);const m=_VT_MEDIOS[mk]||_VT_MEDIOS.otro;
-            const chips=['<span class="vt-chip '+m.c+'"><i class="bi '+m.i+'"></i> '+esc(v.medioPago||'-')+'</span>'];
+            const _mix=detallePagos(v);const chips=['<span class="vt-chip '+m.c+'" title="'+_attrHtml(_mix)+'"><i class="bi '+m.i+'"></i> '+esc(_mix||v.medioPago||'-')+'</span>'];
             if(mk==='cuenta_corriente')chips.push(v.ccPagado===true?'<span class="vt-chip cobrado"><i class="bi bi-check2-circle"></i> Fiado cobrado</span>':'<span class="vt-chip debe"><i class="bi bi-exclamation-circle"></i> Fiado sin cobrar</span>');
             if(v.origen==='web'||v.pedidoId)chips.push('<span class="vt-chip web"><i class="bi bi-globe2"></i> Tienda online</span>');
             if(v.tipoEntrega==='envio')chips.push('<span class="vt-chip envio"><i class="bi bi-truck"></i> Envío</span>');
@@ -5686,7 +6045,20 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
            deja un saldo que despues nadie puede explicar. */
         let _fichaCliente = null;   /* { id, nombre, ventas } de la ficha abierta */
 
-        function _esFiadoImpago(v){ return medioKeyDeVenta(v)==='cuenta_corriente' && v.ccPagado!==true; }
+        function _esFiadoImpago(v){
+            /* El fiado puede ser una PARTE de la venta: "te pago la mitad y la otra
+               mitad me la fias". Alcanza con que alguno de los pagos sea a cuenta
+               corriente. Con un solo medio -y con las ventas viejas, que no tienen
+               `pagos`- esto es exactamente lo de antes. */
+            if(v && v.ccPagado===true) return false;
+            if(typeof pagosDeVenta==='function') return pagosDeVenta(v).some(p=>p.key==='cuenta_corriente');
+            return medioKeyDeVenta(v)==='cuenta_corriente';
+        }
+        /* Cuanto de ESTA venta quedo fiado y sin cobrar. */
+        function _montoFiadoImpago(v){
+            if(!_esFiadoImpago(v)) return 0;
+            return pagosDeVenta(v,'neto').reduce((a,p)=>a+(p.key==='cuenta_corriente'?p.monto:0),0);
+        }
 
         function _attrHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
@@ -5778,7 +6150,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
                         : '');
                 return '<div class="venta-card" style="cursor:pointer" onclick="this.querySelector(\'.ch-items\').classList.toggle(\'show\')">'+
                     '<div class="venta-card-top"><span class="venta-card-num">#'+nro+'</span><span class="venta-card-total">$'+(v.total||0).toLocaleString('es-AR')+'</span></div>'+
-                    '<div class="venta-card-bot"><span>'+fecha+'</span><span>'+esc(v.medioPago||'')+'</span>'+chip+
+                    '<div class="venta-card-bot"><span>'+fecha+'</span><span title="'+_attrHtml(detallePagos(v))+'">'+esc(medioDeVenta(v))+'</span>'+chip+
                     (v._col==='ventasMayoristas'?'<span style="background:rgba(139,92,246,0.18);color:#b9a4fb;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700">MAYORISTA</span>':'')+
                     (v.cajaTipo==='viandas'?'<span style="background:rgba(240,189,106,0.16);color:#f0bd6a;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700">VIANDAS</span>':'')+
                     '<span>'+(v.items||[]).length+' items <i class="bi bi-chevron-down" style="font-size:0.65rem"></i></span></div>'+
@@ -7221,7 +7593,7 @@ prods.push({nombre:_nom,codigo:_cod,tipoVenta:_tv,costo,porcentaje:pMin,precio,p
 
         function buildEtiquetaHTML(fc,items,fecha,nro,qrSrc,cliente,tipoEntrega,venta,usarQrResena){const allItems=items||[];const pages=splitItemsContinuous(allItems,termicaCapPrimera(),termicaCapMedio(),termicaCapUltima());let out='';for(let p=0;p<pages.length;p++){const pg=pages[p];let pageContent='';if(pg.type==='single'){pageContent=buildEtiquetaHeader(fc,fecha,nro,cliente,tipoEntrega)+buildEtiquetaItems(pg.items)+buildEtiquetaFooter(fc,allItems,usarQrResena?qrSrc:'',tipoEntrega,'',venta,usarQrResena);}else if(pg.type==='first'){pageContent=buildEtiquetaHeader(fc,fecha,nro,cliente,tipoEntrega)+buildEtiquetaItems(pg.items);}else if(pg.type==='middle'){pageContent=buildEtiquetaItems(pg.items);}else if(pg.type==='last'){pageContent=buildEtiquetaItems(pg.items)+buildEtiquetaFooter(fc,allItems,usarQrResena?qrSrc:'',tipoEntrega,'',venta,usarQrResena);}out+='<div class="tk-page tk-page-'+pg.type+'">'+pageContent+'</div>';}return out;}
 
-        function buildFacturaA4Header(fc,v,fecha,nro,esRetiro){let h='<div class="fa4-header"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px"><div><strong style="font-size:1.1rem">'+fc.nombre+'</strong><br>'+fc.direccion;if(fc.cuit)h+='<br>CUIT: '+fc.cuit;h+='<br>Tel: '+fc.telefono+'<br>'+fc.email+'</div>';if(fc.logo)h+='<img src="'+fc.logo+'" style="height:60px;width:auto;object-fit:contain" onerror="this.style.display=\'none\'">';h+='</div>';h+='<div class="factura-line" style="display:flex;justify-content:space-between"><span>Fecha: '+fecha+'</span><span>N: '+nro+'</span></div>';h+='<div class="factura-line">Cliente: <strong>'+esc(v.cliente)+'</strong></div>';h+='<div class="factura-line">Medio: '+v.medioPago+'</div>';h+='<div class="factura-line">Entrega: <strong>'+(esRetiro?'Retiro en local':'Env\u00edo a domicilio')+'</strong></div>';h+='<div style="margin-top:10px;border-top:2px solid #111;padding-top:6px"><div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:4px"><span style="flex:1">Producto</span><span style="width:35px;text-align:center">Cant</span><span style="width:65px;text-align:right">P.Unit</span><span style="width:75px;text-align:right">Subtot</span></div></div>';h+='</div>';return h;}
+        function buildFacturaA4Header(fc,v,fecha,nro,esRetiro){let h='<div class="fa4-header"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px"><div><strong style="font-size:1.1rem">'+fc.nombre+'</strong><br>'+fc.direccion;if(fc.cuit)h+='<br>CUIT: '+fc.cuit;h+='<br>Tel: '+fc.telefono+'<br>'+fc.email+'</div>';if(fc.logo)h+='<img src="'+fc.logo+'" style="height:60px;width:auto;object-fit:contain" onerror="this.style.display=\'none\'">';h+='</div>';h+='<div class="factura-line" style="display:flex;justify-content:space-between"><span>Fecha: '+fecha+'</span><span>N: '+nro+'</span></div>';h+='<div class="factura-line">Cliente: <strong>'+esc(v.cliente)+'</strong></div>';h+='<div class="factura-line">Medio: '+esc(detallePagos(v)||v.medioPago||'')+'</div>';h+='<div class="factura-line">Entrega: <strong>'+(esRetiro?'Retiro en local':'Env\u00edo a domicilio')+'</strong></div>';h+='<div style="margin-top:10px;border-top:2px solid #111;padding-top:6px"><div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:4px"><span style="flex:1">Producto</span><span style="width:35px;text-align:center">Cant</span><span style="width:65px;text-align:right">P.Unit</span><span style="width:75px;text-align:right">Subtot</span></div></div>';h+='</div>';return h;}
         function buildFacturaA4Items(items){let h='<div class="fa4-items">';items.forEach(i=>{const dsc=i.descuento||0;const precioUnit=dsc>0?Math.round((i.precioOriginal||i.precio||0)*(1-dsc/100)):(i.precio||0);const nombreCol=esc(i.nombre)+(dsc>0?' <span style="color:#c62828;font-weight:700;font-size:0.62rem">(-'+dsc+'%)</span>':'');h+='<div class="factura-line" style="display:flex;justify-content:space-between;font-size:0.68rem"><span style="flex:1">'+nombreCol+'</span><span style="width:35px;text-align:center">'+fmtCantidad(i)+'</span><span style="width:70px;text-align:right">$'+precioUnit.toLocaleString('es-AR')+'</span><span style="width:80px;text-align:right">$'+(i.subtotal||0).toLocaleString('es-AR')+'</span></div>';});h+='</div>';return h;}
         function buildFacturaA4Footer(fc,v,esRetiro,pageInfo){const subtProd=v.subtotalProductos||v.total||0;const envio=v.envio!=null?v.envio:0;const total=v.total||0;const descPct=v.descuentoPct||0;const descMonto=v.descuentoMonto||0;let h='<div class="fa4-footer"><div style="border-top:1px solid #999;margin-top:8px;padding-top:6px;font-size:0.85rem"><div style="display:flex;justify-content:space-between"><span>Subtotal productos</span><span>$'+subtProd.toLocaleString('es-AR')+'</span></div>';if(descPct>0)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Descuento ('+descPct+'%)</span><span>-$'+descMonto.toLocaleString('es-AR')+'</span></div>';/* El cupon se restaba del total al guardar la venta pero no se imprimia como renglon: subtotal - descuento + envio daba MAS que el TOTAL de abajo, y ni el cliente que suma el papel ni el que atiende tenian con que explicar la diferencia. Se topea igual que en calcularTotalesVenta (contra lo que queda despues del descuento) para que los renglones sumen EXACTO el TOTAL guardado. */var _cupA4=v.cupon||null;var _cupMontoA4=_cupA4?Math.min(Math.max(0,Number(_cupA4.monto||0)),Math.max(0,subtProd-descMonto)):0;if(_cupMontoA4>0)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Cupón '+esc(_cupA4.codigo||'')+'</span><span>-$'+_cupMontoA4.toLocaleString('es-AR')+'</span></div>';if(!esRetiro)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Env\u00edo</span><span style="'+(envio===0?'color:#27ae60;font-weight:600':'')+'">'+(envio===0?'GRATIS':'$'+envio.toLocaleString('es-AR'))+'</span></div>';h+='</div>';h+='<div class="factura-total" style="display:flex;justify-content:space-between;border-top:2px solid #111;margin-top:8px;padding-top:8px;font-size:1.1rem;font-weight:700"><span>TOTAL</span><span>$'+total.toLocaleString('es-AR')+'</span></div>';if(fc.pie)h+='<div style="text-align:center;margin-top:12px;font-size:0.7rem;color:#888">'+esc(fc.pie)+'</div>';h+='<div style="text-align:center;margin-top:8px;font-size:0.6rem;color:#aaa;letter-spacing:1px;text-transform:uppercase">No valido como factura</div>';/* pageInfo NO se muestra */h+='</div>';return h;}
         function buildFacturaA4HTML(docId){const v=ventasData.find(x=>x.docId===docId);if(!v)return'';const f=v.fecha;const fecha=f.toLocaleDateString('es-AR');const nro='00001-'+String(v.numero||0).padStart(8,'0');const fc=facturaConfig;const esRetiro=v.tipoEntrega==='retiro';const allItems=v.items||[];const pages=splitItemsContinuous(allItems,a4CapPrimera(),a4CapMedio(),a4CapUltima());let out='';for(let p=0;p<pages.length;p++){const pg=pages[p];let pageContent='';if(pg.type==='single'){pageContent=buildFacturaA4Header(fc,v,fecha,nro,esRetiro)+buildFacturaA4Items(pg.items)+buildFacturaA4Footer(fc,v,esRetiro,'');}else if(pg.type==='first'){pageContent=buildFacturaA4Header(fc,v,fecha,nro,esRetiro)+buildFacturaA4Items(pg.items);}else if(pg.type==='middle'){pageContent=buildFacturaA4Items(pg.items);}else if(pg.type==='last'){pageContent=buildFacturaA4Items(pg.items)+buildFacturaA4Footer(fc,v,esRetiro,'');}out+='<div class="fa4-page fa4-page-'+pg.type+'">'+pageContent+'</div>';}return out;}

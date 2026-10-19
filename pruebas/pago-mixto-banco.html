@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Banco del pago dividido</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  body{margin:0;padding:1.2rem;background:#0d1117;color:#e6edf3;font:14px/1.55 system-ui,sans-serif}
+  h1{font-size:1.05rem;margin:0 0 .3rem}
+  .sub{color:#8b949e;font-size:.82rem;max-width:780px;margin-bottom:1rem}
+  .fila{display:flex;gap:1.2rem;flex-wrap:wrap;align-items:flex-start}
+  .fila>div:first-child{flex:1 1 320px;min-width:0}
+  #log{max-width:100%}
+  #montaje{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:1rem;width:100%;max-width:380px}
+  button.b{background:#238636;border:1px solid #2ea043;color:#fff;border-radius:6px;padding:.4rem .7rem;cursor:pointer;font-size:.8rem;margin:0 .3rem .4rem 0}
+  button.b.gris{background:#21262d;border-color:#30363d;color:#e6edf3}
+  #log{font-family:ui-monospace,Consolas,monospace;font-size:.76rem;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:.6rem;width:420px;white-space:pre-wrap;max-height:60vh;overflow:auto}
+  .ok{color:#3fb950}.mal{color:#f85149}
+</style>
+</head>
+<body>
+<h1>Banco del pago dividido</h1>
+<p class="sub">
+  Monta el bloque de <b>medio de pago</b> del modal de venta y las funciones reales
+  de <code>/admin</code>, con los estilos reales. El total de la venta es
+  <b>$10.000</b>. Sirve para ver cómo se ve y cómo se siente, que es lo que no se
+  puede comprobar leyendo código.
+</p>
+
+<div class="fila">
+  <div>
+    <div>
+      <button class="b" onclick="togglePagoDividido();pintar()">Dividir / Un solo medio</button>
+      <button class="b gris" onclick="agregarPago();pintar()">Agregar medio</button>
+      <button class="b gris" onclick="escribir(0,6000)">Escribir 6.000 en el 1º</button>
+      <button class="b gris" onclick="escribir(1,3000)">Escribir 3.000 en el 2º</button>
+      <button class="b gris" onclick="cambiarTotal(15000)">Subir el total a 15.000</button>
+    </div>
+    <div id="montaje">montando…</div>
+  </div>
+  <div id="log"></div>
+</div>
+
+<script>
+let TOTAL = 10000;
+function calcularTotalesVenta(){ return { total: TOTAL, subtotal: TOTAL }; }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function limpiarMonto(inp){ if(inp) inp.value = String(inp.value).replace(/[^0-9]/g,''); }
+function keyDeMedio(m){const t=(m||'').toLowerCase();
+  if(t.startsWith('efec'))return'efectivo';
+  if(t.startsWith('tarj')||t.includes('debi')||t.includes('cred'))return'tarjeta';
+  if(t.startsWith('trans'))return'transferencia';
+  if(t.includes('corriente')||t.includes('fiado'))return'cuenta_corriente';
+  return'otro';}
+const MEDIO_MIXTO='Mixto';
+const _NOMBRE_MEDIO={efectivo:'Efectivo',tarjeta:'Tarjeta',transferencia:'Transferencia',cuenta_corriente:'Cuenta Corriente',otro:'Otro',mixto:'Mixto'};
+
+function log(t,c){ const d=document.getElementById('log'); d.innerHTML+='<span class="'+(c||'')+'">'+esc(t)+'</span>\n'; d.scrollTop=1e9; }
+function escribir(i,v){
+  const campos=document.querySelectorAll('#pagosLista .pg-monto');
+  if(!campos[i]){ log('no hay renglon '+(i+1),'mal'); return; }
+  campos[i].value=String(v);
+  onInputPago(i,campos[i]);
+  pintar();
+}
+function cambiarTotal(t){ TOTAL=t; if(pagoDividido()){_pgAjustarUltimo();renderPagos();} pintar(); }
+function pintar(){
+  const p=(typeof ventaPagos!=='undefined'&&ventaPagos)||null;
+  log('--- ' + (p?('dividido en '+p.length):'un solo medio') + ' · total $'+TOTAL.toLocaleString('es-AR'));
+  if(p){
+    p.forEach((x,i)=>log('   '+(i+1)+'. '+x.medio+'  $'+Number(x.monto||0).toLocaleString('es-AR')));
+    const suma=p.reduce((s,x)=>s+Number(x.monto||0),0);
+    log('   suma $'+suma.toLocaleString('es-AR')+(suma===TOTAL?'  (justo)':'  (NO cuadra)'), suma===TOTAL?'ok':'mal');
+    const err=validarPagos();
+    log('   guardar: '+(err?('BLOQUEADO — '+err.replace(/&[a-z]+;/g,'?')):'permitido'), err?'mal':'ok');
+    log('   medioPago que se guarda: '+medioParaGuardar());
+  } else {
+    log('   medioPago que se guarda: '+medioParaGuardar(),'ok');
+  }
+}
+
+/* El bloque y las funciones REALES de /admin. */
+function cuerpo(txt,n){
+  let i=txt.indexOf('function '+n+'(');
+  if(i<0) throw new Error('no esta '+n);
+  let b=txt.indexOf('{',i),prof=0,k;
+  for(k=b;k<txt.length;k++){ if(txt[k]==='{')prof++; else if(txt[k]==='}'){prof--;if(!prof)break;} }
+  return txt.slice(i,k+1);
+}
+fetch('/admin').then(r=>r.text()).then(t=>{
+  const doc=new DOMParser().parseFromString(t,'text/html');
+  doc.querySelectorAll('style').forEach(s=>document.head.appendChild(s.cloneNode(true)));
+  const grupo=doc.querySelector('#ventaMedio').closest('.form-group');
+  const m=document.getElementById('montaje');
+  m.innerHTML=''; m.appendChild(grupo.cloneNode(true));
+
+  const FUNCS=['pagoDividido','_pgTotal','_pgSuma','_pgFalta','_pgMedioLibre','_pgAjustarUltimo',
+    'togglePagoDividido','agregarPago','quitarPago','cambiarMedioPago','onInputPago',
+    'renderPagos','renderResumenPagos','pagosParaGuardar','validarPagos','medioParaGuardar',
+    'cargarPagosDeVenta'].map(n=>cuerpo(t,n)).join('\n');
+  const CONSTS=t.slice(t.indexOf('let ventaPagos = null;'), t.indexOf('function pagoDividido()'));
+  const s=document.createElement('script');
+  s.textContent=CONSTS+'\n'+FUNCS;
+  document.body.appendChild(s);
+  log('bloque y funciones reales montados','ok');
+  renderPagos();
+  pintar();
+}).catch(e=>log('no se pudo montar: '+e.message,'mal'));
+</script>
+</body>
+</html>
