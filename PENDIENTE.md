@@ -133,7 +133,16 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
   **En pantalla** sigue siendo un `<select>` por defecto; *Dividir el pago* abre los
   renglones y **el último se queda con lo que falta**, así se tipea un número y no dos.
   No deja guardar si no cuadra, y dice cuánto falta o sobra.
-  `pruebas/t-pago-mixto.js`, 101 asertos. Banco: `pruebas/pago-mixto-banco.html`.
+  `pruebas/t-pago-mixto.js`, 115 asertos. Bancos: `pruebas/pago-mixto-banco.html` y
+  `pruebas/venta-caja-banco.html`.
+  **Recorrido entero en el sandbox** (`npm run sandbox`, emulador, proyecto `demo-brotes`,
+  cero contacto con la base de la clienta): abrir caja $5.000 → venta mixta de $6.400
+  ($4.000 efectivo + $2.400 transferencia) → la caja dice *en efectivo $4.000*,
+  *tarjeta/transferencia $2.400* y *debería haber $9.000* → el detalle muestra
+  "Efectivo $4.000 + Transferencia $2.400" → cierre contando $9.000: **caja exacta,
+  diferencia $0**, y el comprobante del arqueo sale con el desglose.
+  Eso es lo que hay que repetir si se toca algo de esto: el sandbox es la forma de
+  probar el flujo completo sin tocar datos reales.
   **Queda afuera a propósito** la venta **mayorista**, que es otro modal (punto 6).
 
 ### Hecho el 22/09
