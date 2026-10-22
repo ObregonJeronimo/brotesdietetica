@@ -130,7 +130,13 @@ Brotes es un **clon de YERCO** (otro comercio del mismo equipo, proyecto Firebas
    ("te pedí un cambio solo visual, no que refactorices todo"). Si aparece otra cosa para
    arreglar, se propone aparte.
 4. **Cuidado con lo que se borra.**
-5. **Todo va primero al sandbox**, se prueba ahí y queda en **commits locales**.
+5. **REGLA OBLIGATORIA (Thiago, 21/10/2026): toda funcionalidad se prueba en el sandbox antes de subirla.**
+   Cualquier cambio que sea una funcionalidad (un botón que hace algo, un cambio en la lógica de una
+   función, etc.) lo prueba Claude en el sandbox (`/sandbox`, contra el emulador), de punta a punta y con
+   los números, y comprueba que funcione perfecto. **Nada se pushea si antes no se probó así.** Las pruebas
+   automáticas y los bancos ayudan, pero no reemplazan esta prueba; lo único que no pasa por el sandbox es la
+   documentación (los `.md`). Mientras tanto, todo queda en **commits locales**. Está también en
+   `CLAUDE.md`, que Claude lee solo en cada sesión del proyecto.
 6. **Commits en español, sin tildes ni ñ**, con formato `tipo(area): resumen`, un cuerpo corto
    con el porqué y al final `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 7. **No dejar puertos abiertos raros.** Al cerrar el sandbox se verifica que no quede nada
@@ -655,6 +661,7 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - No migrar datos (etapa 4) ni hacer push, firebase deploy o escrituras en producción sin que yo lo pida explícito. La migración recién después de hablar con la clienta.
 - Cambios mínimos y puntuales: si pido algo visual, solo visual, sin refactors. Cuidado con lo que borrás.
 - Todo primero en el sandbox (entrada brotes-sandbox de la vista previa, http://localhost:5173/sandbox, entrando con thiagowendler53@gmail.com y con los envíos apagados como producción), y commits locales en español sin tildes, con la línea Co-Authored-By.
+- Regla obligatoria: toda funcionalidad (un botón que hace algo, un cambio en la lógica de una función, etc.) la probás vos en el sandbox, de punta a punta, y comprobás que funcione perfecto antes de subirla. Nada se pushea sin eso (está también en CLAUDE.md).
 - Sin puertos abiertos raros: al cerrar el sandbox verificá puertos y procesos, y nunca mates procesos de los MCP.
 - No imprimas credenciales y nunca inicies sesión en el panel de producción (/admin).
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
