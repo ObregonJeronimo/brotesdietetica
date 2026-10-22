@@ -3107,7 +3107,7 @@ medio y su arqueo daría mal hasta recargar.
 chicas, más el editor de pagos en los dos formularios y una prueba nueva con los números de cada relación). Por etapas como
 la caja de viandas: implementación y después revisión con pruebas y el sandbox.
 
-### AY) Pago mixto: la ficha del cliente y el cobro del fiado cuentan la venta entera · ENCONTRADO el 21/10, SIN ARREGLAR
+### AY) Pago mixto: la ficha del cliente y el cobro del fiado cuentan la venta entera · ARREGLADO el 21/10 (subido el mismo día)
 
 Visto el 21/10 al actualizar §AX, leyendo el código del pago mixto (subido el 19/10). Una venta mixta puede dejar una
 PARTE fiada, y `_esFiadoImpago()` ya la reconoce y `_montoFiadoImpago()` devuelve solo esa parte ("Fiado sin cobrar" la usa).
@@ -3122,7 +3122,21 @@ la caja espera $2.000 más de lo que hay (un faltante inventado, porque esos $2.
 paga lo que dice la pantalla, se le cobran $2.000 de más. Las ventas de un solo medio no cambian (para ellas la parte
 fiada es el total).
 
-**Arreglo propuesto** (espera el OK de Thiago): en esos lugares usar la parte fiada (`_montoFiadoImpago(v)`) en vez del total,
+**Arreglado el 21/10** (Thiago: "sí, arreglalo, lo revisás en el sandbox y si está todo OK pusheá"). Dos funciones nuevas al
+lado de `_montoFiadoImpago`: `_tieneFiado(v)` (si la venta tiene una parte fiada, cobrada o no) y `_deudaFiado(v)` (lo que
+el cliente DEBE de esa venta: la parte fiada tal como se cobró, con el envío, que también lo debe; con un solo medio es el
+total, como siempre). Ojo: `_montoFiadoImpago` va sin el envío (para las listas), por eso no servía para la ficha. Las usan
+"Debe", el recuadro de la deuda y su reparto por caja, el renglón y el total de "Registrar cobro", el aviso por caja, el
+ingreso que entra a cada caja y las tres marcas (lista de ventas, COBRADO de la ficha, "todo el fiado está cobrado"). En una
+mixta, el chip dice cuánto: "DEBE $6.000", "Fiado sin cobrar $10.000", y el cobro aclara "fiado de una venta de $8.000".
+Pruebas: `t-pago-mixto.js` +19, con las funciones de verdad de la ficha y el cobro (sin el arreglo fallan); suite 4584, 0
+fallas. **Sandbox** (puerto 5180): caja del local con $5.000 y de viandas con $3.000; Marta compra #41 $12.800 ($2.800 en
+efectivo + $10.000 fiados), #42 $9.310 fiado entero, y #43 de viandas $18.000 ($3.000 transferidos + $15.000 fiados). La ficha
+dijo "Debe $34.310" (antes habría dicho $40.110), del local $19.310 y de viandas $15.000; cobradas la #41 y la #43 en efectivo:
+"Total a cobrar $25.000" (antes $30.800), entraron $10.000 a la caja del local y $15.000 a la de viandas; quedó "Debe $9.310".
+Las dos cajas cerraron exactas ($17.800 y $18.000, diferencia $0).
+
+**Lo que proponía**: en esos lugares usar la parte fiada (`_montoFiadoImpago(v)`) en vez del total,
 con pruebas y probado en el sandbox antes de subir (regla del 21/10). De paso, tres marcas que miran solo
 `medioKeyDeVenta(v)==="cuenta_corriente"` y no ven la parte fiada de una mixta: el chip "Debe/Fiado cobrado" de la lista de
 ventas, el chip "COBRADO" de la ficha y el texto "todo el fiado está cobrado". Para saber si ya pasó en producción: buscar

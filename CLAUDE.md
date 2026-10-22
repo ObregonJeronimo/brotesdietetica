@@ -9,10 +9,10 @@ Pedido de Thiago (21/10/2026). Todo cambio que sea una funcionalidad (un botón 
 un cambio en la lógica de una función, etc.) se prueba primero en el sandbox:
 
 - **Lo prueba Claude**, como se viene haciendo: se levanta el sandbox (la entrada
-  `brotes-sandbox` de la vista previa, o `npm run sandbox`; el panel en
-  http://localhost:5173/sandbox, contra el emulador y el proyecto `demo-brotes`, sin tocar la
-  base de la clienta), se hace el recorrido completo como lo haría la clienta y se comprueban
-  los números en cada pantalla que el cambio toca.
+  `brotes-sandbox` de la vista previa, en el puerto 5180 porque el 5173 lo usa otro proyecto;
+  el panel en http://localhost:5180/sandbox, contra el emulador y el proyecto `demo-brotes`,
+  sin tocar la base de la clienta), se hace el recorrido completo como lo haría la clienta y se
+  comprueban los números en cada pantalla que el cambio toca.
 - **Nada se pushea a producción si antes no se probó así y funcionó perfecto.** Además, el push
   lo pide Thiago, nunca por iniciativa propia (`CONTEXTO.md` §4.1).
 - Las pruebas automáticas (`npm test`, `npm run check`) y los bancos (`_test-*.html`,

@@ -178,11 +178,13 @@ Brotes es un **clon de YERCO** (otro comercio del mismo equipo, proyecto Firebas
 
 - **Cómo se levanta:** con la vista previa de la app, entrada **`brotes-sandbox`** de
   `.claude/launch.json`.
-  - Por dentro corre `sandbox/con-java.js firebase emulators:exec --only firestore,auth,storage,functions --project demo-brotes "node sandbox/arrancar.js --puerto 5173"`.
+  - Por dentro corre `sandbox/con-java.js firebase emulators:exec --only firestore,auth,storage,functions --project demo-brotes "node sandbox/arrancar.js --puerto 5180"`.
+  - **El puerto es el 5180 desde el 21/10/2026** (Thiago: el 5173 lo usa otro proyecto en otra sesión). Si está ocupado,
+    el sandbox no arranca: no hay forma de abrir sin querer el panel de otro proyecto.
   - Con `--puerto` usa ese puerto o no arranca. Sin `--puerto` (`npm run sandbox`), si el 5173
     está ocupado se corre al 5174 o al siguiente.
   - Tarda unos 40 s: emulador, siembra de datos y servidor.
-- **La dirección** es **http://localhost:5173/sandbox**. `/admin` en modo sandbox muestra un
+- **La dirección** es **http://localhost:5180/sandbox**. `/admin` en modo sandbox muestra un
   cartel de aviso.
 - **Los datos son efímeros.** Cada arranque siembra lo mismo con `sandbox/sembrar.js`: 100
   productos, 20 proveedores, 40 ventas, 5 pedidos, 6 compras y cupones. Los admins son jeroobregon03,
@@ -199,7 +201,7 @@ Brotes es un **clon de YERCO** (otro comercio del mismo equipo, proyecto Firebas
   para no pisar el documento. Así se atrasa la fecha de costo para probar avisos.
 - **Para cerrarlo:**
   1. `preview_stop`;
-  2. verificar que no quede nada escuchando en 5173, 8080, 9099, 9199, 5001, 4400, 4500 y 9150,
+  2. verificar que no quede nada escuchando en 5180, 8080, 9099, 9199, 5001, 4000, 4400, 4500 y 9150,
      ni procesos `emulators:exec`, `cloud-firestore-emulator`, `dev-server.js` o
      `functionsEmulatorRuntime`;
   3. si queda algo, matar **solo el árbol del sandbox**.
@@ -660,7 +662,7 @@ Para retomar exactamente como veníamos, antes de hacer cualquier cosa:
 Las reglas de trabajo siguen todas igual. Las más importantes:
 - No migrar datos (etapa 4) ni hacer push, firebase deploy o escrituras en producción sin que yo lo pida explícito. La migración recién después de hablar con la clienta.
 - Cambios mínimos y puntuales: si pido algo visual, solo visual, sin refactors. Cuidado con lo que borrás.
-- Todo primero en el sandbox (entrada brotes-sandbox de la vista previa, http://localhost:5173/sandbox, entrando con thiagowendler53@gmail.com y con los envíos apagados como producción), y commits locales en español sin tildes, con la línea Co-Authored-By.
+- Todo primero en el sandbox (entrada brotes-sandbox de la vista previa, http://localhost:5180/sandbox, entrando con thiagowendler53@gmail.com y con los envíos apagados como producción), y commits locales en español sin tildes, con la línea Co-Authored-By.
 - Regla obligatoria: toda funcionalidad (un botón que hace algo, un cambio en la lógica de una función, etc.) la probás vos en el sandbox, de punta a punta, y comprobás que funcione perfecto antes de subirla. Nada se pushea sin eso (está también en CLAUDE.md).
 - Sin puertos abiertos raros: al cerrar el sandbox verificá puertos y procesos, y nunca mates procesos de los MCP.
 - No imprimas credenciales y nunca inicies sesión en el panel de producción (/admin).
