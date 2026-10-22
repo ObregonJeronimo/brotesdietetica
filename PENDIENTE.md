@@ -3134,7 +3134,8 @@ fallas. **Sandbox** (puerto 5180): caja del local con $5.000 y de viandas con $3
 efectivo + $10.000 fiados), #42 $9.310 fiado entero, y #43 de viandas $18.000 ($3.000 transferidos + $15.000 fiados). La ficha
 dijo "Debe $34.310" (antes habría dicho $40.110), del local $19.310 y de viandas $15.000; cobradas la #41 y la #43 en efectivo:
 "Total a cobrar $25.000" (antes $30.800), entraron $10.000 a la caja del local y $15.000 a la de viandas; quedó "Debe $9.310".
-Las dos cajas cerraron exactas ($17.800 y $18.000, diferencia $0).
+Las dos cajas cerraron exactas ($17.800 y $18.000, diferencia $0). **Subido el 21/10** (push 2a9b955..a376d63, verificado:
+Vercel sirve los mismos archivos que el repo; tienda y pantalla de ingreso del panel sin errores, sin iniciar sesión).
 
 **Lo que proponía**: en esos lugares usar la parte fiada (`_montoFiadoImpago(v)`) en vez del total,
 con pruebas y probado en el sandbox antes de subir (regla del 21/10). De paso, tres marcas que miran solo
