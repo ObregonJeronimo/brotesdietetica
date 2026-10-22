@@ -30,9 +30,9 @@
         "firestore,auth,storage,functions",
         "--project",
         "demo-brotes",
-        "node sandbox/arrancar.js --puerto 5173"
+        "node sandbox/arrancar.js --puerto 5180"
       ],
-      "port": 5173
+      "port": 5180
     }
   ]
 }
