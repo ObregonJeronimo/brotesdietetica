@@ -3054,7 +3054,12 @@ la tarjeta de Ayer ($12.800 caja normal, $18.000 caja viandas, $30.800 las dos) 
 recargado y sin entrar a Cupones, al tildar el cupón aparecen las 4 promos; la C en el Centro de avisos abre "Nueva venta
 de viandas"; la ayuda la muestra. Commit d3596b7.
 
-### AX) Pagar una venta con varios medios · ETAPA 1 (investigación) HECHA, sin código (13/10/2026)
+### AX) Pagar una venta con varios medios · investigación del 13/10 · YA HECHO el 19/10 en otra sesión (ver "Hecho el 19/10" en §0)
+
+**Quedó hecho el 19/10 en otra sesión** (commits e78cae4, 8473de2 y 2a9b955, subidos; detalle en "Hecho el 19/10"). Thiago, el
+21/10: "olvidamos esto, ya está hecho". Lo de abajo queda solo como referencia. Revisado el 21/10 en el código nuevo:
+las dos cosas viejas siguen (se puede fiar a "Consumidor Final" y editar una venta fiada ya cobrada), y la ficha y el
+cobro del fiado cuentan la venta mixta entera (§AY).
 
 Pedido de Thiago (13/10): una venta pagada con más de un medio ("mitad efectivo y mitad transferencia, o $2.000 de
 efectivo y $6.000 de transferencia"). Respuestas: en todas las ventas (minorista, mayorista, viandas y pedidos web);
@@ -3101,6 +3106,27 @@ medio y su arqueo daría mal hasta recargar.
 **Tamaño estimado**: mediano, entre un tercio y la mitad de la caja de viandas (unas 25 a 30 partes del código, casi todas
 chicas, más el editor de pagos en los dos formularios y una prueba nueva con los números de cada relación). Por etapas como
 la caja de viandas: implementación y después revisión con pruebas y el sandbox.
+
+### AY) Pago mixto: la ficha del cliente y el cobro del fiado cuentan la venta entera · ENCONTRADO el 21/10, SIN ARREGLAR
+
+Visto el 21/10 al actualizar §AX, leyendo el código del pago mixto (subido el 19/10). Una venta mixta puede dejar una
+PARTE fiada, y `_esFiadoImpago()` ya la reconoce y `_montoFiadoImpago()` devuelve solo esa parte ("Fiado sin cobrar" la usa).
+Pero la ficha del cliente y el cobro siguen sumando `Number(v.total||0)`, la venta ENTERA: "Debe" en el resumen y en el
+recuadro de la deuda (y su reparto local/viandas), el renglón de cada venta en "Registrar cobro", "Total a cobrar", los
+montos por caja del aviso, el total del historial y `g.total`, que es el ingreso que el cobro carga en la caja
+(`renderFichaResumen`, `renderFichaCC`, `openCobroCC`, `_pintarTotalCobroCC`, `confirmarCobroCC`).
+
+**Con números**: venta mixta de $8.000 ($2.000 en efectivo y $6.000 fiados). La ficha dice "Debe $8.000" en vez de $6.000;
+al cobrarla, "Total a cobrar" dice $8.000 y entran $8.000 a la caja. Si el cliente paga los $6.000 que debe en efectivo,
+la caja espera $2.000 más de lo que hay (un faltante inventado, porque esos $2.000 ya se contaron el día de la venta); si
+paga lo que dice la pantalla, se le cobran $2.000 de más. Las ventas de un solo medio no cambian (para ellas la parte
+fiada es el total).
+
+**Arreglo propuesto** (espera el OK de Thiago): en esos lugares usar la parte fiada (`_montoFiadoImpago(v)`) en vez del total,
+con pruebas y probado en el sandbox antes de subir (regla del 21/10). De paso, tres marcas que miran solo
+`medioKeyDeVenta(v)==="cuenta_corriente"` y no ven la parte fiada de una mixta: el chip "Debe/Fiado cobrado" de la lista de
+ventas, el chip "COBRADO" de la ficha y el texto "todo el fiado está cobrado". Para saber si ya pasó en producción: buscar
+en Ventas, desde el 19/10, ventas "Mixto" con una parte en Cuenta Corriente.
 
 ---
 
