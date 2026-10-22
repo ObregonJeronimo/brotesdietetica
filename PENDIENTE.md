@@ -109,6 +109,11 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Hecho el 22/10
+
+- **La lista de GR cargada en producción**: 114 productos (306 fichas con sus bolsas) en el proveedor
+  "GR - DISTRIBUIDORA (FR. SC)", con 65%, sin mayorista, stock 0 y visibles; probado entero en el sandbox antes. Ver §1-bis AZ.
+
 ### Hecho el 19/10
 
 - **Pago mixto: una venta se puede cobrar con hasta cuatro medios.** La venta suma un
@@ -3142,6 +3147,64 @@ con pruebas y probado en el sandbox antes de subir (regla del 21/10). De paso, t
 `medioKeyDeVenta(v)==="cuenta_corriente"` y no ven la parte fiada de una mixta: el chip "Debe/Fiado cobrado" de la lista de
 ventas, el chip "COBRADO" de la ficha y el texto "todo el fiado está cobrado". Para saber si ya pasó en producción: buscar
 en Ventas, desde el 19/10, ventas "Mixto" con una parte en Cuenta Corriente.
+
+### AZ) Carga de la lista de GR (PDF "Lista GR - 19-10-26 - Oportunidades") · CARGADO EN PRODUCCIÓN el 22/10/2026
+
+**Lo pedido** (Thiago, 22/10): cargar los productos del PDF de GR que pasó la clienta, con 65% de ganancia minorista en todos,
+sin mayorista, stock 0 en el producto y en cada bolsa, en un proveedor nuevo; la categoría que trae el PDF y la subcategoría
+que más corresponda; los que tienen costo x 1, 2, 5 y/o 10 kg, con una bolsa por tamaño a su costo; la columna "X Bulto" no se
+usa. Primero leerlo y confirmar, después cargar. **Respuestas de Thiago a las dudas**: los 13 "Sin Stock" y los 7 que solo
+tienen precio por bulto NO se cargan; los 3 de precio raro se cargan igual, con los precios del PDF ("cargalos nomás"); el
+proveedor es el que la clienta había creado ese mismo día a las 17:19, "GR - DISTRIBUIDORA (FR. SC)" (`tABfNzUzc2Bn0N3WVm8q`),
+con el nombre que le puso ella; visibles; la Yerba Tamanduá y la Harina de almendra con piel certificada (dos renglones cada
+una, x 1 kg y x 10 kg) van como un solo producto con su bolsa de 10 kg; los que solo vienen de 5 o 10 kg arrancan en esa bolsa.
+
+**Lo que entró**: 114 productos, 306 fichas (96 con bolsas, que suman 192 bolsas, y 18 simples). Todo `tipoVenta: 'peso'`,
+con el costo POR KILO (el PDF dice "PRECIOS X KG"), `porcentaje` 65 y `precio = Math.round(costo * 1,65)` (la cuenta del
+formulario), `porcentajeMayorista` 0 y `precioMayorista` 0 (la venta mayorista cobra el de mostrador), `stock` 0, sin
+`oculto` (visibles), sin foto ni descripción. Los campos son exactamente los del formulario: `saveProduct` para el principal
+(`gramaje` "1 kg" si tiene bolsas, `null` si es simple) y `guardarVariantesForm` para cada bolsa ("Almendra Carmel x 2 kg",
+`gramaje` "2 kg", `gramajePadreId`). Códigos 202041 a 202346, con la cuenta de `sugerirCodigoProducto` (la serie del panel
+ya iba por 202040). Categorías: 11 de las 30 que ya había (no se creó ninguna). Subcategorías por tipo (Almendras, Castañas,
+Nueces, Maní, Mix de frutos secos, Pasas de uva, Granolas, Snacks salados, etc.), agregadas en `_categorias` como lo hace
+"Agregar subcategoría" (arrayUnion). Hasta ahora ningún producto tenía subcategoría: en la tienda, esas 11 categorías muestran
+ahora la fila de subcategorías, con solo los de GR adentro. Nombres como los escribe la clienta, con tres errores del PDF
+corregidos (Non Pareil, D'Agen, Pará). La tabla completa está en `migracion/gr-revisar.txt` y los ids creados en
+`migracion/gr-cargados-prod.json` (los dos fuera de git).
+
+**Los 3 de precio raro**, cargados tal cual: Castaña Cajú W3S Brasil (1 kg $16.350, 2 kg $16.020, 5 kg $16.180, 10 kg $16.510: la
+de 10 kg sale más cara por kilo que la de 1 kg), Grana de Maní (5 kg $2.600 y 10 kg $2.730) y Maní Repelado Tostado sin Sal
+Virginia (5 kg $3.120, contra $3.280 del "con sal"; parece un número cambiado con el bulto). Al tocar sus costos, el panel va a
+avisar que una bolsa más grande sale más cara por kilo (§1-bis AG): es lo esperado.
+
+**No se cargaron**: 13 "Sin Stock" (Almendra Non Pareil Grande, Almendra Partida Fina, Pasa Rubia Importada, Ananá Cubo
+Amarillo, Rojo y Verde, Jengibre en Cubo, Granola sin Azúcar, Maíz Frito Mostaza y Miel, Maíz Frito Queso, Mermelada de
+Membrillo, Chía Económica y Zapallo Pelado Natural Premium) y 7 con solo precio por bulto (Maní con Cáscara, Maní Repelado
+Tostado con y sin Sal Económico, Papaya Nacional Multicolor, Cacao Amargo Alcalino Socau Brasil, Coco Rallado Medium Fat y
+Fruta Glaseada).
+
+**Cómo se hizo**: el PDF se leyó con pypdf (modo layout) y cada precio se asignó a su columna por la posición (comparado con la
+captura de Thiago). Un script arma el plan y otro crea cada producto con sus bolsas en UNA escritura (todo o nada, con "que no
+exista" en cada ficha), siempre primero en seco. **Ensayo entero en el sandbox** (puerto 5180, con las 30 categorías de
+producción y el proveedor con el mismo id): verificación ficha por ficha (todo igual al plan, la fecha del costo la pone
+`registrarCambioDeCosto`, los otros 100 productos sin cambios); Productos muestra "4 bolsas" con "$53.060 la bolsa / $26.530 el
+kilo"; en una venta de mostrador, Almendra Carmel 300 g a $44.204 el kilo ($13.261), que al pasar a 2,5 kg cambia sola al precio
+de la bolsa de 2 kg ($109.438), Nuez Amber 300 g al de la bolsa de 5 kg ($5.252) y Granola Crocante 500 g ($5.544): total
+$120.234, "Stock insuficiente" → "Vender igual", y el stock sale de la bolsa cobrada (x 2 kg a -2,5 kg). En la tienda la tarjeta
+dice "$44.204 el kilo · 2 kg o más: $43.775 · 5 kg o más: $43.329 · 10 kg o más: $42.900 · Sin stock". **Producción** (Thiago:
+"Carga todo a producción"): foto de los otros 1326 productos, un producto primero (Almendra Carmel con sus 3 bolsas), verificado
+y mirado en la tienda, y después los otros 113. Verificado: 114 de 114 productos y 306 de 306 fichas iguales al plan, todas con
+la fecha del costo, ningún código repetido en el catálogo, las subcategorías en sus 11 categorías, los otros 1326 productos sin
+cambios (misma fecha de modificación), los logs de `registrarCambioDeCosto` sin errores y la tienda con 695 productos visibles
+(389 + 306), sin errores de consola.
+
+**Lo que ve la clienta**: los 114 en Productos y en la tienda, como "Sin stock" y sin foto hasta que les cargue stock (la tienda
+tarda hasta 3 minutos en mostrarlos, por su caché). En el Centro de avisos, la línea "Además hay N productos publicados sin
+stock" sube en unos 300. Unos 25 se parecen a productos visibles de otros proveedores (por ejemplo Coco en Escamas de MARTIN
+F.S.): en la tienda están los dos, cada uno con su precio. Si tenía el panel abierto durante la carga, F5.
+
+**Para deshacer**: borrar los ids de `migracion/gr-cargados-prod.json` (o los productos del proveedor `tABfNzUzc2Bn0N3WVm8q`,
+si la clienta no le agregó otros) y sacar las subcategorías nuevas de sus categorías.
 
 ---
 
