@@ -4904,7 +4904,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
             const hora=(may||!_vtOk(v))?'':v.fecha.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
             const mk=medioKeyDeVenta(v);const m=_VT_MEDIOS[mk]||_VT_MEDIOS.otro;
             const _mix=detallePagos(v);const chips=['<span class="vt-chip '+m.c+'" title="'+_attrHtml(_mix)+'"><i class="bi '+m.i+'"></i> '+esc(_mix||v.medioPago||'-')+'</span>'];
-            if(mk==='cuenta_corriente')chips.push(v.ccPagado===true?'<span class="vt-chip cobrado"><i class="bi bi-check2-circle"></i> Fiado cobrado</span>':'<span class="vt-chip debe"><i class="bi bi-exclamation-circle"></i> Fiado sin cobrar</span>');
+            if((typeof _tieneFiado==='function')?_tieneFiado(v):mk==='cuenta_corriente'){const _dF=(v.ccPagado!==true&&typeof _deudaFiado==='function')?_deudaFiado(v):0;chips.push(v.ccPagado===true?'<span class="vt-chip cobrado"><i class="bi bi-check2-circle"></i> Fiado cobrado</span>':'<span class="vt-chip debe"><i class="bi bi-exclamation-circle"></i> Fiado sin cobrar'+((_dF&&_dF!==Number(v.total||0))?' $'+_dF.toLocaleString('es-AR'):'')+'</span>');}
             if(v.origen==='web'||v.pedidoId)chips.push('<span class="vt-chip web"><i class="bi bi-globe2"></i> Tienda online</span>');
             if(v.tipoEntrega==='envio')chips.push('<span class="vt-chip envio"><i class="bi bi-truck"></i> Envío</span>');
             const dpct=Number(v.descuentoPct)||0;
@@ -6068,6 +6068,21 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
             if(!_esFiadoImpago(v)) return 0;
             return pagosDeVenta(v,'neto').reduce((a,p)=>a+(p.key==='cuenta_corriente'?p.monto:0),0);
         }
+        /* Si la venta tiene una parte fiada, cobrada o no. Con un solo medio es lo de antes. */
+        function _tieneFiado(v){
+            if(typeof pagosDeVenta==='function') return pagosDeVenta(v).some(p=>p.key==='cuenta_corriente');
+            return medioKeyDeVenta(v)==='cuenta_corriente';
+        }
+        /* Lo que el cliente DEBE de esta venta (21/10/2026): la parte fiada tal como se cobro, con
+           el envio, que tambien lo debe. Con un solo medio es el total, como siempre; en una mixta,
+           solo su parte. La ficha y el cobro sumaban el total de la venta: con $2.000 en efectivo y
+           $6.000 fiados decia "Debe $8.000" y al cobrar entraban $8.000 a la caja. _montoFiadoImpago
+           es la misma cuenta sin el envio, para las listas. */
+        function _deudaFiado(v){
+            if(!_esFiadoImpago(v)) return 0;
+            if(typeof pagosDeVenta!=='function') return Number(v.total||0);
+            return pagosDeVenta(v).reduce((a,p)=>a+(p.key==='cuenta_corriente'?p.monto:0),0);
+        }
 
         function _attrHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
@@ -6104,7 +6119,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
         function renderFichaResumen(){
             const f=_fichaCliente, res=document.getElementById('clienteFichaResumen');
             const impagas=f.ventas.filter(_esFiadoImpago);
-            const saldo=impagas.reduce((s,v)=>s+Number(v.total||0),0);
+            const saldo=impagas.reduce((s,v)=>s+_deudaFiado(v),0);
             const totalComprado=f.ventas.reduce((s,v)=>s+netoVenta(v),0);
             const dato=(etq,val,color)=>'<div style="flex:1;min-width:118px;background:var(--bg-input);padding:0.7rem 0.8rem;border-radius:var(--radius)">'+
                 '<div style="font-size:0.66rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.8px">'+etq+'</div>'+
@@ -6120,13 +6135,13 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
             const f=_fichaCliente, cc=document.getElementById('clienteFichaCC');
             const impagas=f.ventas.filter(_esFiadoImpago);
             if(!impagas.length){
-                const hubo=f.ventas.some(v=>medioKeyDeVenta(v)==='cuenta_corriente');
+                const hubo=f.ventas.some(_tieneFiado);
                 cc.innerHTML=hubo
                     ? '<p style="font-size:0.82rem;color:var(--text-dim);margin-top:0.9rem">Sin deuda pendiente: todo el fiado de este cliente esta cobrado.</p>'
                     : '';
                 return;
             }
-            const total=impagas.reduce((s,v)=>s+Number(v.total||0),0);
+            const total=impagas.reduce((s,v)=>s+_deudaFiado(v),0);
             /* La mas vieja primero: es el dato que dice hace cuanto esta la plata afuera. */
             const vieja=impagas.reduce((a,v)=>v.fecha<a.fecha?v:a,impagas[0]);
             const dias=Math.floor((Date.now()-vieja.fecha.getTime())/86400000);
@@ -6136,7 +6151,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
                     '<div style="font-size:0.78rem;color:var(--text-dim);margin-top:1px">'+impagas.length+' venta'+(impagas.length!==1?'s':'')+' sin cobrar'+
                     (dias>0?' &middot; la mas antigua, de hace '+dias+' dia'+(dias!==1?'s':''):'')+'</div>'+
                     /* Caja viandas (10/10/2026): si debe de las dos, cuanto de cada una: al cobrar, cada parte va a su caja. */
-                    (function(){const _dv=impagas.filter(v=>v.cajaTipo==='viandas').reduce((s,v)=>s+Number(v.total||0),0);
+                    (function(){const _dv=impagas.filter(v=>v.cajaTipo==='viandas').reduce((s,v)=>s+_deudaFiado(v),0);
                         return (_dv&&_dv<total)?'<div style="font-size:0.78rem;color:var(--text-dim);margin-top:2px">De la caja del local $'+(total-_dv).toLocaleString('es-AR')+' &middot; de la caja de viandas $'+_dv.toLocaleString('es-AR')+'</div>'
                             :(_dv?'<div style="font-size:0.78rem;color:var(--text-dim);margin-top:2px">Todo de la caja de viandas</div>':'');})()+
                     '</div>'+
@@ -6152,9 +6167,11 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
                 const nro=nroVta(v.numero||0);
                 const impaga=_esFiadoImpago(v);
                 const items=(v.items||[]).map(i=>'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:0.78rem;color:var(--text-dim)"><span>'+esc(i.nombre)+'</span><span style="font-family:var(--mono);white-space:nowrap">'+fmtCantidad(i)+' x $'+i.precio.toLocaleString('es-AR')+(esPorPeso(i)?' el kilo':'')+' = $'+i.subtotal.toLocaleString('es-AR')+'</span></div>').join('');
+                /* En una mixta debe solo su parte fiada: se dice cuanto, para que no parezca la venta entera (21/10/2026). */
+                const _deu=impaga?_deudaFiado(v):0;
                 const chip=impaga
-                    ? '<span style="background:rgba(229,69,69,0.18);color:#e54545;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700">DEBE</span>'
-                    : (medioKeyDeVenta(v)==='cuenta_corriente'
+                    ? '<span style="background:rgba(229,69,69,0.18);color:#e54545;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700">DEBE'+(_deu!==Number(v.total||0)?' $'+_deu.toLocaleString('es-AR'):'')+'</span>'
+                    : (_tieneFiado(v)
                         ? '<span title="Cobrado'+(v.ccPagadoPor?' por '+_attrHtml(v.ccPagadoPor):'')+'" style="background:rgba(95,168,122,0.18);color:#5FA87A;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700">COBRADO</span>'
                         : '');
                 return '<div class="venta-card" style="cursor:pointer" onclick="this.querySelector(\'.ch-items\').classList.toggle(\'show\')">'+
@@ -6184,7 +6201,8 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
                     '<span style="flex:1"><span style="font-weight:600">#'+nroVta(v.numero||0)+'</span>'+(v.cajaTipo==='viandas'?'<span style="font-size:0.66rem;font-weight:700;color:#f0bd6a;background:rgba(240,189,106,0.14);padding:1px 6px;border-radius:4px;margin-left:6px">VIANDAS</span>':'')+
                     '<span style="font-size:0.76rem;color:var(--text-dim);margin-left:8px">'+v.fecha.toLocaleDateString('es-AR')+
                     (dias>0?' &middot; hace '+dias+'d':'')+'</span></span>'+
-                    '<span style="font-weight:700;white-space:nowrap">$'+Number(v.total||0).toLocaleString('es-AR')+'</span>'+
+                    '<span style="font-weight:700;white-space:nowrap;text-align:right">$'+_deudaFiado(v).toLocaleString('es-AR')+
+                        (_deudaFiado(v)!==Number(v.total||0)?'<span style="display:block;font-weight:400;font-size:0.72rem;color:var(--text-dim)">fiado de una venta de $'+Number(v.total||0).toLocaleString('es-AR')+'</span>':'')+'</span>'+
                 '</label>';
             }).join('');
             /* Si no hay caja abierta el cobro se registra igual, pero no entra a
@@ -6208,7 +6226,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
 
         function _pintarTotalCobroCC(){
             const sel=_cobroCCVentas();
-            const total=sel.reduce((s,v)=>s+Number(v.total||0),0);
+            const total=sel.reduce((s,v)=>s+_deudaFiado(v),0);
             document.getElementById('cobroCCTotal').innerHTML=
                 '<div style="display:flex;justify-content:space-between;font-size:1rem"><span>Total a cobrar</span>'+
                 '<strong style="color:var(--accent-light)">$'+total.toLocaleString('es-AR')+'</strong></div>'+
@@ -6216,7 +6234,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
             /* A que caja va cada parte, y si suma al efectivo (caja viandas, 10/10/2026). */
             const medio=(document.getElementById('cobroCCMedio')||{}).value||'';
             const _vds=sel.filter(v=>v.cajaTipo==='viandas'), _loc=sel.filter(v=>v.cajaTipo!=='viandas');
-            const _tot=l=>'$'+l.reduce((s,v)=>s+Number(v.total||0),0).toLocaleString('es-AR');
+            const _tot=l=>'$'+l.reduce((s,v)=>s+_deudaFiado(v),0).toLocaleString('es-AR');
             const _ok='<i class="bi bi-check-circle" style="color:#5FA87A"></i> ', _ojo='<i class="bi bi-exclamation-triangle" style="color:#EDB833"></i> ';
             const _hayVds=_fichaCliente.ventas.some(v=>v.cajaTipo==='viandas'&&_esFiadoImpago(v));
             let avisos=[];
@@ -6235,7 +6253,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
         async function confirmarCobroCC(){
             const sel=_cobroCCVentas();
             if(!sel.length)return;
-            const total=sel.reduce((s,v)=>s+Number(v.total||0),0);
+            const total=sel.reduce((s,v)=>s+_deudaFiado(v),0);
             const btn=document.getElementById('cobroCCBtn');
             btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat"></i> Registrando...';
             try{
@@ -6252,7 +6270,7 @@ showAdminToast('Venta #'+num+' eliminada','success');logAction('eliminar',(((ven
                 const grupos=[{k:undefined,col:'cajas',nombre:'la caja',ventas:sel.filter(v=>v.cajaTipo!=='viandas')},
                               {k:'viandas',col:'cajasViandas',nombre:'la caja de viandas',ventas:sel.filter(v=>v.cajaTipo==='viandas')}].filter(g=>g.ventas.length);
                 for(const g of grupos){
-                    g.total=g.ventas.reduce((s,v)=>s+Number(v.total||0),0);
+                    g.total=g.ventas.reduce((s,v)=>s+_deudaFiado(v),0);
                     g.cajaId=null;
                     if(typeof getCajaAbiertaIdLive==='function'){ try{ g.cajaId=await getCajaAbiertaIdLive(g.k); }catch(_e){} }
                 }

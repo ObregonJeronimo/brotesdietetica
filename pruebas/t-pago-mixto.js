@@ -448,5 +448,88 @@ t('las dos sumas pasan por _porMedio', (STATS2.match(/_porMedio\(v, /g) || []).l
 t('el fiado suma solo la parte fiada', /p\.key==='cuenta_corriente'/.test(HTML));
 t('y sigue descartando lo ya cobrado', /_montoFiadoImpago[\s\S]{0,200}_esFiadoImpago\(v\)/.test(HTML));
 
-console.log('\n' + ok + ' pasaron, ' + mal + ' fallaron');
-process.exit(mal ? 1 : 0);
+/* LA FICHA DEL CLIENTE Y EL COBRO DEL FIADO (21/10/2026)
+   Sumaban el total de la venta: una mixta con $2.000 en efectivo y $6.000 fiados decia
+   "Debe $8.000", y al cobrarla entraban $8.000 a la caja (un faltante inventado de $2.000 si
+   el cliente pagaba lo que debia, o $2.000 de mas si pagaba lo que decia la pantalla). Se
+   corren las funciones de verdad del admin.html, con una ficha y una base de mentira. */
+grupo('LA FICHA Y EL COBRO: el cliente debe solo la parte fiada');
+(async () => {
+  const PIEZAS = ['_esFiadoImpago', '_montoFiadoImpago', '_tieneFiado', '_deudaFiado', '_attrHtml', 'nroVta',
+    'renderFichaResumen', 'renderFichaCC', 'renderFichaCompras', 'openCobroCC', 'closeCobroCC', 'toggleCobroCC',
+    '_cobroCCVentas', '_pintarTotalCobroCC', 'confirmarCobroCC'].map(n => cuerpo(HTML, n)).join('\n');
+  const EL = {};
+  const el = id => EL[id] || (EL[id] = { id, innerHTML: '', value: '', disabled: false, classList: { add() {}, remove() {} } });
+  const escrito = { updates: [], movs: [] };
+  const ctx = {
+    console: { log() {}, warn() {}, error() {} }, Number, Math, Array, Object, String, Date, Promise, JSON,
+    document: { getElementById: el },
+    esc: s => String(s == null ? '' : s), fmtCantidad: i => String(i.cantidad || 0), esPorPeso: () => false,
+    showAdminToast() {}, logAction() {}, showClienteHist: async () => {}, loadCaja() {},
+    getCajaAbiertaId: k => (k === 'viandas' ? 'cajaV' : 'cajaL'),
+    getCajaAbiertaIdLive: async k => (k === 'viandas' ? 'cajaV' : 'cajaL'),
+    auth: { currentUser: { email: 'caja@local' } },
+    firebase: { firestore: { FieldValue: { serverTimestamp: () => 'ahora' } } },
+    db: {
+      batch: () => { const cola = []; return { update: (ref, d) => cola.push([ref, d]), commit: async () => { cola.forEach(([r, d]) => escrito.updates.push({ ruta: r.ruta, d })); } }; },
+      collection: col => ({ doc: id => ({ ruta: col + '/' + id,
+        collection: sub => ({ add: async d => { escrito.movs.push(Object.assign({ ruta: col + '/' + id + '/' + sub }, d)); } }) }) })
+    }
+  };
+  vm.createContext(ctx);
+  vm.runInContext(CONSTS + TABLA + '\n' + NUCLEO + '\n' + PIEZAS +
+    '\nvar _fichaCliente = null, _cobroCCSel = {}, _cobroCCCajas = { principal: null, viandas: null };', ctx);
+  const it = (nombre, precio) => ({ nombre, precio, cantidad: 1, subtotal: precio });
+  const hoy = new Date();
+  const V = {
+    /* mixta: $2.000 en efectivo y $6.000 fiados */
+    mix: { docId: 'mix', _col: 'ventas', numero: 101, fecha: hoy, total: 8000, envio: 0, medioPago: 'Mixto', medioPagoKey: 'mixto',
+      items: [it('Almendra', 8000)], pagos: [{ key: 'efectivo', medio: 'Efectivo', monto: 2000 }, { key: 'cuenta_corriente', medio: 'Cuenta Corriente', monto: 6000 }] },
+    /* fiada entera, de un solo medio y con envio: debe el total, envio incluido (como siempre) */
+    entera: { docId: 'entera', _col: 'ventas', numero: 102, fecha: hoy, total: 10000, envio: 1500, medioPago: 'Cuenta Corriente', medioPagoKey: 'cuenta_corriente',
+      items: [it('Yerba', 8500)] },
+    /* mixta de la caja de viandas: $1.000 transferidos y $4.000 fiados */
+    vds: { docId: 'vds', _col: 'ventas', numero: 103, fecha: hoy, total: 5000, envio: 0, cajaTipo: 'viandas', medioPago: 'Mixto', medioPagoKey: 'mixto',
+      items: [it('Tarta', 5000)], pagos: [{ key: 'transferencia', medio: 'Transferencia', monto: 1000 }, { key: 'cuenta_corriente', medio: 'Cuenta Corriente', monto: 4000 }] },
+    /* mixta con el fiado ya cobrado */
+    cobrada: { docId: 'cobrada', _col: 'ventas', numero: 104, fecha: hoy, total: 3000, envio: 0, medioPago: 'Mixto', medioPagoKey: 'mixto', ccPagado: true,
+      items: [it('Miel', 3000)], pagos: [{ key: 'efectivo', medio: 'Efectivo', monto: 1000 }, { key: 'cuenta_corriente', medio: 'Cuenta Corriente', monto: 2000 }] },
+    /* sin nada fiado */
+    contado: { docId: 'contado', _col: 'ventas', numero: 105, fecha: hoy, total: 1000, envio: 0, medioPago: 'Efectivo', medioPagoKey: 'efectivo', items: [it('Te', 1000)] }
+  };
+  ctx._fichaCliente = { id: 'cli1', nombre: 'Marta', ventas: [V.mix, V.entera, V.vds, V.cobrada, V.contado] };
+  vm.runInContext('_fichaCliente = this._fichaCliente;', ctx);
+  const deuda = k => vm.runInContext('_deudaFiado(_fichaCliente.ventas[' + k + '])', ctx);
+  t('la mixta debe solo su parte fiada: $6.000 (no $8.000)', deuda(0) === 6000);
+  t('la fiada entera de un solo medio debe el total, envio incluido: $10.000 (como siempre)', deuda(1) === 10000);
+  t('la mixta de viandas debe $4.000', deuda(2) === 4000);
+  t('la ya cobrada y la de contado no deben nada', deuda(3) === 0 && deuda(4) === 0);
+  vm.runInContext('renderFichaResumen(); renderFichaCC(); renderFichaCompras();', ctx);
+  t('el resumen de la ficha: Debe $20.000 (6.000 + 10.000 + 4.000)', /Debe<\/div><strong[^>]*>\$20\.000</.test(EL.clienteFichaResumen.innerHTML), EL.clienteFichaResumen.innerHTML.slice(0, 120));
+  t('el recuadro de la deuda: "Debe $20.000", 3 ventas sin cobrar', /Debe \$20\.000/.test(EL.clienteFichaCC.innerHTML) && /3 ventas sin cobrar/.test(EL.clienteFichaCC.innerHTML));
+  t('  repartida por caja: del local $16.000 y de viandas $4.000', /De la caja del local \$16\.000 &middot; de la caja de viandas \$4\.000/.test(EL.clienteFichaCC.innerHTML));
+  const compras = EL.clienteHistList.innerHTML;
+  t('en las compras, la mixta dice "DEBE $6.000" y la entera solo "DEBE"', /DEBE \$6\.000</.test(compras) && />DEBE</.test(compras));
+  t('  la mixta ya cobrada dice COBRADO (antes no tenia marca)', (compras.match(/>COBRADO</g) || []).length === 1);
+  vm.runInContext('openCobroCC();', ctx);
+  const lista = EL.cobroCCLista.innerHTML;
+  t('registrar cobro: la mixta figura por $6.000, aclarando "fiado de una venta de $8.000"', /\$6\.000<span[^>]*>fiado de una venta de \$8\.000/.test(lista));
+  t('  la entera por $10.000 y la de viandas por $4.000', /\$10\.000<\/span>/.test(lista) && /\$4\.000<span[^>]*>fiado de una venta de \$5\.000/.test(lista));
+  t('  la ya cobrada no aparece', !/#000104/.test(lista));
+  vm.runInContext("['mix','entera','vds'].forEach(function (id) { toggleCobroCC({ checked: true, value: id }); }); document.getElementById('cobroCCMedio').value = 'efectivo'; _pintarTotalCobroCC();", ctx);
+  t('el total a cobrar: $20.000', /Total a cobrar<\/span><strong[^>]*>\$20\.000</.test(EL.cobroCCTotal.innerHTML), EL.cobroCCTotal.innerHTML.slice(0, 160));
+  t('  y el aviso: lo del local $16.000 y lo de viandas $4.000', /lo del local \(\$16\.000\)/i.test(EL.cobroCCCaja.innerHTML) && /lo de viandas \(\$4\.000\)/i.test(EL.cobroCCCaja.innerHTML), EL.cobroCCCaja.innerHTML.slice(0, 200));
+  await vm.runInContext('confirmarCobroCC()', ctx);
+  const movL = escrito.movs.find(m => m.ruta === 'cajas/cajaL/movimientos');
+  const movV = escrito.movs.find(m => m.ruta === 'cajasViandas/cajaV/movimientos');
+  t('al cobrar, a la caja del local entran $16.000 (no $18.000)', movL && movL.monto === 16000 && movL.medio === 'efectivo', movL && movL.monto);
+  t('  y a la de viandas $4.000 (no $5.000)', movV && movV.monto === 4000, movV && movV.monto);
+  t('  y las tres ventas quedan saldadas', escrito.updates.length === 3 && escrito.updates.every(u => u.d.ccPagado === true));
+  /* Una ficha con solo fiado mixto ya cobrado: antes no decia que estaba todo cobrado. */
+  vm.runInContext("_fichaCliente = { id: 'cli2', nombre: 'Luis', ventas: [this._cobrada] }; renderFichaCC();", Object.assign(ctx, { _cobrada: V.cobrada }));
+  t('con solo una mixta ya cobrada: "Sin deuda pendiente: todo el fiado... esta cobrado"', /Sin deuda pendiente/.test(EL.clienteFichaCC.innerHTML));
+  t('la lista de ventas tambien marca el fiado de una mixta (y cuanto)', /_tieneFiado\(v\):mk==='cuenta_corriente'/.test(HTML) && /Fiado sin cobrar'\+\(\(_dF&&_dF!==Number\(v\.total\|\|0\)\)/.test(HTML));
+
+  console.log('\n' + ok + ' pasaron, ' + mal + ' fallaron');
+  process.exit(mal ? 1 : 0);
+})().catch(e => { console.log('ERROR ' + e.stack); process.exit(1); });
