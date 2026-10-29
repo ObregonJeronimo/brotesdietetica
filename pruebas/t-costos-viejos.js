@@ -178,7 +178,9 @@ console.log('\n-- el aviso --');
     await (m3.api.avisoCostosViejos([{ id: 'c' }], 'min')) === false && !abierto3);
 
   let preguntado = false;
-  const m4 = armar({ productos: [{ id: 'n', costo: 5, costoActualizadoEn: hace(2) }], pedirOpcion: async () => { preguntado = true; return null; } });
+  /* Contra el reloj de verdad: avisoCostosViejos mira la fecha de hoy, y con hace(2) (contra AHORA, el
+     24/09) el costo pasó a ser viejo el 22/10 y la prueba empezó a fallar sola (visto el 29/10). */
+  const m4 = armar({ productos: [{ id: 'n', costo: 5, costoActualizadoEn: new Date(Date.now() - 2 * DIA) }], pedirOpcion: async () => { preguntado = true; return null; } });
   t('sin costos viejos no pregunta nada', await (m4.api.avisoCostosViejos([{ id: 'n' }], 'min')) === true && !preguntado);
 
   const m5 = armar({ productos: P, pedirOpcion: undefined });
