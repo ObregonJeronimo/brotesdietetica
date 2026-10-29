@@ -3243,6 +3243,24 @@ y ocultos por costo, en Excel: 23 renglones de tres proveedores, del más barato
 siempre: mismas columnas, 405 renglones, hoja "Costos"; subcategoría Almendras (23), cero resultados (no deja bajar), Volver y
 Escape; el reporte de todo GR: 306 renglones en 36 familias. Los archivos se miraron en memoria, sin descargar.
 
+**Segunda vuelta** (Thiago, 29/10, después de verlo en el sandbox; `e50a9e6`):
+- La ventana muestra **lo que va a salir**: una tabla simple (Producto, Proveedor, Costo) con los primeros 100, en el orden
+  elegido (el mismo del Excel), y abajo, resaltado, cuántos más hay y el total ("+200 productos" en ámbar, "TOTAL: 300" en
+  verde; con 100 o menos, solo el total). Se rehace con cada filtro (`reporteCostosVista`, sin calcular la bolsa, que recorre el
+  catálogo por producto). Reemplaza al "Van a salir N productos".
+- La planilla ya no dice "La de siempre:".
+- **La raya de los títulos en el PDF** cortaba la primera fila: estaba a 2,5 mm debajo de los títulos y la letra sube unos 2,3 mm.
+  Ahora va a 1,6 mm de los títulos y la primera fila 5,5 mm más abajo. Es del motor (`_expPDF`), así que se arregla también en
+  los PDF del proveedor y de las compras.
+- La ventana con otra cara: el ícono del título en un recuadro verde, las dos opciones como tarjetas con ícono y flecha (se
+  levantan al pasar el mouse), los filtros en un recuadro de 3 columnas con un ícono en cada etiqueta, la tabla con los títulos
+  fijos y renglones alternados, y una raya arriba de los botones. Con pantallas bajas la tabla se achica (entre 150 y 320 px) para
+  que los botones de bajar se vean sin bajar la ventana (en 768 px de alto quedaba 72 px más alta).
+- Pruebas: `t-reporte-costos.js` 64 (con 300 productos: 100 en la tabla, "+200 productos", "TOTAL: 300"; 101 dice "+1 producto"; y
+  la posición de la raya contra un jsPDF de mentira, que con la cuenta vieja falla); suite 4649, 0 fallas. **Sandbox**: GR → 100
+  renglones, "+206 productos · TOTAL: 306"; sin filtros "+299 productos · TOTAL: 399"; la ventana entra entera en 1024 x 768; el PDF
+  de 16 páginas con la raya entre los títulos y la primera fila.
+
 **Para tener en cuenta**: hoy solo los 114 de GR tienen subcategoría; para comparar "todas las almendras" de todos los
 proveedores sirve el buscador por nombre (o ponerles subcategoría a los parecidos que ya estaban, desde su ficha). **Al subir**:
 avisarle a la clienta cómo se usa (+F5).
