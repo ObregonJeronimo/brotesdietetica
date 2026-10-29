@@ -21,6 +21,9 @@
        Agregándole la categoría, reimportarla se tomaba como un alta masiva y
        duplicaba el catálogo. Por eso el reporte es otro archivo.
 
+   La ventana muestra lo que va a salir: los primeros 100, en el orden elegido, y abajo,
+   resaltado, cuántos más hay y el total ("+200 productos", "TOTAL: 300").
+
    El buscador por nombre no distingue tildes ni mayúsculas y pide cada palabra
    por separado, en cualquier orden: "castana caju" encuentra "Castaña Cajú W4"
    y "Castanas De Caju", que es justo comparar el mismo producto de dos
@@ -160,6 +163,26 @@ function reporteCostosDoc(prods, listas, f, formato) {
   return doc;
 }
 
+/* La vista previa de la ventana (Thiago, 29/10): los primeros 100 que van a salir, en el orden
+   elegido (el mismo del Excel), y cuántos más hay. Solo nombre, proveedor y costo: no hace falta
+   la bolsa, que recorre el catálogo por cada producto, para algo que se rehace con cada letra. */
+const _RC_VISTA_MAX = 100;
+function reporteCostosVista(prods, listas, f, max) {
+  const lim = max || _RC_VISTA_MAX;
+  const nombres = new Map((listas || []).map(l => [l.id, l.nombre || '']));
+  const van = reporteCostosFiltrar(prods, f);
+  const filas = _rcOrdenar(van.map(p => ({ p, peso: p.tipoVenta === 'peso', costo: Number(p.costo || 0) })), (f || {}).orden, prods);
+  return {
+    total: van.length,
+    resto: Math.max(0, van.length - lim),
+    conBolsas: van.some(p => p.gramajePadreId),
+    filas: filas.slice(0, lim).map(r => ({
+      nombre: r.p.nombre || '', proveedor: nombres.get(r.p.lista) || '',
+      costo: _rcPesos(r.costo) + (r.peso ? ' /kg' : ' c/u'),
+    })),
+  };
+}
+
 /* ============================ PANTALLA ============================ */
 
 const _rc = { paso: 'elegir', f: { cat: '', sub: '', lista: '', q: '', vis: 'visibles', orden: 'nombre' } };
@@ -174,7 +197,8 @@ function abrirExportarCostos() {
     vis: _rcVal('filterVisibilidad'), orden: _rc.f.orden || 'nombre' };
   const m = document.getElementById('exportFormatModal');
   if (!m) return;
-  m.innerHTML = '<div class="modal-box rc-box"><div class="modal-header"><h3><i class="bi bi-download"></i> Exportar costos</h3>' +
+  m.innerHTML = '<div class="modal-box rc-box"><div class="modal-header rc-cab">' +
+    '<h3><span class="rc-cab-ico"><i class="bi bi-download"></i></span> Exportar costos</h3>' +
     '<button class="modal-close" onclick="cerrarExportarCostos()"><i class="bi bi-x-lg"></i></button></div>' +
     '<div class="rc-cuerpo" id="rcCuerpo"></div></div>';
   _rc.paso = 'elegir';
@@ -186,6 +210,13 @@ function cerrarExportarCostos() {
   if (m) m.classList.remove('show');
 }
 
+/* Una tarjeta para elegir: ícono, título, explicación y la flecha. */
+function _rcOpcionHtml(paso, ico, clase, titulo, texto) {
+  return '<button class="rc-opt" onclick="rcPaso(\'' + paso + '\')"><span class="rc-opt-ico ' + clase + '"><i class="bi ' + ico + '"></i></span>' +
+    '<span class="rc-opt-txt"><span class="rc-opt-tit">' + titulo + '</span><span class="rc-opt-desc">' + texto + '</span></span>' +
+    '<i class="bi bi-chevron-right rc-opt-flecha"></i></button>';
+}
+
 function rcPaso(paso) {
   if (_rc.paso === 'reporte') _rcLeer();
   _rc.paso = paso;
@@ -194,21 +225,21 @@ function rcPaso(paso) {
   if (paso === 'planilla') { c.innerHTML = _rcPlanillaHtml(); return; }
   if (paso === 'reporte') { c.innerHTML = _rcReporteHtml(); rcContar(); return; }
   c.innerHTML = '<p class="rc-ayuda">¿Qué querés bajar?</p><div class="rc-opciones">' +
-    '<button class="estado-opt" onclick="rcPaso(\'reporte\')"><span class="estado-opt-icon rc-ico-rep"><i class="bi bi-funnel"></i></span>' +
-    '<div class="estado-opt-info"><div class="estado-opt-label">Reporte para comparar costos</div>' +
-    '<div class="estado-opt-desc">Elegís qué productos (por categoría, subcategoría, proveedor o nombre) y sale en PDF o en Excel, ' +
-    'ordenado por familia, con el costo por kilo y el de la bolsa.</div></div></button>' +
-    '<button class="estado-opt" onclick="rcPaso(\'planilla\')"><span class="estado-opt-icon rc-ico-pla"><i class="bi bi-file-earmark-spreadsheet"></i></span>' +
-    '<div class="estado-opt-info"><div class="estado-opt-label">Planilla para actualizar costos</div>' +
-    '<div class="estado-opt-desc">La de siempre: todo el catálogo en Excel o CSV, para cambiar los costos y volver a subirla con "Importar Costos".</div></div></button>' +
+    _rcOpcionHtml('reporte', 'bi-funnel', 'rc-ico-rep', 'Reporte para comparar costos',
+      'Elegís qué productos (por categoría, subcategoría, proveedor o nombre) y sale en PDF o en Excel, ordenado por familia, ' +
+      'con el costo por kilo y el de la bolsa.') +
+    _rcOpcionHtml('planilla', 'bi-file-earmark-spreadsheet', 'rc-ico-pla', 'Planilla para actualizar costos',
+      'Todo el catálogo en Excel o CSV, para cambiar los costos y volver a subirla con "Importar Costos".') +
     '</div>';
 }
 
 function _rcPlanillaHtml() {
   return '<p class="rc-ayuda">Todo el catálogo, con nombre, costo, porcentaje y precio. Se cambian los costos en el Excel y se vuelve a subir con "Importar Costos".</p>' +
     '<div class="rc-formatos">' +
-    '<button class="btn btn-primary rc-formato" onclick="exportCostosWithFormat(\'xlsx\')"><i class="bi bi-file-earmark-excel"></i><span>Excel</span><small>.xlsx</small></button>' +
-    '<button class="btn btn-secondary rc-formato" onclick="exportCostosWithFormat(\'csv\')"><i class="bi bi-file-earmark-text"></i><span>CSV</span><small>.csv</small></button>' +
+    '<button class="rc-formato" onclick="exportCostosWithFormat(\'xlsx\')"><span class="rc-opt-ico rc-ico-rep"><i class="bi bi-file-earmark-excel"></i></span>' +
+    '<span class="rc-formato-tit">Excel</span><small>.xlsx</small></button>' +
+    '<button class="rc-formato" onclick="exportCostosWithFormat(\'csv\')"><span class="rc-opt-ico rc-ico-pla"><i class="bi bi-file-earmark-text"></i></span>' +
+    '<span class="rc-formato-tit">CSV</span><small>.csv</small></button>' +
     '</div><div class="rc-pie"><button class="btn btn-secondary" onclick="rcPaso(\'elegir\')"><i class="bi bi-arrow-left"></i> Volver</button></div>';
 }
 
@@ -225,6 +256,10 @@ function _rcSubsHtml(cat, actual) {
     : [...new Set(_rcProds().filter(p => p.categoria === cat && p.subcategoria).map(p => p.subcategoria))].sort();
   return _rcOpciones([['', 'Todas']].concat(subs.map(s => [s, s])), actual);
 }
+/* Un campo del filtro: la etiqueta con su ícono, y el desplegable o el buscador. */
+function _rcCampo(id, ico, etiqueta, control) {
+  return '<div class="rc-campo"><label class="rc-etq" for="' + id + '"><i class="bi ' + ico + '"></i> ' + etiqueta + '</label>' + control + '</div>';
+}
 
 function _rcReporteHtml() {
   const f = _rc.f;
@@ -233,27 +268,40 @@ function _rcReporteHtml() {
   const listas = _rcListas().slice().sort((a, b) => _rcCmp(a.nombre, b.nombre));
   if (f.lista && !listas.some(l => l.id === f.lista)) f.lista = '';
   return '<p class="rc-ayuda">Elegí qué productos van. Arranca con los filtros que tenés puestos en Productos.</p>' +
-    '<div class="form-row">' +
-    '<div class="form-group"><label for="rcCat">Categoría</label><select id="rcCat" class="form-input" onchange="rcCambioCat()">' +
-    _rcOpciones([['', 'Todas']].concat(cats.map(c => [c, c])), f.cat) + '</select></div>' +
-    '<div class="form-group"><label for="rcSub">Subcategoría</label><select id="rcSub" class="form-input" onchange="rcContar()"' + (f.cat ? '' : ' disabled') + '>' +
-    _rcSubsHtml(f.cat, f.sub) + '</select></div></div>' +
-    '<div class="form-row">' +
-    '<div class="form-group"><label for="rcLista">Proveedor</label><select id="rcLista" class="form-input" onchange="rcContar()">' +
-    _rcOpciones([['', 'Todos']].concat(listas.map(l => [l.id, l.nombre || ''])), f.lista) + '</select></div>' +
-    '<div class="form-group"><label for="rcQ">Nombre</label><input id="rcQ" class="form-input" type="text" placeholder="Ej: almendra" value="' +
-    _rcEsc(f.q) + '" oninput="rcContar()"></div></div>' +
-    '<div class="form-row">' +
-    '<div class="form-group"><label for="rcVis">Productos</label><select id="rcVis" class="form-input" onchange="rcContar()">' +
-    _rcOpciones([['visibles', _RC_VIS.visibles], ['', _RC_VIS['']], ['ocultos', _RC_VIS.ocultos]], f.vis) + '</select></div>' +
-    '<div class="form-group"><label for="rcOrden">Ordenar por</label><select id="rcOrden" class="form-input" onchange="rcContar()">' +
-    _rcOpciones([['nombre', 'Nombre'], ['costo', 'Costo, de menor a mayor']], f.orden) + '</select></div></div>' +
-    '<p class="rc-cuenta" id="rcCuenta"></p>' +
+    '<div class="rc-filtros">' +
+    _rcCampo('rcCat', 'bi-tags', 'Categoría', '<select id="rcCat" class="form-input" onchange="rcCambioCat()">' +
+      _rcOpciones([['', 'Todas']].concat(cats.map(c => [c, c])), f.cat) + '</select>') +
+    _rcCampo('rcSub', 'bi-diagram-3', 'Subcategoría', '<select id="rcSub" class="form-input" onchange="rcContar()"' + (f.cat ? '' : ' disabled') + '>' +
+      _rcSubsHtml(f.cat, f.sub) + '</select>') +
+    _rcCampo('rcLista', 'bi-truck', 'Proveedor', '<select id="rcLista" class="form-input" onchange="rcContar()">' +
+      _rcOpciones([['', 'Todos']].concat(listas.map(l => [l.id, l.nombre || ''])), f.lista) + '</select>') +
+    _rcCampo('rcQ', 'bi-search', 'Nombre', '<input id="rcQ" class="form-input" type="text" placeholder="Ej: almendra" value="' +
+      _rcEsc(f.q) + '" oninput="rcContar()">') +
+    _rcCampo('rcVis', 'bi-eye', 'Productos', '<select id="rcVis" class="form-input" onchange="rcContar()">' +
+      _rcOpciones([['visibles', _RC_VIS.visibles], ['', _RC_VIS['']], ['ocultos', _RC_VIS.ocultos]], f.vis) + '</select>') +
+    _rcCampo('rcOrden', 'bi-sort-down', 'Ordenar por', '<select id="rcOrden" class="form-input" onchange="rcContar()">' +
+      _rcOpciones([['nombre', 'Nombre'], ['costo', 'Costo, de menor a mayor']], f.orden) + '</select>') +
+    '</div>' +
+    '<div class="rc-vista" id="rcVista"></div>' +
     '<div class="rc-pie"><button class="btn btn-secondary" onclick="rcPaso(\'elegir\')"><i class="bi bi-arrow-left"></i> Volver</button>' +
     '<span class="rc-pie-der">' +
     '<button class="btn btn-secondary" id="rcExcel" onclick="rcExportar(\'excel\')"><i class="bi bi-file-earmark-excel"></i> Bajar en Excel</button>' +
     '<button class="btn btn-primary" id="rcPdf" onclick="rcExportar(\'pdf\')"><i class="bi bi-file-earmark-pdf"></i> Bajar en PDF</button>' +
     '</span></div>';
+}
+
+/* La tabla de lo que va a salir: hasta 100, y abajo, resaltado, cuántos más y el total. */
+function _rcVistaHtml(v) {
+  if (!v.total) return '<div class="rc-vacio"><i class="bi bi-inbox"></i> No hay productos con estos filtros.</div>';
+  return '<div class="rc-vista-cab"><span class="rc-vista-tit"><i class="bi bi-list-ul"></i> Lo que va a salir</span>' +
+    (v.conBolsas ? '<span class="rc-vista-nota">Cada bolsa cuenta como un producto</span>' : '') + '</div>' +
+    '<div class="rc-tabla-caja"><table class="rc-tabla"><colgroup><col class="rc-c-prod"><col class="rc-c-prov"><col class="rc-c-costo"></colgroup>' +
+    '<thead><tr><th>Producto</th><th>Proveedor</th><th class="rc-der">Costo</th></tr></thead><tbody>' +
+    v.filas.map(r => '<tr><td title="' + _rcEsc(r.nombre) + '">' + _rcEsc(r.nombre) + '</td><td>' + _rcEsc(r.proveedor || '—') +
+      '</td><td class="rc-der">' + _rcEsc(r.costo) + '</td></tr>').join('') +
+    '</tbody></table></div>' +
+    '<div class="rc-total">' + (v.resto ? '<span class="rc-mas">+' + v.resto + (v.resto === 1 ? ' producto' : ' productos') + '</span>' : '') +
+    '<span class="rc-total-n">TOTAL: ' + v.total + '</span></div>';
 }
 
 function _rcLeer() {
@@ -270,17 +318,13 @@ function rcCambioCat() {
   rcContar();
 }
 
-/* Cuántos van a salir, mientras se eligen los filtros. Con cero no se puede bajar. */
+/* La vista previa, mientras se eligen los filtros. Con cero no se puede bajar. */
 function rcContar() {
   _rcLeer();
-  const van = reporteCostosFiltrar(_rcProds(), _rc.f);
-  const n = van.length;
-  const c = document.getElementById('rcCuenta');
-  if (c) {
-    c.textContent = n ? 'Van a salir ' + n + (n === 1 ? ' producto' : ' productos') +
-      (van.some(p => p.gramajePadreId) ? ' (cada bolsa cuenta como uno).' : '.') : 'No hay productos con estos filtros.';
-  }
-  ['rcExcel', 'rcPdf'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = !n; });
+  const v = reporteCostosVista(_rcProds(), _rcListas(), _rc.f);
+  const c = document.getElementById('rcVista');
+  if (c) c.innerHTML = _rcVistaHtml(v);
+  ['rcExcel', 'rcPdf'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = !v.total; });
 }
 
 function rcExportar(formato) {

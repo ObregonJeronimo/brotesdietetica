@@ -172,6 +172,35 @@ console.log('\n-- el Excel: una sola tabla, con los montos como números --');
   t('sin productos, sin bloques (exportarDoc avisa "No hay nada para exportar")', vacio.bloques.length === 0);
 }
 
+console.log('\n-- la vista previa: hasta 100 y cuántos más --');
+{
+  /* 300 productos de un proveedor: la tabla muestra 100 y abajo "+200 productos" y "TOTAL: 300". */
+  const muchos = Array.from({ length: 300 }, (_, i) => P('m' + i, { nombre: 'Producto ' + String(i + 1).padStart(3, '0'), costo: 1000 + (299 - i),
+    precio: 2000, categoria: 'Semillas', lista: 'MAR' }));
+  const { ctx } = armar({ productos: muchos });
+  const v = ctx.reporteCostosVista(ctx.allProducts, LISTAS, { vis: 'visibles', orden: 'nombre' });
+  t('300 productos: 100 en la tabla, 200 más y el total', v.total === 300 && v.filas.length === 100 && v.resto === 200, { total: v.total, filas: v.filas.length, resto: v.resto });
+  t('  los primeros 100 por nombre, con el proveedor y el costo por kilo', v.filas[0].nombre === 'Producto 001' && v.filas[99].nombre === 'Producto 100' &&
+    v.filas[0].proveedor === 'MARTIN F.S' && v.filas[0].costo === '$1.299 /kg', v.filas[0]);
+  const html = ctx._rcVistaHtml(v);
+  t('  abajo, resaltado: "+200 productos" y "TOTAL: 300"', /<span class="rc-mas">\+200 productos<\/span><span class="rc-total-n">TOTAL: 300<\/span>/.test(html), html.slice(-200));
+  t('  y la tabla tiene 100 renglones', (html.match(/<tr><td/g) || []).length === 100);
+  const vc = ctx.reporteCostosVista(ctx.allProducts, LISTAS, { vis: 'visibles', orden: 'costo' });
+  t('por costo, los 100 más baratos primero', vc.filas[0].nombre === 'Producto 300' && vc.filas[0].costo === '$1.000 /kg' && vc.filas[99].nombre === 'Producto 201', vc.filas[0]);
+  const v101 = ctx.reporteCostosVista(muchos.slice(0, 101), LISTAS, { vis: 'visibles' });
+  t('con 101: "+1 producto", en singular', /<span class="rc-mas">\+1 producto<\/span>/.test(ctx._rcVistaHtml(v101)));
+  const v100 = ctx.reporteCostosVista(muchos.slice(0, 100), LISTAS, { vis: 'visibles' });
+  t('con 100 justos: sin "+", solo el total', !/rc-mas/.test(ctx._rcVistaHtml(v100)) && /TOTAL: 100/.test(ctx._rcVistaHtml(v100)));
+}
+{
+  const { ctx } = armar();
+  const v = ctx.reporteCostosVista(ctx.allProducts, LISTAS, { vis: 'visibles', orden: 'nombre' });
+  const excel = ctx.reporteCostosDoc(ctx.allProducts, LISTAS, { vis: 'visibles', orden: 'nombre' }, 'excel').bloques[0].filas.map(f => f[2]);
+  t('la vista va en el mismo orden que el Excel', JSON.stringify(v.filas.map(f => f.nombre)) === JSON.stringify(excel), v.filas.map(f => f.nombre));
+  t('  un nombre con "<" va escapado en la tabla', !/<b>/.test(ctx._rcVistaHtml({ total: 1, resto: 0, conBolsas: false,
+    filas: [{ nombre: 'Mani <b>rico</b>', proveedor: 'X', costo: '$1 /kg' }] })));
+}
+
 console.log('\n-- la ventana --');
 {
   const { ctx, els, reg, ver } = armar();
@@ -182,6 +211,8 @@ console.log('\n-- la ventana --');
   ctx.abrirExportarCostos();
   t('se abre preguntando qué bajar: el reporte o la planilla', els.exportFormatModal.classList.contains('show') &&
     /Reporte para comparar costos/.test(els.rcCuerpo.innerHTML) && /Planilla para actualizar costos/.test(els.rcCuerpo.innerHTML));
+  t('  la planilla ya no dice "La de siempre" (Thiago, 29/10)', !/La de siempre/.test(els.rcCuerpo.innerHTML) &&
+    /Todo el catálogo en Excel o CSV, para cambiar los costos/.test(els.rcCuerpo.innerHTML));
   ctx.rcPaso('planilla');
   t('la planilla: los botones de siempre (exportCostosWithFormat xlsx y csv) y Volver',
     /exportCostosWithFormat\('xlsx'\)/.test(els.rcCuerpo.innerHTML) && /exportCostosWithFormat\('csv'\)/.test(els.rcCuerpo.innerHTML) &&
@@ -193,11 +224,18 @@ console.log('\n-- la ventana --');
   t('  con la categoría elegida, el desplegable de subcategorías habilitado', !/id="rcSub" class="form-input" onchange="rcContar\(\)" disabled/.test(h));
   els.rcCat.value = 'Frutos secos'; els.rcSub.value = ''; els.rcLista.value = 'GR'; els.rcQ.value = 'carmel'; els.rcVis.value = 'visibles'; els.rcOrden.value = 'nombre';
   ctx.rcContar();
-  t('cuántos van a salir, avisando que cada bolsa cuenta', els.rcCuenta.textContent === 'Van a salir 3 productos (cada bolsa cuenta como uno).', els.rcCuenta.textContent);
+  const vista = els.rcVista.innerHTML;
+  t('la tabla de lo que va a salir: los tres, en orden, con proveedor y costo',
+    (vista.match(/<tr><td/g) || []).length === 3 && vista.indexOf('Almendra Carmel</td>') < vista.indexOf('Almendra Carmel x 2 kg</td>') &&
+    vista.indexOf('Almendra Carmel x 2 kg</td>') < vista.indexOf('Almendra Carmel x 10 kg</td>') &&
+    /<td>GR - DISTRIBUIDORA \(FR\. SC\)<\/td><td class="rc-der">\$26\.530 \/kg<\/td>/.test(vista), vista.slice(0, 600));
+  t('  abajo el total, sin "+" porque son menos de 100, y el aviso de las bolsas',
+    /<span class="rc-total-n">TOTAL: 3<\/span>/.test(vista) && !/rc-mas/.test(vista) && /Cada bolsa cuenta como un producto/.test(vista));
   t('  y se puede bajar', els.rcPdf.disabled === false && els.rcExcel.disabled === false);
   els.rcQ.value = 'nada de nada';
   ctx.rcContar();
-  t('sin productos: lo dice y no deja bajar', els.rcCuenta.textContent === 'No hay productos con estos filtros.' && els.rcPdf.disabled && els.rcExcel.disabled);
+  t('sin productos: lo dice y no deja bajar', /No hay productos con estos filtros\./.test(els.rcVista.innerHTML) && !/<table/.test(els.rcVista.innerHTML) &&
+    els.rcPdf.disabled && els.rcExcel.disabled);
   els.rcQ.value = 'carmel';
   ctx.rcCambioCat();
   els.rcCat.value = '';
@@ -237,7 +275,7 @@ console.log('\n-- el botón, la planilla de siempre y el PDF apaisado --');
     html.indexOf('<script src="admin-reporte-costos.js"></script>') > 0);
 
   /* El PDF de verdad (_expPDF) con un jsPDF de mentira: apaisado solo si el documento lo pide. */
-  const hojas = [];
+  const hojas = [], textos = [], rayas = [];
   const ctx = {
     console, Math, Number, String, Object, Array, Date,
     showAdminToast() {},
@@ -245,7 +283,8 @@ console.log('\n-- el botón, la planilla de siempre y el PDF apaisado --');
       hojas.push(o);
       const ancho = o.orientation === 'landscape' ? 297 : 210;
       return { internal: { pageSize: { getWidth: () => ancho, getHeight: () => 507 - ancho }, getNumberOfPages: () => 1 },
-        setFont() {}, setFontSize() {}, setTextColor() {}, setDrawColor() {}, text() {}, line() {}, addPage() {}, setPage() {}, save() {},
+        setFont() {}, setFontSize() {}, setTextColor() {}, setDrawColor() {}, addPage() {}, setPage() {}, save() {},
+        text: (s, x, y) => textos.push({ s, y }), line: (x1, y1) => rayas.push(y1),
         splitTextToSize: s => [s] };
     } } },
   };
@@ -255,6 +294,14 @@ console.log('\n-- el botón, la planilla de siempre y el PDF apaisado --');
   ctx.exportarDoc({ titulo: 'A', bloques: [{ tipo: 'tabla', titulo: 'B', columnas: ['x'], filas: [['1']] }] }, 'pdf');
   t('el PDF sale apaisado con horizontal, y vertical como siempre sin eso',
     hojas.length === 2 && hojas[0].orientation === 'landscape' && hojas[1].orientation === 'portrait', hojas);
+  /* La raya debajo de los títulos de la tabla no puede cortar la primera fila: la letra de 9 puntos
+     sube unos 2,3 mm desde la línea donde se escribe (Thiago, 29/10: "está traspasando el texto"). */
+  textos.length = 0; rayas.length = 0;
+  ctx.exportarDoc({ titulo: 'A', bloques: [{ tipo: 'tabla', titulo: 'B', columnas: ['TITULO'], filas: [['fila 1']] }] }, 'pdf');
+  const yTit = textos.find(x => x.s === 'TITULO').y, yFila = textos.find(x => x.s === 'fila 1').y;
+  const yRaya = rayas.find(y => y > yTit && y < yFila);
+  t('la raya de la cabecera queda entre los títulos y la primera fila, sin tocar las letras',
+    yRaya !== undefined && yRaya - yTit >= 1 && yFila - 2.6 - yRaya >= 1, { yTit, yRaya, yFila, rayas });
 }
 
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');

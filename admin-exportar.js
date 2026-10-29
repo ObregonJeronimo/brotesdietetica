@@ -110,8 +110,10 @@ function _expPDF(doc) {
         const x = der.has(i) ? xDe(i) + anchos[i] - 1 : xDe(i) + 1;
         pdf.text(_expTexto(c), x, y, der.has(i) ? { align: 'right' } : undefined);
       });
-      y += 4;
-      pdf.setDrawColor(225); pdf.line(M, y - 1.5, W - M, y - 1.5);
+      /* La raya va justo debajo de los titulos, y la primera fila mas abajo: estaba a 2,5 mm de los
+         titulos y cortaba por la mitad el texto de la primera fila (Thiago, 29/10). */
+      pdf.setDrawColor(225); pdf.line(M, y + 1.6, W - M, y + 1.6);
+      y += 5.5;
     };
     cabecera();
 
