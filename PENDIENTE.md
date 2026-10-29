@@ -3261,6 +3261,19 @@ Escape; el reporte de todo GR: 306 renglones en 36 familias. Los archivos se mir
   renglones, "+206 productos · TOTAL: 306"; sin filtros "+299 productos · TOTAL: 399"; la ventana entra entera en 1024 x 768; el PDF
   de 16 páginas con la raya entre los títulos y la primera fila.
 
+**Tercera vuelta** (Thiago, 29/10; `abd86cb`): "+299 productos" y "TOTAL: 399" sueltos no se entendían.
+- Ahora abajo se lee como una cuenta: "100 en la lista + 299 más en el archivo = TOTAL: 399 productos" (en ámbar los que no se
+  ven); al final de la tabla, un renglón "Y 299 productos más, que no se muestran acá pero salen en el PDF y en el Excel". Con 100
+  o menos: "Se ven todos en la lista" y el total.
+- Los 6 campos del filtro con la receta de los buscadores y del formulario del producto (fondo más claro, borde verde, anillo al
+  escribir); la subcategoría apagada queda punteada.
+- **El límite de 100 no es por la base**: ni la vista ni el archivo leen Firestore, usan los productos que el panel ya tiene
+  (`allProducts`, leídos una vez al entrar). Es por la pantalla: medido en el sandbox con 1.624 productos simulados, redibujar
+  con 100 tarda ~13 ms por letra y con todos ~130 ms. Para llegar a 13 ms, un solo `Intl.Collator` para ordenar (con
+  `localeCompare` y opciones se armaba uno por comparación: 84 ms).
+- La tabla se achica un poco más con pantallas bajas (los bordes de 2 px la pasaban 3 px en 768 de alto). Pruebas: 65; suite 4650,
+  0 fallas. Probado en el sandbox.
+
 **Para tener en cuenta**: hoy solo los 114 de GR tienen subcategoría; para comparar "todas las almendras" de todos los
 proveedores sirve el buscador por nombre (o ponerles subcategoría a los parecidos que ya estaban, desde su ficha). **Al subir**:
 avisarle a la clienta cómo se usa (+F5).
