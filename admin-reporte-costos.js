@@ -22,7 +22,8 @@
        duplicaba el catálogo. Por eso el reporte es otro archivo.
 
    La ventana muestra lo que va a salir: los primeros 100, en el orden elegido, y abajo,
-   resaltado, cuántos más hay y el total ("+200 productos", "TOTAL: 300").
+   como una cuenta, los que no se ven y el total ("100 en la lista + 200 más en el archivo =
+   TOTAL: 300 productos").
 
    El buscador por nombre no distingue tildes ni mayúsculas y pide cada palabra
    por separado, en cualquier orden: "castana caju" encuentra "Castaña Cajú W4"
@@ -43,7 +44,10 @@ const _rcEsc = s => (typeof esc === 'function' ? esc(String(s == null ? '' : s))
   : String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
 const _rcPesos = n => '$' + Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 });
 const _rcTam = g => (g >= 1000 ? (g / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg' : g + ' g');
-const _rcCmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'es', { sensitivity: 'base', numeric: true });
+/* Un solo comparador, armado una vez: localeCompare con opciones arma uno nuevo en cada llamada, y
+   la vista previa ordena todo el catálogo con cada letra (con 1.600 productos era la mitad del tiempo). */
+const _rcCollator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+const _rcCmp = (a, b) => _rcCollator.compare(String(a || ''), String(b || ''));
 function _rcHoy() {
   return new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
@@ -290,18 +294,31 @@ function _rcReporteHtml() {
     '</span></div>';
 }
 
-/* La tabla de lo que va a salir: hasta 100, y abajo, resaltado, cuántos más y el total. */
+/* La tabla de lo que va a salir: hasta 100. Si hay más, se lee como una cuenta (Thiago, 29/10: que
+   se entienda que los que no se ven también salen): al final de la tabla un renglón "Y 299 productos
+   más, que no se muestran acá pero salen en el PDF y en el Excel", y abajo "100 en la lista + 299 más
+   en el archivo = TOTAL: 399". El límite es solo para la pantalla: los productos ya están en el panel
+   (allProducts), así que ni la tabla ni el archivo leen la base; dibujar 1.600 renglones con cada
+   letra que se escribe sí se nota. */
 function _rcVistaHtml(v) {
   if (!v.total) return '<div class="rc-vacio"><i class="bi bi-inbox"></i> No hay productos con estos filtros.</div>';
+  const prods = n => n + (n === 1 ? ' producto' : ' productos');
   return '<div class="rc-vista-cab"><span class="rc-vista-tit"><i class="bi bi-list-ul"></i> Lo que va a salir</span>' +
     (v.conBolsas ? '<span class="rc-vista-nota">Cada bolsa cuenta como un producto</span>' : '') + '</div>' +
     '<div class="rc-tabla-caja"><table class="rc-tabla"><colgroup><col class="rc-c-prod"><col class="rc-c-prov"><col class="rc-c-costo"></colgroup>' +
     '<thead><tr><th>Producto</th><th>Proveedor</th><th class="rc-der">Costo</th></tr></thead><tbody>' +
     v.filas.map(r => '<tr><td title="' + _rcEsc(r.nombre) + '">' + _rcEsc(r.nombre) + '</td><td>' + _rcEsc(r.proveedor || '—') +
       '</td><td class="rc-der">' + _rcEsc(r.costo) + '</td></tr>').join('') +
+    (v.resto ? '<tr class="rc-fila-mas"><td colspan="3"><i class="bi bi-plus-circle"></i> Y ' + prods(v.resto) +
+      ' más, que no se ' + (v.resto === 1 ? 'muestra' : 'muestran') + ' acá pero ' + (v.resto === 1 ? 'sale' : 'salen') +
+      ' en el PDF y en el Excel</td></tr>' : '') +
     '</tbody></table></div>' +
-    '<div class="rc-total">' + (v.resto ? '<span class="rc-mas">+' + v.resto + (v.resto === 1 ? ' producto' : ' productos') + '</span>' : '') +
-    '<span class="rc-total-n">TOTAL: ' + v.total + '</span></div>';
+    '<div class="rc-total">' + (v.resto
+      ? '<span class="rc-suma"><span class="rc-pill">' + v.filas.length + ' en la lista</span><span class="rc-op">+</span>' +
+        '<span class="rc-pill rc-pill-mas">' + v.resto + ' más en el archivo</span><span class="rc-op">=</span>' +
+        '<span class="rc-pill rc-pill-total">TOTAL: ' + prods(v.total) + '</span></span>'
+      : '<span class="rc-total-txt">Se ven todos en la lista</span><span class="rc-pill rc-pill-total">TOTAL: ' + prods(v.total) + '</span>') +
+    '</div>';
 }
 
 function _rcLeer() {

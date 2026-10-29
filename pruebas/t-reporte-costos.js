@@ -174,7 +174,8 @@ console.log('\n-- el Excel: una sola tabla, con los montos como números --');
 
 console.log('\n-- la vista previa: hasta 100 y cuántos más --');
 {
-  /* 300 productos de un proveedor: la tabla muestra 100 y abajo "+200 productos" y "TOTAL: 300". */
+  /* 300 productos de un proveedor: la tabla muestra 100, al final "Y 200 productos más..." y abajo, como una cuenta,
+     "100 en la lista + 200 más en el archivo = TOTAL: 300 productos" (Thiago, 29/10: que se entienda). */
   const muchos = Array.from({ length: 300 }, (_, i) => P('m' + i, { nombre: 'Producto ' + String(i + 1).padStart(3, '0'), costo: 1000 + (299 - i),
     precio: 2000, categoria: 'Semillas', lista: 'MAR' }));
   const { ctx } = armar({ productos: muchos });
@@ -183,14 +184,20 @@ console.log('\n-- la vista previa: hasta 100 y cuántos más --');
   t('  los primeros 100 por nombre, con el proveedor y el costo por kilo', v.filas[0].nombre === 'Producto 001' && v.filas[99].nombre === 'Producto 100' &&
     v.filas[0].proveedor === 'MARTIN F.S' && v.filas[0].costo === '$1.299 /kg', v.filas[0]);
   const html = ctx._rcVistaHtml(v);
-  t('  abajo, resaltado: "+200 productos" y "TOTAL: 300"', /<span class="rc-mas">\+200 productos<\/span><span class="rc-total-n">TOTAL: 300<\/span>/.test(html), html.slice(-200));
+  t('  abajo, como una cuenta: "100 en la lista + 200 más en el archivo = TOTAL: 300 productos"',
+    /<span class="rc-pill">100 en la lista<\/span><span class="rc-op">\+<\/span><span class="rc-pill rc-pill-mas">200 más en el archivo<\/span><span class="rc-op">=<\/span><span class="rc-pill rc-pill-total">TOTAL: 300 productos<\/span>/.test(html), html.slice(-400));
+  t('  y al final de la tabla, un renglón que dice que los otros 200 también salen',
+    /<tr class="rc-fila-mas"><td colspan="3">.*Y 200 productos más, que no se muestran acá pero salen en el PDF y en el Excel<\/td><\/tr><\/tbody>/.test(html));
   t('  y la tabla tiene 100 renglones', (html.match(/<tr><td/g) || []).length === 100);
   const vc = ctx.reporteCostosVista(ctx.allProducts, LISTAS, { vis: 'visibles', orden: 'costo' });
   t('por costo, los 100 más baratos primero', vc.filas[0].nombre === 'Producto 300' && vc.filas[0].costo === '$1.000 /kg' && vc.filas[99].nombre === 'Producto 201', vc.filas[0]);
   const v101 = ctx.reporteCostosVista(muchos.slice(0, 101), LISTAS, { vis: 'visibles' });
-  t('con 101: "+1 producto", en singular', /<span class="rc-mas">\+1 producto<\/span>/.test(ctx._rcVistaHtml(v101)));
+  t('con 101: en singular ("Y 1 producto más, que no se muestra acá pero sale...", "1 más en el archivo")',
+    /Y 1 producto más, que no se muestra acá pero sale en el PDF/.test(ctx._rcVistaHtml(v101)) && /1 más en el archivo/.test(ctx._rcVistaHtml(v101)) &&
+    /TOTAL: 101 productos/.test(ctx._rcVistaHtml(v101)));
   const v100 = ctx.reporteCostosVista(muchos.slice(0, 100), LISTAS, { vis: 'visibles' });
-  t('con 100 justos: sin "+", solo el total', !/rc-mas/.test(ctx._rcVistaHtml(v100)) && /TOTAL: 100/.test(ctx._rcVistaHtml(v100)));
+  t('con 100 justos: sin cuenta ni renglón de más, "Se ven todos" y el total', !/rc-pill-mas|rc-fila-mas/.test(ctx._rcVistaHtml(v100)) &&
+    /Se ven todos en la lista<\/span><span class="rc-pill rc-pill-total">TOTAL: 100 productos/.test(ctx._rcVistaHtml(v100)));
 }
 {
   const { ctx } = armar();
@@ -230,7 +237,7 @@ console.log('\n-- la ventana --');
     vista.indexOf('Almendra Carmel x 2 kg</td>') < vista.indexOf('Almendra Carmel x 10 kg</td>') &&
     /<td>GR - DISTRIBUIDORA \(FR\. SC\)<\/td><td class="rc-der">\$26\.530 \/kg<\/td>/.test(vista), vista.slice(0, 600));
   t('  abajo el total, sin "+" porque son menos de 100, y el aviso de las bolsas',
-    /<span class="rc-total-n">TOTAL: 3<\/span>/.test(vista) && !/rc-mas/.test(vista) && /Cada bolsa cuenta como un producto/.test(vista));
+    /<span class="rc-pill rc-pill-total">TOTAL: 3 productos<\/span>/.test(vista) && !/rc-pill-mas|rc-fila-mas/.test(vista) && /Cada bolsa cuenta como un producto/.test(vista));
   t('  y se puede bajar', els.rcPdf.disabled === false && els.rcExcel.disabled === false);
   els.rcQ.value = 'nada de nada';
   ctx.rcContar();

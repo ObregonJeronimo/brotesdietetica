@@ -941,14 +941,20 @@
 .rc-campo{display:flex;flex-direction:column;gap:6px;min-width:0}
 .rc-etq{display:flex;align-items:center;gap:6px;font-size:0.7rem;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:var(--text-dim)}
 .rc-etq i{color:var(--accent-light);font-size:0.8rem}
+/* Los 6 campos, bien a la vista (Thiago, 29/10): la receta de los buscadores y del formulario del producto (opcion A). La
+   subcategoria apagada (sin categoria elegida) queda punteada: se ve que es un campo, pero que todavia no se usa. */
 .rc-filtros .form-input{padding:0.6rem 0.75rem;font-size:0.86rem}
-.rc-filtros .form-input:disabled{opacity:0.55;cursor:not-allowed}
+.rc-filtros .form-input:not(:disabled){background:#2b3043;border:2px solid rgba(143,203,163,0.7);color:#fff;font-weight:500;box-shadow:0 0 0 3px rgba(95,168,122,0.1);transition:border-color .15s,box-shadow .15s,background .15s}
+.rc-filtros .form-input:not(:disabled)::placeholder{color:#a9aec0;font-weight:400}
+.rc-filtros .form-input:not(:disabled):hover{border-color:var(--accent-light)}
+.rc-filtros .form-input:not(:disabled):focus{background:#30364b;border-color:var(--accent);box-shadow:0 0 0 4px rgba(95,168,122,0.38)}
+.rc-filtros .form-input:disabled{border:2px dashed rgba(143,203,163,0.3);color:var(--text-dim);cursor:not-allowed}
 .rc-vista{margin-top:1rem;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg)}
 .rc-vista-cab{display:flex;align-items:center;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;padding:0.7rem 1rem;border-bottom:1px solid var(--border)}
 .rc-vista-tit{font-size:0.86rem;font-weight:700;display:flex;align-items:center;gap:6px}
 .rc-vista-tit i{color:var(--accent-light)}
 .rc-vista-nota{font-size:0.75rem;color:var(--text-dim)}
-.rc-tabla-caja{max-height:min(320px,max(150px,calc(90vh - 505px)));overflow-y:auto}
+.rc-tabla-caja{max-height:min(320px,max(150px,calc(90vh - 520px)));overflow-y:auto}
 .rc-tabla{width:100%;border-collapse:collapse;table-layout:fixed;font-size:0.82rem}
 .rc-c-prod{width:52%}
 .rc-c-prov{width:30%}
@@ -958,9 +964,16 @@
 .rc-tabla tbody tr:nth-child(even){background:rgba(255,255,255,0.02)}
 .rc-tabla tbody tr:hover{background:var(--accent-bg)}
 .rc-tabla .rc-der{text-align:right;font-variant-numeric:tabular-nums}
+/* Abajo, como una cuenta: "100 en la lista + 299 mas en el archivo = TOTAL: 399 productos" (Thiago, 29/10). */
 .rc-total{display:flex;align-items:center;justify-content:flex-end;gap:0.6rem;flex-wrap:wrap;padding:0.7rem 1rem;border-top:1px solid var(--border);background:var(--bg-card)}
-.rc-mas{background:var(--warning-bg);color:var(--warning);font-weight:700;font-size:0.82rem;padding:4px 12px;border-radius:999px}
-.rc-total-n{background:var(--accent-bg);color:var(--accent-light);font-weight:800;font-size:0.86rem;letter-spacing:0.4px;padding:4px 12px;border-radius:999px}
+.rc-suma{display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;justify-content:flex-end}
+.rc-pill{background:var(--bg-input);border:1px solid var(--border);color:var(--text);font-weight:600;font-size:0.82rem;padding:4px 12px;border-radius:999px;white-space:nowrap}
+.rc-pill-mas{background:var(--warning-bg);border-color:rgba(230,162,60,0.35);color:var(--warning);font-weight:700}
+.rc-pill-total{background:var(--accent-bg);border-color:rgba(95,168,122,0.4);color:var(--accent-light);font-weight:800;letter-spacing:0.3px}
+.rc-op{color:var(--text-dim);font-weight:700;font-size:0.95rem}
+.rc-total-txt{font-size:0.8rem;color:var(--text-dim);margin-right:auto}
+.rc-tabla .rc-fila-mas td{background:var(--warning-bg);color:var(--warning);font-weight:600;white-space:normal;text-align:center;padding:0.6rem 1rem}
+.rc-tabla tbody tr.rc-fila-mas:hover{background:transparent}
 .rc-vacio{padding:1.6rem 1rem;text-align:center;color:var(--text-dim);font-size:0.86rem}
 .rc-vacio i{display:block;font-size:1.6rem;margin-bottom:0.4rem;opacity:0.7}
 .rc-pie{display:flex;align-items:center;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border)}
