@@ -646,7 +646,7 @@ producción (de los "gramajes" viejos).
 - Decidir la sección Etiquetas.
 - Limpiar 4 nombres repetidos.
 - 34 productos del reporte viejo.
-- ~~Alerta de presupuesto de USD 5 en Google Cloud~~: ya existía (visto el 29/10): "Brotes Dietética", en la cuenta de facturación "Pago de Firebase", US$ 10 por mes para el proyecto, alertas al 50, 90 y 100%. Sin límite de gasto (un límite pausaría los servicios). En octubre el uso valió US$ 0,08 y lo cubrió el uso gratis: se pagó US$ 0.
+- ~~Alerta de presupuesto de USD 5 en Google Cloud~~: ya existía (visto el 29/10): "Brotes Dietética", en la cuenta de facturación "Pago de Firebase", US$ 10 por mes para el proyecto; Thiago la paso a US$ 5 el 29/10, con avisos por mail al 40, 90 y 100% (real) y al 100% previsto, solo alertas. Sin límite de gasto (un límite pausaría los servicios). En octubre el uso valió US$ 0,08 y lo cubrió el uso gratis: se pagó US$ 0.
 - Revisar el plan de Vercel.
 - Portar a YERCO lo de §6.
 - Decisiones abiertas de §2:
