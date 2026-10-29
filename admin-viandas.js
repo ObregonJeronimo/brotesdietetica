@@ -255,6 +255,8 @@ async function loadVentasViandas() {
       const r = d.data();
       return Object.assign({ docId: d.id }, r, { fecha: r.fecha ? (r.fecha.toDate ? r.fecha.toDate() : new Date(r.fecha)) : new Date() });
     });
+    /* Esta carga llegó entera: desde acá refrescarVentaEnLista (admin.html) puede tocar la lista (29/10). */
+    window._ventasCargaOk = tk;
     if (_ventasVdsTope && ventasData.length < 500) _ventasVdsTope = false;
     ventasVdsPagina = 0;
     filterVentasViandas();
