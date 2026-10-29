@@ -113,6 +113,8 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 
 - **Exportar Costos con un reporte para comparar costos** (pedido de la clienta): filtros por categoría, subcategoría,
   proveedor y nombre, en PDF por familia o Excel; la planilla de siempre sigue igual. Probado en el sandbox, sin subir. Ver §1-bis BA.
+- **Las lecturas de la base**: el sandbox ya no lee producción al levantarlo (A) y guardar una venta lee solo esa venta en vez
+  de releer el mes (B). Probado en el sandbox, sin subir. Esperan a Thiago C, D y E. Ver §1-bis BB.
 
 ### Hecho el 22/10
 
@@ -3277,6 +3279,74 @@ Escape; el reporte de todo GR: 306 renglones en 36 familias. Los archivos se mir
 **Para tener en cuenta**: hoy solo los 114 de GR tienen subcategoría; para comparar "todas las almendras" de todos los
 proveedores sirve el buscador por nombre (o ponerles subcategoría a los parecidos que ya estaban, desde su ficha). **Al subir**:
 avisarle a la clienta cómo se usa (+F5).
+
+### BB) Las lecturas de la base: A (el sandbox) y B (cada venta guardada) · HECHO el 29/10/2026, probado en el sandbox, SIN SUBIR
+
+**Lo pedido** (Thiago, 29/10): "no puede ser que con solo 1.6k de productos hayamos pasado dos veces las lecturas de 50k
+diarias", buscar el o los problemas (N+1 o lo que sea) y proponer soluciones. Después de ver el análisis: "arranca con A y B
+[...] no nos podemos permitir un error catastrófico".
+
+**Lo encontrado** (código, cantidad de documentos y métricas minuto a minuto; todo de solo lectura): no hay un N+1 clásico (el
+único lugar que lee producto por producto es el carrito al confirmar, y está bien). El problema es **releer todo cada vez**. En la
+base: 1.636 productos (937 ocultos), 685 ventas (407 del último mes), 3.168 de historial.
+- Abrir el panel o F5: ~2.150 (los productos, 30 días de ventas del Centro de avisos y lo chico).
+- Una visita a la tienda: ~1.640 (el catálogo entero, ocultos incluidos).
+- **Cada venta guardada releía todas las ventas del mes**: ~400 por venta a fin de octubre (el 28/10 se vieron 372, 414 y 315 justo
+  después de vender). Es lo único que **empeora con el crecimiento**: con n ventas en el mes se leen unas n²/2.
+- Entrar a Clientes del local: 685 (todas las ventas de 12 meses). Entrar a Proveedores: 685 (90 días) más las compras.
+- **Levantar el sandbox: ~1.650 de producción**. La vista previa abre la raíz del puerto, y la raíz era la tienda conectada a la
+  base real (solo `/admin` avisaba). En 35 días se levantó unas 25 veces y se abrió la tienda real unas 20 para verificar subidas:
+  unas 75.000 lecturas del desarrollo. Los picos de más de 50.000 caen en días de subidas; los días sin desarrollo son livianos.
+
+**A) El sandbox ya no abre la tienda real** (`dev-server.js`, que no se publica): con el sandbox andando, `/` y `/index.html`
+llevan a `/sandbox`; la tienda contra el emulador sigue en `/sandbox/index`, y `npm run dev` no cambia. Pruebas:
+`pruebas/t-sandbox-raiz.js` (7, levanta `dev-server.js` de verdad en un puerto libre). **Comprobado en las métricas**: al levantar
+el sandbox a las 19:52, 0 lecturas en producción.
+
+**B) Guardar una venta lee solo esa venta** (`refrescarVentaEnLista` en admin.html): 1 lectura en vez del mes entero. La pone en
+`ventasData` en su lugar y queda **igual que si se releyera el mes**: el documento de la base, la fecha como Date (como lo arman
+`loadVentas` y `loadVentasViandas`), solo si cae en el mes elegido (con "Todos los meses", las 500 más recientes) y en el orden de
+la consulta (fecha de la más nueva a la más vieja y, con la misma fecha, el id de mayor a menor, comprobado en el emulador).
+`saveVenta` solo cambia cómo refresca la lista: escribe lo mismo que antes (las mismas 13 escrituras).
+- **Relee como antes cuando no lo puede asegurar**: si la lectura falla; si la última carga de la lista todavía no llegó o falló
+  (al llegar pisaría la venta con el mes sin ella; las dos cargas marcan `window._ventasCargaOk` con su ficha cuando llegan
+  enteras); o si con "Todos los meses" y la lista llena (500) la venta sale de la lista o queda última (la que sigue en la base no
+  está en memoria). Si mientras tanto empezó otra carga (se cambió de mes o de lista), no hace nada: esa empezó después de guardar
+  y ya la trae.
+- **Lo que apareció probando, antes de commitear**: la primera versión perdía la venta de la lista si se guardaba mientras la
+  lista todavía venía en camino (con conexión lenta, hasta volver a entrar); con "Todos los meses" y más de 500 ventas, pasar una
+  venta a una fecha vieja dejaba la lista con una de más (en el sandbox habría dado $11.776 de más en Facturado); y si se cambiaba
+  de lista en el medio, la relectura cortaba la carga nueva (Viandas quedaba en "Cargando..."). Las tres arregladas; las pruebas
+  nuevas fallan contra la primera versión (16) y pasan con la final.
+- **A la vista no cambia nada.** Lo que carga otra computadora aparece al volver a entrar a Ventas o con "Volver a cargar" (antes
+  aparecía también al guardar una venta).
+- Pruebas: `pruebas/t-venta-en-lista.js` (46): venta nueva, editar, cambiar la fecha y el mes, empates, la que ya no está, Viandas,
+  "Todos los meses" con 520 (cuándo relee y cuándo no), 400 operaciones al azar contra releer (con menos y con más de 500), y con
+  `loadVentas` y `loadVentasViandas` de verdad: la marca, la venta hecha con la carga en camino (en los dos órdenes de llegada), la
+  carga fallada, el cambio de mes y el pase a Viandas en el medio. Suite 4703, 0 fallas; `npm run check` bien.
+- **Sandbox** (5180, con la cuenta de Thiago): venta nueva (#41, $6.400) arriba de todo; editarla a x2 (Facturado $636.254 →
+  $642.654); pasarla a septiembre (sale de octubre: 15 ventas, $629.854; aparece en septiembre el 15/09); editarla en septiembre
+  (x3, $677.966); una venta nueva con septiembre a la vista (no aparece); "Todos los meses" (#43, $20.570: 43 ventas, $1.812.950).
+  Con el código final: venta nueva #44; la carga en camino (relee); con 480 ventas viejas de relleno (524 en total), "Todos los
+  meses" muestra 500: editar la #44 no relee ($2.396.890), pasarla a enero relee, sale la #44, entra la #1024 y Facturado da
+  $2.385.114; y Viandas (tildado "Es la cocina" en GALLETAS VEGANAS, venta #45 de $19.000). **En cada paso la lista, las tarjetas y
+  el paginado quedaron idénticos a releer el mes.** En las métricas de ese mismo día, a las 20:24, hubo 372 lecturas pegadas a
+  escrituras: el patrón de una venta guardada en el panel real (releer octubre). Con B sería 1.
+
+**Lo que queda**, esperando a Thiago:
+- **C) La tienda baja solo los visibles**: ~940 lecturas menos por visita (−57%), y carga más rápido en el celular. Antes hay que
+  anotar `oculto: false` en 359 productos de producción (53 viejos y las 306 fichas de GR), **con su OK**; el panel tiene que
+  ponerlo al crear (4 caminos: `saveProduct`, `guardarVariantesForm`, Importar Nuevos y el otro import de Excel); después la tienda
+  pide `where('oculto','==',false)`, y al subir se revisa que no quede ninguno sin el campo.
+- **D) El Centro de avisos guarda las ventas en el navegador** y al abrir el panel trae solo las nuevas: ~400 por apertura. Mediano.
+- **E) Clientes lee solo las ventas con cliente y Proveedores reusa lo ya leído**: 685 o más por clic, y deja de crecer. Chico o
+  mediano.
+- La venta **mayorista** tiene el mismo patrón de releer al guardar (hoy no hay ventas mayoristas; no se tocó).
+- A largo plazo, si la tienda tiene muchas visitas: un catálogo público armado por una Cloud Function (un documento por visita en
+  vez de 700). Resolvería además que hoy los costos se pueden leer sin iniciar sesión.
+
+En plata hoy son centavos (octubre va US$ 0,08, cubierto por el uso gratis; la alerta de presupuesto está en US$ 5). **Al subir**:
+nada que avisarle a la clienta.
 
 ---
 

@@ -185,7 +185,9 @@ Brotes es un **clon de YERCO** (otro comercio del mismo equipo, proyecto Firebas
     está ocupado se corre al 5174 o al siguiente.
   - Tarda unos 40 s: emulador, siembra de datos y servidor.
 - **La dirección** es **http://localhost:5180/sandbox**. `/admin` en modo sandbox muestra un
-  cartel de aviso.
+  cartel de aviso. **La raíz (`/` y `/index.html`) lleva a `/sandbox`** desde el 29/10: antes era la tienda contra la base
+  REAL y cada arranque leía el catálogo entero de producción (~1.650 lecturas). La tienda contra el emulador está en
+  `/sandbox/index`.
 - **Los datos son efímeros.** Cada arranque siembra lo mismo con `sandbox/sembrar.js`: 100
   productos, 20 proveedores, 40 ventas, 5 pedidos, 6 compras y cupones. Los admins son jeroobregon03,
   thiagowendler53 y admin@local. Uno de cada cuatro productos tiene el costo con más de un mes.
@@ -547,6 +549,21 @@ producción (de los "gramajes" viejos).
   Costos"; agregarle la categoría hacía que reimportarla duplicara el catálogo). Módulo nuevo `admin-reporte-costos.js`. Detalle en
   `PENDIENTE.md` §1-bis BA.
 
+### 5.15 Lo del 29/10, segunda parte (hecho y probado en el sandbox, SIN SUBIR): las lecturas de la base
+
+- Thiago preguntó por qué se pasaban dos días las 50.000 lecturas diarias con solo 1.636 productos. No hay un N+1: el problema es
+  **releer todo cada vez**. Abrir el panel ~2.150; una visita a la tienda ~1.640 (el catálogo entero, con los 937 ocultos); **cada
+  venta guardada releía el mes** (~400 a fin de octubre, y crece con el cuadrado de las ventas); Clientes y Proveedores leen todas las
+  ventas; y **levantar el sandbox leía ~1.650 de producción** (la raíz era la tienda real): unas 75.000 lecturas mías en 35 días.
+- **A** (`dev-server.js`, no se publica): en modo sandbox la raíz lleva a `/sandbox` (ver §4.3). Comprobado en las métricas: 0
+  lecturas de producción al levantarlo.
+- **B** (`refrescarVentaEnLista` en admin.html): guardar una venta lee **solo esa venta** y la pone en su lugar de la lista, igual
+  que si se releyera el mes. Relee como antes cuando no lo puede asegurar (la lectura falla, la última carga de la lista no llegó o
+  falló, o con "Todos los meses" y 500 en la lista la venta sale o queda última). **Ojo al tocar la lista de ventas: toda carga de
+  `ventasData` que se agregue tiene que marcar `window._ventasCargaOk` con su ficha al llegar entera, como `loadVentas` y
+  `loadVentasViandas`** (si no, se releería el mes en cada venta, sin romper nada). Detalle y lo que queda (C, D y E) en
+  `PENDIENTE.md` §1-bis BB.
+
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
 - **Sin stock suficiente se puede vender, con aviso**, y el negativo **aparece** en el Centro de
@@ -608,6 +625,10 @@ producción (de los "gramajes" viejos).
    sin precio (13 "Sin Stock" y 7 con solo precio por bulto); los 3 de precio raro se cargaron tal cual (`PENDIENTE.md` §1-bis AZ).
 10. **El reporte de costos** (§5.14, 29/10): hecho y probado en el sandbox, falta subirlo (push, con el OK de Thiago) y avisarle a la
     clienta cómo se usa (+F5).
+11. **Las lecturas de la base** (§5.15, 29/10): A y B hechos y probados; falta subir B (push, con el OK de Thiago; a la clienta no
+    le cambia nada a la vista). Esperan a Thiago: **C** (la tienda baja solo los visibles: antes hay que anotar `oculto: false` en 359
+    productos de producción, con su OK), **D** (el Centro de avisos guarda las ventas en el navegador) y **E** (Clientes y Proveedores
+    sin leer todas las ventas). `PENDIENTE.md` §1-bis BB.
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 
