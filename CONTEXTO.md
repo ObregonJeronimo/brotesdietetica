@@ -539,6 +539,14 @@ producción (de los "gramajes" viejos).
   no había ninguna). Es una escritura de datos, no de código: probada entera en el sandbox y verificada ficha por ficha. Detalle en
   `PENDIENTE.md` §1-bis AZ.
 
+### 5.14 Lo del 29/10 (hecho y probado en el sandbox, SIN SUBIR): el reporte de costos
+
+- **"Exportar Costos" pregunta qué bajar** (pedido de la clienta; Thiago: el mismo botón): un reporte para comparar costos (filtros
+  por categoría, subcategoría, proveedor, nombre sin tildes y visibles; PDF apaisado por familia o Excel en una tabla, con costo por
+  kilo o unidad, costo de la bolsa, fecha del costo y precio) o la planilla de siempre, sin tocar (vuelve a entrar por "Importar
+  Costos"; agregarle la categoría hacía que reimportarla duplicara el catálogo). Módulo nuevo `admin-reporte-costos.js`. Detalle en
+  `PENDIENTE.md` §1-bis BA.
+
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
 - **Sin stock suficiente se puede vender, con aviso**, y el negativo **aparece** en el Centro de
@@ -598,6 +606,8 @@ producción (de los "gramajes" viejos).
 9. **GR** (§5.13, cargado el 22/10): avisarle a la clienta que están los 114 productos de GR (sin stock ni foto: los carga ella), que la
    tienda muestra subcategorías en 11 categorías y que unos 25 se parecen a productos visibles de otros proveedores. Quedaron afuera 20
    sin precio (13 "Sin Stock" y 7 con solo precio por bulto); los 3 de precio raro se cargaron tal cual (`PENDIENTE.md` §1-bis AZ).
+10. **El reporte de costos** (§5.14, 29/10): hecho y probado en el sandbox, falta subirlo (push, con el OK de Thiago) y avisarle a la
+    clienta cómo se usa (+F5).
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 

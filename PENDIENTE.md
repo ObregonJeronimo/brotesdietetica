@@ -109,6 +109,11 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Hecho el 29/10
+
+- **Exportar Costos con un reporte para comparar costos** (pedido de la clienta): filtros por categoría, subcategoría,
+  proveedor y nombre, en PDF por familia o Excel; la planilla de siempre sigue igual. Probado en el sandbox, sin subir. Ver §1-bis BA.
+
 ### Hecho el 22/10
 
 - **La lista de GR cargada en producción**: 114 productos (306 fichas con sus bolsas) en el proveedor
@@ -3205,6 +3210,42 @@ F.S.): en la tienda están los dos, cada uno con su precio. Si tenía el panel a
 
 **Para deshacer**: borrar los ids de `migracion/gr-cargados-prod.json` (o los productos del proveedor `tABfNzUzc2Bn0N3WVm8q`,
 si la clienta no le agregó otros) y sacar las subcategorías nuevas de sus categorías.
+
+### BA) Exportar Costos: un reporte para comparar costos por producto y por familia · HECHO el 29/10/2026, probado en el sandbox, SIN SUBIR
+
+**Lo pedido** (la clienta, por el grupo, 28/10): "Necesitaría filtrar y exportar reporte de costos por productos y familias de
+productos para cotejar precios antes de realizar los pedidos a proveedores y comparar sus costos". Lo que había: "Exportar
+Costos" bajaba TODO el catálogo en Excel o CSV (sin filtros, sin categoría, la columna "CODIGO" es el código de barras); en
+Productos se puede filtrar y ver el costo, pero no exportarlo; los PDF de precios y el reporte del proveedor no traen costos.
+Thiago: en vez de un botón nuevo, que sea el mismo "Exportar Costos".
+
+**Lo hecho** (`admin-reporte-costos.js`, nuevo): "Exportar Costos" abre una ventana que pregunta qué bajar.
+- **Reporte para comparar costos**: categoría, subcategoría (solo con una categoría elegida), proveedor, nombre, "Solo visibles /
+  Visibles y ocultos / Solo ocultos" y "Ordenar por: Nombre / Costo, de menor a mayor". Arranca con los filtros que tiene puestos
+  la tabla de Productos y dice cuántos van a salir ("Van a salir 22 productos (cada bolsa cuenta como uno)."); con cero no deja
+  bajar. El buscador no distingue tildes ni mayúsculas y pide cada palabra por separado: "castana caju" trae "Castaña Cajú W4" y
+  "Castanas De Caju", que es comparar el mismo producto de dos proveedores. **PDF** apaisado, una tabla por familia (categoría ·
+  subcategoría), con Producto, Proveedor, Costo ($26.530 /kg o $1.200 c/u), Costo de la bolsa ($53.060 (2 kg)), Último cambio y
+  Precio. **Excel**: una sola tabla con Categoría y Subcategoría como columnas y los montos como números (para ordenar y filtrar
+  ahí). La bolsa es la misma de Cargar compra (`_cpGramosBolsa`). Por nombre, cada producto con sus bolsas de la más chica a la
+  más grande; por costo, del más barato al más caro, primero los por kilo y después los por unidad.
+- **Planilla para actualizar costos**: la de siempre (`exportCostosWithFormat`), **sin tocar**. Es la que vuelve a entrar por
+  "Importar Costos", y `processExcel` decide que un archivo es "de costos" porque NO tiene STOCK ni CATEGORIA: agregándole la
+  categoría, reimportarla se tomaba como un alta masiva y duplicaba el catálogo. Por eso el reporte es otro archivo.
+- `exportarDoc` acepta `horizontal: true` (hoja apaisada); los demás exportes siguen verticales.
+
+**Pruebas**: `pruebas/t-reporte-costos.js` (52, con admin-variantes, admin-compras y admin-costos de verdad); suite 4637, 0 fallas.
+De paso, `t-costos-viejos.js` tenía una prueba que fallaba sola desde el 22/10 (fecha fija contra el reloj de verdad): ahora la
+fecha sale de hoy (commit aparte, solo la prueba). **Sandbox** (5180, con los 114 de GR cargados con el script de §AZ): Productos
+filtrado por Frutos secos + "almendra" → la ventana arrancó con esos filtros, "22 productos", el PDF salió apaisado en 1 página
+con los números de cada bolsa (Almendra Carmel x 5 kg $26.260 /kg, $131.300 la bolsa, $43.329 /kg); "castana caju" con visibles
+y ocultos por costo, en Excel: 23 renglones de tres proveedores, del más barato al más caro, montos como números; la planilla de
+siempre: mismas columnas, 405 renglones, hoja "Costos"; subcategoría Almendras (23), cero resultados (no deja bajar), Volver y
+Escape; el reporte de todo GR: 306 renglones en 36 familias. Los archivos se miraron en memoria, sin descargar.
+
+**Para tener en cuenta**: hoy solo los 114 de GR tienen subcategoría; para comparar "todas las almendras" de todos los
+proveedores sirve el buscador por nombre (o ponerles subcategoría a los parecidos que ya estaban, desde su ficha). **Al subir**:
+avisarle a la clienta cómo se usa (+F5).
 
 ---
 
