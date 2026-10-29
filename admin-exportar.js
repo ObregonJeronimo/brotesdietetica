@@ -53,7 +53,9 @@ function _expNombre(base) {
 /* ------------------------------------------------------------------- PDF */
 function _expPDF(doc) {
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+  /* `horizontal: true` en el documento: la hoja apaisada, para las tablas anchas (el reporte de
+     costos, 28/10). Sin eso, vertical como siempre. */
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: doc.horizontal ? 'landscape' : 'portrait' });
   const W = pdf.internal.pageSize.getWidth();
   const H = pdf.internal.pageSize.getHeight();
   const M = 14, ancho = W - M * 2;
