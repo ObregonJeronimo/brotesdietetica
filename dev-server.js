@@ -147,6 +147,18 @@ http.createServer((req, res) => {
     return;
   }
 
+  /* ------------------------------------------------ LA RAIZ, EN EL SANDBOX
+     La vista previa abre la raiz del puerto (http://localhost:5180/) al levantar el sandbox, y la
+     raiz es la tienda, que se conecta a la base REAL: cada arranque leia el catalogo entero de
+     produccion (~1.650 lecturas). Se vio el 29/10 en las metricas, minuto a minuto, contra los
+     horarios en que se levanto el sandbox. En modo sandbox la raiz lleva al panel del sandbox;
+     la tienda contra el emulador sigue en /sandbox/index. */
+  if (SANDBOX && (pedida === '/' || pedida === '/index.html')) {
+    res.writeHead(302, { Location: '/sandbox', 'Cache-Control': 'no-store' });
+    res.end();
+    return;
+  }
+
   /* /sandbox/<pagina> sirve cualquier pagina del sitio contra el emulador, no
      solo el panel. Sin esto el sandbox cubria /admin y nada mas, asi que abrir
      la pagina de resena en local se conectaba a la base REAL de la clienta: se
