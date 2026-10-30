@@ -112,9 +112,10 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 ### Hecho el 29/10
 
 - **Exportar Costos con un reporte para comparar costos** (pedido de la clienta): filtros por categoría, subcategoría,
-  proveedor y nombre, en PDF por familia o Excel; la planilla de siempre sigue igual. Probado en el sandbox, sin subir. Ver §1-bis BA.
+  proveedor y nombre, en PDF por familia o Excel; la planilla de siempre sigue igual. Probado en el sandbox y subido (push hasta
+  `e821b07`, verificado); falta avisarle a la clienta (+F5). Ver §1-bis BA.
 - **Las lecturas de la base**: el sandbox ya no lee producción al levantarlo (A) y guardar una venta lee solo esa venta en vez
-  de releer el mes (B). Probado en el sandbox, sin subir. Esperan a Thiago C, D y E. Ver §1-bis BB.
+  de releer el mes (B). Probado en el sandbox y subido (B; A es solo del sandbox). Esperan a Thiago C, D y E. Ver §1-bis BB.
 
 ### Hecho el 22/10
 
@@ -3213,7 +3214,7 @@ F.S.): en la tienda están los dos, cada uno con su precio. Si tenía el panel a
 **Para deshacer**: borrar los ids de `migracion/gr-cargados-prod.json` (o los productos del proveedor `tABfNzUzc2Bn0N3WVm8q`,
 si la clienta no le agregó otros) y sacar las subcategorías nuevas de sus categorías.
 
-### BA) Exportar Costos: un reporte para comparar costos por producto y por familia · HECHO el 29/10/2026, probado en el sandbox, SIN SUBIR
+### BA) Exportar Costos: un reporte para comparar costos por producto y por familia · SUBIDO A PRODUCCIÓN el 29/10/2026
 
 **Lo pedido** (la clienta, por el grupo, 28/10): "Necesitaría filtrar y exportar reporte de costos por productos y familias de
 productos para cotejar precios antes de realizar los pedidos a proveedores y comparar sus costos". Lo que había: "Exportar
@@ -3280,7 +3281,7 @@ Escape; el reporte de todo GR: 306 renglones en 36 familias. Los archivos se mir
 proveedores sirve el buscador por nombre (o ponerles subcategoría a los parecidos que ya estaban, desde su ficha). **Al subir**:
 avisarle a la clienta cómo se usa (+F5).
 
-### BB) Las lecturas de la base: A (el sandbox) y B (cada venta guardada) · HECHO el 29/10/2026, probado en el sandbox, SIN SUBIR
+### BB) Las lecturas de la base: A (el sandbox) y B (cada venta guardada) · B SUBIDO A PRODUCCIÓN el 29/10/2026
 
 **Lo pedido** (Thiago, 29/10): "no puede ser que con solo 1.6k de productos hayamos pasado dos veces las lecturas de 50k
 diarias", buscar el o los problemas (N+1 o lo que sea) y proponer soluciones. Después de ver el análisis: "arranca con A y B
@@ -3337,6 +3338,11 @@ la consulta (fecha de la más nueva a la más vieja y, con la misma fecha, el id
   Almendra y Harina Integral, con VERDEDIET tildado "Es la cocina"), que hizo las dos ventas solas (#42 del local, $1.200, y #43
   de viandas, $17.850; el pedido quedó con las dos y sin viandas pendientes). Cada venta con 1 lectura y la lista idéntica a
   releer; Minoristas 17 ventas y $632.254, Viandas 1 venta y $17.850. Suite 4703, 0 fallas; producción no tenía nada nuevo.
+- **Subido el 29/10/2026** (Thiago: "Dale, subilo a producción"): push `a376d63..e821b07` (16 commits: el reporte de costos de
+  §BA y B de §BB, con sus docs). Solo el panel: sin reglas, funciones, tienda ni datos. Verificado: Vercel sirve los mismos
+  archivos que el repo (14 revisados, entre ellos `admin.html`, `admin-reporte-costos.js`, `admin-exportar.js` y
+  `admin-viandas.js`); la tienda y la pantalla de ingreso del panel cargan sin errores, sin iniciar sesión, con el código
+  nuevo adentro. Falta avisarle a la clienta lo del reporte de costos (+F5); lo de las ventas no se nota.
 
 **Lo que queda**, esperando a Thiago:
 - **C) La tienda baja solo los visibles**: ~940 lecturas menos por visita (−57%), y carga más rápido en el celular. Antes hay que

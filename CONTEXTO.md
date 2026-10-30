@@ -541,7 +541,7 @@ producción (de los "gramajes" viejos).
   no había ninguna). Es una escritura de datos, no de código: probada entera en el sandbox y verificada ficha por ficha. Detalle en
   `PENDIENTE.md` §1-bis AZ.
 
-### 5.14 Lo del 29/10 (hecho y probado en el sandbox, SIN SUBIR): el reporte de costos
+### 5.14 Lo del 29/10 (subido a producción el 29/10, push hasta `e821b07`, verificado): el reporte de costos
 
 - **"Exportar Costos" pregunta qué bajar** (pedido de la clienta; Thiago: el mismo botón): un reporte para comparar costos (filtros
   por categoría, subcategoría, proveedor, nombre sin tildes y visibles; PDF apaisado por familia o Excel en una tabla, con costo por
@@ -549,7 +549,7 @@ producción (de los "gramajes" viejos).
   Costos"; agregarle la categoría hacía que reimportarla duplicara el catálogo). Módulo nuevo `admin-reporte-costos.js`. Detalle en
   `PENDIENTE.md` §1-bis BA.
 
-### 5.15 Lo del 29/10, segunda parte (hecho y probado en el sandbox, SIN SUBIR): las lecturas de la base
+### 5.15 Lo del 29/10, segunda parte (subido a producción el 29/10, push hasta `e821b07`, verificado): las lecturas de la base
 
 - Thiago preguntó por qué se pasaban dos días las 50.000 lecturas diarias con solo 1.636 productos. No hay un N+1: el problema es
   **releer todo cada vez**. Abrir el panel ~2.150; una visita a la tienda ~1.640 (el catálogo entero, con los 937 ocultos); **cada
@@ -623,9 +623,9 @@ producción (de los "gramajes" viejos).
 9. **GR** (§5.13, cargado el 22/10): avisarle a la clienta que están los 114 productos de GR (sin stock ni foto: los carga ella), que la
    tienda muestra subcategorías en 11 categorías y que unos 25 se parecen a productos visibles de otros proveedores. Quedaron afuera 20
    sin precio (13 "Sin Stock" y 7 con solo precio por bulto); los 3 de precio raro se cargaron tal cual (`PENDIENTE.md` §1-bis AZ).
-10. **El reporte de costos** (§5.14, 29/10): hecho y probado en el sandbox, falta subirlo (push, con el OK de Thiago) y avisarle a la
-    clienta cómo se usa (+F5).
-11. **Las lecturas de la base** (§5.15, 29/10): A y B hechos y probados; falta subir B (push, con el OK de Thiago; a la clienta no
+10. **El reporte de costos** (§5.14, subido el 29/10): falta avisarle a la clienta cómo se usa, y que apriete F5 si tenía el panel
+    abierto.
+11. **Las lecturas de la base** (§5.15, 29/10): A y B hechos, probados y B subido el 29/10 (A es solo del sandbox; a la clienta no
     le cambia nada a la vista). Esperan a Thiago: **C** (la tienda baja solo los visibles: antes hay que anotar `oculto: false` en 359
     productos de producción, con su OK), **D** (el Centro de avisos guarda las ventas en el navegador) y **E** (Clientes y Proveedores
     sin leer todas las ventas). `PENDIENTE.md` §1-bis BB.
