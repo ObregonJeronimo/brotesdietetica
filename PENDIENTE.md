@@ -3345,8 +3345,34 @@ la consulta (fecha de la más nueva a la más vieja y, con la misma fecha, el id
 - A largo plazo, si la tienda tiene muchas visitas: un catálogo público armado por una Cloud Function (un documento por visita en
   vez de 700). Resolvería además que hoy los costos se pueden leer sin iniciar sesión.
 
-En plata hoy son centavos (octubre va US$ 0,08, cubierto por el uso gratis; la alerta de presupuesto está en US$ 5). **Al subir**:
-nada que avisarle a la clienta.
+**Al subir**: nada que avisarle a la clienta.
+
+**Los US$ 0,08 de octubre, cuenta por cuenta** (Thiago, 29/10: "cada 100k de lecturas cobra 0.03, y ni llegamos a las 100k
+[...] nos cobró como si hubiéramos tenido aprox 250k"). Medido con las métricas de producción y los precios del catálogo de
+Google (todo de solo lectura; el día cortado como lo corta Google):
+- **El gratis de Firestore es por día, no por mes**: 50.000 lecturas, 20.000 escrituras y 20.000 borrados por día y por proyecto,
+  y el día se reinicia a la medianoche del Pacífico (en octubre, las 04:00 de Argentina). En octubre, hasta el 29, hubo **524.946
+  lecturas** (no menos de 100.000), 4.824 escrituras y 19 borrados, pero casi todo entró en el gratis de cada día. Solo dos días
+  pasaron las 50.000 lecturas: el **01/10** (59.460: 9.460 de más) y el **07/10** (54.032: 4.032 de más). En total, **13.492
+  lecturas cobrables**. Contado por día de Argentina el que pasaba era el 22/10; con el corte del Pacífico quedó en 48.046.
+- **En São Paulo, donde está la base, la lectura cuesta US$ 0,045 cada 100.000** ("Cloud Firestore Read Ops Sao Paulo"); los
+  US$ 0,03 son el precio de Iowa (us-central1). Las 13.492 de más: **US$ 0,006**. Las escrituras nunca pasaron las 20.000 por día.
+- **El resto es de las funciones.** Corren en Cloud Run en São Paulo con 1 CPU y 256 MB cada una (recalcularUsoStorage, 512 MB).
+  En octubre: registrarCambioDeCosto 583 s y 2.364 llamadas, registrarReposicion 672 s y 2.076 (las dos corren con cada cambio de
+  un producto: ventas, compras, la carga de GR), recalcularUsoStorage 242 s y 318, restarUsoStorage 6 s y 1. A US$ 0,0000336 el
+  segundo de CPU y US$ 0,0000035 el GiB por segundo: **unos US$ 0,054**. Eso lo cubre el gratis mensual de Cloud Run (180.000
+  segundos de CPU, 360.000 GB-segundos y 2 millones de llamadas por mes, por cuenta de facturación), del que se usó menos del 1%.
+  Google lo muestra así: en el informe aparece como costo de uso y se descuenta en "Otros ahorros". Por eso "nos los regalaron".
+- **Suma: unos US$ 0,06 hasta el 29/10.** US$ 0,054 de funciones, cubiertos por el gratis, más US$ 0,006 de lecturas de más, que
+  es lo único que se paga de verdad. Los ~US$ 0,02 que faltan para los 0,08 de la consola no se ven desde acá. Pueden ser otro
+  proyecto pagado por la misma cuenta "Pago de Firebase" (la API no deja ver qué proyectos paga), la función de 1ª generación
+  `aplicarClaimAlIngresar`, tráfico de red o redondeos. Se cierran en Facturación → Informes, agrupando por SKU.
+- **No cobran**: las fotos (el bucket está en us-east1, que tiene gratis: 19 MB guardados y 0,28 GB descargados en octubre), las
+  imágenes de las funciones (Artifact Registry vacío), y Secret Manager y Cloud Scheduler (sin usar).
+- Los dos días que pasaron fueron de desarrollo y subidas: el 01/10 se levantó el sandbox 6 veces y se abrió la tienda real 4; el
+  07/10 del Pacífico incluye la noche de las dos subidas de Stock (00:10 y 00:29 del 08/10 en Argentina). Es lo que corta A. Para medirlo de nuevo: `firestore.googleapis.com/document/read_count` por hora en Cloud Monitoring, sumado por día del
+  Pacífico; los precios con la API del catálogo de facturación (Cloud Firestore es el servicio `EE2C-7FAC-5E08`); las funciones con
+  `run.googleapis.com/container/billable_instance_time` y `request_count`.
 
 ---
 

@@ -667,7 +667,7 @@ producción (de los "gramajes" viejos).
 - Decidir la sección Etiquetas.
 - Limpiar 4 nombres repetidos.
 - 34 productos del reporte viejo.
-- ~~Alerta de presupuesto de USD 5 en Google Cloud~~: ya existía (visto el 29/10): "Brotes Dietética", en la cuenta de facturación "Pago de Firebase", US$ 10 por mes para el proyecto; Thiago la paso a US$ 5 el 29/10, con avisos por mail al 40, 90 y 100% (real) y al 100% previsto, solo alertas. Sin límite de gasto (un límite pausaría los servicios). En octubre el uso valió US$ 0,08 y lo cubrió el uso gratis: se pagó US$ 0.
+- ~~Alerta de presupuesto de USD 5 en Google Cloud~~: ya existía (visto el 29/10): "Brotes Dietética", en la cuenta de facturación "Pago de Firebase", US$ 10 por mes para el proyecto; Thiago la paso a US$ 5 el 29/10, con avisos por mail al 40, 90 y 100% (real) y al 100% previsto, solo alertas. Sin límite de gasto (un límite pausaría los servicios). En octubre el uso valió US$ 0,08 y lo cubrió el uso gratis: se pagó US$ 0. **Cuenta por cuenta** (29/10, `PENDIENTE.md` §1-bis BB): unos US$ 0,054 son las funciones en Cloud Run (São Paulo), cubiertos por el gratis mensual de Cloud Run (se usó menos del 1%); US$ 0,006 son 13.492 lecturas de más (01/10 y 07/10, los únicos días que pasaron las 50.000; el gratis de Firestore es POR DÍA, cortado a la medianoche del Pacífico); en São Paulo la lectura cuesta US$ 0,045 cada 100.000, no 0,03 (eso es Iowa). En octubre hubo 524.946 lecturas en total. Los ~US$ 0,02 que faltan se ven en Facturación → Informes por SKU.
 - Revisar el plan de Vercel.
 - Portar a YERCO lo de §6.
 - Decisiones abiertas de §2:
