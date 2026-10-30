@@ -3332,6 +3332,11 @@ la consulta (fecha de la más nueva a la más vieja y, con la misma fecha, el id
   $2.385.114; y Viandas (tildado "Es la cocina" en GALLETAS VEGANAS, venta #45 de $19.000). **En cada paso la lista, las tarjetas y
   el paginado quedaron idénticos a releer el mes.** En las métricas de ese mismo día, a las 20:24, hubo 372 lecturas pegadas a
   escrituras: el patrón de una venta guardada en el panel real (releer octubre). Con B sería 1.
+- **Antes de dar el OK para subir** (Thiago: "¿es seguro pushear todo?"), los pedidos de la tienda, que también guardan con
+  `saveVenta`: el #00001 pasado a venta (#41, $1.200, enlazada en el pedido) y un pedido mixto armado en el emulador (#00006:
+  Almendra y Harina Integral, con VERDEDIET tildado "Es la cocina"), que hizo las dos ventas solas (#42 del local, $1.200, y #43
+  de viandas, $17.850; el pedido quedó con las dos y sin viandas pendientes). Cada venta con 1 lectura y la lista idéntica a
+  releer; Minoristas 17 ventas y $632.254, Viandas 1 venta y $17.850. Suite 4703, 0 fallas; producción no tenía nada nuevo.
 
 **Lo que queda**, esperando a Thiago:
 - **C) La tienda baja solo los visibles**: ~940 lecturas menos por visita (−57%), y carga más rápido en el celular. Antes hay que
