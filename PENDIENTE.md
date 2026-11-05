@@ -113,7 +113,8 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 
 - **"Missing or insufficient permissions" al vender** (la clienta, 12:03 a 12:21): se le cerró la sesión con una venta abierta y
   la ventana quedó encima de la pantalla de ingreso. No fue Firebase ni el código; no se guardó nada a medias. Arreglado en el
-  panel (la pantalla de ingreso tapa todo y lo dice), probado en el sandbox, sin subir. Ver §1-bis BC.
+  panel (la pantalla de ingreso tapa todo y lo dice), probado en el sandbox y subido el 05/11 (push hasta `d8dd97f`, verificado).
+  Ver §1-bis BC.
 
 ### Hecho el 29/10
 
@@ -3391,7 +3392,7 @@ Google (todo de solo lectura; el día cortado como lo corta Google):
   Pacífico; los precios con la API del catálogo de facturación (Cloud Firestore es el servicio `EE2C-7FAC-5E08`); las funciones con
   `run.googleapis.com/container/billable_instance_time` y `request_count`.
 
-### BC) "Missing or insufficient permissions" al vender: la sesión cerrada con el panel abierto · ARREGLADO el 05/11/2026, probado en el sandbox, SIN SUBIR
+### BC) "Missing or insufficient permissions" al vender: la sesión cerrada con el panel abierto · SUBIDO A PRODUCCIÓN el 05/11/2026
 
 **Lo que pasó** (la clienta mandó la foto del error; Thiago: "solucionar esto urgente y además chequeá firebase"). Todo medido
 de solo lectura en producción:
@@ -3428,8 +3429,14 @@ de solo lectura en producción:
 - **Visto de paso, solo del sandbox**: al cerrar sesión en la tienda, la tienda vuelve a la raíz y en el sandbox la raíz lleva
   al panel (por A del 29/10). En producción la raíz es la tienda. Sin tocar.
 
-**Al subir**: avisarle a la clienta que, si se le cierra la sesión, ahora el panel se lo dice y lo que estaba cargando no se
-pierde (vuelve a entrar con su cuenta y lo termina).
+**Subido el 05/11/2026** (Thiago: "Dale, subilo a producción y comprobá que esté todo OK"): push `e821b07..d8dd97f` (el arreglo y
+sus docs). Solo el panel: sin reglas, funciones, tienda ni datos. Verificado: Vercel sirve los mismos archivos que el repo (10
+revisados); la tienda y la pantalla de ingreso del panel cargan sin errores, sin iniciar sesión, con la pantalla de ingreso fija
+en la capa 1000 y el código nuevo adentro. En las métricas, cero rechazos desde las 12:21, y la clienta ya había vendido la #797
+(12:33) y la #798 (12:43), sin saltos en la numeración.
+
+**Falta**: avisarle a la clienta que, si se le cierra la sesión, ahora el panel se lo dice y lo que estaba cargando no se pierde
+(vuelve a entrar con su cuenta y lo termina), y que apriete F5 si tenía el panel abierto.
 
 ---
 

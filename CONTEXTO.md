@@ -564,7 +564,7 @@ producción (de los "gramajes" viejos).
   `loadVentasViandas`** (si no, se releería el mes en cada venta, sin romper nada). Detalle y lo que queda (C, D y E) en
   `PENDIENTE.md` §1-bis BB.
 
-### 5.16 Lo del 05/11 (arreglado y probado en el sandbox, SIN SUBIR): la sesión cerrada con el panel abierto
+### 5.16 Lo del 05/11 (subido a producción el 05/11, push hasta `d8dd97f`, verificado): la sesión cerrada con el panel abierto
 
 - La clienta vio "Missing or insufficient permissions" al vender: a las 12:03 se le cerró la sesión (con "Salir", en otra
   pestaña de la tienda, que comparte la sesión, o el navegador) y la ventana de la venta quedó encima de la pantalla de ingreso.
@@ -639,8 +639,8 @@ producción (de los "gramajes" viejos).
     le cambia nada a la vista). Esperan a Thiago: **C** (la tienda baja solo los visibles: antes hay que anotar `oculto: false` en 359
     productos de producción, con su OK), **D** (el Centro de avisos guarda las ventas en el navegador) y **E** (Clientes y Proveedores
     sin leer todas las ventas). `PENDIENTE.md` §1-bis BB.
-12. **La sesión cerrada con el panel abierto** (§5.16, 05/11): arreglado y probado en el sandbox; falta subirlo (push, con el OK
-    de Thiago) y avisarle a la clienta que si se le cierra la sesión el panel se lo dice y lo que cargaba no se pierde.
+12. **La sesión cerrada con el panel abierto** (§5.16, subido el 05/11): falta avisarle a la clienta que si se le cierra la sesión
+    el panel se lo dice y lo que cargaba no se pierde (y F5 si tenía el panel abierto).
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 
