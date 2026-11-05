@@ -564,6 +564,16 @@ producción (de los "gramajes" viejos).
   `loadVentasViandas`** (si no, se releería el mes en cada venta, sin romper nada). Detalle y lo que queda (C, D y E) en
   `PENDIENTE.md` §1-bis BB.
 
+### 5.16 Lo del 05/11 (arreglado y probado en el sandbox, SIN SUBIR): la sesión cerrada con el panel abierto
+
+- La clienta vio "Missing or insufficient permissions" al vender: a las 12:03 se le cerró la sesión (con "Salir", en otra
+  pestaña de la tienda, que comparte la sesión, o el navegador) y la ventana de la venta quedó encima de la pantalla de ingreso.
+  Firebase sin cambios (reglas, auditoría, su cuenta, claves); no se guardó nada a medias. Ahora la pantalla de ingreso tapa
+  todo, dice que se cerró la sesión y lo abierto sigue al volver a entrar; otra cuenta no admin tapa el panel; el error de
+  permisos sale en castellano. **Para diagnosticar algo así**: la métrica `firestore.googleapis.com/rules/evaluation_count`
+  (por `result`) y `api/request_count` (por método y resultado) minuto a minuto, el último refresco de la sesión en Firebase
+  Auth y el registro de auditoría. Detalle en `PENDIENTE.md` §1-bis BC.
+
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
 - **Sin stock suficiente se puede vender, con aviso**, y el negativo **aparece** en el Centro de
@@ -629,6 +639,8 @@ producción (de los "gramajes" viejos).
     le cambia nada a la vista). Esperan a Thiago: **C** (la tienda baja solo los visibles: antes hay que anotar `oculto: false` en 359
     productos de producción, con su OK), **D** (el Centro de avisos guarda las ventas en el navegador) y **E** (Clientes y Proveedores
     sin leer todas las ventas). `PENDIENTE.md` §1-bis BB.
+12. **La sesión cerrada con el panel abierto** (§5.16, 05/11): arreglado y probado en el sandbox; falta subirlo (push, con el OK
+    de Thiago) y avisarle a la clienta que si se le cierra la sesión el panel se lo dice y lo que cargaba no se pierde.
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 

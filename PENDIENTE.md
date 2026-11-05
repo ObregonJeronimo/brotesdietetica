@@ -109,6 +109,12 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Hecho el 05/11
+
+- **"Missing or insufficient permissions" al vender** (la clienta, 12:03 a 12:21): se le cerró la sesión con una venta abierta y
+  la ventana quedó encima de la pantalla de ingreso. No fue Firebase ni el código; no se guardó nada a medias. Arreglado en el
+  panel (la pantalla de ingreso tapa todo y lo dice), probado en el sandbox, sin subir. Ver §1-bis BC.
+
 ### Hecho el 29/10
 
 - **Exportar Costos con un reporte para comparar costos** (pedido de la clienta): filtros por categoría, subcategoría,
@@ -3384,6 +3390,46 @@ Google (todo de solo lectura; el día cortado como lo corta Google):
   07/10 del Pacífico incluye la noche de las dos subidas de Stock (00:10 y 00:29 del 08/10 en Argentina). Es lo que corta A. Para medirlo de nuevo: `firestore.googleapis.com/document/read_count` por hora en Cloud Monitoring, sumado por día del
   Pacífico; los precios con la API del catálogo de facturación (Cloud Firestore es el servicio `EE2C-7FAC-5E08`); las funciones con
   `run.googleapis.com/container/billable_instance_time` y `request_count`.
+
+### BC) "Missing or insufficient permissions" al vender: la sesión cerrada con el panel abierto · ARREGLADO el 05/11/2026, probado en el sandbox, SIN SUBIR
+
+**Lo que pasó** (la clienta mandó la foto del error; Thiago: "solucionar esto urgente y además chequeá firebase"). Todo medido
+de solo lectura en producción:
+- Hasta las 11:31 se vendió normal (venta #796). Desde las **12:03** la base rechazó todo lo que escribía su panel: 2 a 6
+  guardados por minuto rechazados (los intentos de la venta) y unos 250 rechazos de reglas por minuto, hasta las 12:21.
+- **Firebase, sin cambios**: las reglas publicadas son las del repo (del 12/10); el registro de auditoría no tiene ningún
+  cambio desde el 04/11; su cuenta (nat…) habilitada, en /admins y sin sesiones revocadas; la clave de la web y App Check igual.
+  Tampoco fue la subida del 29/10: hasta las 11:31 se vendió normal.
+- **La causa: se cerró su sesión a las 12:03.** Su sesión no venció (se había renovado a las 11:32 y vencía a las 12:32), y
+  nadie más entró ese día. En el código la sesión solo se cierra a mano: "Salir" en el panel o "Cerrar sesión" en la tienda,
+  que comparten la sesión (son el mismo sitio); o el navegador borra los datos del sitio. El panel volvía a la pantalla de
+  ingreso, pero **la ventana de la venta está fuera del panel y quedaba encima**: siguió intentando registrar y la base
+  rechazaba cada guardado, con el error en inglés. A las 12:21 volvió a entrar y desde ahí todo anduvo.
+- **No se guardó nada a medias**: desde las 11:25 solo cambiaron los 3 productos de la #796 y el contador de ventas; la caja,
+  clientes, pedidos y cupones sin cambios. Lo que se intentó vender entre las 12:03 y las 12:21 no quedó: hay que cargarlo de
+  nuevo (se le avisó).
+
+**El arreglo** (`admin.html`, `3fae4a7`; Thiago: "Dale, hacé el arreglo y probalo en el sandbox"):
+- **La pantalla de ingreso tapa todo**: fija, arriba de las ventanas (200) y de los avisos de `admin-dialogo.js` (400 en
+  adelante). Lo que estaba abierto sigue ahí: al volver a entrar, la venta a medio cargar se puede registrar.
+- Si se cierra la sesión estando adentro y no fue con "Salir" en esa pestaña, dice **"Se cerró la sesión. Volvé a entrar con
+  tu cuenta de Google: lo que estabas cargando sigue abierto."** Con "Salir" a propósito, sin cartel.
+- Si con el panel abierto **entra otra cuenta que no es admin** (en la tienda), el panel se tapa con "Tu cuenta no tiene
+  permisos" (antes quedaba abierto y nada se guardaba). Con la misma cuenta y un corte al comprobarla, no se tapa.
+- **El error de permisos en castellano**: sin sesión, "No se pudo completar: se cerró tu sesión. Volvé a entrar con tu cuenta
+  de Google."; con sesión, "…la base no lo permitió con esta sesión. Apretá F5 y volvé a entrar…". Reconoce el texto de
+  producción y el del emulador ("PERMISSION_DENIED: …").
+- Pruebas: `pruebas/t-sesion-cerrada.js` (24; 11 fallan con el panel de antes); suite 4727, 0 fallas.
+- **Sandbox** (con la tienda en otra pestaña, como pasó): venta a medio cargar, "Cerrar sesión" en la tienda → el panel tapado
+  con el cartel y la venta debajo sin poder tocarse; al volver a entrar, la venta seguía y se registró (#41, Pistacho x1,
+  $6.400, stock 16 → 15; con el código final, #42, Pistacho Organico, $20.570: 5 ventas, $211.980, stock 98 → 97). "Salir"
+  sin cartel; el error real con sesión y sin sesión, en castellano; un cliente que entra en la tienda tapa el panel, y "Salir
+  de esta cuenta" deja la pantalla limpia (antes quedaba el cartel viejo).
+- **Visto de paso, solo del sandbox**: al cerrar sesión en la tienda, la tienda vuelve a la raíz y en el sandbox la raíz lleva
+  al panel (por A del 29/10). En producción la raíz es la tienda. Sin tocar.
+
+**Al subir**: avisarle a la clienta que, si se le cierra la sesión, ahora el panel se lo dice y lo que estaba cargando no se
+pierde (vuelve a entrar con su cuenta y lo termina).
 
 ---
 
