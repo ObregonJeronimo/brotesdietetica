@@ -112,9 +112,10 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 ### Hecho el 10/11
 
 - **El tamaño de la letra del panel** (pedido de la clienta): en Configuración, "Cambiar tamaño de fuente del sistema" con 100%
-  (como siempre), 125%, 150%, 200% y 250%; se guarda en cada computadora y al cambiarlo se confirma y se recarga el panel.
-  Con 100% el panel queda exactamente igual. Probado en el sandbox (una venta real al 150% con caja y stock). Solo local, sin
-  subir. Ver §1-bis BD.
+  (como siempre), 125%, 150% y 200% (el 250% se sacó); se guarda en cada computadora, al cambiarlo se confirma (el 200% avisa que
+  es muy grande) y se recarga el panel, y después pregunta "¿Mantener?" con 15 segundos: si no se acepta, vuelve solo al de antes.
+  Con 100% el panel queda exactamente igual. Probado en el sandbox (una venta real al 150% con caja y stock, y los tres caminos de
+  la pregunta). Solo local, sin subir. Ver §1-bis BD.
 
 ### Hecho el 05/11
 
@@ -3530,11 +3531,47 @@ reinicie la página por completo, por las dudas. Y ver qué se podía agregar pa
 - Por la prueba quedaron, solo en el emulador, unos costos de prueba guardados: mi ayudante de cierre tocaba "Guardar costos". Se
   corrigió el ayudante y se reinició el sandbox con datos limpios.
 
-**Para decidir con Thiago**:
-- **El 250% es muy grande para una notebook**: la venta en una columna, con mucho para bajar, y en el menú entran pocas opciones.
-- **Al 150% en una notebook se acortan con "…" algunos nombres largos**, como el del cliente en la lista de Ventas ("Consumidor …").
-  Los números siempre se ven completos.
-- Para la clienta, lo más probable es 125% o 150%.
+**Segunda vuelta** (Thiago, 10/11, después de verlo en el sandbox): "sacá el de 250, es demasiado", un aviso al elegir el 200%
+y el cartel de seguridad de "¿mantener esta configuración?" con cuenta regresiva.
+- **Sin el 250%**: quedan 100, 125, 150 y 200. Si había 250 guardado, abre en 100. Se sacó también su regla de la venta en una columna.
+- **El 200% avisa antes**, en amarillo y con el foco en "Cancelar", para que un Enter de paso no lo acepte. Reemplaza a la confirmación
+  de siempre, así sale un solo aviso. Debajo de la opción dice "Muy grande".
+  - Título: "El 200% es un tamaño muy grande".
+  - Texto: "Con la letra al 200%, en una pantalla común (por ejemplo, la de una notebook) algunas partes del panel pueden no entrar y
+    verse cortadas. Se recomienda usarlo solo con un monitor grande, de alta resolución. Si seguís, el panel se vuelve a cargar."
+  - Botones: "Entiendo y continuar" y "Cancelar".
+- **"¿Mantener el nuevo tamaño de letra?"** con cuenta regresiva: aparece después de recargar, recién cuando se ve el panel (si
+  aparece antes, la pantalla de ingreso lo taparía y la cuenta correría sin que nadie la vea).
+  - Texto: "Se cambió el tamaño de la letra al 150%. Apretá ACEPTAR para mantenerlo. Si no, en 15 segundos vuelve solo al tamaño
+    anterior (100%)." El número va bajando cada segundo; en el último dice "1 segundo".
+  - Botones: "Aceptar" (con el foco, así Enter lo deja) y "Volver al anterior".
+  - "Aceptar": "Listo: la letra queda al 150%."
+  - "Volver al anterior", Escape, un clic afuera o la cuenta en cero: vuelve al tamaño de antes, recarga y avisa "La letra volvió
+    al tamaño anterior (100%)."
+  - Volver a 100% también pregunta ("…al tamaño normal (100%)…").
+- **Cómo se guarda**: al cambiar se guarda el tamaño nuevo y, aparte, el de antes (`brotesTamanioLetraPrueba`). Si eso no se puede
+  guardar, no se cambia nada: sin el de antes no podría volver solo.
+  - Si se cierra el navegador sin contestar, la próxima vez vuelve a preguntar.
+  - Si en otra pestaña del panel ya se contestó, esta no revierte.
+  - La cuenta se toma del reloj, así que no se atrasa aunque la pestaña quede atrás.
+- Pruebas: `pruebas/t-letra.js`, 106. Cubren el aviso del 200% (textos, botones, foco, Cancelar), lo guardado aparte, la pregunta
+  solo con el panel a la vista y una sola vez, la cuenta (15 → 14 → "1 segundo" → vuelve), Aceptar, Volver al anterior, la
+  otra pestaña, sin encontrar el aviso, sin los avisos del panel y el aviso de que volvió. Se comprobó que fallan con 10 roturas
+  hechas a propósito. Suite 4834, 0 fallas; `npm run check` bien.
+- **Sandbox** (1366 × 768, con la cuenta de Thiago y los envíos apagados):
+  - Cuatro opciones, con "Muy grande" debajo del 200%.
+  - 100 → 150 → Cambiar: recargó y salió la pregunta con la cuenta.
+  - La primera vez no contesté a tiempo: a los 15 segundos volvió solo a 100%, recargó y avisó "La letra volvió al tamaño
+    anterior (100%).".
+  - La segunda, Enter en "Aceptar" (con la cuenta en 11): quedó al 150% con "Listo: la letra queda al 150%.", y 17 segundos
+    después seguía igual, sin recargar.
+  - 200%: el aviso amarillo con el foco en Cancelar; "Cancelar" no cambió nada. "Entiendo y continuar" recargó al 200% y salió la
+    pregunta; "Volver al anterior" lo dejó otra vez al 150%.
+  - Vuelta a 100% con Aceptar: el panel quedó como antes (menú de 220 px a 57 px) y sin nada guardado.
+  - Sin errores en la consola. Sandbox cerrado con los puertos verificados.
+
+**Para tener en cuenta**: al 150% en una notebook se acortan con "…" algunos nombres largos, como el del cliente en la lista de
+Ventas ("Consumidor …"). Los números siempre se ven completos. Para la clienta, lo más probable es 125% o 150%.
 
 **Al subir** (solo el panel: sin reglas, funciones, tienda ni datos): avisarle a la clienta dónde está (Configuración, arriba de
 todo), que se elige en cada computadora y que apriete F5.
