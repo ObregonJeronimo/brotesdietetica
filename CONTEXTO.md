@@ -578,7 +578,7 @@ producción (de los "gramajes" viejos).
   (por `result`) y `api/request_count` (por método y resultado) minuto a minuto, el último refresco de la sesión en Firebase
   Auth y el registro de auditoría. Detalle en `PENDIENTE.md` §1-bis BC.
 
-### 5.17 Lo del 10/11 (hecho y probado en el sandbox, SOLO LOCAL, sin subir): el tamaño de la letra
+### 5.17 Lo del 10/11 (subido a producción el 10/11, push hasta `57e0c1b`, verificado): el tamaño de la letra
 
 - **"Cambiar tamaño de fuente del sistema"** (pedido de la clienta; Thiago armó la idea): arriba de todo en Configuración,
   100% (como siempre), 125%, 150% y 200% (el 250% se sacó: "es demasiado"), cada una con un "Aa" del tamaño real. Al tocar otra
@@ -662,9 +662,9 @@ producción (de los "gramajes" viejos).
     sin leer todas las ventas). `PENDIENTE.md` §1-bis BB.
 12. **La sesión cerrada con el panel abierto** (§5.16, subido el 05/11): falta avisarle a la clienta que si se le cierra la sesión
     el panel se lo dice y lo que cargaba no se pierde (y F5 si tenía el panel abierto).
-13. **El tamaño de la letra** (§5.17, 10/11): hecho y probado en el sandbox, **solo local**, con lo que Thiago pidió al verlo
-    (sin 250%, aviso del 200% y "¿Mantener?" con 15 segundos). Falta que pida subirlo; al subir, avisarle a la clienta dónde
-    está (Configuración, arriba de todo), que se elige en cada computadora, que después de cambiar hay que apretar Aceptar, y F5.
+13. **El tamaño de la letra** (§5.17, subido el 10/11): falta avisarle a la clienta dónde está (Configuración, arriba de todo),
+    que se elige en cada computadora, que después de cambiar tiene 15 segundos para apretar Aceptar (si no, vuelve solo al de
+    antes), y que apriete F5.
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 
@@ -747,9 +747,9 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Lo que toca plata (precios, costos, totales) va primero y claro, con números. Los números nunca pueden fallar.
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 
-Dónde estamos (10/11): todo está subido a producción hasta d8dd97f, verificado. Local, sin subir: documentación (bf1a623 y fe9b016) y el tamaño de la letra del panel (§1-bis BD: "Cambiar tamaño de fuente del sistema" en Configuración, 100 a 200%, con aviso en el 200% y "¿Mantener?" con 15 segundos; hecho y probado en el sandbox). Lo último subido: el 29/10, el reporte de costos en "Exportar Costos" (PENDIENTE.md §1-bis BA) y que guardar una venta lea solo esa venta en vez de releer todo el mes (§1-bis BB, parte B); el 05/11, el arreglo del error "Missing or insufficient permissions" al vender: a la clienta se le había cerrado la sesión con una venta abierta, y ahora la pantalla de ingreso tapa todo, avisa y no se pierde lo que estaba cargando (§1-bis BC).
+Dónde estamos (10/11): todo está subido a producción hasta 57e0c1b, verificado; local solo queda el commit de documentación de esa subida, que va con el próximo push. Lo último: el 10/11, el tamaño de la letra del panel (§1-bis BD: "Cambiar tamaño de fuente del sistema" en Configuración, 100 a 200%, con aviso en el 200% y "¿Mantener?" con 15 segundos que vuelve solo al de antes); el 29/10, el reporte de costos en "Exportar Costos" (PENDIENTE.md §1-bis BA) y que guardar una venta lea solo esa venta en vez de releer todo el mes (§1-bis BB, parte B); el 05/11, el arreglo del error "Missing or insufficient permissions" al vender: a la clienta se le había cerrado la sesión con una venta abierta, y ahora la pantalla de ingreso tapa todo, avisa y no se pierde lo que estaba cargando (§1-bis BC).
 
-Pendientes: subir lo de la letra cuando te diga; avisarle a la clienta lo del reporte de costos, lo de la sesión, los 114 productos de GR y la letra (y que apriete F5). La optimización de lecturas que falta (C, D y E de §1-bis BB) la vemos más adelante; C necesita mi OK para escribir en producción. El resto de los pendientes está en CONTEXTO.md §7.
+Pendientes: avisarle a la clienta lo del reporte de costos, lo de la sesión, los 114 productos de GR y la letra (y que apriete F5). La optimización de lecturas que falta (C, D y E de §1-bis BB) la vemos más adelante; C necesita mi OK para escribir en producción. El resto de los pendientes está en CONTEXTO.md §7.
 
 Cuando termines de leer, confirmame en pocas líneas que tenés el contexto y esperá mi próximo pedido; no arranques nada por tu cuenta.
 ```

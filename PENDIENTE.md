@@ -115,7 +115,7 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
   (como siempre), 125%, 150% y 200% (el 250% se sacó); se guarda en cada computadora, al cambiarlo se confirma (el 200% avisa que
   es muy grande) y se recarga el panel, y después pregunta "¿Mantener?" con 15 segundos: si no se acepta, vuelve solo al de antes.
   Con 100% el panel queda exactamente igual. Probado en el sandbox (una venta real al 150% con caja y stock, y los tres caminos de
-  la pregunta). Solo local, sin subir. Ver §1-bis BD.
+  la pregunta) y subido el 10/11 (push hasta `57e0c1b`, verificado). Falta avisarle a la clienta (+F5). Ver §1-bis BD.
 
 ### Hecho el 05/11
 
@@ -3446,7 +3446,7 @@ en la capa 1000 y el código nuevo adentro. En las métricas, cero rechazos desd
 **Falta**: avisarle a la clienta que, si se le cierra la sesión, ahora el panel se lo dice y lo que estaba cargando no se pierde
 (vuelve a entrar con su cuenta y lo termina), y que apriete F5 si tenía el panel abierto.
 
-### BD) El tamaño de la letra del panel, en Configuración · HECHO Y PROBADO EN EL SANDBOX (10/11/2026), SIN SUBIR
+### BD) El tamaño de la letra del panel, en Configuración · SUBIDO A PRODUCCIÓN el 10/11/2026
 
 **Lo pedido** (Thiago, 10/11): "el cliente está pidiendo cambiarle el tamaño a la fuente, que sea más grande". Un apartado en
 Configuración, "cambiar tamaño de fuente del sistema", con 100% (como ahora), 125%, 150%, 200% y 250%; al cambiar, que se
@@ -3572,6 +3572,22 @@ y el cartel de seguridad de "¿mantener esta configuración?" con cuenta regresi
 
 **Para tener en cuenta**: al 150% en una notebook se acortan con "…" algunos nombres largos, como el del cliente en la lista de
 Ventas ("Consumidor …"). Los números siempre se ven completos. Para la clienta, lo más probable es 125% o 150%.
+
+**Subido el 10/11/2026** (Thiago: "subilo a producción, comprobá que esté todo ok después de subirlo"), con el sandbox cerrado y
+los puertos verificados antes.
+- Push `d8dd97f..57e0c1b`, 6 commits: esto y su documentación, más los dos de documentación que esperaban.
+- Solo el panel: sin reglas, funciones, tienda ni datos.
+- Antes de subir: origin sin cambios nuevos, `npm run check` bien y suite 4834, 0 fallas.
+- **Verificado**:
+  - Vercel sirve exactamente lo mismo que el repo (10 archivos comparados por su huella, entre ellos `admin.html`, el nuevo
+    `admin-letra.js` e `index.html`; `/admin` es `admin.html`).
+  - La tienda carga con productos y sin errores.
+  - La pantalla de ingreso del panel carga sin errores y sin iniciar sesión: `admin-letra.js` en el `<head>`, las 4 opciones
+    armadas, letra al 100% (16 px) y los demás módulos cargados (todos los archivos con 200).
+- Lo que la clienta tiene abierto sigue con el código anterior hasta que apriete F5. Con 100% el panel queda igual que antes.
+
+**Falta**: avisarle a la clienta dónde está (Configuración, arriba de todo), que se elige en cada computadora, que después de
+elegir un tamaño tiene 15 segundos para apretar Aceptar (si no, vuelve solo al de antes), y que apriete F5.
 
 **Al subir** (solo el panel: sin reglas, funciones, tienda ni datos): avisarle a la clienta dónde está (Configuración, arriba de
 todo), que se elige en cada computadora y que apriete F5.
