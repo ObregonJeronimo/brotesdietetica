@@ -109,6 +109,13 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Hecho el 10/11
+
+- **El tamaño de la letra del panel** (pedido de la clienta): en Configuración, "Cambiar tamaño de fuente del sistema" con 100%
+  (como siempre), 125%, 150%, 200% y 250%; se guarda en cada computadora y al cambiarlo se confirma y se recarga el panel.
+  Con 100% el panel queda exactamente igual. Probado en el sandbox (una venta real al 150% con caja y stock). Solo local, sin
+  subir. Ver §1-bis BD.
+
 ### Hecho el 05/11
 
 - **"Missing or insufficient permissions" al vender** (la clienta, 12:03 a 12:21): se le cerró la sesión con una venta abierta y
@@ -3437,6 +3444,100 @@ en la capa 1000 y el código nuevo adentro. En las métricas, cero rechazos desd
 
 **Falta**: avisarle a la clienta que, si se le cierra la sesión, ahora el panel se lo dice y lo que estaba cargando no se pierde
 (vuelve a entrar con su cuenta y lo termina), y que apriete F5 si tenía el panel abierto.
+
+### BD) El tamaño de la letra del panel, en Configuración · HECHO Y PROBADO EN EL SANDBOX (10/11/2026), SIN SUBIR
+
+**Lo pedido** (Thiago, 10/11): "el cliente está pidiendo cambiarle el tamaño a la fuente, que sea más grande". Un apartado en
+Configuración, "cambiar tamaño de fuente del sistema", con 100% (como ahora), 125%, 150%, 200% y 250%; al cambiar, que se
+reinicie la página por completo, por las dudas. Y ver qué se podía agregar para que quede bien.
+
+**Lo hecho** (`admin-letra.js`, nuevo; el apartado va arriba de todo en Configuración):
+- Las cinco opciones como botones. Cada una tiene un "Aa" del tamaño que va a tener, aunque la página ya esté agrandada, y la que
+  está en uso queda marcada ("En uso"; la de 100 dice "Normal").
+- Al tocar otra opción sale: "La letra de todo el panel va a quedar al 150%. Para cambiarla, el panel se vuelve a cargar, como
+  cuando se aprieta F5.", con Cancelar / Cambiar. "Cambiar" guarda y recarga el panel, y la sesión sigue abierta.
+- **Se guarda en esta computadora** (localStorage `brotesTamanioLetra`), no en la base:
+  - depende de la pantalla de cada computadora;
+  - no lee ni escribe Firestore (la única lectura es la recarga del panel, unas 2.150, una vez por cambio);
+  - se aplica antes de dibujar, también en la pantalla de ingreso. Por eso `admin-letra.js` es el único módulo que va en el `<head>`.
+- Si el navegador no deja guardar, avisa en rojo y no recarga. Si se borran los datos del sitio, vuelve a 100%.
+- **Cómo agranda**: cambia el tamaño de letra de la página (el font-size de `<html>`). Casi todo el panel mide letras y márgenes en
+  rem (1.035 tamaños de letra en rem contra 53 en px, y esos son de tickets e impresiones), así que crece sin tocar cada pantalla.
+- **No se usa zoom.** Medido en el sandbox, en 1366 × 768, con zoom:
+  - lo medido contra el alto de la pantalla (vh) también se multiplica, y la ventana de la venta quedaba más alta que la pantalla,
+    cortada arriba, ya al 125% (48 px; al 150%, 134 px);
+  - el menú de la izquierda quedaba más largo que la pantalla;
+  - la campanita y el menú de Cajas anteriores se ubican con getBoundingClientRect y quedaban corridos.
+- **Lo medido en px no crece solo con la letra, y se cortaban números**:
+  - el "500" de stock bajo en Productos, ya al 125%;
+  - al 150%, el monto de "Dividir el pago" ($42.193) y, en Cargar compra, el costo de la bolsa ($250.000) y los totales;
+  - al 200%, los gramos de la venta ("1250" se veía "125").
+- Con la letra agrandada (`html[data-letra]` en `<html>`) crecen igual, en rem:
+  - el menú (13,75rem son los 220 px de siempre);
+  - las ventanas y los avisos (max-width);
+  - los 20 casilleros con ancho fijo en el CSS;
+  - los casilleros y ventanas que tienen el ancho escrito en línea: 11 anchos de casillero y 21 max-width de ventanas y tarjetas, con
+    `[style^="width:NNpx"]` o `[style*="max-width:NNNpx"]` y !important para ganarle al style.
+
+  En rem dan la misma medida que antes al 100%; la prueba compara las 66 medidas. **Con 100% no hay `data-letra`, así que el panel
+  queda exactamente como antes**: comprobado en el sandbox con el menú de 220 px a 57 px y la ventana de venta de 1120 × 691.
+- **El menú se pega donde termina la barra de arriba**, que crece con la letra: 69 px al 100%, 100 al 150% y 132 al 200%. Antes
+  quedaba pegado a 57 px y, al bajar la página, la barra le tapaba las primeras opciones. Se mide:
+  - al aparecer el panel (MutationObserver sobre `#dashboard`, porque el ResizeObserver avisa recién cuando el navegador dibuja);
+  - si la barra cambia de tamaño (ResizeObserver);
+  - si cambia la ventana.
+- **Lo que en pantallas chicas pasa a una columna** (Proveedores, la venta, las tarjetas del Centro de avisos, Ventas) se agranda
+  solo en pantallas grandes, así que el menú del celular queda igual.
+- **La venta pasa a una columna antes, en proporción a la letra**: igual que hoy con menos de 900 px de pantalla, pero con 900 × 1,25,
+  × 1,5, × 2 y × 2,5 (1125, 1350, 1800 y 2250 px). Al 200% en una notebook de 1366, en dos columnas al nombre del producto le
+  quedaban 68 px ("Yer…"); en una columna se lee entero, con el cliente y el pago arriba y los productos abajo.
+
+**Pruebas**: `pruebas/t-letra.js` (64).
+- `admin-letra.js`:
+  - el tamaño al cargar, también con valores raros guardados o con el navegador que no deja leer;
+  - las opciones y el "Aa";
+  - Cancelar, Cambiar y volver a 100;
+  - el navegador que no deja guardar, el doble clic y sin los diálogos del panel cargados;
+  - el menú debajo de la barra.
+- `admin.html`:
+  - que `admin-letra.js` se carga en el `<head>`, antes que todo;
+  - que al 100% no aplica nada (todas las reglas van bajo `html[data-letra]`);
+  - que cada casillero o ventana con ancho fijo tiene su regla, con la misma medida al 100% (avisa si aparece uno nuevo sin regla);
+  - que lo del celular queda igual.
+- Se comprobó que la prueba falla con 8 roturas hechas a propósito.
+- Suite 4792, 0 fallas; `npm run check` bien.
+
+**Sandbox** (5180, 1366 × 768, con la cuenta de Thiago y los envíos apagados):
+- De 100% a 150% con clics: Cancelar no cambia nada, y Cambiar recarga con la sesión abierta. El tamaño quedó guardado aunque se
+  reinició el sandbox: abrió al 200%, también la pantalla de ingreso.
+- En 125, 150, 200 y 250 se revisaron:
+  - la venta (por unidad, por peso con 1250 g y con el pago dividido) y la mayorista;
+  - Cargar compra (bolsa de 25 kg a $250.000, totales de 7 cifras) y la ficha con presentaciones;
+  - la ventana de costos, Agregar stock, Abrir caja y 10 pantallas.
+
+  **Ningún número cortado ni nada que se salga de costado, en ningún tamaño.** Lo único: al 250%, en Configuración, la palabra
+  "Continuo" del tipo de rollo se corta un poco.
+- **Venta real al 150%**, con estos números:
+  - caja abierta con $5.000;
+  - Harina De Almendra x1 ($23.040) + Maní 500 g ($6.745) = $29.785, pagado con Efectivo $20.000 + Transferencia $9.785;
+  - la venta #41 aparece en la lista con esos montos;
+  - la caja muestra en efectivo $20.000, tarjeta/transferencia $9.785 y "debería haber" $25.000;
+  - el stock bajó de 22 a 21 (Harina) y de 2.270 a 1.770 g (Maní);
+  - al volver a 100%, los mismos números.
+- Tablet (768) al 150%: el menú del celular queda igual (250 px, escondido a la izquierda, pegado debajo de la barra) y la venta en
+  una columna.
+- En un monitor de 1920 × 1080, al 250%, la venta entra.
+- Por la prueba quedaron, solo en el emulador, unos costos de prueba guardados: mi ayudante de cierre tocaba "Guardar costos". Se
+  corrigió el ayudante y se reinició el sandbox con datos limpios.
+
+**Para decidir con Thiago**:
+- **El 250% es muy grande para una notebook**: la venta en una columna, con mucho para bajar, y en el menú entran pocas opciones.
+- **Al 150% en una notebook se acortan con "…" algunos nombres largos**, como el del cliente en la lista de Ventas ("Consumidor …").
+  Los números siempre se ven completos.
+- Para la clienta, lo más probable es 125% o 150%.
+
+**Al subir** (solo el panel: sin reglas, funciones, tienda ni datos): avisarle a la clienta dónde está (Configuración, arriba de
+todo), que se elige en cada computadora y que apriete F5.
 
 ---
 

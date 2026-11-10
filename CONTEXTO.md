@@ -78,6 +78,10 @@ Brotes es un **clon de YERCO** (otro comercio del mismo equipo, proyecto Firebas
 - `admin-proveedores.js`, `admin-etiquetas.js`, `admin-caja.js`, `admin-compras.js`,
   `admin-lector.js` (pistola de códigos), `admin-pagination.js` (tabla de productos) y
   `admin-selector.js` (desplegables).
+- `admin-letra.js` (10/11): el tamaño de la letra de Configuración. Es el único módulo que se carga
+  en el `<head>` (antes de dibujar). **Ojo al agregar un casillero o una ventana con ancho fijo en
+  px**: necesita su regla bajo `html[data-letra]` en `admin.html` (en rem, misma medida al 100%);
+  `pruebas/t-letra.js` avisa si falta.
 
 **Datos principales (Firestore):**
 - **`productos`**:
@@ -574,6 +578,20 @@ producción (de los "gramajes" viejos).
   (por `result`) y `api/request_count` (por método y resultado) minuto a minuto, el último refresco de la sesión en Firebase
   Auth y el registro de auditoría. Detalle en `PENDIENTE.md` §1-bis BC.
 
+### 5.17 Lo del 10/11 (hecho y probado en el sandbox, SOLO LOCAL, sin subir): el tamaño de la letra
+
+- **"Cambiar tamaño de fuente del sistema"** (pedido de la clienta; Thiago armó la idea): arriba de todo en Configuración,
+  100% (como siempre), 125%, 150%, 200% y 250%, cada una con un "Aa" del tamaño real. Al tocar otra se confirma y se recarga el
+  panel (la sesión sigue). Se guarda en **esa computadora** (localStorage), no en la base: cero lecturas, y se aplica antes de
+  dibujar, también en la pantalla de ingreso. Módulo nuevo `admin-letra.js`, el único que va en el `<head>`.
+- Agranda el tamaño de letra de la página (rem), **no con zoom**: con zoom la ventana de la venta quedaba más alta que la
+  pantalla y cortada arriba ya al 125%. Lo que está medido en px (menú, ventanas, ~40 casilleros de números) crece igual con
+  reglas bajo `html[data-letra]` (en rem, misma medida al 100%); sin eso, al 150% se cortaban montos ("$250.000" en Cargar
+  compra, "Dividir el pago"). **Con 100% el panel queda exactamente como antes.** La venta pasa a una columna antes, en
+  proporción a la letra (como hace en pantallas chicas).
+- En una notebook de 1366 × 768: 125%, 150% y 200% sin ningún número cortado ni nada que se salga de costado; al 250% también,
+  pero queda enorme (la venta en una columna, con mucho para bajar). Detalle en `PENDIENTE.md` §1-bis BD.
+
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
 - **Sin stock suficiente se puede vender, con aviso**, y el negativo **aparece** en el Centro de
@@ -641,6 +659,9 @@ producción (de los "gramajes" viejos).
     sin leer todas las ventas). `PENDIENTE.md` §1-bis BB.
 12. **La sesión cerrada con el panel abierto** (§5.16, subido el 05/11): falta avisarle a la clienta que si se le cierra la sesión
     el panel se lo dice y lo que cargaba no se pierde (y F5 si tenía el panel abierto).
+13. **El tamaño de la letra** (§5.17, 10/11): hecho y probado en el sandbox, **solo local**. Falta que Thiago lo vea, decida si
+    quedan las cinco opciones (el 250% es muy grande en una notebook) y pida subirlo; al subir, avisarle a la clienta dónde está
+    (Configuración, arriba de todo), que se elige en cada computadora, y F5.
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 
@@ -709,8 +730,8 @@ Thiago le pasa este mensaje a Claude después del `/clear`:
 Hola Claude. Veníamos trabajando juntos en el proyecto Brotes Dietética (C:\Users\Thiago\Desktop\brotesdietetica) y acabo de hacer un /clear para liberar contexto, así que no tenés el historial del chat. No se perdió nada: todo está en el repo, en CONTEXTO.md, en PENDIENTE.md y en tu memoria del proyecto.
 
 Para retomar como veníamos, antes de hacer cualquier cosa:
-1. Leé entero CONTEXTO.md, en la raíz del repo: qué es el sistema (tienda online + panel de administración de una dietética, Firebase + Vercel), cómo trabajamos (sección 4), todo lo hecho y subido (sección 5, hasta la 5.16), las decisiones tomadas (6) y los pendientes (7).
-2. Mirá PENDIENTE.md: lo de arriba de todo (Hecho el 05/11, el 29/10 y el 22/10) y las últimas secciones del 1-bis: BA (reporte de costos), BB (lecturas de la base) y BC (el error de permisos al vender).
+1. Leé entero CONTEXTO.md, en la raíz del repo: qué es el sistema (tienda online + panel de administración de una dietética, Firebase + Vercel), cómo trabajamos (sección 4), todo lo hecho (sección 5, hasta la 5.17), las decisiones tomadas (6) y los pendientes (7).
+2. Mirá PENDIENTE.md: lo de arriba de todo (Hecho el 10/11, el 05/11, el 29/10 y el 22/10) y las últimas secciones del 1-bis: BA (reporte de costos), BB (lecturas de la base), BC (el error de permisos al vender) y BD (el tamaño de la letra).
 3. Revisá tu memoria del proyecto (MEMORY.md y sus archivos).
 
 Las reglas de trabajo siguen todas igual. Las más importantes:
@@ -723,9 +744,9 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Lo que toca plata (precios, costos, totales) va primero y claro, con números. Los números nunca pueden fallar.
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 
-Dónde estamos (10/11): todo está subido a producción hasta d8dd97f, verificado; local solo queda un commit de documentación (bf1a623), que va con el próximo push. Lo último: el 29/10, el reporte de costos en "Exportar Costos" (PENDIENTE.md §1-bis BA) y que guardar una venta lea solo esa venta en vez de releer todo el mes (§1-bis BB, parte B); el 05/11, el arreglo del error "Missing or insufficient permissions" al vender: a la clienta se le había cerrado la sesión con una venta abierta, y ahora la pantalla de ingreso tapa todo, avisa y no se pierde lo que estaba cargando (§1-bis BC).
+Dónde estamos (10/11): todo está subido a producción hasta d8dd97f, verificado. Local, sin subir: documentación (bf1a623 y fe9b016) y el tamaño de la letra del panel (§1-bis BD: "Cambiar tamaño de fuente del sistema" en Configuración, 100 a 250%, hecho y probado en el sandbox). Lo último subido: el 29/10, el reporte de costos en "Exportar Costos" (PENDIENTE.md §1-bis BA) y que guardar una venta lea solo esa venta en vez de releer todo el mes (§1-bis BB, parte B); el 05/11, el arreglo del error "Missing or insufficient permissions" al vender: a la clienta se le había cerrado la sesión con una venta abierta, y ahora la pantalla de ingreso tapa todo, avisa y no se pierde lo que estaba cargando (§1-bis BC).
 
-Pendientes: avisarle a la clienta lo del reporte de costos, lo de la sesión y los 114 productos de GR (y que apriete F5). La optimización de lecturas que falta (C, D y E de §1-bis BB) la vemos más adelante; C necesita mi OK para escribir en producción. El resto de los pendientes está en CONTEXTO.md §7.
+Pendientes: decidir si quedan las cinco opciones de la letra y subirla cuando te diga; avisarle a la clienta lo del reporte de costos, lo de la sesión, los 114 productos de GR y la letra (y que apriete F5). La optimización de lecturas que falta (C, D y E de §1-bis BB) la vemos más adelante; C necesita mi OK para escribir en producción. El resto de los pendientes está en CONTEXTO.md §7.
 
 Cuando termines de leer, confirmame en pocas líneas que tenés el contexto y esperá mi próximo pedido; no arranques nada por tu cuenta.
 ```
