@@ -11,6 +11,9 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- El tamaño de la letra del panel (Configuración): va antes que todo para que la
+         pantalla no salga chica y después salte. Ver admin-letra.js. -->
+    <script src="admin-letra.js"></script>
     <style>
         :root{--bg:#0f1117;--bg-card:#1a1d27;--bg-input:#252836;--border:#2e3140;--text:#e4e4e7;/* --text-main y --bg-hover se usaban 31 y 3 veces sin estar definidas. Al ser
              invalidas, el color caia al heredado y el fondo de hover a transparente.
@@ -1229,6 +1232,127 @@
 .pg-falta{color:#EDB833}
 .pg-sobra{color:#f56c6c}
 .pg-ok{color:#67c23a}
+/* Tamaño de la letra (admin-letra.js, 10/11/2026): las opciones de Configuración. */
+.letra-opciones{display:grid;grid-template-columns:repeat(auto-fill,minmax(7.5rem,1fr));gap:0.6rem}
+.letra-op{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0.3rem;
+  min-height:7.5rem;padding:0.75rem 0.5rem;background:var(--bg-input);border:2px solid var(--border);
+  border-radius:var(--radius);color:var(--text);font-family:var(--font);cursor:pointer;transition:border-color 0.15s,background 0.15s}
+.letra-op:hover{border-color:var(--accent)}
+.letra-op.activa{border-color:var(--accent-light);background:var(--accent-bg);cursor:default}
+.letra-op-aa{font-weight:700;line-height:1}
+.letra-op-pct{font-size:0.95rem;font-weight:700}
+.letra-op.activa .letra-op-pct{color:var(--accent-light)}
+.letra-op-nota{font-size:0.72rem;color:var(--text-dim)}
+/* Con la letra agrandada (html[data-letra]; con 100% no esta y nada de esto aplica), lo que esta
+   medido en px no crece solo con la letra. Aca crece igual: los rem dan el mismo ancho de siempre
+   al 100%, y al 150% una vez y media. Lo medido contra la pantalla (vh, vw) queda como esta: por eso
+   no se usa zoom (ver admin-letra.js). pruebas/t-letra.js avisa si aparece un casillero o una
+   ventana nueva con ancho fijo sin su regla. */
+html[data-letra]{--letra-barra:57px}
+/* El menu: mas ancho, y pegado donde termina la barra de arriba, que tambien crece. */
+@media (min-width:769px){html[data-letra] .sidebar{width:13.75rem;top:var(--letra-barra,57px);height:calc(100vh - var(--letra-barra,57px))}}
+@media (max-width:768px){html[data-letra] .sidebar{top:var(--letra-barra,57px);height:calc(100vh - var(--letra-barra,57px))}}
+html[data-letra] .sidebar-item{gap:0.625rem}
+html[data-letra] .sidebar-item i{width:1.25rem}
+/* Las ventanas, los avisos y lo que tiene un ancho fijo con texto adentro. */
+html[data-letra] .main-content{max-width:81.25rem}
+html[data-letra] .login-card{max-width:25rem}
+html[data-letra] .modal-box{max-width:34.375rem}
+html[data-letra] .dlg-box{max-width:27.5rem}
+html[data-letra] .costos-box{max-width:43.75rem}
+html[data-letra] .var-box{max-width:26.25rem}
+html[data-letra] .var-panel{max-width:47.5rem}
+html[data-letra] .lp-box{max-width:56.25rem}
+html[data-letra] .rc-box{max-width:48.75rem}
+html[data-letra] .venta-modal-box{max-width:70rem}
+html[data-letra] .visor-caja{max-width:min(27.5rem,92vw)}
+html[data-letra] .alertas-panel{width:21.25rem;max-height:min(70vh,32.5rem)}
+html[data-letra] .menu-acciones{min-width:13.125rem}
+html[data-letra] .admin-toast{min-width:17.5rem}
+html[data-letra] .stat-tooltip{min-width:15.625rem;max-width:20rem}
+html[data-letra] .ayuda-tip::after{width:16.875rem}
+html[data-letra] .ayuda-tip.ancho::after{width:26.25rem}
+html[data-letra] .search-box{min-width:12.5rem}
+html[data-letra] .listas-busca{flex-basis:13.75rem;max-width:22.5rem}
+html[data-letra] .modal-footer>.btn-primary{min-width:10rem}
+html[data-letra] .modal-footer.pie-export .pie-export-grupo{min-width:14.375rem}
+html[data-letra] .price-actions{grid-template-columns:repeat(auto-fit,minmax(12.5rem,1fr))}
+html[data-letra] .cp-row-n{min-width:6.875rem}
+html[data-letra] .cp-f.cp-f-costo{max-width:7.375rem}
+html[data-letra] .costos-vista{flex-basis:9.375rem}
+html[data-letra] .costos-fila.con-bolsa .costos-vista{width:9.375rem}
+html[data-letra] .tam-kilos{width:9.375rem}
+html[data-letra] #sec-stock .stock-actual{min-width:6.25rem}
+html[data-letra] .lp-ayuda{min-width:13.75rem}
+html[data-letra] .vt-mes{min-width:11.875rem}
+/* Los que en pantallas chicas pasan a una columna: solo en las grandes, para no pisar eso. */
+@media (min-width:769px){html[data-letra] .tb-pop{min-width:15.625rem}html[data-letra] .stats-row{grid-template-columns:repeat(auto-fit,minmax(12.5rem,1fr))}}
+@media (min-width:901px){html[data-letra] .prov-split{grid-template-columns:21.25rem 1fr}html[data-letra] .venta-modal-body{grid-template-columns:minmax(15.625rem,19.375rem) minmax(0,1fr)}}
+/* La venta (minorista y mayorista) pasa a una columna con menos de 900 px de pantalla. Con la letra
+   agrandada pasa antes, en la misma proporcion: al 200%, en una notebook de 1366 de ancho las dos
+   columnas dejaban 68 px para el nombre del producto ("Yer..."); en una columna se lee entero. */
+@media (max-width:1125px){html[data-letra="125"] .venta-modal-body{grid-template-columns:1fr}}
+@media (max-width:1350px){html[data-letra="150"] .venta-modal-body{grid-template-columns:1fr}}
+@media (max-width:1800px){html[data-letra="200"] .venta-modal-body{grid-template-columns:1fr}}
+@media (max-width:2250px){html[data-letra="250"] .venta-modal-body{grid-template-columns:1fr}}
+@media (min-width:641px){html[data-letra] .ini-cajas{grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))}}
+@media (min-width:561px){html[data-letra] .vt-kpis{grid-template-columns:repeat(auto-fit,minmax(11.5625rem,1fr))}}
+/* El ancho escrito en la propia ventana o tarjeta (style="max-width:520px"): con !important para
+   ganarle al style. */
+html[data-letra] [style*="max-width:260px"]{max-width:16.25rem!important}
+html[data-letra] [style*="max-width:280px"]{max-width:17.5rem!important}
+html[data-letra] [style*="max-width:300px"]{max-width:18.75rem!important}
+html[data-letra] [style*="max-width:340px"]{max-width:21.25rem!important}
+html[data-letra] [style*="max-width:400px"]{max-width:25rem!important}
+html[data-letra] [style*="max-width:440px"]{max-width:27.5rem!important}
+html[data-letra] [style*="max-width:460px"]{max-width:28.75rem!important}
+html[data-letra] [style*="max-width:480px"]{max-width:30rem!important}
+html[data-letra] [style*="max-width:500px"]{max-width:31.25rem!important}
+html[data-letra] [style*="max-width:520px"]{max-width:32.5rem!important}
+html[data-letra] [style*="max-width:560px"]{max-width:35rem!important}
+html[data-letra] [style*="max-width:600px"]{max-width:37.5rem!important}
+html[data-letra] [style*="max-width:640px"]{max-width:40rem!important}
+html[data-letra] [style*="max-width:650px"]{max-width:40.625rem!important}
+html[data-letra] [style*="max-width:680px"]{max-width:42.5rem!important}
+html[data-letra] [style*="max-width:700px"]{max-width:43.75rem!important}
+html[data-letra] [style*="max-width:720px"]{max-width:45rem!important}
+html[data-letra] [style*="max-width:760px"]{max-width:47.5rem!important}
+html[data-letra] [style*="max-width:820px"]{max-width:51.25rem!important}
+html[data-letra] [style*="max-width:900px"]{max-width:56.25rem!important}
+html[data-letra] [style*="max-width:960px"]{max-width:60rem!important}
+html[data-letra] [style*="grid-template-columns:200px 1fr"]{grid-template-columns:12.5rem 1fr!important}
+/* Los casilleros de numeros con ancho fijo: sin esto, al 150% el "$250.000" de Cargar compra o el
+   monto de "Dividir el pago" se ven cortados. */
+html[data-letra] .threshold-input{width:3.4375rem}
+html[data-letra] .vi-qty{width:3.125rem}
+html[data-letra] .vi-qty.vi-qty-peso{width:4.875rem}
+html[data-letra] .cp-f .form-input{width:7.375rem}
+html[data-letra] .cp-f.cp-f-total,html[data-letra] .cp-f.cp-f-total .form-input{width:5.5rem}
+html[data-letra] .cp-f.cp-f-bolsa{max-width:6rem}
+html[data-letra] .cp-f.cp-f-bolsa input.form-input{width:2.75rem}
+html[data-letra] .cp-f.cp-f-bolsa select.form-input{width:3.0625rem}
+html[data-letra] .stock-masivo-campo .form-input{width:9.375rem}
+html[data-letra] .stock-masivo-acc input{width:6.875rem}
+html[data-letra] .costos-input,html[data-letra] .costos-bolsa-input{width:7.5rem}
+html[data-letra] .stock-input{width:4.375rem}
+html[data-letra] .pp-new-input{width:5rem}
+html[data-letra] .mayo-input-wrap{width:5.625rem}
+html[data-letra] .lp-cant{width:4.75rem;flex-basis:4.75rem}
+html[data-letra] .pg-fila select{flex-basis:8.8125rem}
+html[data-letra] .pg-fila .pg-monto{flex-basis:4.75rem;min-width:4.75rem}
+html[data-letra] .ctk-fila input[type=text],html[data-letra] .ctk-fila select{min-width:7.5rem}
+html[data-letra] .fac-campo select{min-width:10.625rem}
+html[data-letra] input[style^="width:46px"]{width:2.875rem!important}
+html[data-letra] input[style^="width:52px"]{width:3.25rem!important}
+html[data-letra] input[style^="width:60px"]{width:3.75rem!important}
+html[data-letra] input[style^="width:62px"]{width:3.875rem!important}
+html[data-letra] input[style^="width:64px"]{width:4rem!important}
+html[data-letra] input[style^="width:70px"]{width:4.375rem!important}
+html[data-letra] input[style^="width:80px"]{width:5rem!important}
+html[data-letra] input[style^="width:88px"]{width:5.5rem!important}
+html[data-letra] input[style^="width:90px"]{width:5.625rem!important}
+html[data-letra] input[style^="width:100px"]{width:6.25rem!important}
+html[data-letra] input[style^="width:120px"]{width:7.5rem!important}
 
 </style>
 <!-- cache bust -->
@@ -1486,6 +1610,14 @@
     </div>
 
     <div class="section-content" id="sec-config">
+  <div class="toolbar" style="margin-bottom:1.25rem"><h3 style="font-size:1.05rem;font-weight:700;flex:1">Cambiar tama&ntilde;o de fuente del sistema</h3></div>
+  <div class="card" style="max-width:720px;padding:1.5rem;margin-bottom:2rem">
+    <p style="font-size:0.85rem;color:var(--text-dim);line-height:1.55;margin-bottom:1.1rem">
+      Agranda la letra de todo el panel. Al elegir un tama&ntilde;o, el panel se vuelve a cargar.<br>
+      Se guarda en esta computadora: en otra compu se elige aparte.</p>
+    <div class="letra-opciones" id="letraOpciones"></div>
+  </div>
+
   <div class="toolbar" style="margin-bottom:1.25rem"><h3 style="font-size:1.05rem;font-weight:700;flex:1">Configuraci&oacute;n de pedidos</h3>
   <button class="btn btn-primary" style="width:auto" onclick="savePedidosCfg(true)" id="savePedCfgBtn"><i class="bi bi-check-lg"></i> Guardar</button></div>
 
