@@ -14,7 +14,7 @@
     <!-- El tamaño de la letra del panel (Configuración): va antes que todo para que la
          pantalla no salga chica y después salte. Ver admin-letra.js. -->
     <script src="admin-letra.js"></script>
-    <!-- Los colores (Configuración, alto contraste): también antes de dibujar. Ver admin-colores.js. -->
+    <!-- Los colores (Configuración, alto contraste y personalizar): también antes de dibujar. Ver admin-colores.js. -->
     <script src="admin-colores.js"></script>
     <style>
         :root{--bg:#0f1117;--bg-card:#1a1d27;--bg-input:#252836;--border:#2e3140;--text:#e4e4e7;/* --text-main y --bg-hover se usaban 31 y 3 veces sin estar definidas. Al ser
@@ -1258,22 +1258,56 @@
 .colores-op-titulo{font-size:0.95rem;font-weight:700}
 .colores-op.activa .colores-op-titulo{color:var(--accent-light)}
 .colores-op-nota{font-size:0.72rem;color:var(--text-dim)}
-/* ALTO CONTRASTE (html[data-colores="alto"]; con Normal no esta y nada de esto aplica). Casi todo el
-   panel toma los colores de estas variables, asi que cambiandolas cambia todo: fondo negro, tarjetas
-   un poco mas claras, casilleros como un pozo oscuro con borde claro, letra blanca y el texto
-   secundario mucho mas claro (#8b8d97 daba 5,5 a 1 sobre las tarjetas; #d0d3dc da 12 a 1). El verde
-   de los botones es mas oscuro para que la letra blanca se lea encima, y el de las letras verdes,
-   mas claro. */
-html[data-colores="alto"]{--bg:#000000;--bg-card:#171a23;--bg-input:#07080b;--bg-hover:#323850;--border:#8a90a8;
-  --text:#ffffff;--text-main:#ffffff;--text-dim:#d0d3dc;--accent:#2e8b57;--accent-light:#9fe0b6;--accent-dark:#1f6b40;
-  --accent-bg:rgba(95,168,122,0.3);--danger:#ff5c5c;--danger-bg:rgba(255,92,92,0.2);--warning:#ffb547;
-  --warning-bg:rgba(255,181,71,0.2);--success:#3fae6a}
-html[data-colores="alto"] .sidebar-item.active{color:#ffffff;font-weight:700;background:rgba(95,168,122,0.38);border-left-width:5px}
-html[data-colores="alto"] .sidebar-item:hover{background:var(--bg-hover);color:#ffffff}
-html[data-colores="alto"] .btn-primary{color:#ffffff;font-weight:700}
-html[data-colores="alto"] .form-input:focus{border-color:var(--accent-light);box-shadow:0 0 0 3px rgba(159,224,182,0.4)}
-html[data-colores="alto"] ::placeholder{color:#a9aec0;opacity:1}
-html[data-colores="alto"] tbody tr:hover{background:var(--bg-hover)}
+.colores-personalizar{margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
+.colores-personalizar-cab{display:flex;align-items:baseline;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;font-size:0.95rem}
+.colores-personalizar-cuerpo{display:grid;grid-template-columns:minmax(0,1fr) 14rem;gap:1.25rem;align-items:start}
+@media(max-width:760px){.colores-personalizar-cuerpo{grid-template-columns:1fr}}
+.colores-ajuste{margin-bottom:0.9rem}
+.colores-ajuste-titulo{font-size:0.85rem;font-weight:600;margin-bottom:0.15rem}
+.colores-ajuste-nota{font-size:0.75rem;color:var(--text-dim)}
+.colores-chips{display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.35rem}
+.colores-chip{display:inline-flex;align-items:center;gap:0.4rem;padding:0.4rem 0.75rem;background:var(--bg-input);border:2px solid var(--border);
+  border-radius:999px;color:var(--text);font-family:var(--font);font-size:0.8rem;cursor:pointer;transition:border-color 0.15s,background 0.15s}
+.colores-chip:hover{border-color:var(--accent)}
+.colores-chip.activa{border-color:var(--accent-light);background:var(--accent-bg);color:var(--accent-light);font-weight:700;cursor:default}
+.colores-punto{display:inline-block;width:0.8rem;height:0.8rem;border-radius:50%;border:1px solid rgba(255,255,255,0.5)}
+.colores-vivo{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:0.6rem}
+.colores-vivo-titulo{font-size:0.72rem;color:var(--text-dim);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em}
+.colores-vivo-menu{font-size:0.8rem;padding:0.35rem 0.6rem;color:var(--text-dim);border-left:3px solid transparent}
+.colores-vivo-menu.activa{color:var(--accent-light);background:var(--accent-bg);border-left-color:var(--accent-light)}
+.colores-vivo-card{display:flex;flex-direction:column;gap:0.35rem;margin-top:0.5rem;padding:0.7rem;font-size:0.82rem}
+.colores-vivo-card small{font-size:0.75rem;color:var(--text-dim)}
+.colores-vivo-input{display:block;padding:0.4rem 0.6rem;font-size:0.8rem}
+.colores-vivo-foco{border-color:var(--accent)}
+.colores-vivo-fila{display:block;padding:0.35rem 0.5rem;border-radius:6px;font-size:0.78rem;background:var(--accent-bg)}
+.colores-vivo-botones{display:flex;gap:0.4rem;margin-top:0.2rem}
+.colores-vivo-botones .btn{flex:1;width:auto;min-width:0;padding:0.4rem 0.5rem}
+.colores-volver{margin-top:0.5rem}
+.colores-volver:disabled{opacity:0.45;cursor:default}
+/* LOS AJUSTES DE COLORES (html[data-col-...]; lo que esta "como siempre" no pone nada y no aplica nada de esto).
+   Casi todo el panel toma los colores de estas variables, asi que cambiandolas cambia todo. Alto contraste es
+   fondo negro + bordes marcados + letra blanca + verde fuerte + renglon bien marcado. Con letra blanca, el texto
+   secundario pasa de 5,5 a 12 a 1 sobre las tarjetas; con bordes marcados, el borde de 1,3 a 4,8 a 1. */
+html[data-col-fondo="oscuro"]{--bg:#08090c;--bg-card:#171a23;--bg-input:#0e1016;--bg-hover:#2a2f40}
+html[data-col-fondo="negro"]{--bg:#000000;--bg-card:#171a23;--bg-input:#07080b;--bg-hover:#323850}
+html[data-col-fondo]{--danger:#ff5c5c;--danger-bg:rgba(255,92,92,0.2);--warning:#ffb547;--warning-bg:rgba(255,181,71,0.2)}
+html[data-col-bordes="marcados"]{--border:#8a90a8}
+html[data-col-bordes="muy"]{--border:#b4b9cc}
+html[data-col-bordes="muy"] .card,html[data-col-bordes="muy"] .stat-card,html[data-col-bordes="muy"] .form-input,html[data-col-bordes="muy"] .btn-secondary{border-width:2px}
+html[data-col-texto="clara"]{--text:#f4f4f5;--text-main:#f4f4f5;--text-dim:#b8bbc6}
+html[data-col-texto="blanca"]{--text:#ffffff;--text-main:#ffffff;--text-dim:#d0d3dc}
+html[data-col-texto] ::placeholder{color:#a9aec0;opacity:1}
+/* El color de lo elegido: el de los botones es oscuro, para que la letra blanca se lea encima (mas de 4 a 1),
+   y el de las letras, claro, para leerse sobre el fondo oscuro. */
+html[data-col-acento="verde-fuerte"]{--accent:#2e8b57;--accent-light:#9fe0b6;--accent-dark:#1f6b40;--accent-bg:rgba(95,168,122,0.3)}
+html[data-col-acento="azul"]{--accent:#2563eb;--accent-light:#93c5fd;--accent-dark:#1d4ed8;--accent-bg:rgba(59,130,246,0.28)}
+html[data-col-acento="amarillo"]{--accent:#946800;--accent-light:#ffd54a;--accent-dark:#6b4b00;--accent-bg:rgba(255,213,74,0.22)}
+html[data-col-acento="naranja"]{--accent:#c2410c;--accent-light:#ffb27a;--accent-dark:#9a3412;--accent-bg:rgba(255,140,60,0.25)}
+html[data-col-acento] .sidebar-item.active{color:var(--text);font-weight:700;border-left-width:5px}
+html[data-col-acento] .btn-primary{color:#ffffff;font-weight:700}
+html[data-col-acento] .form-input:focus,html[data-col-acento] .colores-vivo-foco{border-color:var(--accent-light);box-shadow:0 0 0 3px var(--accent-bg)}
+html[data-col-fila="marcada"] tbody tr:hover,html[data-col-fila="marcada"] .colores-vivo-fila{background:rgba(255,255,255,0.12);box-shadow:inset 4px 0 0 var(--accent-light)}
+html[data-col-fila="marcada"] .sidebar-item:hover{background:rgba(255,255,255,0.12);color:var(--text)}
 /* Con la letra agrandada (html[data-letra]; con 100% no esta y nada de esto aplica), lo que esta
    medido en px no crece solo con la letra. Aca crece igual: los rem dan el mismo ancho de siempre
    al 100%, y al 150% una vez y media. Lo medido contra la pantalla (vh, vw) queda como esta: por eso
@@ -1651,9 +1685,9 @@ html[data-letra] input[style^="width:120px"]{width:7.5rem!important}
   <div class="toolbar" style="margin-bottom:1.25rem"><h3 style="font-size:1.05rem;font-weight:700;flex:1">Colores del sistema</h3></div>
   <div class="card" style="max-width:720px;padding:1.5rem;margin-bottom:2rem">
     <p style="font-size:0.85rem;color:var(--text-dim);line-height:1.55;margin-bottom:1.1rem">
-      Si los grises se confunden, eleg&iacute; <b>Alto contraste</b>: el fondo queda m&aacute;s oscuro, los recuadros y casilleros con un borde claro y la letra m&aacute;s blanca. Se cambia en el momento.<br>
+      Si los grises se confunden, eleg&iacute; <b>Alto contraste</b>: el fondo queda m&aacute;s oscuro, los recuadros y casilleros con un borde claro y la letra m&aacute;s blanca. Abajo, en <b>Personalizar</b>, se puede ajustar cada cosa por separado. Se cambia en el momento.<br>
       Se guarda en esta computadora: en otra compu se elige aparte.</p>
-    <div class="colores-opciones" id="coloresOpciones"></div>
+    <div id="coloresOpciones"></div>
   </div>
 
   <div class="toolbar" style="margin-bottom:1.25rem"><h3 style="font-size:1.05rem;font-weight:700;flex:1">Configuraci&oacute;n de pedidos</h3>
