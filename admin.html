@@ -14,6 +14,8 @@
     <!-- El tamaño de la letra del panel (Configuración): va antes que todo para que la
          pantalla no salga chica y después salte. Ver admin-letra.js. -->
     <script src="admin-letra.js"></script>
+    <!-- Los colores (Configuración, alto contraste): también antes de dibujar. Ver admin-colores.js. -->
+    <script src="admin-colores.js"></script>
     <style>
         :root{--bg:#0f1117;--bg-card:#1a1d27;--bg-input:#252836;--border:#2e3140;--text:#e4e4e7;/* --text-main y --bg-hover se usaban 31 y 3 veces sin estar definidas. Al ser
              invalidas, el color caia al heredado y el fondo de hover a transparente.
@@ -1243,6 +1245,35 @@
 .letra-op-pct{font-size:0.95rem;font-weight:700}
 .letra-op.activa .letra-op-pct{color:var(--accent-light)}
 .letra-op-nota{font-size:0.72rem;color:var(--text-dim)}
+/* Colores del sistema (admin-colores.js, 16/11/2026): las opciones de Configuración. */
+.colores-opciones{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:0.6rem}
+.colores-op{display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.75rem;background:var(--bg-input);
+  border:2px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font);cursor:pointer;transition:border-color 0.15s,background 0.15s}
+.colores-op:hover{border-color:var(--accent)}
+.colores-op.activa{border-color:var(--accent-light);background:var(--accent-bg);cursor:default}
+.colores-muestra{display:block;width:100%;padding:0.6rem;border-radius:8px}
+.colores-muestra>span{display:flex;flex-direction:column;gap:0.2rem;padding:0.5rem 0.6rem;border-radius:6px;text-align:left;font-size:0.8rem}
+.colores-muestra small{font-size:0.72rem}
+.colores-muestra i{display:block;height:1.1rem;border-radius:4px;margin-top:0.2rem}
+.colores-op-titulo{font-size:0.95rem;font-weight:700}
+.colores-op.activa .colores-op-titulo{color:var(--accent-light)}
+.colores-op-nota{font-size:0.72rem;color:var(--text-dim)}
+/* ALTO CONTRASTE (html[data-colores="alto"]; con Normal no esta y nada de esto aplica). Casi todo el
+   panel toma los colores de estas variables, asi que cambiandolas cambia todo: fondo negro, tarjetas
+   un poco mas claras, casilleros como un pozo oscuro con borde claro, letra blanca y el texto
+   secundario mucho mas claro (#8b8d97 daba 5,5 a 1 sobre las tarjetas; #d0d3dc da 12 a 1). El verde
+   de los botones es mas oscuro para que la letra blanca se lea encima, y el de las letras verdes,
+   mas claro. */
+html[data-colores="alto"]{--bg:#000000;--bg-card:#171a23;--bg-input:#07080b;--bg-hover:#323850;--border:#8a90a8;
+  --text:#ffffff;--text-main:#ffffff;--text-dim:#d0d3dc;--accent:#2e8b57;--accent-light:#9fe0b6;--accent-dark:#1f6b40;
+  --accent-bg:rgba(95,168,122,0.3);--danger:#ff5c5c;--danger-bg:rgba(255,92,92,0.2);--warning:#ffb547;
+  --warning-bg:rgba(255,181,71,0.2);--success:#3fae6a}
+html[data-colores="alto"] .sidebar-item.active{color:#ffffff;font-weight:700;background:rgba(95,168,122,0.38);border-left-width:5px}
+html[data-colores="alto"] .sidebar-item:hover{background:var(--bg-hover);color:#ffffff}
+html[data-colores="alto"] .btn-primary{color:#ffffff;font-weight:700}
+html[data-colores="alto"] .form-input:focus{border-color:var(--accent-light);box-shadow:0 0 0 3px rgba(159,224,182,0.4)}
+html[data-colores="alto"] ::placeholder{color:#a9aec0;opacity:1}
+html[data-colores="alto"] tbody tr:hover{background:var(--bg-hover)}
 /* Con la letra agrandada (html[data-letra]; con 100% no esta y nada de esto aplica), lo que esta
    medido en px no crece solo con la letra. Aca crece igual: los rem dan el mismo ancho de siempre
    al 100%, y al 150% una vez y media. Lo medido contra la pantalla (vh, vw) queda como esta: por eso
@@ -1615,6 +1646,14 @@ html[data-letra] input[style^="width:120px"]{width:7.5rem!important}
       Agranda la letra de todo el panel. Al elegir un tama&ntilde;o, el panel se vuelve a cargar.<br>
       Se guarda en esta computadora: en otra compu se elige aparte.</p>
     <div class="letra-opciones" id="letraOpciones"></div>
+  </div>
+
+  <div class="toolbar" style="margin-bottom:1.25rem"><h3 style="font-size:1.05rem;font-weight:700;flex:1">Colores del sistema</h3></div>
+  <div class="card" style="max-width:720px;padding:1.5rem;margin-bottom:2rem">
+    <p style="font-size:0.85rem;color:var(--text-dim);line-height:1.55;margin-bottom:1.1rem">
+      Si los grises se confunden, eleg&iacute; <b>Alto contraste</b>: el fondo queda m&aacute;s oscuro, los recuadros y casilleros con un borde claro y la letra m&aacute;s blanca. Se cambia en el momento.<br>
+      Se guarda en esta computadora: en otra compu se elige aparte.</p>
+    <div class="colores-opciones" id="coloresOpciones"></div>
   </div>
 
   <div class="toolbar" style="margin-bottom:1.25rem"><h3 style="font-size:1.05rem;font-weight:700;flex:1">Configuraci&oacute;n de pedidos</h3>
