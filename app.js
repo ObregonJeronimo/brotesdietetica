@@ -12,6 +12,10 @@
 let WHATSAPP_NUMBER = (typeof NEGOCIO !== 'undefined' && NEGOCIO.whatsapp) ? NEGOCIO.whatsapp : '5493516872770';
 const PRODUCTS_PER_PAGE = 10;
 function optImg(url,w){return url||'';}
+/* La foto que muestra la tienda: sin foto, con la de por defecto (el brote gris, que
+   tienen guardada muchos productos) o si la foto no abre, el logo de Brotes. */
+const FOTO_SIN_FOTO='img/sin-foto-tienda.svg';
+function fotoTienda(url){return (!url||/default-product\.svg$/.test(url))?FOTO_SIN_FOTO:url;}
 let productos = [];
 let carrito = [];
 let categoriaActual = 'Todos';
@@ -595,7 +599,7 @@ function renderProducts(list) {
         /* Un granel con escalas: stock de todas sus bolsas y la linea del grupo. Ver
            _estadoCompra. */
         const _ec=_estadoCompra(p),escT=_ec.escT,granel=_ec.granel,ci=_ec.ci,qty=_ec.qty;
-        const img=optImg(p.imagen,400)||'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23e8e0d5%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%22200%22 y=%22155%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2216%22%3ESin imagen%3C/text%3E%3C/svg%3E';
+        const img=fotoTienda(optImg(p.imagen,400));
         const noStock = _ec.noStock;
         const noPrecio = sinPrecio(p)||_ec.sinPrecioEscala;
         const maxOut = _ec.maxOut;
@@ -639,7 +643,7 @@ function renderProducts(list) {
             '<div class="product-image" onclick="openProductDetailModal(\''+p.id+'\')" style="cursor:pointer">' +
             badgeDesc +
             '<div class="img-skeleton"></div>' +
-            '<img src="'+esc(img)+'" alt="'+esc(nombreDisplay)+'" loading="lazy" decoding="async" onload="this.style.opacity=1;this.previousElementSibling.style.display=\'none\'" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig;}else{this.src=\'img/default-product.svg\';}this.style.opacity=1;this.previousElementSibling.style.display=\'none\'" data-orig="'+esc(p.imagen||'')+'" style="opacity:0;transition:opacity 0.3s">' +
+            '<img src="'+esc(img)+'" alt="'+esc(nombreDisplay)+'" loading="lazy" decoding="async" onload="this.style.opacity=1;this.previousElementSibling.style.display=\'none\'" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig;}else{this.src=\''+FOTO_SIN_FOTO+'\';}this.style.opacity=1;this.previousElementSibling.style.display=\'none\'" data-orig="'+esc(p.imagen||'')+'" style="opacity:0;transition:opacity 0.3s">' +
             '<span class="product-category">'+esc(p.categoria)+(p.subcategoria?' - '+esc(p.subcategoria):'')+'</span>' +
             /* Con variantes, "Sin stock" solo si no queda de ninguna: si el de 80 g se
                termino pero hay de 160 g, el producto se sigue vendiendo. */
@@ -875,7 +879,7 @@ function openProductDetailModal(id){
     const noStock=_ec.noStock;
     const noPrecio=sinPrecio(p)||_ec.sinPrecioEscala;
     const maxOut=_ec.maxOut;
-    const imgsHtml=_pdmImages.length?_pdmImages.map((url,i)=>'<img src="'+esc(optImg(url,800)||url)+'" class="pdm-img'+(i===0?' active':'')+'" data-idx="'+i+'" alt="'+esc(p.nombre)+'" data-orig="'+esc(url||'')+'" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig;}else{this.src=\'img/default-product.svg\';}">').join(''):'<div class="pdm-img-placeholder"><i class="bi bi-image"></i> Sin imagen</div>';
+    const imgsHtml=_pdmImages.length?_pdmImages.map((url,i)=>'<img src="'+esc(fotoTienda(optImg(url,800)||url))+'" class="pdm-img'+(i===0?' active':'')+'" data-idx="'+i+'" alt="'+esc(p.nombre)+'" data-orig="'+esc(url||'')+'" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig;}else{this.src=\''+FOTO_SIN_FOTO+'\';}">').join(''):'<img src="'+FOTO_SIN_FOTO+'" class="pdm-img active" alt="'+esc(p.nombre)+'">';
     const carouselNav=_pdmImages.length>1?'<button class="pdm-carousel-btn pdm-prev" onclick="pdmCarouselNav(-1)"><i class="bi bi-chevron-left"></i></button><button class="pdm-carousel-btn pdm-next" onclick="pdmCarouselNav(1)"><i class="bi bi-chevron-right"></i></button><div class="pdm-carousel-dots">'+_pdmImages.map((_,i)=>'<span class="pdm-dot'+(i===0?' active':'')+'" onclick="pdmCarouselGoTo('+i+')"></span>').join('')+'</div>':'';
     let btnContent;
     if(noStock){btnContent='<i class="bi bi-x-circle"></i> Sin stock';}
@@ -979,7 +983,7 @@ function updateCartUI() {
 function renderCartItems() {
     const body=document.getElementById('cartBody'),empty=document.getElementById('cartEmpty');if(!body)return;
     body.querySelectorAll('.cart-item').forEach(i=>i.remove());
-    carrito.forEach(item=>{const p=productos.find(x=>x.id===item.id),_escG=item.grupo?_escalasDelGrupoTienda(productos.find(x=>x.id===item.grupo)):[],ms=_escG.length?_stockEscalas(_escG):(p?p.stock:item.cantidad);const el=document.createElement('div');el.className='cart-item';el.innerHTML='<img src="'+esc(optImg(item.imagen,200)||'img/default-product.svg')+'" alt="'+esc(item.nombre)+'" class="cart-item-image"><div class="cart-item-info"><h4 class="cart-item-name">'+esc(item.nombre)+'</h4><span class="cart-item-price">$'+formatPrice(item.precio)+(esPesoProd(item)?' el kilo':'')+'</span>'+(esPesoProd(item)?'<span class="cart-item-price" style="display:block;opacity:0.8;font-size:0.85em">'+fmtGramos(item.cantidad)+' = $'+formatPrice(subtotalCarrito(item))+'</span>':'')+'<div class="cart-item-controls"><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\',-'+pasoCantidad(item)+')"><i class="bi bi-dash"></i></button><span class="qty-value">'+(esPesoProd(item)?fmtGramos(item.cantidad):item.cantidad)+'</span><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\','+pasoCantidad(item)+')"'+(item.cantidad>=ms?' disabled':'')+'><i class="bi bi-plus"></i></button><button class="cart-item-remove" onclick="removeFromCart(\''+item.id+'\')"><i class="bi bi-trash"></i></button></div></div>';body.insertBefore(el,empty);});
+    carrito.forEach(item=>{const p=productos.find(x=>x.id===item.id),_escG=item.grupo?_escalasDelGrupoTienda(productos.find(x=>x.id===item.grupo)):[],ms=_escG.length?_stockEscalas(_escG):(p?p.stock:item.cantidad);const el=document.createElement('div');el.className='cart-item';el.innerHTML='<img src="'+esc(fotoTienda(optImg(item.imagen,200)))+'" alt="'+esc(item.nombre)+'" class="cart-item-image" onerror="this.onerror=null;this.src=\''+FOTO_SIN_FOTO+'\'"><div class="cart-item-info"><h4 class="cart-item-name">'+esc(item.nombre)+'</h4><span class="cart-item-price">$'+formatPrice(item.precio)+(esPesoProd(item)?' el kilo':'')+'</span>'+(esPesoProd(item)?'<span class="cart-item-price" style="display:block;opacity:0.8;font-size:0.85em">'+fmtGramos(item.cantidad)+' = $'+formatPrice(subtotalCarrito(item))+'</span>':'')+'<div class="cart-item-controls"><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\',-'+pasoCantidad(item)+')"><i class="bi bi-dash"></i></button><span class="qty-value">'+(esPesoProd(item)?fmtGramos(item.cantidad):item.cantidad)+'</span><button class="qty-btn" onclick="updateCartItemQuantity(\''+item.id+'\','+pasoCantidad(item)+')"'+(item.cantidad>=ms?' disabled':'')+'><i class="bi bi-plus"></i></button><button class="cart-item-remove" onclick="removeFromCart(\''+item.id+'\')"><i class="bi bi-trash"></i></button></div></div>';body.insertBefore(el,empty);});
 }
 
 function updateShippingBar(total) {

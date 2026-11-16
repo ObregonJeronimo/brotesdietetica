@@ -77,6 +77,8 @@ function tienda(opts) {
     document: o.document || { getElementById: () => null, createElement: () => ({}) },
     confirm: () => true,
     optImg: s => s,
+    fotoTienda: s => s,
+    FOTO_SIN_FOTO: 'img/sin-foto-tienda.svg',
   };
   const nombres = Object.keys(env);
   const f = new Function(...nombres, FUNCIONES.map(cuerpo).join('\n') +
