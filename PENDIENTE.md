@@ -109,6 +109,15 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Hecho el 16/11 (local, sin subir)
+
+- **El logo de Brotes en los productos sin foto** (tienda, pedido de la clienta): tarjeta, ventana del producto y carrito. Ver §1-bis BE.
+- **Colores del sistema** (panel, pedido de la clienta: "la escala de grises confunde"): Normal, Alto contraste y Personalizar
+  (fondo, bordes, letra gris, color de lo elegido, renglón bajo el mouse). Ver §1-bis BF.
+- **El mínimo de compra solo para el envío** (tienda, pedido de la clienta): retiro sin mínimo. Ver §1-bis BG.
+- Probado en el sandbox; suite 4929, 0 fallas. Falta: que Thiago vea los colores, push con su OK, y prender los envíos en
+  producción (lo hace la clienta desde Configuración de pedidos, o yo con OK).
+
 ### Hecho el 10/11
 
 - **El tamaño de la letra del panel** (pedido de la clienta): en Configuración, "Cambiar tamaño de fuente del sistema" con 100%
@@ -3591,6 +3600,78 @@ elegir un tamaño tiene 15 segundos para apretar Aceptar (si no, vuelve solo al 
 
 **Al subir** (solo el panel: sin reglas, funciones, tienda ni datos): avisarle a la clienta dónde está (Configuración, arriba de
 todo), que se elige en cada computadora y que apriete F5.
+
+### BE) La tienda: el logo de Brotes en los productos sin foto · HECHO el 16/11/2026, SIN SUBIR (`7f1c7bc`)
+
+**Lo pedido** (la clienta, por Thiago): "poner en fondo de fotos de producto en la página el logo de Brotes", con el logo de
+`img/logo-brotes.png`. Había dos dibujos: el rectángulo beige "Sin imagen" (sin foto cargada) y el brote gris de
+`img/default-product.svg` (lo tienen guardado como foto muchos productos de producción, y era lo que se ponía si la foto no abría).
+
+**Lo hecho**: `img/sin-foto-tienda.svg` (el fondo claro de siempre con el logo en el medio, embebido: un `<img>` con SVG no carga
+archivos de afuera; 33 KB). `fotoTienda(url)` en `app.js` lo usa sin foto, con `default-product.svg` o si la foto no abre, en la
+tarjeta, la ventana del producto y el carrito (el carrito no tenía nada si la foto no abría: quedaba rota). **El panel sigue con
+`default-product.svg`.** Pruebas: `t-foto-tienda.js` (17); `t-escalas-tienda.js` suma `fotoTienda` a su tienda de mentira.
+**Sandbox**: cuatro productos con foto de prueba (sin foto, el brote gris, una que no abre y una de verdad): los tres primeros con
+el logo, el último con su foto, en las tres pantallas.
+
+### BF) Colores del sistema: Normal, Alto contraste y Personalizar · HECHO el 16/11/2026, SIN SUBIR (`32542cb`, `fecc1cc`)
+
+**Lo pedido** (la clienta): "opciones de contraste de colores, porque la escala de grises confunde". El panel es oscuro y casi
+todo son grises parecidos (fondo, tarjetas y casilleros de #0f1117 a #252836; el texto secundario #8b8d97 da 5,5 a 1; los bordes
+#2e3140 dan 1,3 a 1). Después Thiago: "algo un poco más personalizado".
+
+**Lo hecho** (`admin-colores.js`, en el `<head>` después de `admin-letra.js`): en Configuración, debajo de la letra, "Colores del
+sistema":
+- Dos opciones rápidas: Normal y Alto contraste (con una muestra de cada una).
+- Personalizar: Fondo (como siempre / más oscuro / negro), Bordes (finos / marcados / muy marcados, 2 px), Letra gris (como
+  siempre / más clara / blanca), Color de lo elegido (verde / verde fuerte / azul / amarillo / naranja) y Renglón bajo el mouse
+  (suave / bien marcado). Al lado, una muestra que usa las clases del panel; "Volver a como estaba" deja todo como al abrir el panel.
+- Alto contraste = negro + marcados + blanca + verde fuerte + bien marcado.
+- Cada ajuste que no está "como siempre" pone `data-col-<ajuste>` en `<html>` y `admin.html` cambia las variables de color
+  (`--bg`, `--border`, `--text-dim`, `--accent`...). **Con todo como siempre no hay ninguno: el panel queda exactamente igual.**
+- Se guarda en esta computadora (localStorage `brotesColores`, JSON); se cambia en el momento, sin recargar ni preguntar; otra
+  pestaña se pone igual. Lo guardado por la primera versión (`"alto"`) se toma como Alto contraste.
+- El verde de los botones es más oscuro en los colores fuertes para que la letra blanca se lea (más de 4 a 1); el de las letras,
+  más claro (más de 7 a 1). El amarillo y el naranja se parecen a los avisos de "cuidado": si confunden, se sacan.
+
+**Pruebas**: `t-colores.js` (50, con el contraste calculado de cada color); `check-admin.js` revisa también `admin-colores.js`.
+**Sandbox**: cada opción con clics, midiendo los colores (con las transiciones apagadas: con el panel del navegador oculto no
+avanzan); guardado al recargar; "Volver a como estaba"; Normal da exactamente los colores de siempre.
+
+**Queda**: colores escritos a mano en algunas pantallas (etiquetas de colores, gráficos) no cambian. Un modo claro (fondo blanco)
+no se hizo: hay cientos de colores pensados para fondo oscuro. **Al subir**: avisarle a la clienta dónde está y F5.
+
+### BG) La tienda: el mínimo de compra es solo para el envío · HECHO el 16/11/2026, SIN SUBIR (`e6c1833`)
+
+**Lo pedido** (la clienta): "habilitar la página con envío con un límite a 30 mil, pero retiro sin mínimo de compra". El costo del
+envío y el envío gratis los configura ella (Configuración de pedidos del panel).
+
+**Lo que había**: el mínimo (`minimoPedido`, $30.000) valía para todo: el botón Confirmar del carrito no dejaba seguir, ni para
+retirar. El servidor no lo controla.
+
+**Lo hecho** (`app.js`, `index.html`, `styles.css`; `npm run build`):
+- `faltaParaEnvio(subtotal)`: cuánto falta para pedir con envío; 0 sin envíos o con mínimo 0. Sobre el subtotal antes del cupón,
+  como medía el carrito.
+- El carrito deja confirmar con cualquier monto; la barrita dice "Envío a domicilio desde $30.000: faltan $X. Retirando en el
+  local no hay mínimo." y, al llegar, "Ya podés pedir con envío a domicilio". Sin envíos no aparece.
+- Al confirmar el pedido, sin el mínimo "Envío a domicilio" queda apagado, se elige retiro y abajo dice "El envío a domicilio es
+  para compras desde $30.000 (te faltan $X). Retirando en el local no hay mínimo." `confirmCheckout` frena un envío sin el mínimo.
+- En el panel, el campo dice "Monto mínimo para envío" y explica que retirando no hay mínimo (solo el texto).
+- **Al subir, aunque los envíos sigan apagados, el retiro queda sin mínimo** (hoy pide $30.000): es lo que pidió la clienta.
+
+**Pruebas**: `t-envio-minimo.js` (27, con los números); `t-sin-envios.js` ahora usa un mínimo que su carrito alcanza. Suite 4929.
+**Sandbox** (cliente de prueba en la tienda, la apertura de WhatsApp interceptada):
+- Envíos apagados (como producción): Poroto Negro + Tostada Integral = $6.310, el carrito deja confirmar, pedido #00006 de retiro
+  por $6.310; stock 43 → 42 y 74 → 73.
+- Envíos prendidos ($2.000, mínimo $30.000, sin gratis): Pistacho + Lenteja = $25.400: la barrita "faltan $4.600", envío apagado
+  (ni con clic ni forzado), forzar el envío al confirmar no guarda nada y avisa; pedido #00007 de retiro por $25.400. Harina de
+  Almendra + Pistacho = $29.440 ("faltan $560") + Poroto Negro = $32.330 ("Ya podés…"): envío $32.330 + $2.000 = $34.330, retiro
+  $32.330; pedido #00008 con envío, $2.000, total $34.330, con la dirección (el WhatsApp dice lo mismo). Stock bien.
+- Panel: los tres pedidos con sus totales y tipo; #00008 a venta #41 (envío $2.000, total $34.330, stock sin descontar de nuevo);
+  con la caja abierta en $5.000, #00007 a venta #42: caja con $25.400 en efectivo y "Debería haber" $30.400.
+
+**Para prenderlo en producción**: `haceEnvios: true` en `config/pedidos` (la clienta desde Configuración de pedidos, o yo con OK),
+y que ella revise el costo del envío ($2.000 cargado) y el envío gratis (apagado; desde $100.000). Recién después del push.
 
 ---
 
