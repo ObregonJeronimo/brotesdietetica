@@ -109,6 +109,12 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Hecho el 17/11 (local, sin subir)
+
+- **Etiqueta para bolsita con peso** (pedido del comercio): botón "Etiqueta con peso" en Productos. La etiqueta lleva el
+  producto, los gramos, el precio y la fecha; al escanearla entra a la venta con esos gramos, sin preguntar, y se cobra
+  con la misma cuenta que si se tipearan. Probado en el sandbox; suite 4987, 0 fallas. Ver §1-bis BH.
+
 ### Hecho el 16/11 (local, sin subir)
 
 - **El logo de Brotes en los productos sin foto** (tienda, pedido de la clienta): tarjeta, ventana del producto y carrito. Ver §1-bis BE.
@@ -3672,6 +3678,58 @@ retirar. El servidor no lo controla.
 
 **Para prenderlo en producción**: `haceEnvios: true` en `config/pedidos` (la clienta desde Configuración de pedidos, o yo con OK),
 y que ella revise el costo del envío ($2.000 cargado) y el envío gratis (apagado; desde $100.000). Recién después del push.
+
+### BH) Etiqueta para bolsita con peso · HECHO el 17/11/2026, SIN SUBIR (`faeeeda`)
+
+**Lo pedido** (el comercio, por Thiago): un código de barras para lo que se vende suelto, por ejemplo una bolsita de 100 g de
+nuez. Thiago: un botón aparte del de "Etiquetas", con un nombre que se entienda; de cualquier peso; con el precio y la fecha.
+
+**Lo medido antes en producción** (solo lectura, ~2.600 lecturas, archivos borrados después): los 1.585 renglones por peso de
+las 957 ventas se cobraron precio del kilo x gramos (ninguno con precio propio); lo más vendido es 100 g (214), 200 g (159),
+150 g, 500 g y 250 g, y la mitad son pesos no redondos. No hay bolsitas de granel cargadas aparte. 1.639 de 1.644 productos
+tienen código interno de hasta 6 dígitos (los otros 5 no son números: tampoco tienen la etiqueta de siempre).
+
+**Lo hecho**:
+- Botón **"Etiqueta con peso"** al lado de "Etiquetas" (Productos), y la ventana **"Etiqueta para bolsita con peso"**: 1)
+  producto (buscador; solo los de peso, sin depurados; un granel con bolsas va una vez, con el código de su bolsa más chica), 2)
+  gramos (1 a 9.999, con 100 g, 250 g, 500 g y 1 kg), 3) cuántas etiquetas, formato (los de "Etiquetas" sin Personalizado; arranca
+  con el último usado) y rollo continuo. Dice lo que va a salir ("Mani · 100 g · $1.349", el kilo, y que en la caja se cobra el
+  precio del día) y muestra la etiqueta a tamaño real. No deja imprimir sin precio, con 0 g o con el código repetido.
+- La etiqueta: nombre, "100 g · $1.349", "$13.490 el kilo · precio del 17/11/2026" (en las chicas "/kg" y el nombre en un renglón)
+  y el código. El precio es el de mostrador si se vende sola, con la misma cuenta que la venta (`etiquetaPesoPrecio`: con bolsas,
+  `cobroEscala`; si no, el kilo con su oferta redondeado y por los gramos).
+- El código: EAN-13 `29` + código interno (6) + gramos (4) + verificador (`etiquetaPesoCodigoDe` / `etiquetaPesoDe`). La de siempre
+  empieza con `20000` y no se pisan.
+- Al escanearla (`admin-lector.js`, `_etiquetaConPeso`), antes de buscar el producto y solo si el código no es el codigoBarras de
+  alguno: en la venta y en la mayorista entra con los gramos (`addVentaItem(id, gramos)` → `_agregarItemVenta` →
+  `agregarGranelVenta` / `pedirCantidadPeso` con `opts.gramos`, que los usa sin abrir el diálogo; si el freno de stock frenara, abre
+  el de siempre con los gramos puestos); parado en Ventas abre la venta; en Productos, la ficha; en otra pantalla pregunta; en una
+  compra entra el producto (como la de siempre); con la ficha de un producto abierta avisa que no es un código de fábrica; un
+  producto que ahora es por unidad avisa y no agrega; uno que no existe avisa sin abrir "asignar código". El aviso dice
+  "Agregado: Garbanzo (500 g)".
+
+**Pruebas**: `t-etiqueta-peso.js` (58: el código ida y vuelta con 9 pesos, el precio de la etiqueta contra lo que cobra la venta
+con granel suelto, con oferta y con bolsas, la ventana de gramos de verdad, la etiqueta, los candidatos y los enganches);
+`t-escalas.js`, `t-caja-viandas.js` y `t-aviso-escaneo.js` al día con el parámetro nuevo. Suite 4987, 0 fallas.
+
+**Sandbox** (la pistola simulada tecla por tecla, con un grupo Garbanzo de 1 kg a $8.960 y 3 kg a $8.000 armado en el emulador):
+- La ventana: Mani 100 g x 2 → "$1.349", vista previa, se imprimieron 2 etiquetas y **las barras dibujadas, leídas de vuelta, dicen
+  2900000401006**. En los 8 formatos, con un nombre corto y uno largo, nada se sale y las barras miden lo mismo que la etiqueta de
+  siempre (en la de 38 x 21 mm se achicaban a 7,8 mm con un nombre largo: arreglado, nombre en un renglón).
+- Venta minorista con la caja abierta en $5.000: Mani 100 g ($1.349) y otra vez (200 g, $2.698), Garbanzo 500 g ($4.480, bolsa de
+  1 kg) y 2.600 g más (3.100 g a la bolsa de 3 kg, $24.800), Almendra 250 g con 15% ($510; estaba oculta y preguntó "¿Venderlo
+  igual?" como siempre). Total **$28.008**, sin ningún diálogo de gramos. Registrada: venta #41 con esos renglones; stock Mani
+  2.270 → 2.070, Garbanzo 3 kg 9.000 → 5.900 (el de 1 kg igual), Almendra -500 → -750; la caja "Debería haber $33.008".
+- Mayorista: Mani 100 g al mayorista, $9.230 el kilo = $923. Parado en Ventas: abre la venta con Chía 250 g ($5.398). Desde Stock:
+  "Etiqueta escaneada: Garbanzo · 500 g" → "Cargarla en una venta". La etiqueta de siempre sigue preguntando los gramos.
+
+**Para tener en cuenta (plata)**:
+- Se cobra el precio del kilo **del día en que se vende**; la etiqueta queda con el del día en que se imprimió (por eso la fecha).
+- En la mayorista se cobra el mayorista, aunque la etiqueta diga el de mostrador.
+- Varias bolsitas del mismo producto se suman en un renglón: con bolsas de granel, juntas pueden pasar a la bolsa más grande y
+  salir más baratas que la suma de las etiquetas (la regla de siempre); en un granel suelto puede haber $1 de redondeo.
+
+**Falta**: probarlo con la impresora y la pistola del local. **Al subir** (solo panel): avisarle a la clienta dónde está y F5.
 
 ---
 
