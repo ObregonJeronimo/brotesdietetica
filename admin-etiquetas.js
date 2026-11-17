@@ -303,7 +303,12 @@ function etiquetaEstilos(f) {
     '.etq-precio{font-weight:700;font-size:' + (m.chico ? 7.5 : 10) + 'pt;margin:0.3mm 0}' +
     '.etq-kg{font-weight:400;font-size:0.68em}' +
     '.etq-cod{font-size:5.5pt;color:#666;letter-spacing:0.4px}' +
-    '.etq-bc{display:block;margin-top:0.4mm}';
+    '.etq-bc{display:block;margin-top:0.4mm}' +
+    /* La etiqueta con peso (etiquetaPesoHTML): el peso y el precio, y debajo el kilo y la fecha. */
+    '.etqp-linea{font-weight:700;font-size:' + (m.chico ? 7.5 : 9.5) + 'pt;line-height:1.15;margin-top:0.2mm}' +
+    '.etqp-det{font-size:' + (m.chico ? 5.5 : 6.5) + 'pt;color:#000;line-height:1.15}' +
+    '.etqp-nom1{-webkit-line-clamp:1;max-height:1.2em}' +
+    '.etqp .etq-bc{flex-shrink:0}';
 
   if (esTermica) {
     /* EN LA TÉRMICA NO HAY GRISES: el cabezal pone un punto negro o no pone nada, y el
@@ -935,7 +940,335 @@ function etiquetasImprimir() {
 
 
 
+/* =============================================================================
+   ETIQUETA PARA BOLSITA CON PESO  —  pedido del comercio (17/11/2026)
+   =============================================================================
+   La etiqueta de arriba dice QUÉ producto es, pero no cuánto pesa la bolsa: al
+   escanearla se preguntan los gramos. Esta es para la bolsita que se arma en el
+   local con un peso ya pesado (100 g de nuez): se elige el producto y los gramos, y
+   la etiqueta lleva el peso, el precio y la fecha. Al escanearla en la caja entra
+   a la venta con esos gramos, sin preguntar.
+
+   EL PRECIO SE COBRA POR KILO, COMO SIEMPRE. Medido en producción (17/11/2026): los
+   1.585 renglones por peso de 957 ventas se cobraron precio del kilo x gramos, sin
+   ninguno con precio propio. Escanear la etiqueta es lo mismo que tipear los gramos
+   (misma función, mismas bolsas de granel, mismos avisos): se cobra el precio del
+   kilo DEL DÍA en que se vende. El precio impreso es el del día en que se imprimió,
+   con la fecha al lado, para que se note si quedó viejo.
+
+   EL CÓDIGO: EAN-13 con '29' + el código interno (6 dígitos) + los gramos (4
+   dígitos, hasta 9.999 g) + el verificador. Es el formato de las balanzas de los
+   supermercados. Las etiquetas de arriba empiezan con '20000' (el código interno va
+   en 11 dígitos), así que no se pisan; y los códigos que empiezan con 2 están
+   reservados para uso interno de cada comercio: no chocan con uno de fábrica.
+   ============================================================================= */
+const ETQP_PREFIJO = '29';
+const ETQP_MAX_GRAMOS = 9999;
+const ETQP_RAPIDOS = [100, 250, 500, 1000];
+
+function _etqpCodigo(p) {
+  const c = String(p && p.codigo != null ? p.codigo : '').trim();
+  return /^\d{1,6}$/.test(c) ? c.padStart(6, '0') : null;
+}
+
+/* El EAN-13 de esa bolsita, o null si no se puede (sin código interno de hasta 6
+   dígitos, o gramos fuera de 1 a 9.999). */
+function etiquetaPesoCodigoDe(p, gramos) {
+  const cod = _etqpCodigo(p);
+  const g = Number(gramos);
+  if (!cod || !Number.isInteger(g) || g < 1 || g > ETQP_MAX_GRAMOS) return null;
+  const base = ETQP_PREFIJO + cod + String(g).padStart(4, '0');
+  return base + etiquetaDigitoVerificador(base);
+}
+
+/* El camino de vuelta, el que usa el lector: { producto, gramos, varios }, o null si
+   lo escaneado no es una de estas etiquetas. Si el código lo tienen varios productos
+   no se adivina: producto null y `varios` con los que lo comparten. */
+function etiquetaPesoDe(escaneado, productos) {
+  const c = String(escaneado == null ? '' : escaneado).trim();
+  if (!/^\d{13}$/.test(c) || c.slice(0, 2) !== ETQP_PREFIJO) return null;
+  if (etiquetaDigitoVerificador(c.slice(0, 12)) !== c[12]) return null;
+  const gramos = parseInt(c.slice(8, 12), 10);
+  if (!(gramos > 0)) return null;
+  const cod = c.slice(2, 8);
+  const todos = (productos || []).filter(p => _etqpCodigo(p) === cod);
+  if (todos.length > 1) return { producto: null, gramos: gramos, varios: todos };
+  return { producto: todos[0] || null, gramos: gramos, varios: [] };
+}
+
+/* Las bolsas de granel del producto (admin-escalas.js), o ninguna. */
+function _etqpEscalas(p, productos) {
+  return (typeof escalasDe === 'function') ? escalasDe(p, productos) : [];
+}
+
+/* Lo que sale la bolsita en el mostrador si se vende sola, con la MISMA cuenta que la
+   venta: con bolsas de granel, el precio de la bolsa que toca por esos gramos
+   (cobroEscala); si no, el precio del kilo con su descuento, redondeado como
+   precioConDsc, por los gramos, redondeado como subtotalItem. */
+function etiquetaPesoPrecio(p, gramos, productos) {
+  const g = Number(gramos) || 0;
+  const esc = _etqpEscalas(p, productos);
+  if (esc.length && typeof cobroEscala === 'function') {
+    const e = escalaPara(esc, g);
+    return { total: cobroEscala(e, g, 'min', null), kilo: precioFinalKg(e, 'min', null), bolsa: e.etiqueta };
+  }
+  const kilo = Math.round(Number(p && p.precio || 0) * (1 - (Number(p && p.descuento) || 0) / 100));
+  return { total: Math.round(kilo * g / 1000), kilo: kilo, bolsa: null };
+}
+
+/* El nombre que va en la etiqueta: el del grupo si tiene bolsas de granel ("Yerba
+   Mate", no "Yerba Mate x 1 kg"). */
+function etiquetaPesoNombre(p, productos) {
+  const esc = _etqpEscalas(p, productos);
+  if (esc.length && typeof _escNombre === 'function') return _escNombre(esc[0]);
+  return String((p && (p.nombreMostrado || p.nombre)) || '').trim();
+}
+
+function _etqpPeso(g) {
+  const n = Number(g) || 0;
+  return n < 1000 ? n.toLocaleString('es-AR') + ' g'
+    : (n / 1000).toLocaleString('es-AR', { maximumFractionDigits: 3 }) + ' kg';
+}
+function _etqpPlata(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('es-AR'); }
+function etiquetaPesoFecha(d) {
+  const x = d || new Date();
+  const dd = String(x.getDate()).padStart(2, '0'), mm = String(x.getMonth() + 1).padStart(2, '0');
+  return dd + '/' + mm + '/' + x.getFullYear();
+}
+
+/* La etiqueta: nombre, peso y precio, el precio del kilo con la fecha, y el código.
+   `o.precio` = { total, kilo } (etiquetaPesoPrecio); `o.fecha` = '17/11/2026'. */
+function etiquetaPesoHTML(p, gramos, f, o) {
+  const ean = etiquetaPesoCodigoDe(p, gramos);
+  if (!ean) return '';
+  const opc = o || {};
+  const m = etiquetaMedidas(f);
+  const e = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const pr = opc.precio || { total: 0, kilo: 0 };
+  const fecha = opc.fecha || etiquetaPesoFecha();
+  /* En las chicas el nombre va en un renglon: si no, las barras se achicaban por debajo de la
+     altura de la etiqueta de siempre (7,8 mm en la de 38 x 21 con un nombre largo). */
+  let h = '<div class="etq etqp"><div class="etq-nom' + (m.chico ? ' etqp-nom1' : '') + '">' + e(opc.nombre || p.nombreMostrado || p.nombre) + '</div>';
+  h += '<div class="etqp-linea">' + e(_etqpPeso(gramos)) + (pr.total > 0 ? ' &middot; ' + e(_etqpPlata(pr.total)) : '') + '</div>';
+  h += '<div class="etqp-det">' + (pr.kilo > 0 ? e(_etqpPlata(pr.kilo)) + (m.chico ? '/kg' : ' el kilo') + ' &middot; ' : '') +
+       'precio del ' + e(fecha) + '</div>';
+  h += etiquetaBarrasSVG(ean, m.bcAlto, m.bcAncho);
+  return h + '</div>';
+}
+
+/* El documento: `copias` veces la misma etiqueta, con el mismo motor que las otras. */
+function etiquetaPesoDocumento(p, gramos, copias, f, o) {
+  const html = etiquetaPesoHTML(p, gramos, f, o);
+  if (!html) return '';
+  const n = Math.max(1, Math.min(500, parseInt(copias, 10) || 1));
+  const etqs = [];
+  for (let i = 0; i < n; i++) etqs.push(html);
+  if (f.hoja === 'termica') return etqs.join('');
+  const porHoja = Math.max(1, (Number(f.columnas) || 1) * (Number(f.filas) || 1));
+  let out = '';
+  for (let i = 0; i < etqs.length; i += porHoja) {
+    out += '<div class="etq-pag"><div class="etq-hoja">' + etqs.slice(i, i + porHoja).join('') + '</div></div>';
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------- la ventana --- */
+let _etqpId = null;
+let _etqpBusqueda = '';
+
+/* Los productos que pueden tener esta etiqueta: por peso, no depurados, con código
+   interno de hasta 6 dígitos. Un granel con bolsas va una sola vez (el grupo), con
+   el código de su bolsa más chica: la venta reparte entre las bolsas igual. */
+function etiquetaPesoCandidatos(productos) {
+  const todos = productos || (typeof allProducts !== 'undefined' ? allProducts : []);
+  return todos.filter(p => p && p.tipoVenta === 'peso' && p.depurado !== true && _etqpCodigo(p))
+    .filter(p => { const esc = _etqpEscalas(p, todos); return !esc.length || esc[0].id === p.id; });
+}
+
+function _etqpProducto() {
+  const todos = (typeof allProducts !== 'undefined' ? allProducts : []);
+  return _etqpId ? (todos.find(p => p.id === _etqpId) || null) : null;
+}
+function _etqpGramos() {
+  const g = parseInt(((document.getElementById('etqpGramos') || {}).value || '').replace(/\D/g, ''), 10);
+  return Number.isFinite(g) ? g : 0;
+}
+function _etqpCopias() {
+  return Math.max(1, Math.min(500, parseInt((document.getElementById('etqpCopias') || {}).value, 10) || 1));
+}
+
+/* Los formatos de la otra ventana, sin "Personalizado" (sus medidas viven allá). Arranca
+   con el último que se usó para imprimir, en cualquiera de las dos. */
+function _etqpFormatos() { return ETQ_FORMATOS.filter(f => f.id !== 'custom'); }
+function _etqpUltimo() {
+  try { return JSON.parse(localStorage.getItem(ETQ_ULTIMO_KEY) || 'null') || {}; } catch (e) { return {}; }
+}
+function etqpFormatoActual() {
+  const id = (document.getElementById('etqpFormato') || {}).value;
+  const base = _etqpFormatos().find(f => f.id === id) || _etqpFormatos()[0];
+  if (base.hoja !== 'termica') return base;
+  const u = _etqpUltimo();
+  const sep = Number(u.campos && u.campos.etqSeparacion);
+  return Object.assign({}, base, {
+    continuo: !!(document.getElementById('etqpContinuo') || {}).checked,
+    separacion: isFinite(sep) && sep >= 0 ? Math.min(20, sep) : 2,
+  });
+}
+
+function openEtiquetaPesoModal() {
+  _etqpId = null;
+  _etqpBusqueda = '';
+  const b = document.getElementById('etqpBuscar'); if (b) b.value = '';
+  const g = document.getElementById('etqpGramos'); if (g) g.value = '';
+  const c = document.getElementById('etqpCopias'); if (c) c.value = '1';
+  const u = _etqpUltimo();
+  const sel = document.getElementById('etqpFormato');
+  if (sel) {
+    const elegido = _etqpFormatos().some(f => f.id === u.formato) ? u.formato : _etqpFormatos()[0].id;
+    sel.innerHTML = _etqpFormatos().map(f => '<option value="' + f.id + '"' + (f.id === elegido ? ' selected' : '') + '>' +
+      esc(f.nombre) + '</option>').join('');
+  }
+  const cont = document.getElementById('etqpContinuo');
+  if (cont) cont.checked = typeof u.continuo === 'boolean' ? u.continuo : true;
+  etqpRender();
+  const m = document.getElementById('etiquetaPesoModal');
+  if (m) m.classList.add('show');
+  setTimeout(() => { const x = document.getElementById('etqpBuscar'); if (x) x.focus(); }, 60);
+}
+function closeEtiquetaPesoModal() {
+  const m = document.getElementById('etiquetaPesoModal');
+  if (m) m.classList.remove('show');
+}
+
+function etqpBuscar(q) { _etqpBusqueda = q || ''; _etqpPintarLista(); }
+function etqpElegir(id) { _etqpId = id; etqpRender(); setTimeout(() => { const g = document.getElementById('etqpGramos'); if (g && !g.value) g.focus(); }, 30); }
+function etqpRapido(g) { const i = document.getElementById('etqpGramos'); if (i) i.value = String(g); etqpRender(); }
+
+function _etqpPintarLista() {
+  const cont = document.getElementById('etqpLista');
+  if (!cont) return;
+  const todos = (typeof allProducts !== 'undefined' ? allProducts : []);
+  const q = _etqpBusqueda.trim();
+  const lista = etiquetaPesoCandidatos(todos)
+    .filter(p => !q || (typeof coincideProducto === 'function' ? coincideProducto(p, q)
+      : ((p.nombre || '') + ' ' + (p.codigo || '')).toLowerCase().includes(q.toLowerCase())))
+    .sort((a, b) => etiquetaPesoNombre(a, todos).localeCompare(etiquetaPesoNombre(b, todos), 'es'));
+  if (!q && !_etqpId) {
+    cont.innerHTML = '<div class="etqp-vacio">Escrib&iacute; el nombre o el c&oacute;digo del producto. Salen los que se venden por peso.</div>';
+    return;
+  }
+  if (!lista.length) { cont.innerHTML = '<div class="etqp-vacio">Ning&uacute;n producto por peso coincide.</div>'; return; }
+  cont.innerHTML = lista.slice(0, 60).map(p => {
+    const pr = etiquetaPesoPrecio(p, 1000, todos);
+    return '<button type="button" class="etqp-op' + (p.id === _etqpId ? ' sel' : '') + '" onclick="etqpElegir(\'' + p.id + '\')">' +
+      '<span class="etq-fila-cod">' + esc(p.codigo) + '</span>' +
+      '<span class="etqp-op-n">' + esc(etiquetaPesoNombre(p, todos)) + (p.oculto === true ? ' <span class="etq-tag">oculto</span>' : '') + '</span>' +
+      '<span class="etqp-op-p">' + (pr.kilo > 0 ? _etqpPlata(pr.kilo) + ' el kilo' : 'sin precio') + '</span></button>';
+  }).join('') + (lista.length > 60 ? '<div class="etqp-vacio">Se muestran 60 de ' + lista.length + '. Afin&aacute; la b&uacute;squeda.</div>' : '');
+}
+
+/* Lo que se va a imprimir, o por qué todavía no. */
+function _etqpEstado() {
+  const p = _etqpProducto();
+  const g = _etqpGramos();
+  if (!p) return { error: 'Eleg&iacute; el producto.' };
+  if (!(g > 0)) return { p: p, error: 'Escrib&iacute; cu&aacute;ntos gramos tiene la bolsita.' };
+  if (g > ETQP_MAX_GRAMOS) return { p: p, error: 'Hasta 9.999 g (casi 10 kg) por etiqueta.' };
+  const todos = (typeof allProducts !== 'undefined' ? allProducts : []);
+  const pr = etiquetaPesoPrecio(p, g, todos);
+  if (!(pr.kilo > 0)) return { p: p, error: 'Este producto no tiene precio. Carg&aacute;selo en su ficha antes de imprimir la etiqueta.' };
+  const amb = etiquetaAmbiguos([{ producto: p }], todos);
+  if (amb.length) return { p: p, error: 'El c&oacute;digo ' + esc(p.codigo) + ' lo tienen ' + amb[0].cuantos + ' productos: la etiqueta no sabr&iacute;a de cu&aacute;l es. Corregilo antes.' };
+  return { p: p, g: g, pr: pr, nombre: etiquetaPesoNombre(p, todos), copias: _etqpCopias() };
+}
+
+function etqpRender() {
+  _etqpPintarLista();
+  const f = etqpFormatoActual();
+  const rollo = document.getElementById('etqpRollo');
+  if (rollo) rollo.style.display = f.hoja === 'termica' ? '' : 'none';
+  const st = _etqpEstado();
+  const res = document.getElementById('etqpResumen');
+  const btn = document.getElementById('etqpImprimir');
+  if (btn) btn.disabled = !!st.error;
+  if (res) {
+    if (st.error) res.innerHTML = '<span class="etqp-falta">' + st.error + '</span>';
+    else {
+      const n = st.copias;
+      const hojas = Math.ceil(n / Math.max(1, f.columnas * f.filas));
+      res.innerHTML = '<b>' + esc(st.nombre) + ' &middot; ' + _etqpPeso(st.g) + ' &middot; ' + _etqpPlata(st.pr.total) + '</b>' +
+        '<div class="etqp-det-res">' + _etqpPlata(st.pr.kilo) + ' el kilo' +
+        (st.pr.bolsa ? ' (el precio de la bolsa de ' + esc(st.pr.bolsa) + ', como en la venta)' : '') +
+        '. Al escanearla en la caja entra con ' + _etqpPeso(st.g) + ' y se cobra el precio del kilo de ese d&iacute;a.</div>' +
+        '<div class="etqp-det-res">' + n + (n === 1 ? ' etiqueta' : ' etiquetas') +
+        (f.hoja === 'termica' ? ' de rollo.' : ', en ' + hojas + (hojas === 1 ? ' hoja' : ' hojas') + ' de ' + (f.columnas * f.filas) + '.') + '</div>';
+    }
+  }
+  _etqpPreview(st, f);
+}
+
+function _etqpPreview(st, f) {
+  const caja = document.getElementById('etqpPreview');
+  if (!caja) return;
+  if (st.error) { caja.innerHTML = ''; return; }
+  caja.innerHTML = '<div class="etqp-prev-tit">C&oacute;mo va a salir (tama&ntilde;o real, ' + f.ancho + ' &times; ' + f.alto + ' mm)</div>' +
+    '<iframe id="etqpPreviewFrame" class="etqp-prev-frame"></iframe>';
+  const fr = document.getElementById('etqpPreviewFrame');
+  if (!fr) return;
+  fr.style.height = Math.max(120, Math.round(f.alto * 3.9)) + 'px';
+  const doc = fr.contentDocument;
+  doc.open();
+  doc.write('<html><head><style>' + etiquetaEstilos(f) +
+    'body{display:flex;align-items:center;justify-content:center;padding:4px}.etq{border:1px dashed #bbb}</style></head><body>' +
+    etiquetaPesoHTML(st.p, st.g, f, { precio: st.pr, nombre: st.nombre }) + '</body></html>');
+  doc.close();
+}
+
+function etiquetaPesoImprimir() {
+  const st = _etqpEstado();
+  if (st.error) { if (typeof showAdminToast === 'function') showAdminToast(st.error.replace(/&[a-z]+;/g, ''), 'error'); return; }
+  const f = etqpFormatoActual();
+  const fecha = etiquetaPesoFecha();
+  const cuerpo = etiquetaPesoDocumento(st.p, st.g, st.copias, f, { precio: st.pr, nombre: st.nombre, fecha: fecha });
+  if (!cuerpo) { if (typeof showAdminToast === 'function') showAdminToast('No se pudo armar la etiqueta', 'error'); return; }
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) { if (typeof showAdminToast === 'function') showAdminToast('El navegador bloqueó la ventana de impresión', 'error'); return; }
+  /* Lo último usado, para las dos ventanas de etiquetas (sin pisar las medidas de
+     "Personalizado" de la otra). */
+  try {
+    const u = _etqpUltimo();
+    u.formato = f.id;
+    if (f.hoja === 'termica') u.continuo = !!f.continuo;
+    localStorage.setItem(ETQ_ULTIMO_KEY, JSON.stringify(u));
+  } catch (e) { /* sin guardar: la próxima arranca como siempre */ }
+  win.document.write('<html><head><title>Etiquetas</title><style>' + etiquetaEstilos(f) + '</style></head><body>' + cuerpo + '</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function () { win.print(); }, 350);
+  if (typeof logAction === 'function') {
+    logAction('imprimir', 'Etiqueta con peso: "' + st.nombre + '" ' + _etqpPeso(st.g),
+      st.copias + (st.copias === 1 ? ' etiqueta' : ' etiquetas') + ', ' + _etqpPlata(st.pr.total) + ' (' + _etqpPlata(st.pr.kilo) + ' el kilo, ' + fecha + '), ' + f.nombre);
+  }
+}
+
 if (typeof window !== 'undefined') {
+  window.etiquetaPesoCodigoDe = etiquetaPesoCodigoDe;
+  window.etiquetaPesoDe = etiquetaPesoDe;
+  window.etiquetaPesoPrecio = etiquetaPesoPrecio;
+  window.etiquetaPesoNombre = etiquetaPesoNombre;
+  window.etiquetaPesoHTML = etiquetaPesoHTML;
+  window.etiquetaPesoDocumento = etiquetaPesoDocumento;
+  window.etiquetaPesoCandidatos = etiquetaPesoCandidatos;
+  window.etiquetaPesoFecha = etiquetaPesoFecha;
+  window.openEtiquetaPesoModal = openEtiquetaPesoModal;
+  window.closeEtiquetaPesoModal = closeEtiquetaPesoModal;
+  window.etqpBuscar = etqpBuscar;
+  window.etqpElegir = etqpElegir;
+  window.etqpRapido = etqpRapido;
+  window.etqpRender = etqpRender;
+  window.etqpFormatoActual = etqpFormatoActual;
+  window.etiquetaPesoImprimir = etiquetaPesoImprimir;
   window.refrescarBarrasProducto = refrescarBarrasProducto;
   window.imprimirEtiquetaProducto = imprimirEtiquetaProducto;
   window.imprimirHojaEtiquetas = imprimirHojaEtiquetas;

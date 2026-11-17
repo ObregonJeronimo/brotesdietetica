@@ -267,6 +267,11 @@ function pedirCantidadPeso(producto, opts) {
   const bloquear = !!opts.bloquear;
   const sinStock = g => bloquear && (stock <= 0 || (Number.isFinite(g) && g > stock));
   const hayTxt = () => (stock > 0 ? ' &middot; hay ' + _dlgPeso(stock) : ((bloquear || opts.avisarNegativo) ? ' &middot; sin stock' : ''));
+  /* GRAMOS YA DADOS (opts.gramos: la etiqueta de una bolsita con peso, 17/11/2026). Se usan sin
+     preguntar, igual que si se hubieran tipeado. Si el freno de stock los frenara, se abre el
+     dialogo con esos gramos puestos, para que se vea el aviso de siempre. */
+  const dados = parseInt(opts.gramos, 10);
+  if (Number.isFinite(dados) && dados > 0 && !sinStock(dados)) return Promise.resolve(dados);
 
   return new Promise(resolve => {
     const ov = document.createElement('div');
@@ -396,6 +401,7 @@ function pedirCantidadPeso(producto, opts) {
     ov.querySelector('.dlg-no').addEventListener('click', () => cerrar(null));
     ov.addEventListener('mousedown', e => { if (e.target === ov) cerrar(null); });
     document.addEventListener('keydown', onTecla, true);
+    if (Number.isFinite(dados) && dados > 0) inp.value = String(dados);
     /* Sin nada de stock el aviso sale de entrada, antes de escribir. */
     pintar();
 

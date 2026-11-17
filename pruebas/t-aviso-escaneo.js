@@ -63,7 +63,7 @@ function correr({ porPeso = false, cancela = false, yaTenia = 0, explota = false
   };
   const nombres = Object.keys(fakes);
   const fn = new Function(...nombres,
-    cuerpo('_avisarAgregado') + cuerpo('_agregarYAvisar') + ';return _agregarYAvisar;');
+    cuerpo('_lecNombre') + cuerpo('_lecPeso') + cuerpo('_avisarAgregado') + cuerpo('_agregarYAvisar') + ';return _agregarYAvisar;');
   const verCant = () => { const it = venta.find(x => x.id === 'p1'); return it ? it.cantidad : 0; };
   return fn(...nombres.map(n => fakes[n]))({ id: 'p1', nombre: 'Mani' }, agregar, verCant)
     .then(() => ({ avisos, venta }));

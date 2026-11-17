@@ -444,14 +444,15 @@ function opcionesGramosEscalas(escalas, ctx, ya, dsc, disponible) {
 }
 
 /* Suma gramos de un producto con escalas a la venta. Devuelve 'no' si no tiene
-   escalas (el que llama sigue como siempre), 'hecho' o 'cancelar'. */
-async function agregarGranelVenta(p, ctx) {
+   escalas (el que llama sigue como siempre), 'hecho' o 'cancelar'. Con `gramos` (la
+   etiqueta de una bolsita con peso) no se preguntan: ver pedirCantidadPeso. */
+async function agregarGranelVenta(p, ctx, gramos) {
   const escalas = escalasDe(p);
   if (!escalas.length) return 'no';
   const lineas = lineasDeEscalas(_escLista(ctx), escalas);
   const ya = lineas.reduce((s, it) => s + Number(it.cantidad || 0), 0);
   const dsc = _dscDeLineas(lineas, escalas, ctx);
-  const gr = await pedirCantidadPeso(p, opcionesGramosEscalas(escalas, ctx, ya, dsc));
+  const gr = await pedirCantidadPeso(p, Object.assign(opcionesGramosEscalas(escalas, ctx, ya, dsc), gramos > 0 ? { gramos: gramos } : {}));
   if (gr == null) return 'cancelar';
   return fijarGranelVenta(escalas, ya + gr, ctx, { dsc: dsc });
 }

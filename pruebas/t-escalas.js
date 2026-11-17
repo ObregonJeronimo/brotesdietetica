@@ -640,9 +640,9 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
     iEsc > html.indexOf('<script src="admin-dialogo.js"></script>'));
   const agregar = cuerpo(html, '_agregarItemVenta');
   t('al agregar, el granel con escalas va antes de pedir los gramos de siempre',
-    agregar.indexOf('agregarGranelVenta(p,ctx)') > 0 && agregar.indexOf('agregarGranelVenta(p,ctx)') < agregar.indexOf('pedirCantidadPeso'));
-  t('  y después de las preguntas de oculto y depurado', agregar.indexOf('agregarGranelVenta(p,ctx)') > agregar.indexOf("depuracionOfrecerRestaurar(p,'venderlo')"));
-  t('  si se cancela no agrega nada', /granel=await agregarGranelVenta\(p,ctx\);\s*if\(granel==='cancelar'\)return;/.test(agregar));
+    agregar.indexOf('agregarGranelVenta(p,ctx,gramos)') > 0 && agregar.indexOf('agregarGranelVenta(p,ctx,gramos)') < agregar.indexOf('pedirCantidadPeso'));
+  t('  y después de las preguntas de oculto y depurado', agregar.indexOf('agregarGranelVenta(p,ctx,gramos)') > agregar.indexOf("depuracionOfrecerRestaurar(p,'venderlo')"));
+  t('  si se cancela no agrega nada', /granel=await agregarGranelVenta\(p,ctx,gramos\);\s*if\(granel==='cancelar'\)return;/.test(agregar));
   t('  y si se agregó no agrega de nuevo', /if\(otraPresentacion\|\|granel==='hecho'\)\{/.test(agregar));
   const rMin = cuerpo(html, 'renderVentaItems'), rMay = cuerpo(html, 'renderVentaMayItems');
   [['minorista', rMin, 'ventaItems'], ['mayorista', rMay, 'ventaMayItems']].forEach(([n, r, lista]) => {
@@ -847,7 +847,7 @@ const renglones = lista => lista.map(i => i.id + ':' + i.cantidad + '@' + i.prec
       html.indexOf("const sp=(p&&typeof stockFrena==='function'&&stockFrena(ctx))?await stockParaVentaFresco(p,lista,ctx,1):null;") > 0 &&
       html.indexOf("if(sp&&sp.queda<1){await avisarSinStock(p,sp.hay,sp.ya);return;}") > 0);
     t('  los gramos de un granel sin escalas frenan en el diálogo',
-      html.indexOf("const gr = await pedirCantidadPeso(p,Object.assign({precioKg:precioKg},(sp&&typeof frenoDeGramos==='function')?frenoDeGramos(p,sp,async()=>{await _stockFresco([p.id]);return stockParaVenta(p,lista,ctx);}):{}));") > 0);
+      html.indexOf("const gr = await pedirCantidadPeso(p,Object.assign({precioKg:precioKg},(sp&&typeof frenoDeGramos==='function')?frenoDeGramos(p,sp,async()=>{await _stockFresco([p.id]);return stockParaVenta(p,lista,ctx);}):{},gramos>0?{gramos:gramos}:{}));") > 0);
     t('el diálogo de gramos: sin stock suficiente el botón no anda, ni Enter, y el aviso sale en rojo',
       /btnOk\.disabled = !ok \|\| frena;/.test(dialogo) && (dialogo.match(/&& !sinStock\(g\)\) cerrar\(g\);/g) || []).length === 2 &&
       dialogo.indexOf("avi.className = 'pz-aviso pz-bloqueo';") > 0 && /\.pz-aviso\.pz-bloqueo\{/.test(html));

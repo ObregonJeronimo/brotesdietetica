@@ -426,7 +426,7 @@ const ts = (d, h) => new Date(d + 'T' + (h || '12:00') + ':00');
     /window\._pedidoEstadoDestino=null;window\._ventaViandas=false;/.test(ADMIN));
   t('  el control final esta en las dos ventas (minorista y mayorista)',
     /viandasControlVenta\(ventaItems,'min'/.test(ADMIN) && /viandasControlVenta\(ventaMayItems,'may'/.test(ADMIN));
-  t('  y el freno al agregar, antes de cualquier pregunta', /async function _agregarItemVenta\(id, ctx, ocultoVisto\)\{\s*const p=[^\n]*\n[\s\S]{0,400}ventaTipoPermite\(p,ctx\)/.test(ADMIN));
+  t('  y el freno al agregar, antes de cualquier pregunta', /async function _agregarItemVenta\(id, ctx, ocultoVisto, gramos\)\{\s*const p=[^\n]*\n[\s\S]{0,900}ventaTipoPermite\(p,ctx\)/.test(ADMIN));
   t('Minoristas deja afuera las de viandas', /ventasFiltered=ventasData\.filter\(v=>v\.cajaTipo!=='viandas'\)/.test(ADMIN));
   t('editar una venta de viandas de una caja cerrada marca SU caja', /db\.collection\(\(ventaPrevia&&ventaPrevia\.cajaTipo==='viandas'\)\?'cajasViandas':'cajas'\)\.doc\(_cajaIdVenta\)/.test(ADMIN));
   t('el cobro del fiado: pregunta como pago y va a la caja de cada venta',

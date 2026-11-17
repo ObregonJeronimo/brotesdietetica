@@ -346,7 +346,8 @@ function procesarCodigoLeido(cod) {
       showAdminToast('Ese código ya es de "' + (otro.nombreMostrado || otro.nombre) + '"', 'error');
       return;
     }
-    if (typeof etiquetaProductoDe === 'function' && etiquetaProductoDe(cod, allProducts || [])) {
+    if ((typeof etiquetaProductoDe === 'function' && etiquetaProductoDe(cod, allProducts || [])) ||
+        (typeof etiquetaPesoDe === 'function' && etiquetaPesoDe(cod, allProducts || []))) {
       showAdminToast('Ese es un código impreso por el local, no uno de fábrica. ' +
                      'Este campo es para el código que trae el envase.', 'error');
       return;
@@ -369,6 +370,15 @@ function procesarCodigoLeido(cod) {
   if (_modalAbierto('asignarCodigoModal')) {
     showAdminToast('Resolvé primero el código que quedó pendiente, o cancelá.', 'error');
     return;
+  }
+
+  /* LA ETIQUETA DE UNA BOLSITA CON PESO (17/11/2026): trae el producto y los gramos. Solo si el
+     codigo no es, tal cual, el codigo de barras de algun producto. Una que no se reconoce no abre
+     "asignar codigo": se la guardaria como codigo de fabrica de otro producto. */
+  if (!coincidenciasCodigo(cod).length && typeof etiquetaPesoDe === 'function' &&
+      typeof allProducts !== 'undefined' && Array.isArray(allProducts)) {
+    const pesada = etiquetaPesoDe(cod, allProducts);
+    if (pesada) { _etiquetaConPeso(pesada); return; }
   }
 
   const prod = buscarPorCodigo(cod);
@@ -442,14 +452,75 @@ function procesarCodigoLeido(cod) {
 
 /* Escanear parado en Ventas: si no hay una venta abierta, se abre. Antes habia que
    tocar V primero, y con la pistola en la mano ese paso es el que se olvida. */
-async function _venderEscaneado(prod) {
+async function _venderEscaneado(prod, gramos) {
   if (!_modalAbierto('ventaModal')) {
     /* Caja viandas (10/10/2026): una vianda abre la venta de viandas, con su caja; lo
        demás, la minorista. Con una venta ya abierta, agregar avisa si no va ahí. */
     if (typeof esVianda === 'function' && esVianda(prod) && typeof abrirVentaViandas === 'function') await abrirVentaViandas();
     else if (typeof openVentaModal === 'function') openVentaModal();
   }
+  if (gramos > 0) { _agregarYAvisar(prod, id => addVentaItem(id, gramos), () => _cantGrupoEnVenta('min', prod), gramos); return; }
   _agregarYAvisar(prod, addVentaItem, () => _cantEnVenta('min', prod.id));
+}
+
+/* La etiqueta de una bolsita con peso (etiquetaPesoDe, admin-etiquetas.js): el producto con sus
+   gramos, a donde corresponda. Es escanear la etiqueta de siempre y tipear los gramos, sin el paso
+   de tipearlos: la venta los cobra con la misma cuenta (precio del kilo del dia, bolsas de granel). */
+function _etiquetaConPeso(r) {
+  if (!r.producto) {
+    showAdminToast(r.varios.length
+      ? 'El código de esa etiqueta lo tienen ' + r.varios.length + ' productos (' +
+        r.varios.slice(0, 2).map(p => p.nombreMostrado || p.nombre).join(', ') + (r.varios.length > 2 ? '...' : '') +
+        '). Corregí el repetido antes de escanearla.'
+      : 'Esa etiqueta es de un producto que ya no está en el catálogo.', 'error');
+    return;
+  }
+  const prod = r.producto, g = r.gramos;
+  const nom = '"' + _lecNombre(prod, g) + '"';
+  if (prod.tipoVenta !== 'peso') {
+    showAdminToast('Esa etiqueta trae ' + _lecPeso(g) + ', pero ' + nom + ' ahora se vende por unidad. Cargalo a mano.', 'error');
+    return;
+  }
+  if (_modalAbierto('ventaModal')) { _agregarYAvisar(prod, id => addVentaItem(id, g), () => _cantGrupoEnVenta('min', prod), g); return; }
+  if (_modalAbierto('ventaMayModal')) { _agregarYAvisar(prod, id => addVentaMayItem(id, g), () => _cantGrupoEnVenta('may', prod), g); return; }
+  /* En una compra los gramos de la bolsita no dicen nada: entra el producto, como con la de siempre. */
+  if (_modalAbierto('compraModal')) { if (typeof compraEscanear === 'function') compraEscanear(prod); return; }
+  if (document.querySelector('.modal-overlay.show')) {
+    showAdminToast('Etiqueta de ' + nom + ' (' + _lecPeso(g) + '). Cierre esta ventana para usarla.', 'error');
+    return;
+  }
+  const _sec = (document.querySelector('.section-content.active') || {}).id || '';
+  if (_sec === 'sec-ventas' || _sec === 'sec-ventasViandas') { _venderEscaneado(prod, g); return; }
+  if (_sec === 'sec-products') { _fichaEscaneada(prod); return; }
+  if (typeof pedirConfirmacion === 'function') {
+    pedirConfirmacion(nom + ' · ' + _lecPeso(g), {
+      titulo: 'Etiqueta escaneada',
+      aceptar: 'Cargarla en una venta',
+      cancelar: 'Ver su ficha',
+      icono: 'bi-upc-scan'
+    }).then(function (vender) { if (vender) _venderEscaneado(prod, g); else _fichaEscaneada(prod); });
+  } else {
+    _fichaEscaneada(prod);
+  }
+}
+
+function _lecPeso(g) { return typeof _dlgPeso === 'function' ? _dlgPeso(g) : g + ' g'; }
+
+/* El nombre en los avisos de una etiqueta con peso: el del grupo si tiene bolsas de granel
+   ("Garbanzo", no "Garbanzo x 1 kg"), como lo muestra la venta. */
+function _lecNombre(p, gramos) {
+  return (gramos > 0 && typeof etiquetaPesoNombre === 'function') ? etiquetaPesoNombre(p) : (p.nombreMostrado || p.nombre);
+}
+
+/* Cuantos gramos hay de ese producto en la venta, contando todas sus bolsas de granel: la venta
+   reparte un granel con bolsas en renglones de cada bolsa, con su propio id. */
+function _cantGrupoEnVenta(ctx, prod) {
+  const esc = (typeof escalasDe === 'function') ? escalasDe(prod) : [];
+  const ids = new Set(esc.length ? esc.map(e => e.id) : [prod.id]);
+  const lista = (ctx === 'may')
+    ? (typeof ventaMayItems !== 'undefined' ? ventaMayItems : [])
+    : (typeof ventaItems !== 'undefined' ? ventaItems : []);
+  return (lista || []).filter(x => x && ids.has(x.id)).reduce((s, x) => s + Number(x.cantidad || 0), 0);
 }
 
 function _fichaEscaneada(prod) {
@@ -463,8 +534,8 @@ function _fichaEscaneada(prod) {
   }
 }
 
-function _avisarAgregado(p) {
-  showAdminToast('Agregado: ' + (p.nombreMostrado || p.nombre), 'success');
+function _avisarAgregado(p, gramos) {
+  showAdminToast('Agregado: ' + _lecNombre(p, gramos) + (gramos > 0 ? ' (' + _lecPeso(gramos) + ')' : ''), 'success');
 }
 
 /* Cuanto hay de ese producto en la venta que se esta cargando. Se lee la lista
@@ -494,7 +565,7 @@ function _cantEnVenta(ctx, id) {
    No se hace await de esto arriba a proposito: el que llama es el manejador de
    teclas del lector, que no tiene nada que esperar. El cartel sale cuando la
    persona termina de responder. */
-async function _agregarYAvisar(prod, agregar, verCantidad) {
+async function _agregarYAvisar(prod, agregar, verCantidad, gramos) {
   const antes = verCantidad();
   try {
     await agregar(prod.id);
@@ -502,7 +573,7 @@ async function _agregarYAvisar(prod, agregar, verCantidad) {
     console.warn('No se pudo agregar el producto escaneado:', e);
     return;
   }
-  if (verCantidad() > antes) _avisarAgregado(prod);
+  if (verCantidad() > antes) _avisarAgregado(prod, gramos);
 }
 
 /* ============================ APRENDER ============================ */
