@@ -51,6 +51,15 @@ function costoEnvio(subtotalConDesc, tipoEntrega){
     if (PEDIDOS.envioGratisActivo && subtotalConDesc >= PEDIDOS.envioGratisDesde) return 0;
     return PEDIDOS.envioPrecio;
 }
+/* El minimo de compra es solo para el envio a domicilio (pedido de la clienta, 16/11/2026):
+   retirando en el local se puede comprar cualquier monto, y sin envios no hay minimo. Antes el
+   minimo valia para todo: el boton Confirmar del carrito no dejaba seguir, ni para retirar.
+   Se mide sobre el subtotal de los productos, antes del cupon, como lo media el carrito.
+   Devuelve cuanto falta para poder pedir con envio (0 = alcanza, o no hay minimo). */
+function faltaParaEnvio(subtotal){
+    if(!PEDIDOS.haceEnvios || !(PEDIDOS.minimoPedido>0)) return 0;
+    return Math.max(0, PEDIDOS.minimoPedido - subtotal);
+}
 async function loadPedidosConfig(){
     try{
         const snap = await db.collection('config').doc('pedidos').get();
@@ -977,7 +986,7 @@ function updateCartUI() {
     if(count)count.textContent=ti;if(cta)cta.textContent=ti;if(total)total.textContent='$'+formatPrice(tp);
     if(carrito.length===0){if(empty)empty.style.display='block';if(footer)footer.style.display='none';body?.querySelectorAll('.cart-item').forEach(i=>i.remove());}
     else{if(empty)empty.style.display='none';if(footer){footer.style.display='';footer.style.removeProperty('display');}renderCartItems();}
-    if(ckBtn){const min=PEDIDOS.minimoPedido;ckBtn.disabled=carrito.length===0||tp<min;if(min>0&&tp>0&&tp<min){ckBtn.innerHTML='<i class="bi bi-bag-check"></i> Mínimo $'+formatPrice(min);}else{ckBtn.innerHTML='<i class="bi bi-bag-check"></i> Confirmar';}}
+    if(ckBtn){ckBtn.disabled=carrito.length===0;ckBtn.innerHTML='<i class="bi bi-bag-check"></i> Confirmar';}
     updateShippingBar(tp);
 }
 function renderCartItems() {
@@ -989,7 +998,7 @@ function renderCartItems() {
 function updateShippingBar(total) {
     const msg=document.getElementById('shippingMsg'),fill=document.getElementById('shippingBarFill'),wrap=document.getElementById('shippingProgress');
     if(!msg||!fill)return;
-    const MIN=PEDIDOS.minimoPedido, GRATIS=(PEDIDOS.haceEnvios&&PEDIDOS.envioGratisActivo)?PEDIDOS.envioGratisDesde:0;
+    const MIN=PEDIDOS.haceEnvios?PEDIDOS.minimoPedido:0, GRATIS=(PEDIDOS.haceEnvios&&PEDIDOS.envioGratisActivo)?PEDIDOS.envioGratisDesde:0;
     /* Sin minimo y sin envio gratis no hay nada que mostrar */
     if(MIN<=0 && !GRATIS){ if(wrap)wrap.style.display='none'; return; }
     if(wrap)wrap.style.display='';
@@ -998,8 +1007,8 @@ function updateShippingBar(total) {
     const pct = Math.min(100, meta>0 ? (total/meta*100) : 0);
     _renderMarcadoresEnvio(MIN, GRATIS, meta);
     if(MIN>0 && total<MIN){
-        msg.textContent='Faltan $'+formatPrice(MIN-total)+' para el pedido minimo ($'+formatPrice(MIN)+')';
-        msg.className='shipping-msg under-min'; fill.style.width=pct+'%'; fill.style.background='var(--color-danger)';
+        msg.textContent='Envío a domicilio desde $'+formatPrice(MIN)+': faltan $'+formatPrice(MIN-total)+'. Retirando en el local no hay mínimo.';
+        msg.className='shipping-msg near-free'; fill.style.width=pct+'%'; fill.style.background='#a79066';
     } else if(GRATIS && total<GRATIS){
         msg.textContent='Faltan $'+formatPrice(GRATIS-total)+' para envio gratis!';
         msg.className='shipping-msg near-free'; fill.style.width=pct+'%'; fill.style.background='#a79066';
@@ -1007,7 +1016,7 @@ function updateShippingBar(total) {
         msg.textContent='Tenes envio gratis!';
         msg.className='shipping-msg free-shipping'; fill.style.width='100%'; fill.style.background='var(--color-primary)';
     } else {
-        msg.textContent='Pedido minimo alcanzado';
+        msg.textContent='Ya podés pedir con envío a domicilio';
         msg.className='shipping-msg free-shipping'; fill.style.width='100%'; fill.style.background='var(--color-primary)';
     }
 }
@@ -1080,7 +1089,7 @@ function openCheckoutModal(){
             if(dEl&&!dEl.value&&saved.direccion)dEl.value=saved.direccion;
         }catch(e){}
     }
-    setCheckoutEntrega(PEDIDOS.haceEnvios?'envio':'retiro');
+    setCheckoutEntrega(PEDIDOS.haceEnvios&&!faltaParaEnvio(carrito.reduce((s,i)=>s+subtotalCarrito(i),0))?'envio':'retiro');
     aplicarModoEntrega();
     /* Limpiar cupón al abrir nuevo checkout */
     quitarCupon();
@@ -1133,10 +1142,16 @@ function aplicarModoEntrega(){
 function setCheckoutEntrega(tipo){
     /* Sin envios no se puede elegir envio ni aunque llamen a mano a la funcion */
     if(!PEDIDOS.haceEnvios) tipo='retiro';
+    /* Sin llegar al minimo del envio, solo retiro: el boton de envio queda apagado y se dice cuanto falta. */
+    const _falta=faltaParaEnvio(carrito.reduce((s,i)=>s+subtotalCarrito(i),0));
+    if(_falta>0) tipo='retiro';
     window._chkTipoEntrega=tipo==='retiro'?'retiro':'envio';
     document.querySelectorAll('.chk-entrega-btn').forEach(b=>{
         b.classList.toggle('active',b.getAttribute('data-tipo')===window._chkTipoEntrega);
+        if(b.getAttribute('data-tipo')==='envio') b.disabled=_falta>0;
     });
+    const _aviso=document.getElementById('chkEnvioMinimo');
+    if(_aviso){_aviso.style.display=_falta>0?'':'none';_aviso.textContent=_falta>0?'El envío a domicilio es para compras desde $'+formatPrice(PEDIDOS.minimoPedido)+' (te faltan $'+formatPrice(_falta)+'). Retirando en el local no hay mínimo.':'';}
     /* Mostrar/ocultar campo direccion segun tipo */
     const dirGroup=document.getElementById('chkDireccionGroup');
     const dirInput=document.getElementById('chkDireccion');
@@ -1238,6 +1253,7 @@ async function confirmCheckout(){
     const telefonoLimpio=telefono.replace(/\D/g,'');
     if(telefonoLimpio.length<8){showToast('El teléfono debe tener al menos 8 dígitos','error');document.getElementById('chkTelefono').focus();return;}
     if(tipoEntrega==='envio'&&!direccion){showToast('Para envío necesitamos tu dirección','error');document.getElementById('chkDireccion').focus();return;}
+    if(tipoEntrega==='envio'&&faltaParaEnvio(carrito.reduce((s,i)=>s+subtotalCarrito(i),0))>0){showToast('El envío a domicilio es para compras desde $'+formatPrice(PEDIDOS.minimoPedido)+'. Retirando en el local no hay mínimo.','error');setCheckoutEntrega('retiro');return;}
     /* Guardar datos en localStorage para próxima vez */
     try{localStorage.setItem('brotes_checkout_data',JSON.stringify({nombre,apellido,telefono,direccion,notas,tipoEntrega}));}catch(e){}
     const btn=document.getElementById('chkConfirmBtn');

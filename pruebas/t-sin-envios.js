@@ -53,7 +53,7 @@ const t = (d, c, extra) => {
   else { fail++; console.log('  FALLA ' + d + (extra !== undefined ? '   [' + extra + ']' : '')); }
 };
 
-const FUNCIONES = ['_num', 'costoEnvio', 'loadPedidosConfig', 'aplicarModoEntrega',
+const FUNCIONES = ['_num', 'costoEnvio', 'faltaParaEnvio', 'loadPedidosConfig', 'aplicarModoEntrega',
   'setCheckoutEntrega', 'updateCheckoutResumen', 'esPesoProd', 'subtotalCarrito',
   'esc', 'fmtGramos', 'formatPrice'].map(cuerpo).join('\n');
 
@@ -149,8 +149,11 @@ function armar(configEnLaBase) {
     /300 g/.test(r) && /5\.400/.test(r) && !/5\.400\.000/.test(r));
 
   console.log('\nY SI MAÑANA SE PRENDE, TIENE QUE VOLVER A ANDAR');
+  /* Desde el 16/11/2026 el minimo es solo para el envio: debajo del minimo no se puede elegir
+     envio (eso lo prueba t-envio-minimo.js). Aca el minimo es $10.000, que el carrito alcanza
+     justo, para seguir probando que el envio se elige y se cobra. */
   a = armar({ haceEnvios: true, envioPrecio: 2000, envioGratisActivo: true,
-              envioGratisDesde: 100000, minimoPedido: 30000, descontarStock: true });
+              envioGratisDesde: 100000, minimoPedido: 10000, descontarStock: true });
   await a.api.cargarConfig();
   t('la config lo prende', a.api.PEDIDOS.haceEnvios === true);
   t('el selector se muestra de nuevo',

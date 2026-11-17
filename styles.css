@@ -477,6 +477,9 @@ img { max-width: 100%; height: auto; }
 .chk-entrega-btn:active { border-color: var(--color-primary); }
 @media(hover:hover){.chk-entrega-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }}
 .chk-entrega-btn.active { background: var(--color-primary); border-color: var(--color-primary); color: white; font-weight: 600; }
+/* Sin llegar al minimo del envio (16/11/2026): el envio queda apagado y abajo se dice cuanto falta. */
+.chk-entrega-btn:disabled { opacity: 0.45; cursor: not-allowed; color: var(--color-text-light); }
+.chk-envio-minimo { margin-top: 0.6rem; padding: 0.55rem 0.75rem; border-radius: 8px; background: #f4efe4; color: var(--color-secondary-dark); font-size: 0.85rem; line-height: 1.4; }
 .chk-retiro-info { font-size: 0.82rem; color: var(--color-text-light); margin: 0.25rem 0 0; padding: 0.5rem 0.75rem; background: #f3f3ee; border-radius: 8px; }
 .chk-mapa-link { color: var(--color-primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; transition: color 0.15s; }
 .chk-mapa-link:active { color: var(--color-primary-dark); text-decoration: underline; }
