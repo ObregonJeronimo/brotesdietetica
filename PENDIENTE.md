@@ -109,6 +109,13 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Hecho el 18/11 (local, sin subir)
+
+- **La lista de precios en PDF con filtros** (audio de la clienta: quería exportar solo las tartas y le salía todo): "Exportar
+  PDF" y "Exportar PDF M" abren una ventana con categoría, subcategoría, proveedor y nombre. Probado en el sandbox; suite 5017,
+  0 fallas. Ver §1-bis BI. Visto de paso en producción: a "LECHE DE COCO EN POLVO x 1 Kg" le quedó el precio en $0 el 18/11
+  a las 13:15 (antes $32.000): que la clienta lo revise (no se tocó).
+
 ### Hecho el 17/11 (local, sin subir)
 
 - **Etiqueta para bolsita con peso** (pedido del comercio): botón "Etiqueta con peso" en Productos. La etiqueta lleva el
@@ -3730,6 +3737,40 @@ con granel suelto, con oferta y con bolsas, la ventana de gramos de verdad, la e
   salir más baratas que la suma de las etiquetas (la regla de siempre); en un granel suelto puede haber $1 de redondeo.
 
 **Falta**: probarlo con la impresora y la pistola del local. **Al subir** (solo panel): avisarle a la clienta dónde está y F5.
+
+### BI) La lista de precios en PDF, con filtros · HECHO el 18/11/2026, SIN SUBIR (`7657f96`)
+
+**Lo pedido** (la clienta, por audio del 18/11): "quiero exportar una lista de productos que vendemos, en este caso las tartas";
+elegía en Productos la categoría "Viandas y comidas listas", "viandas" en la subcategoría y "Visibles y ocultos", y le salía la
+lista completa. Thiago: ver si nos faltó a nosotros o lo hacían mal.
+
+**Lo encontrado** (solo lectura de producción): en el Historial, a las 15:03 "Exportacion PDF MAYORISTA: 19 productos" y a las
+15:05 y 15:07 "Exportacion PDF catalogo: 697 productos" (todos los visibles). **Nos faltaba a nosotros**: `exportCatalogoPDF` y
+`exportMayoristaPDF` armaban el PDF con todo lo visible, sin ningún filtro; los de la tabla de Productos solo cambian lo que se
+ve. Además, en producción "Viandas y comidas listas" tiene 87 productos (60 visibles) y ninguno con subcategoría (ni hay una
+creada en `_categorias`): las 10 tartas son visibles y están ahí, sin subcategoría.
+
+**Lo hecho** (`admin-lista-precios.js`, nuevo; usa `reporteCostosFiltrar` y la cara del reporte de costos):
+- "Exportar PDF" y "Exportar PDF M" (desde `openMayoristaPdfModal`) abren "Lista de precios para clientes" / "Lista de precios
+  mayorista": categoría, subcategoría (con una categoría elegida), proveedor y nombre (sin tildes ni mayúsculas, palabra por
+  palabra). Arranca con los filtros de la tabla de Productos. Muestra lo que va a salir (los primeros 100 por nombre, con el
+  precio del PDF: al público con la oferta y la caja cerrada al mayorista; en la mayorista solo los que dejan ganancia) y el total.
+  Con cero, no deja bajar. Van los visibles con precio, como siempre.
+- `exportCatalogoPDF(priceMap, mayorista, filtro)` y `exportMayoristaPDF(filtro)`: `filtro = { ids, titulo }`; el PDF se arma igual
+  que antes, con solo esos productos, y debajo de la barra dice "Productos: Viandas y comidas listas · "tarta"". El aviso y el
+  Historial dicen el filtro. Sin filtros, `filtro` es null y sale la lista de siempre.
+- Para las tartas: categoría "Viandas y comidas listas" + "tarta" en el nombre (sin la categoría entra también "Tapa De Tarta Dimax",
+  de Panificados sin TACC).
+
+**Pruebas**: `t-lista-precios.js` (29: el precio, los filtros con los datos como en producción, el PDF de verdad con y sin filtro, al
+público y mayorista, y los botones). Suite 5017, 0 fallas.
+**Sandbox** (con tartas cargadas en el emulador como en producción): en Productos, categoría Viandas y "Visibles y ocultos" en la
+tabla → "Exportar PDF" abrió la ventana con la categoría puesta (5 productos, sin la tarta oculta, la de oferta a $5.400); con
+"tarta" → 4; el PDF (leído por dentro) trae solo esas 4 con sus precios y "Productos: Viandas y comidas listas · "tarta"". Sin
+filtros: 99 en la ventana y 99 en el PDF, sin el renglón. Cancelar no baja nada; sin resultados el botón queda apagado. Mayorista con
+"Semillas": 9 en la ventana y los mismos 9 en el PDF.
+
+**Al subir** (solo panel): avisarle a la clienta (+F5).
 
 ---
 
