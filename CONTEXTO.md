@@ -595,6 +595,20 @@ producción (de los "gramajes" viejos).
 - En una notebook de 1366 × 768: 125%, 150% y 200% sin ningún número cortado ni nada que se salga de costado. Detalle en
   `PENDIENTE.md` §1-bis BD (con la segunda vuelta: sin 250, aviso del 200% y "¿Mantener?").
 
+### 5.18 Lo del 16 al 18/11 (subido a producción el 18/11, push hasta `b9e8cea`, verificado)
+
+- **El logo en los productos sin foto** (tienda): sin foto, con el brote gris o con una foto que no abre, la tarjeta, la ventana del
+  producto y el carrito muestran `img/sin-foto-tienda.svg`. El panel sigue igual. `PENDIENTE.md` §1-bis BE.
+- **Colores del sistema** (panel, Configuración, debajo de la letra): Normal, Alto contraste y Personalizar (fondo, bordes, letra
+  gris, color de lo elegido, renglón bajo el mouse), por computadora, en el momento. `admin-colores.js` en el `<head>`; cada ajuste
+  pone `data-col-*` en `<html>`; con todo "como siempre", el panel queda igual. §1-bis BF.
+- **El mínimo de compra solo para el envío** (tienda): el retiro no tiene mínimo **desde el 18/11**; con envíos, debajo del mínimo no se
+  puede elegir envío. Los envíos siguen apagados en producción. §1-bis BG.
+- **Etiqueta para bolsita con peso** (panel, Productos, "Etiqueta con peso"): EAN-13 `29` + código interno + gramos; al escanearla
+  entra a la venta con esos gramos, con la misma cuenta que tipearlos. §1-bis BH.
+- **La lista de precios en PDF con filtros** (Productos, "Exportar PDF" y "Exportar PDF M"): categoría, subcategoría, proveedor y
+  nombre; el PDF dice de qué es. `admin-lista-precios.js`. §1-bis BI.
+
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
 - **Sin stock suficiente se puede vender, con aviso**, y el negativo **aparece** en el Centro de
@@ -666,6 +680,10 @@ producción (de los "gramajes" viejos).
     que se elige en cada computadora, que después de cambiar tiene 15 segundos para apretar Aceptar (si no, vuelve solo al de
     antes), y que apriete F5.
 
+14. **Lo del 16 al 18/11** (§5.18, subido el 18/11): avisarle a la clienta (+F5); probar la etiqueta con peso con la impresora y la
+    pistola del local; prender los envíos cuando lo pidan (dato de producción: la clienta o yo con OK, revisando el costo de $2.000 y
+    el envío gratis); que la clienta revise "LECHE DE COCO EN POLVO x 1 Kg", que quedó en $0 el 18/11 (antes $32.000).
+
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 
 1. **El panel no puede crear pedidos telefónicos.** `firestore.rules` solo deja crear pedidos web.
@@ -733,8 +751,8 @@ Thiago le pasa este mensaje a Claude después del `/clear`:
 Hola Claude. Veníamos trabajando juntos en el proyecto Brotes Dietética (C:\Users\Thiago\Desktop\brotesdietetica) y acabo de hacer un /clear para liberar contexto, así que no tenés el historial del chat. No se perdió nada: todo está en el repo, en CONTEXTO.md, en PENDIENTE.md y en tu memoria del proyecto.
 
 Para retomar como veníamos, antes de hacer cualquier cosa:
-1. Leé entero CONTEXTO.md, en la raíz del repo: qué es el sistema (tienda online + panel de administración de una dietética, Firebase + Vercel), cómo trabajamos (sección 4), todo lo hecho (sección 5, hasta la 5.17), las decisiones tomadas (6) y los pendientes (7).
-2. Mirá PENDIENTE.md: lo de arriba de todo (Hecho el 10/11, el 05/11, el 29/10 y el 22/10) y las últimas secciones del 1-bis: BA (reporte de costos), BB (lecturas de la base), BC (el error de permisos al vender) y BD (el tamaño de la letra).
+1. Leé entero CONTEXTO.md, en la raíz del repo: qué es el sistema (tienda online + panel de administración de una dietética, Firebase + Vercel), cómo trabajamos (sección 4), todo lo hecho (sección 5, hasta la 5.18), las decisiones tomadas (6) y los pendientes (7).
+2. Mirá PENDIENTE.md: lo de arriba de todo (la subida del 18/11 y lo hecho del 16 al 18/11) y las últimas secciones del 1-bis: BE (logo sin foto en la tienda), BF (colores del sistema), BG (mínimo solo para envío), BH (etiqueta con peso) y BI (lista de precios con filtros).
 3. Revisá tu memoria del proyecto (MEMORY.md y sus archivos).
 
 Las reglas de trabajo siguen todas igual. Las más importantes:
@@ -747,9 +765,9 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Lo que toca plata (precios, costos, totales) va primero y claro, con números. Los números nunca pueden fallar.
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 
-Dónde estamos (16/11): todo está subido a producción hasta 57e0c1b, verificado; local solo queda el commit de documentación de esa subida (b30c3ba), que va con el próximo push. Lo último, de más viejo a más nuevo: el 29/10, el reporte de costos en "Exportar Costos" (PENDIENTE.md §1-bis BA) y que guardar una venta lea solo esa venta en vez de releer todo el mes (§1-bis BB, parte B); el 05/11, el arreglo del error "Missing or insufficient permissions" al vender: a la clienta se le había cerrado la sesión con una venta abierta, y ahora la pantalla de ingreso tapa todo, avisa y no se pierde lo que estaba cargando (§1-bis BC); el 10/11, el tamaño de la letra del panel (§1-bis BD: "Cambiar tamaño de fuente del sistema" arriba de todo en Configuración, 100, 125, 150 y 200%, se guarda en cada computadora, el 200% avisa que es muy grande, y después de recargar pregunta "¿Mantener?" con 15 segundos: si no se acepta, vuelve solo al tamaño de antes).
+Dónde estamos (18/11): todo está subido a producción hasta b9e8cea, verificado; local solo queda la documentación de esa subida, que va con el próximo push. Lo último (subido el 18/11): el logo de Brotes en los productos sin foto de la tienda (§1-bis BE); "Colores del sistema" en Configuración, con Normal, Alto contraste y Personalizar (§1-bis BF); el mínimo de compra solo para envío, así que el retiro ya no tiene mínimo, pero los envíos siguen apagados (§1-bis BG); "Etiqueta con peso" en Productos, para bolsitas con un peso que al escanearlas entran a la venta con esos gramos (§1-bis BH); y la lista de precios en PDF con filtros por categoría, subcategoría, proveedor y nombre (§1-bis BI).
 
-Pendientes: avisarle a la clienta lo del reporte de costos, lo de la sesión, los 114 productos de GR y la letra (y que apriete F5). La optimización de lecturas que falta (C, D y E de §1-bis BB) la vemos más adelante; C necesita mi OK para escribir en producción. El resto de los pendientes está en CONTEXTO.md §7.
+Pendientes: avisarle a la clienta lo del 18/11 (y que apriete F5); probar la etiqueta con peso con la impresora y la pistola del local; prender los envíos cuando lo pida (es un dato de producción); que la clienta revise la leche de coco en polvo, que quedó en $0. La optimización de lecturas que falta (C, D y E de §1-bis BB) la vemos más adelante; C necesita mi OK para escribir en producción. El resto de los pendientes está en CONTEXTO.md §7.
 
 Cuando termines de leer, confirmame en pocas líneas que tenés el contexto y esperá: te explico lo que sigue en el próximo mensaje. No arranques nada por tu cuenta.
 ```

@@ -109,20 +109,34 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
-### Hecho el 18/11 (local, sin subir)
+### Subido a producción el 18/11/2026 (push `57e0c1b..b9e8cea`, verificado)
+
+- Thiago: "cerrá el sandbox, comprobá que todo esté OK y pusheá todo a producción". Sube BE (logo sin foto), BF (colores), BG
+  (mínimo solo para envío), BH (etiqueta con peso) y BI (lista de precios con filtros), con sus docs: 11 commits. Panel y tienda;
+  sin reglas, funciones ni datos.
+- Antes: remoto sin cambios nuevos, `npm run build` sin diferencias, `npm run check` bien, suite 5017 con 0 fallas, sandbox cerrado
+  con los puertos verificados.
+- Verificado: Vercel sirve lo mismo que el repo (12 archivos por huella y /admin); la tienda carga 697 productos sin errores, con la
+  regla nueva (el carrito dice "Confirmar", el retiro sin mínimo) y el logo en los que no tienen foto; la pantalla de ingreso del
+  panel carga sin errores y sin iniciar sesión, con los botones y ventanas nuevos.
+- **Desde ahora el retiro no tiene mínimo.** Los envíos siguen apagados (`haceEnvios: false`): prenderlos es un dato (la clienta en
+  Configuración de pedidos, o yo con OK), revisando el costo ($2.000) y el envío gratis.
+- Falta avisarle a la clienta (+F5) y probar la etiqueta con peso con la impresora y la pistola del local.
+
+### Hecho el 18/11 (subido el 18/11)
 
 - **La lista de precios en PDF con filtros** (audio de la clienta: quería exportar solo las tartas y le salía todo): "Exportar
   PDF" y "Exportar PDF M" abren una ventana con categoría, subcategoría, proveedor y nombre. Probado en el sandbox; suite 5017,
   0 fallas. Ver §1-bis BI. Visto de paso en producción: a "LECHE DE COCO EN POLVO x 1 Kg" le quedó el precio en $0 el 18/11
   a las 13:15 (antes $32.000): que la clienta lo revise (no se tocó).
 
-### Hecho el 17/11 (local, sin subir)
+### Hecho el 17/11 (subido el 18/11)
 
 - **Etiqueta para bolsita con peso** (pedido del comercio): botón "Etiqueta con peso" en Productos. La etiqueta lleva el
   producto, los gramos, el precio y la fecha; al escanearla entra a la venta con esos gramos, sin preguntar, y se cobra
   con la misma cuenta que si se tipearan. Probado en el sandbox; suite 4987, 0 fallas. Ver §1-bis BH.
 
-### Hecho el 16/11 (local, sin subir)
+### Hecho el 16/11 (subido el 18/11)
 
 - **El logo de Brotes en los productos sin foto** (tienda, pedido de la clienta): tarjeta, ventana del producto y carrito. Ver §1-bis BE.
 - **Colores del sistema** (panel, pedido de la clienta: "la escala de grises confunde"): Normal, Alto contraste y Personalizar
