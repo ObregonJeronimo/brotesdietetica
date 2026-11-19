@@ -3788,7 +3788,7 @@ filtros: 99 en la ventana y 99 en el PDF, sin el renglón. Cancelar no baja nada
 
 ---
 
-### BJ) El precio en la ficha se puede escribir · HECHO el 19/11/2026, SIN SUBIR
+### BJ) El precio en la ficha se puede escribir (mostrador y mayorista) · HECHO el 19/11/2026, SIN SUBIR
 
 **Lo pedido** (la clienta, 19/11): poder escribir en la casilla "Precio" de la ficha, que estaba bloqueada (salía siempre de costo +
 %). Thiago: que el % se recalcule solo, y que los dos problemas de abajo avisen con un cartelito al guardar. Solo el de mostrador.
@@ -3820,10 +3820,6 @@ y la ficha al abrir mostraba esa cuenta, no el precio guardado. Entonces:
 **Ojo**: un precio escrito, como $25.300, deja de ser redondo la próxima vez que cambie el costo (pasaba igual con los redondeados).
 Al escribir el precio cambia el %, así que aparece el botón de siempre "Subir mayorista a X%" (no se aplica solo).
 
-**Visto de paso, sin tocar (el mayorista)**: guardar la ficha también recalcula el mayorista con costo + % mayorista, redondeado a
-$50. En producción cambiaría en 458 productos: 242 solo por el redondeo a $50 (sube menos de $50), 144 con % mayorista en 0 y un
-mayorista cargado (queda sin mayorista: se cobra el de mostrador, regla del 01/10), 45 suben $50 o más y 27 bajan (Anís estrellado x
-10 Kg de $35.666 a $29.950). Contado a Thiago el 19/11; espera qué hacer.
 
 **Pruebas**: `t-precio-ficha.js` (49: el % justo con 5.000 casos al azar, el redondeado, el sin costo, el normal, escribir, el
 cartelito con sus botones, por peso, y en admin.html), `t-costos-viejos.js` actualizado (2). Suite 5067, 0 fallas.
@@ -3834,6 +3830,40 @@ Chía por peso escrita a $22.000 el kilo → 73,23 %. Pistacho a $3.000 (costo $
 costo)" → Volver no guarda. Compra con costos nuevos: Avellana $16.000 → $28.109 (75,68 %), Chía $13.000 → $22.520, Harina sin % queda
 $32.000. Venta: Avellana $28.109 + Chía 250 g $5.630 + Maní 500 g $6.750 + Harina $32.000 = $72.489, guardada igual y con el stock
 descontado. La tienda muestra los mismos precios; la tabla de Productos, 75.68% y $28.109. Sin errores de consola.
+
+**El mayorista, igual** (pedido de Thiago el mismo 19/11, después de contarle lo de abajo): "hacé lo mismo que el mostrador".
+Guardar la ficha recalculaba el mayorista con costo + % mayorista redondeado a $50, y en producción eso cambiaba 458: 242 solo por el
+redondeo (menos de $50; son de antes de la regla del 01/10, como Damasco x 2,5 Kg $11.729 → $11.750), 144 con % mayorista en 0 y un
+mayorista cargado (igual al costo; quedaban sin mayorista y se cobraba el de mostrador), 45 subían $50 o más y 27 bajaban (Anís
+estrellado x 10 Kg, de $35.666 a $29.950). Ahora:
+- La casilla "Precio" del mayorista se escribe (`mayoristaEscritoFicha`): con costo, el % mayorista se ajusta (`pctParaPrecio`; $20.000
+  con costo $14.900 → 34,23 %); un 0 escrito deja el % en 0 (sin mayorista). Un mayorista escrito que no es múltiplo de $50 se guarda tal
+  cual; cuando cambie el costo, vuelve a la cuenta redondeada.
+- `_mayFijo` como `_precioFijo`, con el costo y el % mayorista: `mayoristaFichaBase` / `mayoristaFichaFinal` en `calcPrecioModal`,
+  `saveProduct` y la primera fila de la tabla de tamaños. `precioFichaAlAbrir` toma el % mayorista del producto (openModal lo pone en
+  la ficha después).
+- Nota debajo ("Mayorista escrito a mano o de antes. Con costo + 30%, redondeado a $50, daría $14.300", "Sin % mayorista: con la cuenta
+  no tendría precio mayorista", "Sin precio mayorista ... daría $13.000", "El % mayorista se ajustó a ...", y "Ojo: casi no deja ganancia").
+- Al guardar (`avisoPrecioFicha`, después del de mostrador): si el mayorista no es la cuenta y no se tocó, "¿Qué precio mayorista
+  dejamos?" con "Dejar $X" y "Usar $Y (costo + %)"; con % en 0, "Sacarle el mayorista (se cobra $mostrador)" y el "Ojo" si es igual al
+  costo; sin mayorista con %, "Dejarlo sin mayorista" / "Usar $Y". Un mayorista escrito sin ganancia pregunta "El mayorista no deja
+  ganancia" (arranca en Volver; vuelve al mayorista). Sin costo, el cartelito de siempre dice también el mayorista. Cerrar sin elegir no
+  guarda. El Historial anota "mayorista: $A -> $B".
+- El aviso "Se vende sin ganancia" con un precio escrito por debajo del costo dice "subile el precio" (no "cargale el % de ganancia").
+
+**Pruebas del mayorista**: `t-precio-ficha.js` pasa a 93 (Damasco, Anís, Galleta con % 0, sin mayorista con %, normal, escribir $1.500
+/ $1.234 / igual al costo / 0, los dos cartelitos seguidos, sin costo, por peso, admin.html). Suite 5111, 0 fallas.
+**Sandbox del mayorista** (casos armados en el emulador): Castaña ($19.900 redondeado y mayorista $14.321) → dos cartelitos; Dejar el
+de mostrador y Usar el mayorista → $19.900 y $14.300. Manzanilla (% 0, mayorista $8.300 = costo) → "Sacarle el mayorista (se cobra
+$14.110)" → 0. Galleta de arroz (sin mayorista, 30 %) → Usar → $13.000. Harina Integral sin costo → "Se guarda con el precio que tiene:
+$18.000 (mayorista $13.650)" → los dos tal cual (antes, $0 y $0). Nuez: escrito $15.000 (costo $14.900) → "El mayorista no deja
+ganancia" → Volver no guarda; $20.000 → 34,23 % sin preguntar. Barrita ($22.000, la cuenta $18.100) → Dejar. Harina de garbanzo por
+peso ($8.561 el kilo) → Usar → $8.600. Aceite de oliva, caja cerrada ($21.000) → Dejar → en la venta de mostrador y en la tienda se
+cobra $21.000. Venta mayorista con los 7: $14.300 + $22.000 + 500 g $4.300 + $13.000 + Manzanilla al de mostrador $14.110 (avisó "Falta
+el precio mayorista") + $20.000 + $21.000 = $108.710, guardada igual. Lista mayorista: Manzanilla afuera, los demás con su precio.
+Compra: Nuez $15.000 → mayorista $20.150 (34,23 %), Barrita $14.000 → $18.200 (avisa "ojo, baja aunque el costo subió"), Galleta
+$11.000 → $14.300. La tabla de tamaños sigue al mayorista escrito. Sin errores de consola.
+(Visto de paso: un producto con stock negativo no se puede guardar desde la ficha, el navegador pide stock ≥ 0. Es de antes.)
 
 **Al subir** (solo panel): avisarle a la clienta (+F5).
 
