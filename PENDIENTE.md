@@ -3788,6 +3788,57 @@ filtros: 99 en la ventana y 99 en el PDF, sin el renglón. Cancelar no baja nada
 
 ---
 
+### BJ) El precio en la ficha se puede escribir · HECHO el 19/11/2026, SIN SUBIR
+
+**Lo pedido** (la clienta, 19/11): poder escribir en la casilla "Precio" de la ficha, que estaba bloqueada (salía siempre de costo +
+%). Thiago: que el % se recalcule solo, y que los dos problemas de abajo avisen con un cartelito al guardar. Solo el de mostrador.
+
+**Lo encontrado** (solo lectura de producción, 1.637 productos sin depurar): `saveProduct` guardaba siempre `round(costo × (1 + %))`
+y la ficha al abrir mostraba esa cuenta, no el precio guardado. Entonces:
+- **90 productos sin costo y con precio**: guardar su ficha les dejaba el precio en **$0** (avisaba "sin ganancia" y se podía aceptar).
+  Es la causa probable de la leche de coco del 18/11 (hoy ya corregida por ella: costo $21.100, 65 %, $34.815).
+- **235 con el precio redondeado** (herramienta Redondear, hasta $98 de diferencia; la mitad, $1): guardar su ficha lo volvía a costo
+  + % (Granola Keto, de $25.300 a $25.202).
+- 1.311 tienen precio = costo + %. Ninguno con % de más de un decimal ni con precio debajo del costo.
+
+**Lo hecho** (`admin-precio-ficha.js`, nuevo):
+- La casilla "Precio" se escribe (`precioEscritoFicha`): con costo, el % se recalcula con los decimales justos para dar ese precio
+  (`pctParaPrecio`: 75,68 % para $25.300 con costo $14.401) y queda guardado así; todo sigue conectado (compras, importar costos,
+  Costo % recalculan con ese %). Sin costo, se guarda el precio escrito y el % no cambia.
+- `_precioFijo` = el precio que no sale de costo + % (el guardado, si no es costo + %; o el escrito), con el costo y el % con los que
+  vale: si cualquiera cambia (lo cambie quien lo cambie: la ficha, la bolsa de admin-escalas, la tabla de tamaños), se suelta y el
+  precio vuelve a costo + %. `calcPrecioModal` y `saveProduct` usan la misma cuenta (`precioFichaBase` / `precioFichaFinal`). La
+  descripción, el descuento, el mayorista no lo tocan.
+- Una nota debajo de la casilla dice de dónde sale ("Precio redondeado o escrito a mano. Con costo + 75% daría $25.202", "Sin costo
+  cargado: se guarda este precio tal cual", "El % de ganancia se ajustó a 75,68% para este precio").
+- **Al guardar** (`avisoPrecioFicha`, antes de `avisoGuardarSinGanancia`): si el precio no es costo + % y no se tocó, pregunta "¿Qué
+  precio dejamos?" con "Dejar $25.300" (el principal) y "Usar $25.202 (costo + %)"; cerrarlo no guarda. Sin costo y con precio:
+  "no tiene costo cargado. Se guarda con el precio que tiene" con "Guardar igual" / "Volver" (al costo). Debajo del costo lo sigue
+  avisando "Se vende sin ganancia", ahora con el precio de verdad y "(por debajo del costo)" con un % negativo.
+- El mayorista no cambia: sigue saliendo del costo y su % (`pPrecioMay` sigue bloqueado).
+
+**Ojo**: un precio escrito, como $25.300, deja de ser redondo la próxima vez que cambie el costo (pasaba igual con los redondeados).
+Al escribir el precio cambia el %, así que aparece el botón de siempre "Subir mayorista a X%" (no se aplica solo).
+
+**Visto de paso, sin tocar (el mayorista)**: guardar la ficha también recalcula el mayorista con costo + % mayorista, redondeado a
+$50. En producción cambiaría en 458 productos: 242 solo por el redondeo a $50 (sube menos de $50), 144 con % mayorista en 0 y un
+mayorista cargado (queda sin mayorista: se cobra el de mostrador, regla del 01/10), 45 suben $50 o más y 27 bajan (Anís estrellado x
+10 Kg de $35.666 a $29.950). Contado a Thiago el 19/11; espera qué hacer.
+
+**Pruebas**: `t-precio-ficha.js` (49: el % justo con 5.000 casos al azar, el redondeado, el sin costo, el normal, escribir, el
+cartelito con sus botones, por peso, y en admin.html), `t-costos-viejos.js` actualizado (2). Suite 5067, 0 fallas.
+**Sandbox** (Avellana redondeada a $25.300 con costo $14.401 y 75 %; Harina de Almendra sin costo a $32.000; Maní por peso a $13.500
+el kilo): Guardar en Avellana → "¿Qué precio dejamos?" → Dejar = $25.300 guardado; Usar = $25.202. Escribir $25.300 → % 75,68 y se
+guarda sin preguntar. Harina → "no tiene costo" → Guardar igual = $32.000 (antes $0). Maní → el cartelito con "el kilo" → $13.500.
+Chía por peso escrita a $22.000 el kilo → 73,23 %. Pistacho a $3.000 (costo $3.200) → "Se vende sin ganancia ... (por debajo del
+costo)" → Volver no guarda. Compra con costos nuevos: Avellana $16.000 → $28.109 (75,68 %), Chía $13.000 → $22.520, Harina sin % queda
+$32.000. Venta: Avellana $28.109 + Chía 250 g $5.630 + Maní 500 g $6.750 + Harina $32.000 = $72.489, guardada igual y con el stock
+descontado. La tienda muestra los mismos precios; la tabla de Productos, 75.68% y $28.109. Sin errores de consola.
+
+**Al subir** (solo panel): avisarle a la clienta (+F5).
+
+---
+
 ## 2. Decisiones tuyas
 
 **Ya decididas:**

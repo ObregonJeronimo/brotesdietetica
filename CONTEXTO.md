@@ -608,6 +608,9 @@ producción (de los "gramajes" viejos).
   entra a la venta con esos gramos, con la misma cuenta que tipearlos. §1-bis BH.
 - **La lista de precios en PDF con filtros** (Productos, "Exportar PDF" y "Exportar PDF M"): categoría, subcategoría, proveedor y
   nombre; el PDF dice de qué es. `admin-lista-precios.js`. §1-bis BI.
+- **El precio de la ficha se puede escribir** (19/11, sin subir): el % se recalcula solo para dar ese precio; un precio que no es
+  costo + % (redondeado, sin costo) queda como está al guardar, con un cartelito que pregunta o avisa. El mayorista sigue
+  saliendo del costo. `admin-precio-ficha.js`. §1-bis BJ.
 
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
