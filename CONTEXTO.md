@@ -608,7 +608,7 @@ producción (de los "gramajes" viejos).
   entra a la venta con esos gramos, con la misma cuenta que tipearlos. §1-bis BH.
 - **La lista de precios en PDF con filtros** (Productos, "Exportar PDF" y "Exportar PDF M"): categoría, subcategoría, proveedor y
   nombre; el PDF dice de qué es. `admin-lista-precios.js`. §1-bis BI.
-- **El precio de la ficha se puede escribir, el de mostrador y el mayorista** (19/11, sin subir): el % se recalcula solo para dar
+- **El precio de la ficha se puede escribir, el de mostrador y el mayorista** (subido el 19/11): el % se recalcula solo para dar
   ese precio; un precio que no es la cuenta (redondeado, sin costo, mayorista de antes) queda como está al guardar, con un
   cartelito que pregunta cuál dejar o avisa. Si cambia el costo o el %, vuelve a la cuenta. `admin-precio-ficha.js`. §1-bis BJ.
 
@@ -685,7 +685,9 @@ producción (de los "gramajes" viejos).
 
 14. **Lo del 16 al 18/11** (§5.18, subido el 18/11): avisarle a la clienta (+F5); probar la etiqueta con peso con la impresora y la
     pistola del local; prender los envíos cuando lo pidan (dato de producción: la clienta o yo con OK, revisando el costo de $2.000 y
-    el envío gratis); que la clienta revise "LECHE DE COCO EN POLVO x 1 Kg", que quedó en $0 el 18/11 (antes $32.000).
+    el envío gratis). La leche de coco en $0 ya la corrigió ella (19/11: $34.815).
+15. **El precio de la ficha que se puede escribir** (§1-bis BJ, subido el 19/11): avisarle a la clienta (+F5) con las fotos de los
+    cartelitos.
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 
@@ -768,9 +770,9 @@ Las reglas de trabajo siguen todas igual. Las más importantes:
 - Lo que toca plata (precios, costos, totales) va primero y claro, con números. Los números nunca pueden fallar.
 - Textos para la clienta muy simples; resúmenes para mí cortos, y sin asteriscos si son para copiar.
 
-Dónde estamos (18/11): todo está subido a producción hasta b9e8cea, verificado; local solo queda la documentación de esa subida, que va con el próximo push. Lo último (subido el 18/11): el logo de Brotes en los productos sin foto de la tienda (§1-bis BE); "Colores del sistema" en Configuración, con Normal, Alto contraste y Personalizar (§1-bis BF); el mínimo de compra solo para envío, así que el retiro ya no tiene mínimo, pero los envíos siguen apagados (§1-bis BG); "Etiqueta con peso" en Productos, para bolsitas con un peso que al escanearlas entran a la venta con esos gramos (§1-bis BH); y la lista de precios en PDF con filtros por categoría, subcategoría, proveedor y nombre (§1-bis BI).
+Dónde estamos (19/11): todo está subido a producción hasta e3c9127, verificado; local solo queda la documentación de esa subida, que va con el próximo push. Lo último (subido el 19/11): el precio de la ficha se puede escribir, el de mostrador y el mayorista; el % se recalcula solo, y un precio que no es la cuenta (redondeado, sin costo, mayorista de antes) queda como está al guardar, con un cartelito que pregunta cuál dejar (§1-bis BJ). Antes (subido el 18/11): Lo último (subido el 18/11): el logo de Brotes en los productos sin foto de la tienda (§1-bis BE); "Colores del sistema" en Configuración, con Normal, Alto contraste y Personalizar (§1-bis BF); el mínimo de compra solo para envío, así que el retiro ya no tiene mínimo, pero los envíos siguen apagados (§1-bis BG); "Etiqueta con peso" en Productos, para bolsitas con un peso que al escanearlas entran a la venta con esos gramos (§1-bis BH); y la lista de precios en PDF con filtros por categoría, subcategoría, proveedor y nombre (§1-bis BI).
 
-Pendientes: avisarle a la clienta lo del 18/11 (y que apriete F5); probar la etiqueta con peso con la impresora y la pistola del local; prender los envíos cuando lo pida (es un dato de producción); que la clienta revise la leche de coco en polvo, que quedó en $0. La optimización de lecturas que falta (C, D y E de §1-bis BB) la vemos más adelante; C necesita mi OK para escribir en producción. El resto de los pendientes está en CONTEXTO.md §7.
+Pendientes: avisarle a la clienta lo del 18/11 y lo del 19/11 (y que apriete F5); probar la etiqueta con peso con la impresora y la pistola del local; prender los envíos cuando lo pida (es un dato de producción); la leche de coco ya la corrigió ella. La optimización de lecturas que falta (C, D y E de §1-bis BB) la vemos más adelante; C necesita mi OK para escribir en producción. El resto de los pendientes está en CONTEXTO.md §7.
 
 Cuando termines de leer, confirmame en pocas líneas que tenés el contexto y esperá: te explico lo que sigue en el próximo mensaje. No arranques nada por tu cuenta.
 ```

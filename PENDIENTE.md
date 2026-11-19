@@ -109,6 +109,17 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Subido a producción el 19/11/2026 (push `b9e8cea..e3c9127`, verificado)
+
+- Thiago: "sí, dale, subilo" (con la clienta usando el sistema: solo cambia el panel; lo que tiene abierto sigue con la versión
+  vieja hasta F5, y el panel no se guarda en caché). Sube BJ, el precio de la ficha que se puede escribir, el de mostrador y el
+  mayorista, con sus cartelitos (`e784a7a`, `844ef98`), sus docs y la doc de la subida del 18/11: 5 commits. Solo panel; sin
+  tienda, reglas, funciones ni datos.
+- Antes: `npm run check` bien, suite 5111 con 0 fallas, sandbox cerrado con los puertos y procesos verificados.
+- Verificado: Vercel sirve lo mismo que el repo (11 archivos por huella y /admin, con `admin-precio-ficha.js` y sin caché); la tienda
+  carga 694 productos sin errores; la pantalla de ingreso del panel carga sin errores y sin iniciar sesión, con las funciones nuevas.
+- Falta avisarle a la clienta (+F5, cuando termine la venta que esté haciendo).
+
 ### Subido a producción el 18/11/2026 (push `57e0c1b..b9e8cea`, verificado)
 
 - Thiago: "cerrá el sandbox, comprobá que todo esté OK y pusheá todo a producción". Sube BE (logo sin foto), BF (colores), BG
@@ -3788,7 +3799,7 @@ filtros: 99 en la ventana y 99 en el PDF, sin el renglón. Cancelar no baja nada
 
 ---
 
-### BJ) El precio en la ficha se puede escribir (mostrador y mayorista) · HECHO el 19/11/2026, SIN SUBIR
+### BJ) El precio en la ficha se puede escribir (mostrador y mayorista) · HECHO y SUBIDO el 19/11/2026 (`e3c9127`)
 
 **Lo pedido** (la clienta, 19/11): poder escribir en la casilla "Precio" de la ficha, que estaba bloqueada (salía siempre de costo +
 %). Thiago: que el % se recalcule solo, y que los dos problemas de abajo avisen con un cartelito al guardar. Solo el de mostrador.
