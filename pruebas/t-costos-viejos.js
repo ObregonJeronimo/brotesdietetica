@@ -616,7 +616,8 @@ console.log('\n-- el editor de costos --');
 console.log('\n-- la cuenta del precio es la del formulario --');
 {
   const save = cuerpo(html, 'saveProduct');
-  t('saveProduct sigue calculando precio = costo × (1 + %)', save.indexOf('const precioCalc=Math.round(costo*(1+porcentaje/100));') > 0);
+  /* 19/11/2026: el precio de la ficha puede ser fijo (escrito, redondeado o sin costo): ver t-precio-ficha.js. */
+  t('saveProduct sigue calculando precio = costo × (1 + %), salvo el fijo de la ficha', save.indexOf("const precioCalc=(typeof precioFichaFinal==='function')?precioFichaFinal():Math.round(costo*(1+porcentaje/100));") > 0);
   t('  y el mayorista con _redondearMayorista; con el % en 0, sin mayorista (01/10)',
     save.indexOf('const precioMayCalc=pctMay>0?_redondearMayorista(Math.round(costo*(1+pctMay/100))):0;') > 0);
   t('  el formulario muestra lo mismo mientras se escribe',
@@ -951,8 +952,8 @@ t('admin.html carga el módulo', html.indexOf('<script src="admin-costos.js"></s
   const iG = sp.indexOf('avisoGuardarSinGanancia(_filasSG)');
   t('la ficha avisa un precio sin ganancia antes de subir la imagen o escribir nada, con las bolsas de la tabla (02/10)',
     iG > sp.indexOf('validarNombreProducto(') && iG < sp.indexOf('btn.disabled=true') && sp.indexOf('filasVarConPrecio(_nSG)') > 0);
-  t('  con el precio que calcula al guardar (costo + %) y el de antes', sp.indexOf('precio:Math.round(_cSG*(1+_pSG/100))') > 0 &&
-    sp.indexOf('const precioCalc=Math.round(costo*(1+porcentaje/100));') > 0 && sp.indexOf('antes:_oSG?Number(_oSG.precio||0):0') > 0);
+  t('  con el precio que se guarda (costo + %, o el fijo de la ficha) y el de antes', sp.indexOf("precio:(typeof precioFichaFinal==='function'?precioFichaFinal():Math.round(_cSG*(1+_pSG/100)))") > 0 &&
+    sp.indexOf("const precioCalc=(typeof precioFichaFinal==='function')?precioFichaFinal():Math.round(costo*(1+porcentaje/100));") > 0 && sp.indexOf('antes:_oSG?Number(_oSG.precio||0):0') > 0);
 }
 t('el formulario muestra la fecha del último cambio de costo', html.indexOf('<small id="pCostoFecha" class="costo-fecha"></small>') > 0);
 t('  al abrir un producto y al crear uno nuevo', /value=p\.costo\|\|0;if\(typeof pintarFechaCosto==='function'\)pintarFechaCosto\(p\);/.test(html) &&

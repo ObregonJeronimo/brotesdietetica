@@ -279,7 +279,8 @@ async function avisoGuardarSinGanancia(filas) {
       return '- ' + f.nombre + ': el precio queda en ' + _costoPesos(f.precio) + kg + antes + ': no tiene costo ni % de ganancia cargados';
     }
     return '- ' + f.nombre + ': se va a vender a ' + _costoPesos(f.precio) + kg + antes + ' y costó ' + _costoPesos(f.costo) + kg +
-      (Number(f.porcentaje) > 0 ? ' (con ' + f.porcentaje + '% de ganancia)' : ' (no tiene % de ganancia cargado)');
+      (Number(f.porcentaje) > 0 ? ' (con ' + f.porcentaje + '% de ganancia)'
+      : Number(f.porcentaje) < 0 ? ' (por debajo del costo)' : ' (no tiene % de ganancia cargado)');
   };
   const sinCosto = malas.some(f => !(Number(f.costo) > 0));
   return pedirConfirmacion(
