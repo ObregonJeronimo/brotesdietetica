@@ -619,9 +619,9 @@ console.log('\n-- la cuenta del precio es la del formulario --');
   /* 19/11/2026: el precio de la ficha puede ser fijo (escrito, redondeado o sin costo): ver t-precio-ficha.js. */
   t('saveProduct sigue calculando precio = costo × (1 + %), salvo el fijo de la ficha', save.indexOf("const precioCalc=(typeof precioFichaFinal==='function')?precioFichaFinal():Math.round(costo*(1+porcentaje/100));") > 0);
   t('  y el mayorista con _redondearMayorista; con el % en 0, sin mayorista (01/10)',
-    save.indexOf('const precioMayCalc=pctMay>0?_redondearMayorista(Math.round(costo*(1+pctMay/100))):0;') > 0);
+    save.indexOf("const precioMayCalc=(typeof mayoristaFichaFinal==='function')?mayoristaFichaFinal():(pctMay>0?_redondearMayorista(Math.round(costo*(1+pctMay/100))):0);") > 0);
   t('  el formulario muestra lo mismo mientras se escribe',
-    cuerpo(html, 'calcPrecioModal').indexOf('elMay.value=pctMay>0?_redondearMayorista(Math.round(costo*(1+pctMay/100))):0;') > 0);
+    cuerpo(html, 'calcPrecioModal').indexOf("mayoristaFichaBase(costo,pctMay):(pctMay>0?_redondearMayorista(Math.round(costo*(1+pctMay/100))):0);") > 0);
   t('  y la carga masiva de % mayorista, igual',
     cuerpo(html, 'aplicarMayoristaPct').indexOf('const precioMay=pctMay>0?_redondearMayorista(Math.round((p.costo||0)*(1+pctMay/100))):0;') > 0);
   const { api, ctx } = armar();

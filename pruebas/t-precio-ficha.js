@@ -44,25 +44,35 @@ function armar(dialogos) {
   const els = {};
   const doc = { activeElement: null, getElementById: id => els[id] || null };
   const el = id => els[id] || (els[id] = { id, value: '', textContent: '', hidden: false, title: '', style: {}, focus() { doc.activeElement = this; } });
-  ['pCosto', 'pPorcentaje', 'pPrecio', 'pPrecioNota', 'pDescuento', 'precioFinalWrap', 'pPrecioFinal', 'pPorcentajeMay', 'pPrecioMay', 'pNombre', 'pNombreMostrado'].forEach(el);
+  ['pCosto', 'pPorcentaje', 'pPrecio', 'pPrecioNota', 'pDescuento', 'precioFinalWrap', 'pPrecioFinal', 'pPorcentajeMay', 'pPrecioMay', 'pPrecioMayNota', 'pNombre', 'pNombreMostrado'].forEach(el);
   const llamadas = [];
+  /* La respuesta de cada cartelito: un valor para todos, o una lista, uno por cartelito. */
+  const resp = (k, def) => {
+    const x = dialogos && dialogos[k];
+    if (Array.isArray(x)) return x.length ? x.shift() : def;
+    return x !== undefined ? x : def;
+  };
   const ctx = {
     document: doc, console, Math, Number, String, parseFloat, parseInt,
     _checkRecalcMayBtn() {},
     _tipoVentaProd: 'unidad',
-    pedirOpcion: async (msg, o) => { llamadas.push({ tipo: 'opcion', msg, o }); return dialogos && dialogos.opcion !== undefined ? dialogos.opcion : 'dejar'; },
-    pedirConfirmacion: async (msg, o) => { llamadas.push({ tipo: 'conf', msg, o }); return dialogos && dialogos.conf !== undefined ? dialogos.conf : true; },
+    pedirOpcion: async (msg, o) => { llamadas.push({ tipo: 'opcion', msg, o }); return resp('opcion', 'dejar'); },
+    pedirConfirmacion: async (msg, o) => { llamadas.push({ tipo: 'conf', msg, o }); return resp('conf', true); },
   };
   vm.createContext(ctx);
   vm.runInContext(cuerpo(HTML, 'montoAR') + cuerpo(HTML, 'limpiarMonto') + cuerpo(HTML, '_redondearMayorista') +
-    cuerpo(HTML, 'calcPrecioModal') + PF.replace(/^let _precioFijo/m, 'var _precioFijo'), ctx);
+    cuerpo(HTML, 'calcPrecioModal') + cuerpo(COSTOS, '_mayoristaSinGanancia') + PF, ctx);
+  /* Como openModal: costo, % y precios, precioFichaAlAbrir, y DESPUÉS el % mayorista. */
   const abrir = p => {
     el('pCosto').value = String(p.costo || 0);
     el('pPorcentaje').value = String(p.porcentaje || 0);
     el('pPrecio').value = String(p.precio || 0);
+    el('pPorcentajeMay').value = '0';
     el('pDescuento').value = String(p.descuento || 0);
     el('pNombre').value = p.nombre || 'X';
-    vm.runInContext('precioFichaAlAbrir(' + JSON.stringify(p) + '); calcPrecioModal();', ctx);
+    vm.runInContext('precioFichaAlAbrir(' + JSON.stringify(p) + ');', ctx);
+    el('pPorcentajeMay').value = String(p.porcentajeMayorista || 0);
+    vm.runInContext('calcPrecioModal();', ctx);
   };
   const escribir = (id, v) => { el(id).value = v; doc.activeElement = el(id); };
   return { ctx, el, doc, abrir, escribir, llamadas, run: s => vm.runInContext(s, ctx) };
@@ -228,7 +238,155 @@ console.log('\n=== escribir el precio ===');
     t('sin costo y en $0: este no pregunta (lo pregunta el aviso de "sin ganancia" de siempre)', (await m.run('avisoPrecioFicha()')) === true && m.llamadas.length === 0);
   }
 
+  console.log('\n=== el mayorista (458 en producción no son la cuenta) ===');
+  const fin = m => [m.run('precioFichaFinal()'), m.run('mayoristaFichaFinal()')];
+  const escribirMay = (m, v) => { m.escribir('pPrecioMay', v); m.run('mayoristaEscritoFicha(document.getElementById("pPrecioMay"))'); };
+  {
+    /* Damasco x 2,5 Kg: de antes del redondeo a $50 (01/10). 9.774 x 1,2 = 11.728,8 -> 11.729; la cuenta de hoy, 11.750. */
+    const m = armar({ opcion: 'dejar' });
+    m.abrir({ nombre: 'DAMASCO NACIONAL x 2,5 Kg', costo: 9774, porcentaje: 65, precio: 16127, porcentajeMayorista: 20, precioMayorista: 11729 });
+    t('Damasco: al abrir se ve su mayorista, $11.729 (antes la ficha mostraba $11.750)', m.el('pPrecioMay').value == 11729, m.el('pPrecioMay').value);
+    t('  la nota dice que la cuenta daría $11.750', /\$11\.750/.test(m.el('pPrecioMayNota').textContent) && !m.el('pPrecioMayNota').hidden, m.el('pPrecioMayNota').textContent);
+    t('  el de mostrador es la cuenta: sin nota', m.el('pPrecioNota').hidden === true);
+    const r = await m.run('avisoPrecioFicha()');
+    const d = m.llamadas[0] || {};
+    t('  al guardar pregunta (un solo cartelito): $11.729 o $11.750', m.llamadas.length === 1 && d.tipo === 'opcion' && /\$11\.729/.test(d.msg) && /\$11\.750/.test(d.msg) && /redondea a \$50/.test(d.msg), d.msg);
+    t('  botones "Dejar $11.729" (principal) y "Usar $11.750 (costo + %)"', d.o.opciones[0].texto === 'Dejar $11.729' && d.o.opciones[0].principal && d.o.opciones[1].texto === 'Usar $11.750 (costo + %)', d.o.opciones);
+    t('  "Dejar": se guarda $11.729 de mayorista y $16.127 de mostrador', r === true && fin(m)[0] === 16127 && fin(m)[1] === 11729, fin(m));
+  }
+  {
+    const m = armar({ opcion: 'calc' });
+    m.abrir({ nombre: 'DAMASCO', costo: 9774, porcentaje: 65, precio: 16127, porcentajeMayorista: 20, precioMayorista: 11729 });
+    t('  "Usar": se guarda $11.750 y la ficha lo muestra', (await m.run('avisoPrecioFicha()')) === true && fin(m)[1] === 11750 && m.el('pPrecioMay').value == 11750);
+  }
+  {
+    const m = armar({ opcion: null });
+    m.abrir({ nombre: 'DAMASCO', costo: 9774, porcentaje: 65, precio: 16127, porcentajeMayorista: 20, precioMayorista: 11729 });
+    t('  cerrarlo sin elegir no guarda', (await m.run('avisoPrecioFicha()')) === false);
+  }
+  {
+    const m = armar();
+    m.abrir({ nombre: 'DAMASCO', costo: 9774, porcentaje: 65, precio: 16127, porcentajeMayorista: 20, precioMayorista: 11729 });
+    m.el('pCosto').value = '10000'; m.run('calcPrecioModal()');
+    t('  cambiar el costo a $10.000: el mayorista vuelve a la cuenta, $12.000; el de mostrador, $16.500', fin(m)[1] === 12000 && fin(m)[0] === 16500, fin(m));
+    t('  y ya no pregunta', (await m.run('avisoPrecioFicha()')) === true && m.llamadas.length === 0);
+  }
+  {
+    const m = armar();
+    m.abrir({ nombre: 'DAMASCO', costo: 9774, porcentaje: 65, precio: 16127, porcentajeMayorista: 20, precioMayorista: 11729 });
+    m.el('pPorcentajeMay').value = '25'; m.run('calcPrecioModal()');
+    t('  cambiar el % mayorista a 25: la cuenta, 9.774 x 1,25 = 12.217,5 -> $12.250', fin(m)[1] === 12250, fin(m));
+  }
+  {
+    /* Anís estrellado x 10 Kg: bajaba $5.716 al guardar la ficha. */
+    const m = armar({ opcion: 'dejar' });
+    m.abrir({ nombre: 'ANIS ESTRELLADO ENTERO x 10 Kg', costo: 24929, porcentaje: 65, precio: 41133, porcentajeMayorista: 20, precioMayorista: 35666 });
+    const r = await m.run('avisoPrecioFicha()');
+    t('Anís: pregunta $35.666 o $29.950, y "Dejar" deja $35.666 (antes bajaba solo a $29.950)',
+      r === true && /\$35\.666/.test(m.llamadas[0].msg) && /\$29\.950/.test(m.llamadas[0].msg) && fin(m)[1] === 35666, [m.llamadas[0].msg, fin(m)]);
+  }
+  {
+    /* Galleta vegana: % mayorista en 0 y un mayorista igual al costo (144 así). */
+    const m = armar({ opcion: 'dejar' });
+    m.abrir({ nombre: 'GALLETA VEGANA', costo: 10600, porcentaje: 60, precio: 16960, porcentajeMayorista: 0, precioMayorista: 10600 });
+    t('Galleta (% mayorista 0, mayorista $10.600): se ve $10.600, no $0', m.el('pPrecioMay').value == 10600, m.el('pPrecioMay').value);
+    t('  la nota dice que sin % no tendría mayorista y que casi no deja ganancia',
+      /Sin % mayorista/.test(m.el('pPrecioMayNota').textContent) && /casi no deja ganancia/.test(m.el('pPrecioMayNota').textContent), m.el('pPrecioMayNota').textContent);
+    const r = await m.run('avisoPrecioFicha()');
+    const d = m.llamadas[0] || {};
+    t('  pregunta: quedaría sin mayorista y se cobraría el de mostrador ($16.960), con el "Ojo" de la ganancia',
+      d.tipo === 'opcion' && /sin precio mayorista/.test(d.msg) && /\$16\.960/.test(d.msg) && /no le ganás nada/.test(d.msg), d.msg);
+    t('  botones "Dejar $10.600" y "Sacarle el mayorista (se cobra $16.960)"',
+      d.o.opciones[0].texto === 'Dejar $10.600' && d.o.opciones[1].texto === 'Sacarle el mayorista (se cobra $16.960)', d.o.opciones);
+    t('  "Dejar": $10.600, y no pregunta otra vez lo de la ganancia', r === true && fin(m)[1] === 10600 && m.llamadas.length === 1, m.llamadas.length);
+  }
+  {
+    const m = armar({ opcion: 'calc' });
+    m.abrir({ nombre: 'GALLETA VEGANA', costo: 10600, porcentaje: 60, precio: 16960, porcentajeMayorista: 0, precioMayorista: 10600 });
+    t('  "Sacarle el mayorista": queda en 0 (se cobra el de mostrador)', (await m.run('avisoPrecioFicha()')) === true && fin(m)[1] === 0);
+  }
+  {
+    const m = armar({ opcion: 'dejar' });
+    m.abrir({ nombre: 'Sin mayorista', costo: 1000, porcentaje: 60, precio: 1600, porcentajeMayorista: 30, precioMayorista: 0 });
+    const d = (await m.run('avisoPrecioFicha()'), m.llamadas[0] || {});
+    t('sin mayorista con 30%: pregunta "Dejarlo sin mayorista" o "Usar $1.300"',
+      /no tiene precio mayorista/.test(d.msg) && d.o.opciones[0].texto === 'Dejarlo sin mayorista' && d.o.opciones[1].texto === 'Usar $1.300 (costo + %)' && fin(m)[1] === 0, d.o && d.o.opciones);
+  }
+  {
+    const m = armar();
+    m.abrir({ nombre: 'Normal', costo: 1000, porcentaje: 60, precio: 1600, porcentajeMayorista: 30, precioMayorista: 1300 });
+    t('normal ($1.300 = 1.000 + 30%): sin nota y no pregunta', m.el('pPrecioMayNota').hidden === true && (await m.run('avisoPrecioFicha()')) === true && m.llamadas.length === 0);
+    m.el('pPorcentajeMay').value = '42'; m.run('calcPrecioModal()');
+    t('  cambiar a 42%: $1.420 -> redondeado $1.450', fin(m)[1] === 1450);
+  }
+  {
+    const m = armar();
+    m.abrir({ nombre: 'Normal', costo: 1000, porcentaje: 60, precio: 1600, porcentajeMayorista: 30, precioMayorista: 1300 });
+    escribirMay(m, '1500');
+    t('escribir el mayorista $1.500: el % mayorista se ajusta a 50 y se guarda $1.500', m.el('pPorcentajeMay').value === '50' && fin(m)[1] === 1500, [m.el('pPorcentajeMay').value, fin(m)]);
+    t('  la nota lo dice, y no pregunta nada', /se ajustó a 50%/.test(m.el('pPrecioMayNota').textContent) && (await m.run('avisoPrecioFicha()')) === true && m.llamadas.length === 0);
+    t('  el de mostrador no se toca', fin(m)[0] === 1600 && m.el('pPorcentaje').value === '60');
+    escribirMay(m, '1234');
+    t('  $1.234 (no redondo): % 23,4 y se guarda $1.234 tal cual', m.el('pPorcentajeMay').value === '23.4' && fin(m)[1] === 1234, [m.el('pPorcentajeMay').value, fin(m)]);
+    m.doc.activeElement = null;
+    m.el('pCosto').value = '2000'; m.run('calcPrecioModal()');
+    t('  después el costo sube a $2.000: 2.000 + 23,4% = 2.468 -> $2.500; mostrador 2.000 + 60% = $3.200', fin(m)[1] === 2500 && fin(m)[0] === 3200, fin(m));
+  }
+  {
+    const m = armar({ conf: false });
+    m.abrir({ nombre: 'Normal', costo: 1000, porcentaje: 60, precio: 1600, porcentajeMayorista: 30, precioMayorista: 1300 });
+    escribirMay(m, '1000');
+    t('mayorista escrito igual al costo: la nota avisa', /casi no deja ganancia/.test(m.el('pPrecioMayNota').textContent));
+    const r = await m.run('avisoPrecioFicha()');
+    const d = m.llamadas[0] || {};
+    t('  y al guardar pregunta "no ganás nada", arrancando en Volver', d.tipo === 'conf' && /no ganás nada/.test(d.msg) && d.o.focoEnNo === true, d);
+    t('  "Volver" no guarda y deja el cursor en el mayorista', r === false && m.doc.activeElement === m.el('pPrecioMay'));
+  }
+  {
+    const m = armar();
+    m.abrir({ nombre: 'Normal', costo: 1000, porcentaje: 60, precio: 1600, porcentajeMayorista: 30, precioMayorista: 1300 });
+    escribirMay(m, '0');
+    t('escribir 0: sin mayorista, % mayorista 0, no pregunta', fin(m)[1] === 0 && m.el('pPorcentajeMay').value === '0' && (await m.run('avisoPrecioFicha()')) === true && m.llamadas.length === 0);
+    escribirMay(m, '');
+    t('  borrar para escribir otro no toca el %', m.el('pPorcentajeMay').value === '0');
+  }
+  {
+    /* Los dos cartelitos, uno después del otro: el de mostrador y el mayorista. */
+    const m = armar({ opcion: ['dejar', 'calc'] });
+    m.abrir({ nombre: 'Granola - Keto', costo: 14401, porcentaje: 75, precio: 25300, porcentajeMayorista: 20, precioMayorista: 17281 });
+    const r = await m.run('avisoPrecioFicha()');
+    t('mostrador y mayorista distintos: dos cartelitos, primero el de mostrador', m.llamadas.length === 2 && /tiene el precio en \$25\.300/.test(m.llamadas[0].msg) && /mayorista de Granola - Keto es \$17\.281/.test(m.llamadas[1].msg), m.llamadas.map(x => x.msg));
+    t('  "Dejar" en el primero y "Usar" en el segundo: $25.300 y $17.300 (14.401 x 1,2 = 17.281,2 -> 17.300)', r === true && fin(m)[0] === 25300 && fin(m)[1] === 17300, fin(m));
+  }
+  {
+    const m = armar({ opcion: ['calc'] });
+    m.abrir({ nombre: 'X', costo: 14401, porcentaje: 75, precio: 25300, porcentajeMayorista: 20, precioMayorista: 17281 });
+    m.ctx.pedirOpcion = async (msg, o) => { m.llamadas.push({ msg }); return m.llamadas.length === 1 ? 'calc' : null; };
+    t('  si cierra el segundo sin elegir, no guarda nada', (await m.run('avisoPrecioFicha()')) === false);
+  }
+  {
+    const m = armar({ conf: true });
+    m.abrir({ nombre: 'Sin costo', costo: 0, porcentaje: 0, precio: 32000, porcentajeMayorista: 30, precioMayorista: 26000 });
+    t('sin costo con mayorista: se ven $32.000 y $26.000', m.el('pPrecio').value == 32000 && m.el('pPrecioMay').value == 26000);
+    await m.run('avisoPrecioFicha()');
+    t('  un solo cartelito, que dice los dos precios', m.llamadas.length === 1 && /\$32\.000 \(mayorista \$26\.000\)/.test(m.llamadas[0].msg), m.llamadas.map(x => x.msg));
+    t('  y se guardan los dos tal cual', fin(m)[0] === 32000 && fin(m)[1] === 26000);
+  }
+  {
+    const m = armar({ opcion: 'dejar' });
+    m.ctx._tipoVentaProd = 'peso';
+    m.abrir({ nombre: 'Almendras', costo: 20000, porcentaje: 65, precio: 33000, porcentajeMayorista: 30, precioMayorista: 26100 });
+    await m.run('avisoPrecioFicha()');
+    t('por peso, el del mayorista también dice "el kilo"', /\$26\.100 el kilo/.test(m.llamadas[0].msg) && /\$26\.000 el kilo/.test(m.llamadas[0].msg), m.llamadas[0] && m.llamadas[0].msg);
+  }
+
   console.log('\n=== en admin.html ===');
+  const inpM = (HTML.match(/<input[^>]*id="pPrecioMay"[^>]*>/) || [''])[0];
+  t('la casilla del mayorista ya no está bloqueada y escribe con mayoristaEscritoFicha', !/readonly/.test(inpM) && inpM.includes('oninput="mayoristaEscritoFicha(this)"'), inpM);
+  const spM = cuerpo(HTML, 'saveProduct');
+  t('saveProduct guarda el mayorista de la ficha', spM.includes("const precioMayCalc=(typeof mayoristaFichaFinal==='function')?mayoristaFichaFinal()"));
+  t('y el Historial dice si cambió el mayorista', spM.includes("cambios.push('mayorista: $'"));
+  t('la primera fila de la tabla de tamaños muestra el mismo mayorista', cuerpo(VAR, '_valoresPpal').includes('mayoristaFichaFinal()'));
   const sp = cuerpo(HTML, 'saveProduct');
   const iA = sp.indexOf('avisoPrecioFicha()'), iG = sp.indexOf('avisoGuardarSinGanancia(_filasSG)');
   t('saveProduct pregunta el precio antes que el aviso de sin ganancia', iA > 0 && iG > iA);
@@ -252,6 +410,10 @@ console.log('\n=== escribir el precio ===');
     const msg = c2.msgs[0] || '';
     t('precio $900 con costo $1.000: dice "por debajo del costo", no "no tiene % cargado"',
       msg.includes('por debajo del costo') && !msg.includes('no tiene % de ganancia'), msg);
+    t('  y dice "subile el precio", no "cargale el % de ganancia"', msg.includes('subile el precio') && !msg.includes('cargale'), msg);
+    c2.msgs.length = 0;
+    await vm.runInContext('avisoGuardarSinGanancia([{ nombre: "X", costo: 1000, precio: 1000, porcentaje: 0 }])', c2);
+    t('  con el % en 0, sigue diciendo "cargale el % de ganancia"', (c2.msgs[0] || '').includes('cargale el % de ganancia'), c2.msgs[0]);
   }
 
   console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');

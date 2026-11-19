@@ -926,7 +926,7 @@ function _valoresPpal(peso) {
     caja: !!(cb && cb.checked), costoKg: costo, bolsaOk: bolsaOk,
     r: listo
       ? { costo: costo, c: c, precio: (typeof precioFichaFinal === 'function' ? precioFichaFinal() : Math.round(costo * (1 + (Number(pct) || 0) / 100))),
-          may: (Number(pctMay) || 0) > 0 ? _varMay(Math.round(costo * (1 + (Number(pctMay) || 0) / 100))) : 0 }
+          may: (typeof mayoristaFichaFinal === 'function' ? mayoristaFichaFinal() : ((Number(pctMay) || 0) > 0 ? _varMay(Math.round(costo * (1 + (Number(pctMay) || 0) / 100))) : 0)) }
       : { costo: null, c: (peso && !bolsaOk) ? null : c },
   };
 }

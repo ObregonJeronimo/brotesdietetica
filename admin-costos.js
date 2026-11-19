@@ -286,7 +286,10 @@ async function avisoGuardarSinGanancia(filas) {
   return pedirConfirmacion(
     (uno ? 'Con este precio no ganás nada (o casi nada):' : 'Con estos precios no ganás nada (o casi nada):') + NL + NL +
     malas.slice(0, 8).map(linea).join(NL) + (malas.length > 8 ? NL + '- y ' + (malas.length - 8) + ' más' : '') + NL + NL +
-    'Para ganar algo, ' + (uno ? 'cargale' : 'cargales') + (sinCosto ? ' el costo y' : '') + ' el % de ganancia. ¿Guardar igual?',
+    /* Un precio escrito por debajo del costo (% negativo, 19/11): lo que falta es subirlo. */
+    (malas.some(f => Number(f.porcentaje) < 0)
+      ? 'Para ganar algo, ' + (uno ? 'subile' : 'subiles') + ' el precio. ¿Guardar igual?'
+      : 'Para ganar algo, ' + (uno ? 'cargale' : 'cargales') + (sinCosto ? ' el costo y' : '') + ' el % de ganancia. ¿Guardar igual?'),
     { titulo: 'Se vende sin ganancia', aceptar: 'Guardar igual', cancelar: 'Volver', icono: 'bi-exclamation-triangle', cuidado: true, focoEnNo: true });
 }
 
