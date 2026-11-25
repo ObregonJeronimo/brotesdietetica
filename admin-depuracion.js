@@ -193,6 +193,30 @@ function depMotivo(fila, dias) {
   };
 }
 
+/* ============================== LOS FILTROS ==============================
+   Pedido de Thiago (25/11/2026): buscar en el depurador por nombre, categoría,
+   subcategoría y proveedor. Valen para las dos tablas (candidatos y depurados) y
+   solo cambian lo que se ve: no cambian quién es candidato. El nombre se busca sin
+   tildes ni mayúsculas, palabra por palabra, en el nombre, el nombre mostrado y el
+   código (como reporteCostosFiltrar). La subcategoría solo cuenta con categoría. */
+function depNorm(s) {
+  return String(s == null ? '' : s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+}
+function depFiltroActivo(f) {
+  const o = f || {};
+  return !!(o.cat || o.lista || depNorm(o.q));
+}
+function depFiltrar(productos, f) {
+  const o = f || {};
+  const palabras = depNorm(o.q).split(/\s+/).filter(Boolean);
+  return (productos || []).filter(p => p &&
+    (!o.cat || p.categoria === o.cat) &&
+    (!o.cat || !o.sub || (p.subcategoria || '') === o.sub) &&
+    (!o.lista || p.lista === o.lista) &&
+    (!palabras.length || palabras.every(w =>
+      (depNorm(p.nombre) + ' ' + depNorm(p.nombreMostrado) + ' ' + depNorm(p.codigo)).includes(w))));
+}
+
 /* ======================== LA CARGA Y LA PANTALLA ======================== */
 let _depDias = 90;
 try {
@@ -206,6 +230,9 @@ let _depEval = null;
 const _depSelCand = new Set();
 const _depSelDep = new Set();
 let _depPagCand = 1, _depPagDep = 1;
+const _depF = { q: '', cat: '', sub: '', lista: '' };
+/* Lo que se ve en cada tabla con los filtros puestos: "Elegir todos" elige de acá. */
+let _depVista = { cand: [], dep: [] };
 
 /* Las ventas de 90 días -el período más largo- se leen una sola vez: cambiar
    entre 30, 60 y 90 recalcula en memoria, sin volver a leer. */
@@ -257,6 +284,8 @@ async function loadDepuracion(forzar) {
     _depDatos = null;
   }
   _depCargando = false;
+  /* Las categorías y los proveedores, con los productos recién leídos. */
+  _depFiltrosRender();
   depuracionRender();
 }
 
@@ -316,7 +345,48 @@ function _depAviso(html) {
   return '<div class="cp-aviso" style="display:flex"><i class="bi bi-exclamation-triangle dep-alerta"></i><div>' + html + '</div></div>';
 }
 
+/* La barra de filtros va fuera de depContenido: así escribir en el nombre no la
+   redibuja y no se pierde lo que se está escribiendo. */
+function _depOpciones(pares, actual) {
+  return pares.map(([v, t]) => '<option value="' + _depEsc(v) + '"' + (v === actual ? ' selected' : '') + '>' + _depEsc(t) + '</option>').join('');
+}
+function _depCategorias() {
+  if (typeof _todasLasCategorias === 'function') return _todasLasCategorias();
+  const prods = (typeof allProducts !== 'undefined' && Array.isArray(allProducts)) ? allProducts : [];
+  return [...new Set(prods.map(p => p.categoria).filter(Boolean))].sort();
+}
+function _depSubsHtml(cat, actual) {
+  if (!cat) return '<option value="">Eleg&iacute; una categor&iacute;a</option>';
+  const prods = (typeof allProducts !== 'undefined' && Array.isArray(allProducts)) ? allProducts : [];
+  const subs = typeof _subcategoriasDe === 'function' ? _subcategoriasDe(cat)
+    : [...new Set(prods.filter(p => p.categoria === cat && p.subcategoria).map(p => p.subcategoria))].sort();
+  return _depOpciones([['', 'Todas']].concat(subs.map(s => [s, s])), actual);
+}
+function _depFiltrosRender() {
+  const box = document.getElementById('depFiltros');
+  if (!box) return;
+  const f = _depF;
+  const cats = _depCategorias();
+  if (f.cat && cats.indexOf(f.cat) < 0) { f.cat = ''; f.sub = ''; }
+  const listas = ((typeof listasData !== 'undefined' && Array.isArray(listasData)) ? listasData : []).slice()
+    .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' }));
+  if (f.lista && !listas.some(l => l.id === f.lista)) f.lista = '';
+  const campo = (id, ico, etq, control) => '<div class="rc-campo"><label class="rc-etq" for="' + id + '"><i class="bi ' + ico + '"></i> ' +
+    etq + '</label>' + control + '</div>';
+  box.innerHTML = '<div class="rc-filtros dep-filtros">' +
+    campo('depQ', 'bi-search', 'Nombre o c&oacute;digo', '<input id="depQ" class="form-input" type="text" placeholder="Ej: avena" value="' +
+      _depEsc(f.q) + '" oninput="depuracionFiltrar()" autocomplete="off">') +
+    campo('depCat', 'bi-tags', 'Categor&iacute;a', '<select id="depCat" class="form-input" onchange="depuracionCambioCat()">' +
+      _depOpciones([['', 'Todas']].concat(cats.map(c => [c, c])), f.cat) + '</select>') +
+    campo('depSub', 'bi-diagram-3', 'Subcategor&iacute;a', '<select id="depSub" class="form-input" onchange="depuracionFiltrar()"' +
+      (f.cat ? '' : ' disabled') + '>' + _depSubsHtml(f.cat, f.sub) + '</select>') +
+    campo('depLista', 'bi-truck', 'Proveedor', '<select id="depLista" class="form-input" onchange="depuracionFiltrar()">' +
+      _depOpciones([['', 'Todos']].concat(listas.map(l => [l.id, l.nombre || ''])), f.lista) + '</select>') +
+    '</div>';
+}
+
 function depuracionRender() {
+  if (!document.getElementById('depQ')) _depFiltrosRender();
   const per = document.getElementById('depPeriodo');
   if (per) {
     per.innerHTML = DEP_DIAS.map(d => '<button class="btn btn-sm ' + (d === _depDias ? 'btn-primary' : 'btn-secondary') +
@@ -336,10 +406,17 @@ function depuracionRender() {
   }
   const prods = (typeof allProducts !== 'undefined' && Array.isArray(allProducts)) ? allProducts : [];
   const ev = _depEval = depEvaluar(prods, _depDatos, { dias: _depDias });
-  /* La selección no puede quedar apuntando a algo que ya no está en su tabla. */
-  const idsCand = new Set(ev.candidatos.map(f => f.producto.id));
+  /* Con los filtros, cada tabla muestra solo lo que coincide. */
+  const filtrando = depFiltroActivo(_depF);
+  const pasan = filtrando ? new Set(depFiltrar(prods, _depF).map(p => p.id)) : null;
+  const candVis = filtrando ? ev.candidatos.filter(f => pasan.has(f.producto.id)) : ev.candidatos;
+  const depVis = filtrando ? ev.depurados.filter(p => pasan.has(p.id)) : ev.depurados;
+  _depVista = { cand: candVis, dep: depVis };
+  /* La selección no puede quedar apuntando a algo que ya no está en su tabla, ni a algo
+     que los filtros esconden: se depura o se restaura solo lo que se ve. */
+  const idsCand = new Set(candVis.map(f => f.producto.id));
   [..._depSelCand].forEach(id => { if (!idsCand.has(id)) _depSelCand.delete(id); });
-  const idsDep = new Set(ev.depurados.map(p => p.id));
+  const idsDep = new Set(depVis.map(p => p.id));
   [..._depSelDep].forEach(id => { if (!idsDep.has(id)) _depSelDep.delete(id); });
   const nEx = document.getElementById('depExcluidosN');
   if (nEx) nEx.textContent = ev.excluidos.length ? '(' + ev.excluidos.length + ')' : '';
@@ -358,10 +435,18 @@ function depuracionRender() {
       ' d&iacute;as, as&iacute; que no cuenta: por ahora es candidato lo que no se vendi&oacute; y no tiene stock.</p>';
   }
 
+  if (filtrando) {
+    h += '<p class="dep-sub dep-filtrando"><i class="bi bi-funnel"></i> Con los filtros se ven ' + candVis.length + ' de ' +
+      ev.candidatos.length + ' candidatos y ' + depVis.length + ' de ' + ev.depurados.length + ' depurados. ' +
+      '<button class="btn btn-sm btn-secondary dep-ancho" onclick="depuracionQuitarFiltros()"><i class="bi bi-x-lg"></i> Quitar filtros</button></p>';
+  }
+
   h += '<h3 class="dep-titulo">Candidatos a depurar</h3>';
-  const pc = _depPagina(ev.candidatos, _depPagCand);
+  const pc = _depPagina(candVis, _depPagCand);
   _depPagCand = pc.pagina;
-  if (!ev.candidatos.length) {
+  if (ev.candidatos.length && !candVis.length) {
+    h += '<p class="dep-sub">Ning&uacute;n candidato coincide con los filtros.</p>';
+  } else if (!ev.candidatos.length) {
     /* Con el catálogo recién cargado todos son nuevos: se dice desde cuándo puede haber. */
     const altas = ev.nuevos.map(f => depFecha(f.producto.creadoEn)).filter(Boolean).sort((a, b) => a - b);
     const desdeCuando = altas.length
@@ -371,7 +456,7 @@ function depuracionRender() {
     h += '<div class="empty-state"><i class="bi bi-check2-circle"></i><p>No hay productos para depurar con ' + ev.dias + ' d&iacute;as.</p>' +
       desdeCuando + '</div>';
   } else {
-    h += _depBarra('cand', ev.candidatos.length, _depSelCand.size,
+    h += _depBarra('cand', candVis.length, _depSelCand.size,
         '<button class="btn btn-primary dep-ancho" onclick="depurarSeleccionados()"' + (_depSelCand.size ? '' : ' disabled') +
         '><i class="bi bi-archive"></i> Depurar' + (_depSelCand.size ? ' (' + _depSelCand.size + ')' : '') + '</button>') +
       '<div class="table-wrap"><div class="table-scroll"><table><thead><tr><th class="dep-c"></th>' +
@@ -396,12 +481,14 @@ function depuracionRender() {
   if (apartados.length) h += '<p class="dep-sub">No se ofrecen, aunque cumplen: ' + apartados.join('; ') + '.</p>';
 
   h += '<h3 class="dep-titulo">Productos depurados</h3>';
-  const pd = _depPagina(ev.depurados, _depPagDep);
+  const pd = _depPagina(depVis, _depPagDep);
   _depPagDep = pd.pagina;
-  if (!ev.depurados.length) {
+  if (ev.depurados.length && !depVis.length) {
+    h += '<p class="dep-sub">Ning&uacute;n depurado coincide con los filtros.</p>';
+  } else if (!ev.depurados.length) {
     h += '<p class="dep-sub">Todav&iacute;a no hay productos depurados.</p>';
   } else {
-    h += _depBarra('dep', ev.depurados.length, _depSelDep.size,
+    h += _depBarra('dep', depVis.length, _depSelDep.size,
         '<button class="btn btn-secondary dep-ancho" onclick="depuracionRestaurarSeleccionados()"' + (_depSelDep.size ? '' : ' disabled') +
         '><i class="bi bi-arrow-counterclockwise"></i> Restaurar' + (_depSelDep.size ? ' (' + _depSelDep.size + ')' : '') + '</button>') +
       '<div class="table-wrap"><div class="table-scroll"><table><thead><tr><th class="dep-c"></th>' +
@@ -418,8 +505,8 @@ function depuracionRender() {
   }
   cont.innerHTML = h;
   if (typeof renderAdminPagination === 'function') {
-    if (ev.candidatos.length) renderAdminPagination('depCandPag', pc.pagina, pc.total, ev.candidatos.length, 'depCand');
-    if (ev.depurados.length) renderAdminPagination('depDepPag', pd.pagina, pd.total, ev.depurados.length, 'depDep');
+    if (candVis.length) renderAdminPagination('depCandPag', pc.pagina, pc.total, candVis.length, 'depCand');
+    if (depVis.length) renderAdminPagination('depDepPag', pd.pagina, pd.total, depVis.length, 'depDep');
   }
 }
 
@@ -432,6 +519,27 @@ function depuracionPeriodo(d) {
   _depPagCand = 1;
   _depSelCand.clear();
   depuracionRender();
+}
+function depuracionFiltrar() {
+  const val = id => { const el = document.getElementById(id); return el ? String(el.value || '') : ''; };
+  if (document.getElementById('depQ')) {
+    _depF.q = val('depQ'); _depF.cat = val('depCat'); _depF.sub = val('depSub'); _depF.lista = val('depLista');
+  }
+  if (!_depF.cat) _depF.sub = '';
+  _depPagCand = 1;
+  _depPagDep = 1;
+  depuracionRender();
+}
+function depuracionCambioCat() {
+  const c = document.getElementById('depCat');
+  const s = document.getElementById('depSub');
+  if (s) { s.innerHTML = _depSubsHtml(c ? c.value : '', ''); s.value = ''; s.disabled = !(c && c.value); }
+  depuracionFiltrar();
+}
+function depuracionQuitarFiltros() {
+  _depF.q = ''; _depF.cat = ''; _depF.sub = ''; _depF.lista = '';
+  _depFiltrosRender();
+  depuracionFiltrar();
 }
 function depuracionIrPagina(tipo, page) {
   if (tipo === 'depCand') _depPagCand = page; else _depPagDep = page;
@@ -447,7 +555,7 @@ function depuracionMarcarTodos(tipo, marcado) {
   const s = tipo === 'dep' ? _depSelDep : _depSelCand;
   s.clear();
   if (marcado) {
-    (tipo === 'dep' ? _depEval.depurados.map(p => p.id) : _depEval.candidatos.map(f => f.producto.id)).forEach(id => s.add(id));
+    (tipo === 'dep' ? _depVista.dep.map(p => p.id) : _depVista.cand.map(f => f.producto.id)).forEach(id => s.add(id));
   }
   depuracionRender();
 }

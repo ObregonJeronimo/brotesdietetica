@@ -258,5 +258,83 @@ t('el script se carga', html.indexOf('<script src="admin-depuracion.js"></script
 t('el modal de excluidos existe', html.indexOf('id="depExcluidosModal"') > 0);
 t('la paginación conoce sus dos tablas', /type === 'depCand' \|\| type === 'depDep'/.test(leer('admin-pagination.js')));
 
+/* ========================================================== LOS FILTROS (25/11) */
+console.log('\n-- los filtros --');
+{
+  const F = new Function(soloLogica + ';return { filtrar: depFiltrar, activo: depFiltroActivo };')();
+  const ps = [
+    prod('a', { nombre: 'AVENA ARROLLADA x 1 Kg', codigo: '000101', categoria: 'Cereales', subcategoria: 'Avenas', lista: 'L1' }),
+    prod('b', { nombre: 'Azúcar mascabo', nombreMostrado: 'Azúcar Mascabo Orgánica', codigo: '000202', categoria: 'Endulzantes', lista: 'L2' }),
+    prod('c', { nombre: 'Avena instantánea', codigo: '000303', categoria: 'Cereales', subcategoria: 'Copos', lista: 'L2' }),
+  ];
+  const nom = f => F.filtrar(ps, f).map(p => p.id).join(',');
+  t('sin filtros pasan todos', nom({}) === 'a,b,c' && !F.activo({}) && !F.activo({ q: '   ' }));
+  t('nombre sin tildes ni mayúsculas', nom({ q: 'azucar' }) === 'b' && nom({ q: 'INSTANTANEA' }) === 'c');
+  t('nombre palabra por palabra, en cualquier orden', nom({ q: 'kg avena' }) === 'a');
+  t('busca también en el nombre mostrado', nom({ q: 'organica' }) === 'b');
+  t('busca por código', nom({ q: '000303' }) === 'c');
+  t('categoría', nom({ cat: 'Cereales' }) === 'a,c' && F.activo({ cat: 'Cereales' }));
+  t('subcategoría con categoría', nom({ cat: 'Cereales', sub: 'Copos' }) === 'c');
+  t('subcategoría sin categoría no cuenta', nom({ sub: 'Copos' }) === 'a,b,c');
+  t('proveedor', nom({ lista: 'L2' }) === 'b,c' && F.activo({ lista: 'L2' }));
+  t('todos juntos', nom({ q: 'avena', cat: 'Cereales', lista: 'L2' }) === 'c');
+  t('sin coincidencias, vacío', nom({ q: 'zzz' }) === '');
+}
+{
+  /* La pantalla de verdad, con un DOM mínimo: lo que se ve, "Elegir todos" y la selección. */
+  const els = {};
+  const el = id => (els[id] = els[id] || { id: id, innerHTML: '', value: '', disabled: false, textContent: '', classList: { contains: () => true } });
+  ['depFiltros', 'depPeriodo', 'depContenido', 'depExcluidosN'].forEach(el);
+  const doc = { getElementById: id => (id in els ? els[id] : null) };
+  const S = new Function('document', 'localStorage', 'allProducts', 'listasData',
+    src + `;_depDatos = { ultimasVentas: new Map(), pedidosAbiertos: new Set(), registroStockDesde: null, ventasLeidas: 5, leidoEn: new Date() };
+    return { render: depuracionRender, filtrar: depuracionFiltrar, quitar: depuracionQuitarFiltros, todos: depuracionMarcarTodos,
+      cambioCat: depuracionCambioCat, sel: _depSelCand, selDep: _depSelDep, vista: () => _depVista, f: _depF };`);
+  const viejo = new Date('2026-01-01');
+  const cat = [
+    prod('a', { nombre: 'Avena gruesa', categoria: 'Cereales', lista: 'L1', creadoEn: viejo }),
+    prod('b', { nombre: 'Avena fina', categoria: 'Cereales', lista: 'L2', creadoEn: viejo }),
+    prod('c', { nombre: 'Miel', categoria: 'Endulzantes', lista: 'L2', creadoEn: viejo }),
+    prod('d', { nombre: 'Avena depurada', categoria: 'Cereales', lista: 'L1', creadoEn: viejo, depurado: true }),
+    prod('e', { nombre: 'Miel depurada', categoria: 'Endulzantes', lista: 'L2', creadoEn: viejo, depurado: true }),
+  ];
+  const P = S(doc, { getItem: () => null, setItem: () => {} }, cat, [{ id: 'L1', nombre: 'Prov Uno' }, { id: 'L2', nombre: 'Prov Dos' }]);
+  P.render();
+  t('la barra de filtros se dibuja en su lugar, fuera de depContenido',
+    /id="depQ"/.test(els.depFiltros.innerHTML) && !/id="depQ"/.test(els.depContenido.innerHTML));
+  t('  con las categorías y los proveedores', /Endulzantes/.test(els.depFiltros.innerHTML) && /Prov Dos/.test(els.depFiltros.innerHTML));
+  t('sin filtros se ven los 3 candidatos y los 2 depurados', P.vista().cand.length === 3 && P.vista().dep.length === 2);
+  P.todos('cand', true);
+  t('Elegir todos sin filtros elige los 3', P.sel.size === 3);
+  /* Con algo escrito: los elegidos que quedan escondidos se sueltan. */
+  els.depQ = { value: 'avena' }; els.depCat = { value: '' }; els.depSub = { value: '' }; els.depLista = { value: '' };
+  P.filtrar();
+  t('con "avena" se ven 2 candidatos y 1 depurado', P.vista().cand.map(f => f.producto.id).sort().join(',') === 'a,b' &&
+    P.vista().dep.map(p => p.id).join(',') === 'd');
+  t('  y la selección se queda con lo que se ve (no se depura algo escondido)', [...P.sel].sort().join(',') === 'a,b');
+  t('  dice cuántos se ven de cuántos', /se ven 2 de 3 candidatos y 1 de 2 depurados/.test(els.depContenido.innerHTML));
+  t('  y ofrece quitar los filtros', /depuracionQuitarFiltros\(\)/.test(els.depContenido.innerHTML));
+  t('  "Elegir todos" dice 2', /Elegir todos \(2\)/.test(els.depContenido.innerHTML));
+  P.todos('cand', false); P.todos('cand', true);
+  t('Elegir todos con filtro elige solo los que se ven', [...P.sel].sort().join(',') === 'a,b');
+  els.depLista.value = 'L2';
+  P.filtrar();
+  t('con "avena" y Prov Dos, solo b', P.vista().cand.map(f => f.producto.id).join(',') === 'b' && P.vista().dep.length === 0);
+  t('  sin depurados que coincidan lo dice', /Ning&uacute;n depurado coincide con los filtros/.test(els.depContenido.innerHTML));
+  els.depQ.value = 'zzz';
+  P.filtrar();
+  t('sin candidatos que coincidan lo dice (no "No hay productos para depurar")',
+    /Ning&uacute;n candidato coincide/.test(els.depContenido.innerHTML) && !/No hay productos para depurar/.test(els.depContenido.innerHTML));
+  t('  y la selección queda vacía', P.sel.size === 0);
+  P.todos('dep', true);
+  t('  Elegir todos en depurados no elige nada escondido', P.selDep.size === 0);
+  delete els.depQ; delete els.depCat; delete els.depSub; delete els.depLista;
+  P.quitar();
+  t('Quitar filtros vuelve a todo', P.vista().cand.length === 3 && P.vista().dep.length === 2 &&
+    !P.f.q && !P.f.lista && !/se ven \d+ de/.test(els.depContenido.innerHTML));
+  t('las cuentas de arriba no cambian con los filtros', /Candidatos<\/div><div class="stat-value">3/.test(els.depContenido.innerHTML));
+}
+t('la barra va entre la de arriba y el contenido', html.indexOf('<div id="depFiltros"></div><div id="depContenido"></div>') > 0);
+
 console.log('\n' + ok + ' pasaron, ' + fail + ' fallaron');
 process.exit(fail ? 1 : 0);
