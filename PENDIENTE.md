@@ -109,7 +109,17 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
-### Hecho el 25/11 (SIN SUBIR, commit local `1795e84`)
+### Subido a producción el 25/11/2026 (push `e3c9127..f6403c0`, verificado)
+
+- Thiago: "dale subilo entonces" (con la clienta usando el sistema; antes preguntó si era seguro: solo panel, sin tienda, reglas,
+  funciones ni datos; lo abierto sigue con la versión vieja hasta F5). Sube BK, los filtros del depurador (`1795e84`), su doc
+  (`f6403c0`) y la doc de la subida del 19/11 (`27d9039`): 3 commits.
+- Antes: remoto sin cambios nuevos, `npm run check` bien, suite 5140 con 0 fallas, sandbox cerrado con los puertos verificados.
+- Verificado: Vercel sirve lo mismo que el repo (6 archivos por huella y /admin con la barra de filtros; los .md dan 404); la tienda
+  carga 710 productos sin errores; la pantalla de ingreso del panel carga sin errores y sin iniciar sesión, con las funciones nuevas.
+- Falta avisarle a la clienta (+F5, cuando no esté en medio de una venta).
+
+### Hecho el 25/11 (subido el 25/11)
 
 - **Filtros en Depuración de productos** (pedido de Thiago): nombre o código, categoría, subcategoría y proveedor, arriba de las
   dos tablas. Probado en el sandbox; suite 5140, 0 fallas. Detalle en §1-bis BK. Falta: push con OK de Thiago y avisarle a la
@@ -3886,7 +3896,7 @@ $11.000 → $14.300. La tabla de tamaños sigue al mayorista escrito. Sin errore
 
 ---
 
-### BK) Depuración de productos: filtros por nombre, categoría, subcategoría y proveedor · HECHO el 25/11/2026, SIN SUBIR (`1795e84`)
+### BK) Depuración de productos: filtros por nombre, categoría, subcategoría y proveedor · HECHO y SUBIDO el 25/11/2026 (`1795e84`)
 
 **Lo pedido** (Thiago, 25/11): poder buscar en el depurador por nombre, categoría, subcategoría, proveedor.
 
