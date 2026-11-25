@@ -109,6 +109,12 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Hecho el 25/11 (SIN SUBIR, commit local `1795e84`)
+
+- **Filtros en Depuración de productos** (pedido de Thiago): nombre o código, categoría, subcategoría y proveedor, arriba de las
+  dos tablas. Probado en el sandbox; suite 5140, 0 fallas. Detalle en §1-bis BK. Falta: push con OK de Thiago y avisarle a la
+  clienta (+F5).
+
 ### Subido a producción el 19/11/2026 (push `b9e8cea..e3c9127`, verificado)
 
 - Thiago: "sí, dale, subilo" (con la clienta usando el sistema: solo cambia el panel; lo que tiene abierto sigue con la versión
@@ -3875,6 +3881,38 @@ el precio mayorista") + $20.000 + $21.000 = $108.710, guardada igual. Lista mayo
 Compra: Nuez $15.000 → mayorista $20.150 (34,23 %), Barrita $14.000 → $18.200 (avisa "ojo, baja aunque el costo subió"), Galleta
 $11.000 → $14.300. La tabla de tamaños sigue al mayorista escrito. Sin errores de consola.
 (Visto de paso: un producto con stock negativo no se puede guardar desde la ficha, el navegador pide stock ≥ 0. Es de antes.)
+
+**Al subir** (solo panel): avisarle a la clienta (+F5).
+
+---
+
+### BK) Depuración de productos: filtros por nombre, categoría, subcategoría y proveedor · HECHO el 25/11/2026, SIN SUBIR (`1795e84`)
+
+**Lo pedido** (Thiago, 25/11): poder buscar en el depurador por nombre, categoría, subcategoría, proveedor.
+
+**Lo hecho** (`admin-depuracion.js`, `admin.html`):
+- Una barra de filtros arriba (`#depFiltros`, fuera de `depContenido` para que escribir no la redibuje ni pierda el foco), con la
+  receta de los filtros del reporte de costos y la lista de precios (`rc-filtros`, opción A): "Nombre o código", Categoría,
+  Subcategoría (solo con categoría) y Proveedor. Nombre sin tildes ni mayúsculas, palabra por palabra, en el nombre, el nombre
+  mostrado y el código (`depFiltrar`, `depNorm`).
+- Vale para las dos tablas (Candidatos y Productos depurados) y **solo cambia lo que se ve**: quién es candidato no cambia, y las
+  tarjetas de arriba siguen con los totales. Con un filtro puesto sale "Con los filtros se ven 2 de 12 candidatos y 0 de 1
+  depurados" con "Quitar filtros"; sin coincidencias, "Ningún candidato (o depurado) coincide con los filtros".
+- **Se depura o se restaura solo lo que se ve**: "Elegir todos" elige lo filtrado (`_depVista`), y al cambiar un filtro se sueltan
+  los elegidos que quedan escondidos (como ya pasaba con lo que salía de la tabla). Los filtros siguen puestos después de Depurar,
+  Restaurar o Recalcular. Los excluidos (su ventana) no se filtran.
+
+**Pruebas**: `t-depuracion.js` pasa a 148 (el filtro con tildes, palabras, nombre mostrado, código, categoría, subcategoría sin
+categoría, proveedor; y la pantalla de verdad con un DOM mínimo: la barra fuera del contenido, "Elegir todos" con y sin filtro, la
+selección que se suelta, los mensajes y Quitar filtros). Suite 5140, 0 fallas; `npm run check` bien.
+
+**Sandbox** (12 candidatos armados en el emulador: sin ventas, stock 0, alta en enero): "aceite" tecleado → 3 (Almendras, Girasol,
+Oliva) sin perder el foco; "castana" → Castaña De Caju; Semillas → 2, con Lino → Nuez; volver a Todas apaga la subcategoría;
+YOGUURT → Mijo Tostado y Tilo, "Elegir todos (2)" → "Vas a depurar 2 productos" → en la base solo esos 2 depurados (más Semilla De
+Lino, que ya venía del sandbox), candidatos 12 → 10 y el filtro sigue; con YOGUURT en depurados, Elegir todos → "Restaurar 2" → vuelven
+solo esos 2 (Lino sigue depurado) y Tilo vuelve a Productos; 12 elegidos sin filtro y después "aceite" → quedan 3, "Depurar (3)".
+Celular (375 px) sin scroll de costado. Sin errores de consola (solo el 404 de siempre de `config/siteContent` del emulador).
+(El Aceite De Coco no salía como candidato por tener un pedido abierto: la regla de siempre.)
 
 **Al subir** (solo panel): avisarle a la clienta (+F5).
 

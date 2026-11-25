@@ -612,6 +612,11 @@ producción (de los "gramajes" viejos).
   ese precio; un precio que no es la cuenta (redondeado, sin costo, mayorista de antes) queda como está al guardar, con un
   cartelito que pregunta cuál dejar o avisa. Si cambia el costo o el %, vuelve a la cuenta. `admin-precio-ficha.js`. §1-bis BJ.
 
+### 5.19 Lo del 25/11 (SIN SUBIR, commit local `1795e84`)
+
+- **Filtros en Depuración de productos** (pedido de Thiago): nombre o código, categoría, subcategoría y proveedor, arriba de las dos
+  tablas. Solo cambian lo que se ve; "Elegir todos" elige lo filtrado y se depura o restaura solo lo que se ve. `PENDIENTE.md` §1-bis BK.
+
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
 - **Sin stock suficiente se puede vender, con aviso**, y el negativo **aparece** en el Centro de
@@ -688,6 +693,8 @@ producción (de los "gramajes" viejos).
     el envío gratis). La leche de coco en $0 ya la corrigió ella (19/11: $34.815).
 15. **El precio de la ficha que se puede escribir** (§1-bis BJ, subido el 19/11): avisarle a la clienta (+F5) con las fotos de los
     cartelitos.
+
+16. **Los filtros del depurador** (§5.19, sin subir): push con OK de Thiago y avisarle a la clienta (+F5).
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 
