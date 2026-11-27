@@ -617,6 +617,12 @@ producción (de los "gramajes" viejos).
 - **Filtros en Depuración de productos** (pedido de Thiago): nombre o código, categoría, subcategoría y proveedor, arriba de las dos
   tablas. Solo cambian lo que se ve; "Elegir todos" elige lo filtrado y se depura o restaura solo lo que se ve. `PENDIENTE.md` §1-bis BK.
 
+### 5.20 Lo del 27/11 (SIN SUBIR, commit local `041cb47`)
+
+- **Ocultar un producto con bolsas o presentaciones** (pedido de la clienta): el ojito de la fila pregunta "Ocultar todas" / "Elegir
+  cuáles", y cada bolsa del panel tiene su ojito. Antes solo se ocultaba la principal y las otras salían sueltas en la tienda (13
+  productos y 28 bolsas en producción). `PENDIENTE.md` §1-bis BL.
+
 ## 6. Decisiones ya tomadas (no volver a discutirlas)
 
 - **Sin stock suficiente se puede vender, con aviso**, y el negativo **aparece** en el Centro de
@@ -695,6 +701,9 @@ producción (de los "gramajes" viejos).
     cartelitos.
 
 16. **Los filtros del depurador** (§5.19, subido el 25/11): avisarle a la clienta (+F5).
+
+17. **Ocultar todas las bolsas** (§5.20, sin subir): push con OK de Thiago, avisarle a la clienta (+F5) y los 13 productos que ya
+    están con bolsas sueltas (ella con el ojito, o yo con OK escribiendo en producción).
 
 ### 7.2 Pendientes anotados en `PENDIENTE.md` §M (del 25/09)
 

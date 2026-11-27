@@ -109,6 +109,12 @@ Sistema **entregado y en uso diario**. Esta lista es por donde seguir.
 - **Un puerto por cliente en `dev-server.js`.** Brotes y YERCO usan los dos el 5173 por
   defecto: el 18/09 el banco terminó midiendo el panel equivocado sin avisar.
 
+### Hecho el 27/11 (SIN SUBIR, commit local `041cb47`)
+
+- **Ocultar todas las bolsas de un producto, o cada una por separado** (pedido de la clienta, Almendra Carmel): el ojito de la fila
+  pregunta "Ocultar todas" / "Elegir cuáles"; cada bolsa del panel tiene su ojito. Probado en el sandbox; suite 5163, 0 fallas.
+  Detalle en §1-bis BL. Falta: push con OK de Thiago, avisarle a la clienta (+F5) y los 13 productos que ya están así.
+
 ### Subido a producción el 25/11/2026 (push `e3c9127..f6403c0`, verificado)
 
 - Thiago: "dale subilo entonces" (con la clienta usando el sistema; antes preguntó si era seguro: solo panel, sin tienda, reglas,
@@ -3925,6 +3931,55 @@ Celular (375 px) sin scroll de costado. Sin errores de consola (solo el 404 de s
 (El Aceite De Coco no salía como candidato por tener un pedido abierto: la regla de siempre.)
 
 **Al subir** (solo panel): avisarle a la clienta (+F5).
+
+---
+
+### BL) Ocultar un producto con bolsas o presentaciones: todas juntas o cada una por separado · HECHO el 27/11/2026, SIN SUBIR (`041cb47`)
+
+**Lo pedido** (la clienta, 27/11, con foto de Almendra Carmel): "Podemos ocultar el producto pero no nos deja ocultar cada una de las
+bolsas (2, 5 y 10 kg): solo se oculta la primera de 1 kg y eso aparece en la web". Thiago: hacer las dos (ocultar todas y una por una),
+"con la opción clara que diga ocultar todas o que puedan por separado".
+
+**Lo encontrado** (solo lectura de producción): el ojito de la fila (`toggleOculto`) ocultaba solo el principal; el panel de bolsas tenía
+solo el lápiz y la ficha no tiene "oculto", así que las otras no se podían ocultar. Con el principal oculto, la tienda muestra cada bolsa
+como un producto suelto (`aplicarFiltros`: una variante cuyo principal no está en la tienda sale sola), a su precio por kilo para
+cualquier cantidad, sin precio por cantidad (500 g de Almendra Carmel a $42.900 el kilo, el de la bolsa de 10 kg, en vez de $44.204; casi
+todas con stock 0). Era así a propósito desde el 25/09 (avisaba "se venden cada una por separado" y sugería borrarlo). En producción:
+**13 productos con el principal oculto y 28 bolsas sueltas en la tienda** (Almendra Carmel, Mix Tropical, Mix Tropical Super Económico,
+Castaña Cajú Partida P3, Almendra Marinada Mediana, Garrapiñada de Almendra, Harina de Almendra con Piel Certificada, Harina de Almendra
+sin Piel, Nuez Pecan Mariposa, Almendra Guara Chica, Harina de Maní, Nuez Blanca Light Mariposa, Nuez Dorada Cuartos). Y 1 al revés
+(AJI MOLIDO EXTRA x 1 Kg visible con 250 gr y 500 gr ocultas: está bien así).
+
+**Lo hecho** (`admin-variantes.js`, sin tocar la tienda):
+- El ojito de la fila de un producto con bolsas o presentaciones pregunta antes: "Ocultar Almendra Carmel — tiene 4 bolsas: 1 kg, 2 kg,
+  5 kg y 10 kg. Las que ocultes no aparecen en la tienda ni en el buscador de ventas", con **"Ocultar todas"** (primero), **"Elegir
+  cuáles"** (abre el panel de bolsas, con un cartelito "Tocá el ojito de cada bolsa") y "Cancelar". Al mostrar, "Mostrar todas" /
+  "Elegir cuáles". Con el principal oculto y las otras a la vista (los 13 de hoy), el ojito lo muestra sin preguntar, como antes.
+- **Un ojito por tamaño** en el panel de bolsas, al lado del lápiz (`varOcultarUna`), igual al de la fila (tachado y rojo si está
+  oculta). Ocultar una que no es la principal: sola, sin preguntar. Ocultar **la principal** con otras a la vista avisa que esas salen
+  sueltas en la tienda, sin precio por cantidad: "Ocultar todas" (primero) / "Ocultar solo la de 1 kg" / "Cancelar". Mostrar una con la
+  principal oculta avisa igual: "Mostrar también la de 1 kg" / "Mostrar solo la de 2 kg" / "Cancelar".
+- Todo en una sola tanda (`_varOcultarVarios`, solo el campo `oculto` de los que cambian), con el Historial ("Ocultado del catalogo:
+  Almendra Carmel, Almendra Carmel x 2 kg, ...").
+- Lo que se resigna: ocultar solo la principal sigue dejando las otras sueltas en la tienda (ahora avisado). Que la siguiente pase a ser
+  la principal en la tienda sería cambiar la tienda; no se hizo.
+
+**Pruebas**: `t-variantes.js` (el aviso viejo del 25/09 se reemplazó): 25 nuevas (sin bolsas no pregunta; el cartel con sus 3 botones;
+cerrarlo no oculta; Ocultar todas con la ya oculta y la depurada; Elegir cuáles abre el panel; Mostrar todas; el caso de hoy no pregunta;
+el ojito de cada bolsa con los avisos de la principal; el panel con 4 ojitos y la columna). Suite 5163, 0 fallas; `npm run check` bien.
+
+**Sandbox** (copia de Almendra Carmel: 1/2/5/10 kg, $44.204 / $43.775 / $43.329 / $42.900 el kilo, 30 kg cada una, la de 1 kg oculta como en
+producción): la tienda mostraba 3 tarjetas sueltas. Ojito de la fila: la muestra sin preguntar; otra vez: "Ocultar Almendra Carmel",
+Ocultar todas: en la base las 4 ocultas (precios y stock igual), la tienda sin ninguna, la venta "4 ocultos coinciden", Historial bien.
+Solo ocultos, ojito: "tiene las 4 bolsas ocultas", Elegir cuáles: panel con 4 ojitos rojos; muestro 1, 2 y 5 kg con su ojito (la de 10
+queda oculta). Números con la de 10 kg oculta: tienda una tarjeta "2 kg o más: $43.775 · 5 kg o más: $43.329", "hay 90 kg"; 12 kg da
+$519.948 (12 × 43.329, de la de 5 kg; con la de 10 kg habría sido $514.800), 3 kg $131.325, 500 g $22.102. Venta de mostrador de 12 kg:
+"Precio de la bolsa de 5 kg", $519.948, costo $315.120; guardada así y el stock de la de 5 kg de 30 a 18 kg (las otras igual). Ojito de la
+de 1 kg: el aviso nombra solo las de 2 y 5 kg; Cancelar no cambia nada. Sin errores de consola (solo el 404 de siempre de siteContent).
+Los dos botones del panel van uno al lado del otro (`.var-tabla-acc`, 84 px).
+
+**Al subir** (solo panel): avisarle a la clienta (+F5). Los 13 de hoy: ella toca el ojito dos veces en cada uno (lo muestra y lo vuelve a
+ocultar con "Ocultar todas"), o yo marco ocultas las 28 bolsas en producción, solo con OK de Thiago.
 
 ---
 
