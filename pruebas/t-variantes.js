@@ -735,18 +735,92 @@ const buscar = (lista, id) => lista.find(p => p.id === id);
     t('  y convirtiendo un pedido web que ya lo descontó, tampoco', r3 === 'seguir' && w3.preguntas.length === 0);
   }
 
-  console.log('\n-- revisión del 25/09: ocultar el producto principal --');
+  console.log('\n-- ocultar un producto con bolsas o presentaciones (27/11) --');
   {
-    const w = armar();
-    await w.ctx.toggleOculto('yerba1');
-    const av = w.avisos.join(' | ');
-    t('ocultar el principal de unas bolsas avisa que se venden cada una por separado, sin precio por cantidad',
-      /aviso: Yerba Mate tiene otra presentación \(3 kg\)\. Mientras esté oculto, se venden cada una por separado, a su precio: sin precio por cantidad\./.test(av) &&
-      /mejor borralo: la siguiente pasa a ser la principal/.test(av), av);
-    const n = w.avisos.length;
-    await w.ctx.toggleOculto('yerba1');
-    await w.ctx.toggleOculto('mani160');
-    t('  mostrarlo de nuevo, u ocultar una variante, no avisa nada', w.avisos.length === n && w.llamadas.filter(x => /^ocultar:/.test(x)).length === 3);
+    const ids = w => w.updates.map(u => u[0] + '=' + u[1].oculto).sort().join(',');
+    const sinGrupo = armar({ respuesta: 'todas' });
+    await sinGrupo.ctx.toggleOculto('chia');
+    t('un producto sin bolsas se oculta como siempre, sin preguntar',
+      sinGrupo.preguntas.length === 0 && sinGrupo.llamadas.indexOf('ocultar:chia') >= 0);
+
+    const cerrar = armar();
+    await cerrar.ctx.toggleOculto('yerba1');
+    const q = cerrar.preguntas[0] || { op: {} };
+    t('el ojito de un producto con bolsas pregunta antes', cerrar.preguntas.length === 1 && q.op.titulo === 'Ocultar Yerba Mate', q.op.titulo);
+    t('  dice cuántas son y cuáles', /Yerba Mate tiene 2 bolsas: 1 kg y 3 kg\./.test(q.msg) && /no aparecen en la tienda ni en el buscador de ventas/.test(q.msg), q.msg);
+    t('  con "Ocultar todas" primero, "Elegir cuáles" y "Cancelar"',
+      (q.op.opciones || []).map(x => x.texto).join('|') === 'Ocultar todas|Elegir cuáles|Cancelar' && q.op.opciones[0].principal === true);
+    t('  cerrarlo sin elegir no oculta nada', cerrar.updates.length === 0 && cerrar.llamadas.indexOf('ocultar:yerba1') < 0);
+
+    const todas = armar({ respuesta: 'todas' });
+    await todas.ctx.toggleOculto('yerba1');
+    t('"Ocultar todas" oculta la principal y la otra bolsa', ids(todas) === 'yerba1=true,yerba3=true', ids(todas));
+    t('  y queda en memoria y en el Historial', buscar(todas.ctx.allProducts, 'yerba3').oculto === true &&
+      todas.historial.some(x => /Ocultado del catalogo: Yerba Mate 1 kg, Yerba Mate 3 kg/.test(x)), todas.historial.join(' / '));
+
+    const pres = armar({ respuesta: 'todas' });
+    await pres.ctx.toggleOculto('mani80');
+    t('en presentaciones: oculta las que se ven, no toca la ya oculta ni la depurada',
+      ids(pres) === 'mani160=true,mani320=true,mani80=true' && /Maní tiene 4 presentaciones: 80 g, 160 g, 320 g y 500 g/.test(pres.preguntas[0].msg), ids(pres) + ' / ' + pres.preguntas[0].msg);
+
+    const elegir = armar({ respuesta: 'elegir' });
+    await elegir.ctx.toggleOculto('yerba1');
+    t('"Elegir cuáles" abre el panel de bolsas y no oculta nada',
+      elegir.ctx.window._gruposAbiertos.has('yerba1') && elegir.updates.length === 0 && elegir.avisos.some(a => /ojito de cada bolsa para ocultarla/.test(a)), elegir.avisos.join(' / '));
+
+    const mostrar = armar({ respuesta: 'todas' });
+    buscar(mostrar.ctx.allProducts, 'yerba1').oculto = true; buscar(mostrar.ctx.allProducts, 'yerba3').oculto = true;
+    await mostrar.ctx.toggleOculto('yerba1');
+    t('con todas ocultas, el ojito pregunta "Mostrar todas"', mostrar.preguntas.length === 1 &&
+      mostrar.preguntas[0].op.opciones[0].texto === 'Mostrar todas' && /tiene las 2 bolsas ocultas: 1 kg y 3 kg/.test(mostrar.preguntas[0].msg), mostrar.preguntas[0] && mostrar.preguntas[0].msg);
+    t('  y "Mostrar todas" las muestra', ids(mostrar) === 'yerba1=false,yerba3=false', ids(mostrar));
+
+    const viejo = armar({ respuesta: 'todas' });
+    buscar(viejo.ctx.allProducts, 'yerba1').oculto = true;
+    await viejo.ctx.toggleOculto('yerba1');
+    t('la principal oculta con las otras a la vista (como Almendra Carmel hoy): mostrarla no pregunta',
+      viejo.preguntas.length === 0 && viejo.llamadas.indexOf('ocultar:yerba1') >= 0);
+  }
+
+  console.log('\n-- el ojito de cada bolsa (27/11) --');
+  {
+    const ids = w => w.updates.map(u => u[0] + '=' + u[1].oculto).sort().join(',');
+    const una = armar();
+    await una.ctx.varOcultarUna('yerba3');
+    t('ocultar una bolsa que no es la principal: sola y sin preguntar', una.preguntas.length === 0 && ids(una) === 'yerba3=true', ids(una));
+    await una.ctx.varOcultarUna('yerba3');
+    t('  y el mismo ojito la vuelve a mostrar', una.updates.length === 2 && una.updates[1][1].oculto === false && buscar(una.ctx.allProducts, 'yerba3').oculto === false);
+
+    const ppal = armar();
+    await ppal.ctx.varOcultarUna('yerba1');
+    const q = ppal.preguntas[0] || { op: {} };
+    t('ocultar la principal con otras a la vista avisa que salen sueltas', ppal.preguntas.length === 1 &&
+      /La de 1 kg es la principal de Yerba Mate\. Si la ocultás sola, la de 3 kg aparece suelta en la tienda, cada una a su precio, sin precio por cantidad\./.test(q.msg), q.msg);
+    t('  con "Ocultar todas" primero', (q.op.opciones || []).map(x => x.texto).join('|') === 'Ocultar todas|Ocultar solo la de 1 kg|Cancelar');
+    t('  cerrarlo no oculta nada', ppal.updates.length === 0);
+    const sola = armar({ respuesta: 'sola' });
+    await sola.ctx.varOcultarUna('yerba1');
+    t('  "Ocultar solo la de 1 kg" oculta solo esa', ids(sola) === 'yerba1=true', ids(sola));
+    const tod = armar({ respuesta: 'todas' });
+    await tod.ctx.varOcultarUna('yerba1');
+    t('  "Ocultar todas" oculta las dos', ids(tod) === 'yerba1=true,yerba3=true', ids(tod));
+
+    const mos = armar({ respuesta: 'dos' });
+    buscar(mos.ctx.allProducts, 'yerba1').oculto = true; buscar(mos.ctx.allProducts, 'yerba3').oculto = true;
+    await mos.ctx.varOcultarUna('yerba3');
+    t('mostrar una con la principal oculta avisa y ofrece mostrar las dos', mos.preguntas.length === 1 &&
+      mos.preguntas[0].op.opciones[0].texto === 'Mostrar también la de 1 kg' && ids(mos) === 'yerba1=false,yerba3=false', ids(mos));
+
+    const pan = armar();
+    pan.ctx.window._gruposAbiertos.add('mani80');
+    const g = pan.ctx.agruparParaTabla(pan.ctx.allProducts).find(x => x.id === 'mani80');
+    const h = pan.ctx.panelPresentacionesHtml(g);
+    t('el panel tiene un ojito por presentación (4, sin la depurada)', (h.match(/varOcultarUna\(/g) || []).length === 4, (h.match(/varOcultarUna\(/g) || []).length);
+    t('  la oculta con el ojo tachado y en rojo, como la fila principal',
+      /varOcultarUna\(\\?'mani500\\?'\)" title="Oculta de la tienda \(click para mostrarla\)" style="color:#f56c6c"><i class="bi bi-eye-slash-fill">/.test(h));
+    t('  las otras con el ojo abierto', /varOcultarUna\(\\?'mani160\\?'\)" title="Visible en la tienda \(click para ocultarla\)"><i class="bi bi-eye">/.test(h));
+    t('  y el lápiz sigue', (h.match(/title="Abrir su ficha"/g) || []).length === 4);
+    t('la columna entra con los dos botones', html.indexOf('.var-tabla-acc{text-align:right;width:84px;white-space:nowrap}') > 0);
   }
 
   console.log('\n-- crear una variante --');

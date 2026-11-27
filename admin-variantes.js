@@ -1237,27 +1237,138 @@ if (typeof calcPrecioModal === 'function') {
   };
 }
 
-/* Ocultar el principal de un grupo: la tienda ya no lo tiene y las otras se venden cada
-   una por separado (en el granel, sin precio por cantidad). Se avisa, y cómo seguir
-   juntas: borrándolo, la siguiente pasa a ser la principal (chequeo del 25/09). */
+/* OCULTAR UN PRODUCTO CON BOLSAS O PRESENTACIONES (pedido de la clienta, 27/11/2026)
+
+   Antes el ojito de la fila ocultaba solo el principal (la bolsa de 1 kg de Almendra
+   Carmel), y las otras no tenían forma de ocultarse: la tienda las mostraba sueltas,
+   cada una a su precio y sin precio por cantidad (en producción, 13 productos y 28
+   bolsas así). Ahora:
+   - el ojito de la fila pregunta: "Ocultar todas" o "Elegir cuáles" (abre el panel de
+     bolsas); al mostrar, lo mismo con "Mostrar todas";
+   - cada bolsa del panel tiene su ojito (varOcultarUna), para ocultarlas por separado.
+   Lo único que no se puede sin aviso es dejar oculta la principal con otras a la vista:
+   esas salen sueltas en la tienda. Ahí se pregunta, con "Ocultar todas" primero. */
+function _varHijasDe(p) {
+  if (!p || p.gramajePadreId) return [];
+  return _varProds().filter(x => x && x.gramajePadreId === p.id && x.id !== p.id && x.depurado !== true);
+}
+function _varListaTam(lista) {
+  const t = lista.slice().sort(_ordenVariantes).map(etiquetaVariante);
+  return t.length > 1 ? t.slice(0, -1).join(', ') + ' y ' + t[t.length - 1] : (t[0] || '');
+}
+/* Escribe oculto en los que cambian, en una sola tanda, y redibuja. */
+async function _varOcultarVarios(lista, valor) {
+  const cambian = lista.filter(m => m && (m.oculto === true) !== valor);
+  if (!cambian.length) return true;
+  try {
+    const b = db.batch();
+    cambian.forEach(m => b.update(db.collection('productos').doc(m.id), { oculto: valor }));
+    await b.commit();
+  } catch (e) {
+    if (typeof showAdminToast === 'function') showAdminToast('Error: ' + e.message, 'error');
+    return false;
+  }
+  cambian.forEach(m => { m.oculto = valor; });
+  const nombres = cambian.slice().sort(_ordenVariantes).map(m => m.nombre || '').join(', ');
+  if (typeof logAction === 'function') logAction('editar', (valor ? 'Ocultado del catalogo: ' : 'Mostrado en catalogo: ') + nombres, '');
+  if (typeof filterTable === 'function') filterTable();
+  if (typeof showAdminToast === 'function') {
+    showAdminToast((cambian.length === 1 ? _varEsc(cambian[0].nombre || '') : cambian.length + ' tamaños') +
+      (valor ? (cambian.length === 1 ? ' oculto' : ' ocultos') : (cambian.length === 1 ? ' visible' : ' visibles')) + ' en el catálogo', 'success');
+  }
+  return true;
+}
+function _varAbrirPanel(id) {
+  window._gruposCerrados.delete(id);
+  window._gruposAbiertos.add(id);
+  if (typeof filterTable === 'function') filterTable();
+}
+
 if (typeof toggleOculto === 'function') {
   const _varToggleOculto = toggleOculto;
   toggleOculto = async function (id) {
-    const r = await _varToggleOculto.apply(this, arguments);
     const p = _varProds().find(x => x && x.id === id);
-    if (p && p.oculto === true && !p.gramajePadreId) {
-      const hijas = _varProds().filter(x => x && x.gramajePadreId === id && x.depurado !== true && x.oculto !== true);
-      if (hijas.length && typeof avisar === 'function') {
-        const granel = p.tipoVenta === 'peso' && hijas.some(x => x.tipoVenta === 'peso');
-        await avisar(nombreDeGrupo(p) + ' tiene ' + (hijas.length === 1 ? 'otra presentación' : hijas.length + ' presentaciones más') +
-          ' (' + hijas.slice().sort(_ordenVariantes).map(etiquetaVariante).join(', ') + '). Mientras esté oculto, se venden cada una por separado' +
-          (granel ? ', a su precio: sin precio por cantidad' : '') + '.' + _VAR_NL + _VAR_NL +
-          'Si ya no lo vas a vender, mejor borralo: la siguiente pasa a ser la principal y siguen juntas.',
-          { titulo: 'Ocultaste el producto principal', icono: 'bi-eye-slash' });
+    const hijas = _varHijasDe(p);
+    if (!hijas.length || typeof pedirOpcion !== 'function') return _varToggleOculto.apply(this, arguments);
+    const todas = [p].concat(hijas);
+    const que = _queGrupo({ miembros: todas });
+    const ocultar = p.oculto !== true;
+    /* Mostrar una oculta con todas las otras a la vista: no hay nada que elegir. */
+    if (!ocultar && hijas.every(h => h.oculto !== true)) return _varToggleOculto.apply(this, arguments);
+    const nombre = nombreDeGrupo(p);
+    let msg;
+    if (ocultar) {
+      msg = nombre + ' tiene ' + todas.length + ' ' + que + ': ' + _varListaTam(todas) + '.' + _VAR_NL + _VAR_NL +
+        'Las que ocultes no aparecen en la tienda ni en el buscador de ventas.';
+    } else {
+      const ocultas = todas.filter(m => m.oculto === true);
+      msg = nombre + ' tiene ' + (ocultas.length === todas.length ? (todas.length === 2 ? 'las 2 ' : 'las ' + todas.length + ' ') + que + ' ocultas'
+        : ocultas.length + ' de ' + todas.length + ' ' + que + ' ocultas') + ': ' + _varListaTam(ocultas) + '.';
+    }
+    const op = await pedirOpcion(msg, {
+      titulo: (ocultar ? 'Ocultar ' : 'Mostrar ') + nombre, icono: ocultar ? 'bi-eye-slash' : 'bi-eye',
+      opciones: [
+        { valor: 'todas', texto: ocultar ? 'Ocultar todas' : 'Mostrar todas', principal: true },
+        { valor: 'elegir', texto: 'Elegir cuáles' },
+        { valor: 'cancelar', texto: 'Cancelar' },
+      ],
+    });
+    if (op === 'todas') return _varOcultarVarios(todas, ocultar);
+    if (op === 'elegir') {
+      _varAbrirPanel(p.id);
+      if (typeof showAdminToast === 'function') {
+        showAdminToast('Tocá el ojito de cada ' + (que === 'bolsas' ? 'bolsa' : 'presentación') + ' para ' + (ocultar ? 'ocultarla' : 'mostrarla'), 'info');
       }
     }
-    return r;
+    return null;
   };
+}
+
+/* El ojito de cada tamaño, en el panel de bolsas o presentaciones. */
+async function varOcultarUna(id) {
+  const m = _varProds().find(x => x && x.id === id);
+  if (!m) return null;
+  const ocultar = m.oculto !== true;
+  const pr = m.gramajePadreId ? _varProds().find(x => x && x.id === m.gramajePadreId) : m;
+  const hijas = _varHijasDe(pr);
+  const tam = etiquetaVariante(m);
+  const que = pr ? _queGrupo({ miembros: [pr].concat(hijas) }) : 'bolsas';
+  const una = que === 'bolsas' ? 'bolsa' : 'presentación';
+  /* Ocultar la principal con otras a la vista: esas salen sueltas en la tienda. */
+  if (ocultar && pr && m.id === pr.id && typeof pedirOpcion === 'function') {
+    const aLaVista = hijas.filter(h => h.oculto !== true);
+    if (aLaVista.length) {
+      const granel = pr.tipoVenta === 'peso';
+      const op = await pedirOpcion('La de ' + tam + ' es la principal de ' + nombreDeGrupo(pr) + '. Si la ocultás sola, ' +
+        (aLaVista.length === 1 ? 'la de ' + _varListaTam(aLaVista) + ' aparece suelta' : 'las de ' + _varListaTam(aLaVista) + ' aparecen sueltas') +
+        ' en la tienda, cada una a su precio' + (granel ? ', sin precio por cantidad' : '') + '.', {
+        titulo: 'Ocultar la ' + una + ' principal', icono: 'bi-eye-slash',
+        opciones: [
+          { valor: 'todas', texto: 'Ocultar todas', principal: true },
+          { valor: 'sola', texto: 'Ocultar solo la de ' + tam },
+          { valor: 'cancelar', texto: 'Cancelar' },
+        ],
+      });
+      if (op === 'todas') return _varOcultarVarios([pr].concat(hijas), true);
+      if (op !== 'sola') return null;
+    }
+  }
+  /* Mostrar una con la principal oculta: sale suelta en la tienda. */
+  if (!ocultar && pr && m.id !== pr.id && pr.oculto === true && typeof pedirOpcion === 'function') {
+    const tamPr = etiquetaVariante(pr);
+    const op = await pedirOpcion('La principal de ' + nombreDeGrupo(pr) + ' (la de ' + tamPr + ') está oculta. Si mostrás solo la de ' + tam +
+      ', aparece suelta en la tienda, a su precio' + (pr.tipoVenta === 'peso' ? ', sin precio por cantidad' : '') + '.', {
+      titulo: 'Mostrar la ' + una + ' de ' + tam, icono: 'bi-eye',
+      opciones: [
+        { valor: 'dos', texto: 'Mostrar también la de ' + tamPr, principal: true },
+        { valor: 'sola', texto: 'Mostrar solo la de ' + tam },
+        { valor: 'cancelar', texto: 'Cancelar' },
+      ],
+    });
+    if (op === 'dos') return _varOcultarVarios([pr, m], false);
+    if (op !== 'sola') return null;
+  }
+  return _varOcultarVarios([m], ocultar);
 }
 
 /* La casilla "caja cerrada" del producto (debajo del precio mayorista): solo en los
@@ -1690,7 +1801,10 @@ function panelPresentacionesHtml(p) {
         ? '<b>$' + Number(m.precioMayorista).toLocaleString('es-AR') + '</b> <small>caja cerrada · lista $' + precio.toLocaleString('es-AR') + '</small>'
         : '<b>$' + precio.toLocaleString('es-AR') + '</b>' + (peso ? ' <small>el kilo</small>' : '')) + '</td>' +
       '<td><span class="stock-badge ' + sc + '">' + _varEsc(typeof stockTexto === 'function' ? stockTexto(m) : String(stock)) + '</span></td>' +
-      '<td class="var-tabla-acc"><button type="button" class="btn-icon" onclick="editProduct(\'' + _varAttr(m.id) + '\')" title="Abrir su ficha"><i class="bi bi-pencil"></i></button></td>' +
+      '<td class="var-tabla-acc"><button type="button" class="btn-icon" onclick="varOcultarUna(\'' + _varAttr(m.id) + '\')" title="' +
+        (m.oculto === true ? 'Oculta de la tienda (click para mostrarla)' : 'Visible en la tienda (click para ocultarla)') + '"' +
+        (m.oculto === true ? ' style="color:#f56c6c"' : '') + '><i class="bi ' + (m.oculto === true ? 'bi-eye-slash-fill' : 'bi-eye') + '"></i></button>' +
+        '<button type="button" class="btn-icon" onclick="editProduct(\'' + _varAttr(m.id) + '\')" title="Abrir su ficha"><i class="bi bi-pencil"></i></button></td>' +
     '</tr>';
   };
   return '<tr class="var-panel-fila"><td colspan="10"><div class="var-panel">' +
